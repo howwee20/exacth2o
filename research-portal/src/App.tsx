@@ -825,12 +825,12 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="/index.html?v=20260630" className="portal-logo">
+          <a href="index.html?v=20260630-1025" className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
-            <a href="/index.html?v=20260630">Website</a>
-            <a href="/support.html">Support</a>
+            <a href="index.html?v=20260630-1025">Website</a>
+            <a href="support.html">Support</a>
           </div>
         </header>
 
@@ -927,7 +927,7 @@ export default function App() {
           <h1>exactH2O Soil Moisture Dashboard</h1>
         </div>
         <div className="header-actions">
-          <a className="outline-btn" href="/index.html?v=20260630">
+          <a className="outline-btn" href="index.html?v=20260630-1025">
             Website
           </a>
           <button className="outline-btn" type="button" onClick={() => refresh({ incremental: false })} disabled={loading || refreshing}>
