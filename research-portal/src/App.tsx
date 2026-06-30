@@ -16,12 +16,14 @@ const defaultEmail = "";
 const graphReadLimit = 5000;
 const pageSize = 1000;
 const autoRefreshMs = 15_000;
-const staleAfterMs = 2 * 60 * 1000;
+const staleAfterMs = 15 * 60 * 1000;
 const maxPointsPerSeries = 260;
 
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
+const controlPots = new Set([41, 43, 45, 47, 49, 91, 93, 95, 97, 99]);
+const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
 
 const zone2Palette = [
   "#2563eb",
@@ -76,10 +78,18 @@ type ChartSeries = {
   name: string;
   zone: number;
   potNumber: number;
+  treatment: Treatment;
+  crop: Crop;
   color: string;
   points: ChartPoint[];
   rawPointCount: number;
 };
+
+type Treatment = "control" | "drought" | "unknown";
+
+type Crop = "maize" | "sorghum" | "unknown";
+
+type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "zone2" | "zone4" | "custom";
 
 type TooltipState = {
   x: number;
@@ -123,6 +133,40 @@ function colorForPairing(pairing: PairingRow) {
   return "#475569";
 }
 
+function treatmentForPot(potNumber?: number | null): Treatment {
+  if (typeof potNumber !== "number") return "unknown";
+  if (controlPots.has(potNumber)) return "control";
+  if (droughtPots.has(potNumber)) return "drought";
+  return "unknown";
+}
+
+function treatmentForPairing(pairing: PairingRow): Treatment {
+  return treatmentForPot(pairing.pot_number);
+}
+
+function cropForPot(potNumber?: number | null): Crop {
+  if (typeof potNumber !== "number") return "unknown";
+  if (potNumber >= 41 && potNumber <= 50) return "maize";
+  if (potNumber >= 91 && potNumber <= 100) return "sorghum";
+  return "unknown";
+}
+
+function cropForPairing(pairing: PairingRow): Crop {
+  return cropForPot(pairing.pot_number);
+}
+
+function treatmentLabel(treatment: Treatment) {
+  if (treatment === "control") return "Control";
+  if (treatment === "drought") return "Drought";
+  return "Unassigned";
+}
+
+function cropLabel(crop: Crop) {
+  if (crop === "maize") return "Maize";
+  if (crop === "sorghum") return "Sorghum";
+  return "Unassigned";
+}
+
 function metricValue(reading: SensorReading) {
   const value = reading.calibrated_value;
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -163,6 +207,8 @@ function chartSeries(pairings: PairingRow[], readings: SensorReading[]): ChartSe
       name: pairing.name,
       zone: pairing.zone,
       potNumber: pairing.pot_number,
+      treatment: treatmentForPairing(pairing),
+      crop: cropForPairing(pairing),
       color: colorForPairing(pairing),
       points: samplePoints(points),
       rawPointCount: points.length,
@@ -245,9 +291,9 @@ function resolveEffectiveMode(mode: DataMode, totalLiveReadings: number): Effect
 }
 
 function modeLabel(mode: EffectiveMode) {
-  if (mode === "live") return "Live device data";
-  if (mode === "combined") return "Combined demo view";
-  return "Imported snapshot";
+  if (mode === "live") return "Live data";
+  if (mode === "combined") return "All data";
+  return "Saved snapshot";
 }
 
 function dataStatus(data: LoadState) {
@@ -500,6 +546,7 @@ function SensorCanvasChart({
 
       for (const item of visibleSeries) {
         if (item.points.length < 2) continue;
+        context.setLineDash(item.treatment === "drought" ? [7, 5] : []);
         context.strokeStyle = item.color;
         context.lineWidth = 2.2;
         context.lineJoin = "round";
@@ -512,6 +559,7 @@ function SensorCanvasChart({
           else context.lineTo(x, y);
         });
         context.stroke();
+        context.setLineDash([]);
 
         const latest = item.points[item.points.length - 1];
         context.fillStyle = item.color;
@@ -610,7 +658,8 @@ function SensorCanvasChart({
           <strong>{tooltip.seriesName}</strong>
           <span>{formatDateTime(tooltip.point.timestampMs)}</span>
           <span>
-            Zone {tooltip.zone} / Pot {tooltip.potNumber}
+            {cropLabel(cropForPot(tooltip.potNumber))} / Zone {tooltip.zone} / Pot {tooltip.potNumber} /{" "}
+            {treatmentLabel(treatmentForPot(tooltip.potNumber))}
           </span>
           <b>{tooltip.point.value.toFixed(1)}% VWC</b>
         </div>
@@ -628,7 +677,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<DataMode>("auto");
-  const [potPreset, setPotPreset] = useState<"all" | "zone2" | "zone4" | "custom">("all");
+  const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
   const [data, setData] = useState<LoadState>(initialLoadState);
 
@@ -774,12 +823,18 @@ export default function App() {
     dataRef.current = initialLoadState;
   }
 
-  function applyPotPreset(preset: "all" | "zone2" | "zone4") {
+  function applyPotPreset(preset: Exclude<PotPreset, "custom">) {
     setPotPreset(preset);
     setHiddenPots(() => {
       if (preset === "all") return new Set();
       const hidden = new Set<string>();
       for (const pairing of sortedPairings) {
+        const treatment = treatmentForPairing(pairing);
+        const crop = cropForPairing(pairing);
+        if (preset === "control" && treatment !== "control") hidden.add(pairing.name);
+        if (preset === "drought" && treatment !== "drought") hidden.add(pairing.name);
+        if (preset === "maize" && crop !== "maize") hidden.add(pairing.name);
+        if (preset === "sorghum" && crop !== "sorghum") hidden.add(pairing.name);
         if (preset === "zone2" && pairing.zone !== 2) hidden.add(pairing.name);
         if (preset === "zone4" && pairing.zone !== 4) hidden.add(pairing.name);
       }
@@ -825,11 +880,11 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="index.html?v=20260630-1025" className="portal-logo">
+          <a href="index.html?v=20260630-1355" className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
-            <a href="index.html?v=20260630-1025">Website</a>
+            <a href="index.html?v=20260630-1355">Website</a>
             <a href="support.html">Support</a>
           </div>
         </header>
@@ -922,12 +977,11 @@ export default function App() {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
-        <div>
-          <div className="eyebrow">Research data</div>
-          <h1>exactH2O Soil Moisture Dashboard</h1>
-        </div>
+        <a className="dashboard-logo" href="index.html?v=20260630-1355" aria-label="exactH2O home">
+          exact<span>H</span>2<span>O</span>
+        </a>
         <div className="header-actions">
-          <a className="outline-btn" href="index.html?v=20260630-1025">
+          <a className="outline-btn" href="index.html?v=20260630-1355">
             Website
           </a>
           <button className="outline-btn" type="button" onClick={() => refresh({ incremental: false })} disabled={loading || refreshing}>
@@ -941,29 +995,6 @@ export default function App() {
         </div>
       </header>
 
-      <section className="meta-strip" aria-label="Dashboard data source">
-        <div>
-          <span>Device</span>
-          <strong>plain-feather</strong>
-        </div>
-        <div>
-          <span>System</span>
-          <strong>Greenhouse sensors</strong>
-        </div>
-        <div>
-          <span>Dataset</span>
-          <strong>Imported snapshot</strong>
-        </div>
-        <div>
-          <span>Last updated</span>
-          <strong>{formatClock(data.lastCheckedAt)}</strong>
-        </div>
-        <div>
-          <span>Auto-refresh</span>
-          <strong>{refreshing ? "Checking now" : "Every 15s"}</strong>
-        </div>
-      </section>
-
       {error ? (
         <div className="banner error">
           <AlertTriangle size={18} />
@@ -971,32 +1002,32 @@ export default function App() {
         </div>
       ) : null}
 
-      <section className="status-grid" aria-label="Dashboard status">
-        <article>
-          <span>Latest reading time</span>
+      <section className="summary-strip" aria-label="Dashboard summary">
+        <div className="summary-main">
+          <strong>20 plants</strong>
+          <span>Maize 41-50 · Sorghum 91-100 · Control odd pots · Drought even pots</span>
+        </div>
+        <div>
+          <span>Showing</span>
+          <strong>{visiblePotCount} / {activePotCount}</strong>
+        </div>
+        <div>
+          <span>Readings</span>
+          <strong>{data.readings.length.toLocaleString()}</strong>
+        </div>
+        <div>
+          <span>Last reading</span>
           <strong>{formatDateTime(latestDisplayedReading?.device_recorded_at)}</strong>
           <small>{ageLabel(latestDisplayedReading?.device_recorded_at)}</small>
-        </article>
-        <article>
-          <span>Active pots</span>
+        </div>
+        <div className={status.className}>
+          <span>Status</span>
           <strong>
-            {visiblePotCount} / {activePotCount}
-          </strong>
-          <small>{sortedPairings.length} configured</small>
-        </article>
-        <article>
-          <span>Rows displayed</span>
-          <strong>{data.readings.length.toLocaleString()}</strong>
-          <small>{plottedPointCount.toLocaleString()} plotted from {rawPointCount.toLocaleString()}</small>
-        </article>
-        <article className={status.className}>
-          <span>Data status</span>
-          <strong>
-            <StatusIcon size={18} />
+            <StatusIcon size={16} />
             {status.label}
           </strong>
-          <small>{noNewDataMessage ?? status.detail}</small>
-        </article>
+          <small>{status.label === "Live" ? "Updating" : noNewDataMessage ?? status.detail}</small>
+        </div>
       </section>
 
       <section className="dashboard-main">
@@ -1005,7 +1036,7 @@ export default function App() {
             <div>
               <h2>Soil Moisture (% VWC)</h2>
               <p>
-                {modeLabel(data.effectiveMode)} / {data.readings.length.toLocaleString()} readings
+                Control vs drought · {modeLabel(data.effectiveMode)} · {data.readings.length.toLocaleString()} readings
               </p>
             </div>
             <div className={`mode-pill ${status.className}`}>
@@ -1025,9 +1056,9 @@ export default function App() {
             <div className="mode-buttons">
               {[
                 ["auto", "Auto"],
-                ["live", "Live device data"],
-                ["snapshot", "Imported snapshot"],
-                ["combined", "Combined view"],
+                ["live", "Live data"],
+                ["snapshot", "Saved snapshot"],
+                ["combined", "All data"],
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -1043,16 +1074,44 @@ export default function App() {
 
           <section>
             <div className="control-heading">
-              <h2>Pot visibility</h2>
+              <h2>Research view</h2>
               <span>{visiblePotCount} showing</span>
             </div>
-            <div className="preset-buttons">
+            <div className="preset-buttons research-presets">
               <button
                 type="button"
                 className={potPreset === "all" ? "is-selected" : ""}
                 onClick={() => applyPotPreset("all")}
               >
                 All
+              </button>
+              <button
+                type="button"
+                className={potPreset === "control" ? "is-selected" : ""}
+                onClick={() => applyPotPreset("control")}
+              >
+                Control
+              </button>
+              <button
+                type="button"
+                className={potPreset === "drought" ? "is-selected" : ""}
+                onClick={() => applyPotPreset("drought")}
+              >
+                Drought
+              </button>
+              <button
+                type="button"
+                className={potPreset === "maize" ? "is-selected" : ""}
+                onClick={() => applyPotPreset("maize")}
+              >
+                Maize
+              </button>
+              <button
+                type="button"
+                className={potPreset === "sorghum" ? "is-selected" : ""}
+                onClick={() => applyPotPreset("sorghum")}
+              >
+                Sorghum
               </button>
               <button
                 type="button"
@@ -1072,8 +1131,8 @@ export default function App() {
           </section>
 
           {[
-            ["Zone 2", groupedPairings.zone2],
-            ["Zone 4", groupedPairings.zone4],
+            ["Maize / Zone 2", groupedPairings.zone2],
+            ["Sorghum / Zone 4", groupedPairings.zone4],
           ].map(([label, pairings]) => (
             <section className="pot-group" key={label as string}>
               <h3>{label as string}</h3>
@@ -1090,6 +1149,9 @@ export default function App() {
                     >
                       <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
                       <span>Pot {pairing.pot_number}</span>
+                      <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
+                        {treatmentForPairing(pairing) === "control" ? "C" : "D"}
+                      </em>
                       <small>{(item?.rawPointCount ?? 0).toLocaleString()}</small>
                     </button>
                   );
@@ -1107,8 +1169,20 @@ export default function App() {
         </summary>
         <dl>
           <div>
+            <dt>Device</dt>
+            <dd>plain-feather</dd>
+          </div>
+          <div>
             <dt>Dataset</dt>
-            <dd>Imported snapshot</dd>
+            <dd>{modeLabel(data.effectiveMode)}</dd>
+          </div>
+          <div>
+            <dt>Treatment Groups</dt>
+            <dd>10 control / 10 droughted</dd>
+          </div>
+          <div>
+            <dt>Crop Groups</dt>
+            <dd>Maize pots 41-50 / sorghum pots 91-100</dd>
           </div>
           <div>
             <dt>Imported Rows in Database</dt>
@@ -1121,6 +1195,10 @@ export default function App() {
           <div>
             <dt>Rows Displayed</dt>
             <dd>{data.readings.length.toLocaleString()} recent readings</dd>
+          </div>
+          <div>
+            <dt>Points Plotted</dt>
+            <dd>{plottedPointCount.toLocaleString()} of {rawPointCount.toLocaleString()}</dd>
           </div>
           <div>
             <dt>Pots</dt>
