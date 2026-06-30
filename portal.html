@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Portal — exactH2O</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&amp;family=DM+Mono:wght@300;400;500&amp;family=Instrument+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1eb;
+  --bg-dark: #0e1a14;
+  --ink: #0e1a14;
+  --water: #1a6b4a;
+  --water-light: #2e9e6e;
+  --accent: #7cbf9e;
+  --mist: #e8e3d8;
+  --rule: rgba(14,26,20,0.15);
+  --serif: 'DM Serif Display', serif;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Instrument Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.6;
+}
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 3rem;
+  background: rgba(14,26,20,0.96);
+  border-bottom: 1px solid rgba(124,191,158,0.15);
+}
+
+.nav-logo {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.nav-logo span { color: rgba(244,241,235,0.5); }
+
+.top-links {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.top-links a {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244,241,235,0.62);
+  text-decoration: none;
+}
+
+.top-links a:hover { color: var(--accent); }
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 520px);
+}
+
+.context-panel {
+  background: var(--bg-dark);
+  color: #f4f1eb;
+  padding: 8rem 4rem 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.context-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(14,26,20,0.42), rgba(14,26,20,0.72)),
+    linear-gradient(0deg, rgba(14,26,20,0.96) 0%, rgba(14,26,20,0.62) 42%, rgba(14,26,20,0.38) 100%);
+  pointer-events: none;
+}
+
+.photo-wall {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 0.7rem;
+  padding: 5.8rem 2rem 2.2rem;
+  transform: rotate(-2.2deg) scale(1.08);
+  transform-origin: center;
+  opacity: 0.76;
+}
+
+.photo-wall img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  border: 1px solid rgba(244,241,235,0.12);
+  filter: saturate(0.82) contrast(1.08);
+}
+
+.photo-wall img:nth-child(1) {
+  grid-column: 1 / 3;
+  grid-row: 1 / 3;
+}
+
+.photo-wall img:nth-child(2) {
+  grid-column: 3 / 5;
+  grid-row: 1 / 2;
+}
+
+.photo-wall img:nth-child(3) {
+  grid-column: 3 / 4;
+  grid-row: 2 / 4;
+}
+
+.photo-wall img:nth-child(4) {
+  grid-column: 4 / 5;
+  grid-row: 2 / 4;
+}
+
+.photo-wall img:nth-child(5) {
+  grid-column: 1 / 2;
+  grid-row: 3 / 4;
+}
+
+.photo-wall img:nth-child(6) {
+  grid-column: 2 / 3;
+  grid-row: 3 / 4;
+}
+
+.context-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 42rem;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(3rem, 5vw, 5.2rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.context-copy p {
+  max-width: 46ch;
+  margin: 1.5rem 0 0;
+  color: rgba(244,241,235,0.68);
+}
+
+.login-panel {
+  padding: 8rem 4rem 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-card h2 {
+  margin: 0 0 0.55rem;
+  font-family: var(--serif);
+  font-size: 2.2rem;
+  line-height: 1.1;
+}
+
+.login-note {
+  margin: 0 0 2rem;
+  color: rgba(14,26,20,0.62);
+}
+
+.form-group {
+  margin-bottom: 1.1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(14,26,20,0.62);
+}
+
+input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--rule);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.8rem 0.9rem;
+  font-family: var(--sans);
+  font-size: 1rem;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--water-light);
+  box-shadow: 0 0 0 3px rgba(46,158,110,0.12);
+}
+
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.4rem 0 1.5rem;
+  color: rgba(14,26,20,0.62);
+  font-size: 0.86rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.check input {
+  width: 1rem;
+  min-height: 1rem;
+  accent-color: var(--water);
+}
+
+.form-row a {
+  color: var(--water);
+  text-decoration: none;
+}
+
+.form-row a:hover { text-decoration: underline; }
+
+.submit-btn {
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  background: var(--water);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.submit-btn:hover { background: var(--water-light); }
+
+.portal-message {
+  display: none;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--mist);
+  border: 1px solid var(--rule);
+  color: rgba(14,26,20,0.72);
+  font-size: 0.9rem;
+}
+
+.support-line {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  color: rgba(14,26,20,0.58);
+  font-size: 0.9rem;
+}
+
+.support-line a {
+  color: var(--water);
+  text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .topbar { padding: 1rem 1.5rem; }
+  .top-links { gap: 0.8rem; }
+  .login-shell { grid-template-columns: 1fr; }
+  .context-panel {
+    min-height: 42vh;
+    padding: 7rem 1.5rem 3rem;
+  }
+  .photo-wall {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 0.45rem;
+    padding: 5.2rem 0.75rem 1rem;
+    transform: rotate(-1.5deg) scale(1.08);
+  }
+  .photo-wall img:nth-child(1) {
+    grid-column: 1 / 3;
+    grid-row: 1 / 3;
+  }
+  .photo-wall img:nth-child(2) {
+    grid-column: 3 / 4;
+    grid-row: 1 / 2;
+  }
+  .photo-wall img:nth-child(3) {
+    grid-column: 3 / 4;
+    grid-row: 2 / 4;
+  }
+  .photo-wall img:nth-child(4) {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+  }
+  .photo-wall img:nth-child(5) {
+    grid-column: 2 / 3;
+    grid-row: 3 / 4;
+  }
+  .photo-wall img:nth-child(6) {
+    display: none;
+  }
+  .login-panel { padding: 3rem 1.5rem; }
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .top-links {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .form-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="nav-logo">exact<span>H</span>2<span>O</span></a>
+  <div class="top-links">
+    <a href="index.html">Website</a>
+    <a href="support.html">Support</a>
+  </div>
+</header>
+
+<main class="login-shell">
+  <section class="context-panel" aria-label="Portal context">
+    <div class="photo-wall" aria-hidden="true">
+      <img src="product1.jpg" alt="">
+      <img src="product2.jpg" alt="">
+      <img src="product3.jpg" alt="">
+      <img src="dashboard.jpg" alt="">
+      <img src="scheduling.jpg" alt="">
+      <img src="sensor.jpg" alt="">
+    </div>
+    <div class="context-copy">
+      <div class="eyebrow">Research Portal</div>
+      <h1>Experiment data, behind login.</h1>
+      <p>Authorized researchers can access sensor readings, VWC logs, irrigation events, calibration records, and export packages.</p>
+    </div>
+  </section>
+
+  <section class="login-panel" aria-label="Portal sign in">
+    <div class="login-card">
+      <h2>Sign in</h2>
+      <p class="login-note">Use the account provided by the exactH2O team.</p>
+
+      <form id="portalLogin">
+        <div class="form-group">
+          <label for="username">Username or Email</label>
+          <input id="username" name="username" type="text" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="form-row">
+          <label class="check"><input type="checkbox" name="remember"> Remember this device</label>
+          <a href="mailto:bslbinod@gmail.com?subject=exactH2O Portal Access">Need access?</a>
+        </div>
+        <button class="submit-btn" type="submit">Sign In</button>
+      </form>
+
+      <div class="portal-message" id="portalMessage">
+        Portal authentication is not connected in this static preview. This page is the handoff point for the real username/password system.
+      </div>
+
+      <div class="support-line">
+        Trouble signing in? Contact <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a>.
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+document.getElementById('portalLogin').addEventListener('submit', function(event) {
+  event.preventDefault();
+  document.getElementById('portalMessage').style.display = 'block';
+});
+</script>
+</body>
+</html>
