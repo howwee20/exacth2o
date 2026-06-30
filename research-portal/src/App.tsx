@@ -844,34 +844,15 @@ export default function App() {
             <img src="sensor.jpg" alt="" />
           </div>
           <div className="portal-context-copy">
-            <div className="portal-eyebrow">Research Portal</div>
-            <h1>exactH2O Research Portal</h1>
-            <p>
-              Authenticated access to Matt greenhouse soil moisture and VWC data
-              from the exactH2O research database.
-            </p>
-            <dl className="portal-proof-list">
-              <div>
-                <dt>Data path</dt>
-                <dd>Device export &rarr; research database &rarr; dashboard</dd>
-              </div>
-              <div>
-                <dt>Current dataset</dt>
-                <dd>Matt greenhouse imported snapshot</dd>
-              </div>
-              <div>
-                <dt>Access</dt>
-                <dd>Researcher accounts only</dd>
-              </div>
-            </dl>
+            <h1>exactH2O Data Portal</h1>
           </div>
         </section>
 
         <section className="portal-login-panel" aria-label="Portal sign in">
           <div className="portal-login-card">
-            <h2>Researcher Sign In</h2>
+            <h2>Sign In</h2>
             <p className="portal-login-note">
-              Enter the account provided by the exactH2O team.
+              Use your exactH2O account.
             </p>
 
             <form onSubmit={signIn}>
@@ -942,7 +923,7 @@ export default function App() {
     <main className="dashboard-shell">
       <header className="dashboard-header">
         <div>
-          <div className="eyebrow">Matt greenhouse</div>
+          <div className="eyebrow">Research data</div>
           <h1>exactH2O Soil Moisture Dashboard</h1>
         </div>
         <div className="header-actions">
@@ -966,12 +947,12 @@ export default function App() {
           <strong>plain-feather</strong>
         </div>
         <div>
-          <span>Data source</span>
-          <strong>Research database</strong>
+          <span>System</span>
+          <strong>Greenhouse sensors</strong>
         </div>
         <div>
           <span>Dataset</span>
-          <strong>Matt greenhouse</strong>
+          <strong>Imported snapshot</strong>
         </div>
         <div>
           <span>Last updated</span>
@@ -1126,12 +1107,8 @@ export default function App() {
         </summary>
         <dl>
           <div>
-            <dt>Source</dt>
-            <dd>exactH2O research database</dd>
-          </div>
-          <div>
             <dt>Dataset</dt>
-            <dd>Matt greenhouse imported snapshot</dd>
+            <dd>Imported snapshot</dd>
           </div>
           <div>
             <dt>Imported Rows in Database</dt>
@@ -1148,14 +1125,6 @@ export default function App() {
           <div>
             <dt>Pots</dt>
             <dd>{sortedPairings.length}</dd>
-          </div>
-          <div>
-            <dt>Original Source</dt>
-            <dd>Device export</dd>
-          </div>
-          <div>
-            <dt>External dashboard used for rendering</dt>
-            <dd>No</dd>
           </div>
         </dl>
       </details>
