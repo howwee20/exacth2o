@@ -1512,6 +1512,9 @@ export default function App() {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
+        <a className="dashboard-logo" href="index.html?v=20260701-015709" aria-label="exactH2O home">
+          exactH2O
+        </a>
         <div className="header-actions">
           <a className="header-action site-link" href="index.html?v=20260701-015709" aria-label="Website" title="Website">
             <ExternalLink size={15} />
