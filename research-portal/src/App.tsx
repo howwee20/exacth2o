@@ -1149,6 +1149,7 @@ export default function App() {
   const [exportingCsv, setExportingCsv] = useState(false);
   const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<DataMode>("auto");
   const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
@@ -1279,13 +1280,14 @@ export default function App() {
     event?.preventDefault();
     setLoading(true);
     setError(null);
+    setLoginError(null);
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     setLoading(false);
     if (signInError) {
-      setError(errorMessage(signInError));
+      setLoginError(errorMessage(signInError));
       return;
     }
     if (rememberDevice) {
@@ -1298,6 +1300,8 @@ export default function App() {
 
   async function signOut() {
     await supabase.auth.signOut();
+    setError(null);
+    setLoginError(null);
     setSessionReady(false);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
@@ -1575,7 +1579,7 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="index.html?v=20260701-015709" className="portal-logo">
+          <a href="index.html?v=20260701-071754" className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
@@ -1650,7 +1654,7 @@ export default function App() {
               >
                 {loading ? "Signing in..." : "Open Dashboard"}
               </button>
-              {error ? <p className="portal-error-line">{error}</p> : null}
+              {loginError ? <p className="portal-error-line">{loginError}</p> : null}
             </form>
 
             <div className="portal-support-line">
@@ -1680,11 +1684,11 @@ export default function App() {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
-        <a className="dashboard-logo" href="index.html?v=20260701-015709" aria-label="exactH2O home">
+        <a className="dashboard-logo" href="index.html?v=20260701-071754" aria-label="exactH2O home">
           exactH2O
         </a>
         <div className="header-actions">
-          <a className="header-action site-link" href="index.html?v=20260701-015709" aria-label="Website" title="Website">
+          <a className="header-action site-link" href="index.html?v=20260701-071754" aria-label="Website" title="Website">
             <ExternalLink size={15} />
             Site
           </a>
