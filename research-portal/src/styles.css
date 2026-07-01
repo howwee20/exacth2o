@@ -413,14 +413,24 @@ select {
 }
 
 .portal-form-row a,
-.portal-support-line a {
+.portal-support-line a,
+.portal-inline-action {
   color: var(--portal-water);
   text-decoration: none;
 }
 
 .portal-form-row a:hover,
-.portal-support-line a:hover {
+.portal-support-line a:hover,
+.portal-inline-action:hover {
   text-decoration: underline;
+}
+
+.portal-inline-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.86rem;
 }
 
 .portal-submit-btn {
@@ -451,6 +461,15 @@ select {
   background: #fff1f0;
   border: 1px solid #f2b8b5;
   color: #9f1f17;
+  font-size: 0.9rem;
+}
+
+.portal-success-line {
+  margin: 1rem 0 0;
+  padding: 0.85rem 1rem;
+  background: rgba(46, 158, 110, 0.1);
+  border: 1px solid rgba(46, 158, 110, 0.28);
+  color: var(--portal-water);
   font-size: 0.9rem;
 }
 

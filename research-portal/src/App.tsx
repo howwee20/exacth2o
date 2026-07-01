@@ -103,6 +103,7 @@ type Treatment = "control" | "drought" | "unknown";
 type Crop = "maize" | "sorghum" | "unknown";
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
+type AuthMode = "sign-in" | "sign-up" | "set-password";
 
 type TooltipState = {
   x: number;
@@ -170,6 +171,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
+const portalVersion = "20260701-account-setup";
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -183,6 +185,21 @@ const initialLoadState: LoadState = {
   lastNewDataAt: null,
   effectiveMode: "snapshot",
 };
+
+function portalUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function initialAuthMode(): AuthMode {
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const requestedMode = params.get("mode");
+  const authType = params.get("type") ?? hashParams.get("type");
+
+  if (requestedMode === "signup") return "sign-up";
+  if (authType === "invite" || authType === "recovery") return "set-password";
+  return "sign-in";
+}
 
 function orderedPairings(pairings: PairingRow[]) {
   return pairings.slice().sort((a, b) => {
@@ -1142,6 +1159,8 @@ function SensorCanvasChart({
 export default function App() {
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState<AuthMode>(() => initialAuthMode());
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [rememberDevice, setRememberDevice] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1281,6 +1300,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     setLoginError(null);
+    setAuthNotice(null);
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -1296,6 +1316,87 @@ export default function App() {
       window.localStorage.removeItem(rememberEmailKey);
     }
     setSessionReady(true);
+  }
+
+  async function signUp(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setLoading(true);
+    setError(null);
+    setLoginError(null);
+    setAuthNotice(null);
+
+    if (password.length < 8) {
+      setLoading(false);
+      setLoginError("Use at least 8 characters.");
+      return;
+    }
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: portalUrl(),
+      },
+    });
+
+    setLoading(false);
+
+    if (signUpError) {
+      setLoginError(errorMessage(signUpError));
+      return;
+    }
+
+    if (rememberDevice) {
+      window.localStorage.setItem(rememberEmailKey, email);
+    }
+
+    if (signUpData.session) {
+      setSessionReady(true);
+      return;
+    }
+
+    setPassword("");
+    setAuthMode("sign-in");
+    setAuthNotice("Check your email, then sign in.");
+  }
+
+  async function setAccountPassword(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setLoading(true);
+    setError(null);
+    setLoginError(null);
+    setAuthNotice(null);
+
+    if (password.length < 8) {
+      setLoading(false);
+      setLoginError("Use at least 8 characters.");
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+
+    if (updateError) {
+      setLoginError(errorMessage(updateError));
+      return;
+    }
+
+    window.history.replaceState(null, "", portalUrl());
+    setPassword("");
+    setSessionReady(true);
+  }
+
+  function switchAuthMode(nextMode: AuthMode) {
+    setAuthMode(nextMode);
+    setLoginError(null);
+    setAuthNotice(null);
+    if (nextMode !== "set-password") {
+      window.history.replaceState(
+        null,
+        "",
+        nextMode === "sign-up" ? `${portalUrl()}?mode=signup` : portalUrl(),
+      );
+    }
   }
 
   async function signOut() {
@@ -1515,9 +1616,10 @@ export default function App() {
       setRememberDevice(true);
     }
     supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (authMode === "set-password") return;
       setSessionReady(Boolean(sessionData.session));
     });
-  }, []);
+  }, [authMode]);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -1576,10 +1678,30 @@ export default function App() {
   }, [sessionReady, selectedMode, refresh]);
 
   if (!sessionReady) {
+    const isSignUp = authMode === "sign-up";
+    const isPasswordSetup = authMode === "set-password";
+    const authTitle = isPasswordSetup ? "Set Password" : isSignUp ? "Create Account" : "Sign In";
+    const authNote = isPasswordSetup
+      ? "Choose a password for this exactH2O account."
+      : isSignUp
+        ? "Use the email that should access this dashboard."
+        : "Use your exactH2O account.";
+    const authSubmitText = loading
+      ? isPasswordSetup
+        ? "Saving..."
+        : isSignUp
+          ? "Creating..."
+          : "Signing in..."
+      : isPasswordSetup
+        ? "Save Password"
+        : isSignUp
+          ? "Create Account"
+          : "Open Dashboard";
+
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="index.html?v=20260701-071754" className="portal-logo">
+          <a href={`index.html?v=${portalVersion}`} className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
@@ -1603,24 +1725,24 @@ export default function App() {
 
         <section className="portal-login-panel" aria-label="Portal sign in">
           <div className="portal-login-card">
-            <h2>Sign In</h2>
-            <p className="portal-login-note">
-              Use your exactH2O account.
-            </p>
+            <h2>{authTitle}</h2>
+            <p className="portal-login-note">{authNote}</p>
 
-            <form onSubmit={signIn}>
-              <div className="portal-form-group">
-                <label htmlFor="portalEmail">Username or Email</label>
-                <input
-                  id="portalEmail"
-                  name="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="username"
-                  required
-                />
-              </div>
+            <form onSubmit={isPasswordSetup ? setAccountPassword : isSignUp ? signUp : signIn}>
+              {!isPasswordSetup ? (
+                <div className="portal-form-group">
+                  <label htmlFor="portalEmail">Email</label>
+                  <input
+                    id="portalEmail"
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+              ) : null}
               <div className="portal-form-group">
                 <label htmlFor="portalPassword">Password</label>
                 <input
@@ -1629,36 +1751,45 @@ export default function App() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
+                  autoComplete={isSignUp || isPasswordSetup ? "new-password" : "current-password"}
                   required
                 />
               </div>
               <div className="portal-form-row">
-                <label className="portal-check">
-                  <input
-                    type="checkbox"
-                    name="remember"
-                    checked={rememberDevice}
-                    onChange={(event) => setRememberDevice(event.target.checked)}
-                  />
-                  <span>Remember this device</span>
-                </label>
-                <a href="mailto:bslbinod@gmail.com?subject=exactH2O Portal Access">
-                  Need access?
-                </a>
+                {!isPasswordSetup ? (
+                  <label className="portal-check">
+                    <input
+                      type="checkbox"
+                      name="remember"
+                      checked={rememberDevice}
+                      onChange={(event) => setRememberDevice(event.target.checked)}
+                    />
+                    <span>Remember</span>
+                  </label>
+                ) : (
+                  <span />
+                )}
+                <button
+                  className="portal-inline-action"
+                  type="button"
+                  onClick={() => switchAuthMode(isSignUp || isPasswordSetup ? "sign-in" : "sign-up")}
+                >
+                  {isSignUp || isPasswordSetup ? "Sign in" : "Create account"}
+                </button>
               </div>
               <button
                 className="portal-submit-btn"
                 type="submit"
-                disabled={loading || !email || !password}
+                disabled={loading || (!isPasswordSetup && !email) || !password}
               >
-                {loading ? "Signing in..." : "Open Dashboard"}
+                {authSubmitText}
               </button>
+              {authNotice ? <p className="portal-success-line">{authNotice}</p> : null}
               {loginError ? <p className="portal-error-line">{loginError}</p> : null}
             </form>
 
             <div className="portal-support-line">
-              Trouble signing in? Contact{" "}
+              Need access? Contact{" "}
               <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a>.
             </div>
           </div>
@@ -1684,11 +1815,11 @@ export default function App() {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
-        <a className="dashboard-logo" href="index.html?v=20260701-071754" aria-label="exactH2O home">
+        <a className="dashboard-logo" href={`index.html?v=${portalVersion}`} aria-label="exactH2O home">
           exactH2O
         </a>
         <div className="header-actions">
-          <a className="header-action site-link" href="index.html?v=20260701-071754" aria-label="Website" title="Website">
+          <a className="header-action site-link" href={`index.html?v=${portalVersion}`} aria-label="Website" title="Website">
             <ExternalLink size={15} />
             Site
           </a>
