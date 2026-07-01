@@ -147,6 +147,16 @@ type PanelSize = {
   height: number;
 };
 
+type TimeBounds = {
+  startMs: number;
+  endMs: number;
+};
+
+type TimeWindow = {
+  start: number;
+  end: number;
+};
+
 const defaultExpandedPanelSize: PanelSize = {
   width: 300,
   height: 430,
@@ -155,6 +165,11 @@ const minExpandedPanelSize: PanelSize = {
   width: 190,
   height: 46,
 };
+const fullTimeWindow: TimeWindow = {
+  start: 0,
+  end: 100,
+};
+const minTimeWindowSpan = 3;
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -620,6 +635,153 @@ function chartBounds(series: ChartSeries[], width: number, height: number) {
   };
 }
 
+function timeBoundsForSeries(series: ChartSeries[]): TimeBounds | null {
+  const points = series.flatMap((item) => item.points);
+  if (points.length === 0) return null;
+  return {
+    startMs: Math.min(...points.map((point) => point.timestampMs)),
+    endMs: Math.max(...points.map((point) => point.timestampMs)),
+  };
+}
+
+function timeFromPercent(bounds: TimeBounds, percent: number) {
+  const span = Math.max(1, bounds.endMs - bounds.startMs);
+  return bounds.startMs + (span * percent) / 100;
+}
+
+function filterSeriesByTime(series: ChartSeries[], bounds: TimeBounds | null, window: TimeWindow) {
+  if (!bounds || (window.start <= 0 && window.end >= 100)) return series;
+  const startMs = timeFromPercent(bounds, window.start);
+  const endMs = timeFromPercent(bounds, window.end);
+
+  return series.map((item) => ({
+    ...item,
+    points: item.points.filter((point) => point.timestampMs >= startMs && point.timestampMs <= endMs),
+  }));
+}
+
+function TimeRangeControl({
+  bounds,
+  value,
+  onChange,
+}: {
+  bounds: TimeBounds | null;
+  value: TimeWindow;
+  onChange: (value: TimeWindow) => void;
+}) {
+  const sliderRef = useRef<HTMLDivElement | null>(null);
+  const start = Math.max(0, Math.min(value.start, value.end - minTimeWindowSpan));
+  const end = Math.min(100, Math.max(value.end, value.start + minTimeWindowSpan));
+  const isFull = start <= 0.1 && end >= 99.9;
+
+  const percentFromClientX = useCallback((clientX: number) => {
+    const slider = sliderRef.current;
+    if (!slider) return null;
+    const rect = slider.getBoundingClientRect();
+    const inset = 12;
+    const left = rect.left + inset;
+    const width = Math.max(1, rect.width - inset * 2);
+    return Math.max(0, Math.min(100, ((clientX - left) / width) * 100));
+  }, []);
+
+  const setEdgeFromClientX = useCallback(
+    (edge: "start" | "end", clientX: number) => {
+      const next = percentFromClientX(clientX);
+      if (next == null) return;
+      if (edge === "start") {
+        onChange({
+          start: Math.min(next, end - minTimeWindowSpan),
+          end,
+        });
+        return;
+      }
+      onChange({
+        start,
+        end: Math.max(next, start + minTimeWindowSpan),
+      });
+    },
+    [end, onChange, percentFromClientX, start],
+  );
+
+  const startDrag = useCallback(
+    (edge: "start" | "end", event: PointerEvent<HTMLElement>) => {
+      event.preventDefault();
+      setEdgeFromClientX(edge, event.clientX);
+
+      const move = (moveEvent: globalThis.PointerEvent) => {
+        setEdgeFromClientX(edge, moveEvent.clientX);
+      };
+      const stop = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", stop);
+        window.removeEventListener("pointercancel", stop);
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", stop);
+      window.addEventListener("pointercancel", stop);
+    },
+    [setEdgeFromClientX],
+  );
+
+  const startNearestDrag = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const next = percentFromClientX(event.clientX);
+      if (next == null) return;
+      const edge = Math.abs(next - start) <= Math.abs(next - end) ? "start" : "end";
+      startDrag(edge, event);
+    },
+    [end, percentFromClientX, start, startDrag],
+  );
+
+  if (!bounds) return null;
+  const startMs = timeFromPercent(bounds, start);
+  const endMs = timeFromPercent(bounds, end);
+
+  return (
+    <div
+      className="time-range-control"
+      style={{
+        "--range-start": `${start}%`,
+        "--range-end": `${100 - end}%`,
+      } as CSSProperties}
+    >
+      <div className="time-range-labels">
+        <span>{formatDateTime(startMs)}</span>
+        <button type="button" onClick={() => onChange(fullTimeWindow)} disabled={isFull}>
+          Full
+        </button>
+        <span>{formatDateTime(endMs)}</span>
+      </div>
+      <div className="time-range-slider" ref={sliderRef} onPointerDown={startNearestDrag}>
+        <div className="time-range-track">
+          <span />
+        </div>
+        <div className="time-range-handles">
+          <button
+            type="button"
+            className="time-range-handle is-start"
+            aria-label="Start time"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              startDrag("start", event);
+            }}
+          />
+          <button
+            type="button"
+            className="time-range-handle is-end"
+            aria-label="End time"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              startDrag("end", event);
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SensorCanvasChart({
   series,
   visibleNames,
@@ -991,6 +1153,7 @@ export default function App() {
   const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
   const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
@@ -1021,6 +1184,11 @@ export default function App() {
       return a.name.localeCompare(b.name);
     });
   }, [series, selectedSeriesName]);
+  const timeBounds = useMemo(() => timeBoundsForSeries(series), [series]);
+  const timeFilteredSeries = useMemo(
+    () => filterSeriesByTime(chartDisplaySeries, timeBounds, timeWindow),
+    [chartDisplaySeries, timeBounds, timeWindow],
+  );
   const visibleNames = useMemo(
     () => new Set(series.filter((item) => !hiddenPots.has(item.name)).map((item) => item.name)),
     [series, hiddenPots],
@@ -1573,13 +1741,18 @@ export default function App() {
 
           <section className="chart-panel-main" aria-label="All plants chart">
             <SensorCanvasChart
-              series={chartDisplaySeries}
+              series={timeFilteredSeries}
               visibleNames={visibleNames}
               selectedName={selectedSeriesName}
               viewMode="traces"
               onSelectSeries={selectPot}
             />
           </section>
+          <TimeRangeControl
+            bounds={timeBounds}
+            value={timeWindow}
+            onChange={setTimeWindow}
+          />
         </section>
 
         {graphExpanded && controlsHidden ? (

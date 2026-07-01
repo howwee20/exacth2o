@@ -465,19 +465,24 @@ select {
 .dashboard-shell {
   width: 100%;
   min-height: 100vh;
-  padding: 18px 28px 28px;
+  padding: 14px 28px 24px;
   color: #172033;
 }
 
 .dashboard-header {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 10px;
+  min-height: 38px;
+  margin-bottom: 8px;
 }
 
 .dashboard-logo {
+  display: inline-flex;
+  align-items: center;
   color: #172033;
   font-size: 17px;
   font-weight: 800;
@@ -576,7 +581,8 @@ select {
 .chart-card {
   position: relative;
   min-width: 0;
-  display: block;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   align-self: stretch;
   background: #ffffff;
 }
@@ -603,7 +609,7 @@ select {
 }
 
 .chart-panel-main .canvas-chart {
-  min-height: calc(100vh - 92px);
+  min-height: calc(100vh - 148px);
 }
 
 .dashboard-main.is-expanded {
@@ -619,6 +625,19 @@ select {
   border-radius: 10px;
   background: #f8fafc;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.dashboard-main.is-expanded::before {
+  content: "exactH2O";
+  position: fixed;
+  top: 28px;
+  left: 32px;
+  z-index: 9;
+  color: #172033;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .dashboard-main.is-expanded .control-panel {
@@ -642,7 +661,7 @@ select {
 }
 
 .dashboard-main.is-expanded .chart-panel-main .canvas-chart {
-  min-height: calc(100vh - 54px);
+  min-height: calc(100vh - 116px);
 }
 
 .dashboard-main.is-expanded .chart-tools {
@@ -710,6 +729,123 @@ select {
   width: 100%;
   height: 100%;
   cursor: crosshair;
+}
+
+.time-range-control {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 6px;
+  padding: 0 44px 15px 68px;
+  background: #ffffff;
+}
+
+.time-range-labels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  color: #5f6f86;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.time-range-labels span:last-child {
+  text-align: right;
+}
+
+.time-range-labels button {
+  min-height: 20px;
+  padding: 0 11px;
+  border: 1px solid #d7e1ee;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f7faff);
+  color: #475569;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.time-range-labels button:disabled {
+  color: #8ca0b8;
+  cursor: default;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.time-range-slider {
+  position: relative;
+  height: 28px;
+  border: 1px solid #dbe5f0;
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: ew-resize;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.time-range-track {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: 12px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef6;
+}
+
+.time-range-track span {
+  position: absolute;
+  top: 0;
+  right: var(--range-end);
+  bottom: 0;
+  left: var(--range-start);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #cbd5e1;
+}
+
+.time-range-handles {
+  position: absolute;
+  inset: 0 12px;
+  pointer-events: none;
+}
+
+.time-range-handle {
+  position: absolute;
+  top: 14.5px;
+  width: 15px;
+  min-width: 15px;
+  height: 15px;
+  min-height: 15px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #172033;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.18),
+    0 4px 12px rgba(15, 23, 42, 0.18);
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.time-range-handle::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  content: "";
+  background: #172033;
+}
+
+.time-range-handle.is-start {
+  left: var(--range-start);
+  transform: translate(-50%, -50%);
+}
+
+.time-range-handle.is-end {
+  right: var(--range-end);
+  transform: translate(50%, -50%);
 }
 
 .chart-tooltip {
