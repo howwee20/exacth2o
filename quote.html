@@ -59,8 +59,8 @@
   .q-sidebar { position: sticky; top: 7rem; }
   .q-intro { font-size: 0.9rem; line-height: 1.75; opacity: 0.6; margin-bottom: 2.5rem; }
   .q-points { display: flex; flex-direction: column; margin-bottom: 2.5rem; }
-  .q-point { padding: 1.1rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 1.8rem 1fr; gap: 0.8rem; align-items: start; }
-  .q-point-icon { color: var(--water); margin-top: 0.1rem; }
+  .q-point { padding: 1.1rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 2.2rem 1fr; gap: 0.8rem; align-items: start; }
+  .q-point-icon { color: var(--water); font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; margin-top: 0.1rem; }
   .q-point-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.2rem; }
   .q-point-desc { font-size: 0.8rem; line-height: 1.6; opacity: 0.55; }
   .q-direct { background: var(--bg-dark); padding: 1.5rem; }
@@ -158,9 +158,9 @@
       <h2 class="section-title">Custom-fitted<br>to your setup</h2>
       <p class="q-intro">No two irrigation systems are identical. We size each deployment around your substrate, zone count, data requirements, and budget.</p>
       <div class="q-points">
-        <div class="q-point"><span class="q-point-icon">⚡</span><div><div class="q-point-title">24-hour Response</div><div class="q-point-desc">We'll get back to you within one business day with questions or a preliminary recommendation.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">🎯</span><div><div class="q-point-title">Tailored Solutions</div><div class="q-point-desc">From single growth chambers to multi-range greenhouse complexes — every quote is specific to your needs.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">💬</span><div><div class="q-point-title">No Obligation</div><div class="q-point-desc">Consultation and quote are completely free. No commitment required.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Response</div><div class="q-point-desc">We'll get back to you within one business day with questions or a preliminary recommendation.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">System Fit</div><div class="q-point-desc">From single growth chambers to multi-range greenhouse complexes, every quote is specific to your needs.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">03</span><div><div class="q-point-title">Direct Review</div><div class="q-point-desc">Your request goes into the exactH2O database and notifies the team for follow-up.</div></div></div>
       </div>
       <div class="q-direct">
         <div class="q-direct-label">Direct Contact</div>
@@ -169,18 +169,9 @@
     </div>
 
     <div>
-      <!--
-      ══════════════════════════════════════════════════════════
-      FORMSPREE SETUP — one-time, takes 5 minutes:
-      1. Go to https://formspree.io and sign up (free)
-      2. Click "New Form" → name it "exactH2O Quotes"
-      3. Copy your 8-char form ID (e.g. xyzabcde)
-      4. Replace YOUR_FORM_ID below with that ID
-      ══════════════════════════════════════════════════════════
-      -->
       <div class="quote-form-wrap">
-        <div class="form-msg success" id="successMsg">✓ Thank you! Your quote request has been received. We'll get back to you within 24 hours.</div>
-        <div class="form-msg error" id="errorMsg">✗ Something went wrong. Please email us directly at bslbinod@gmail.com</div>
+        <div class="form-msg success" id="successMsg">Quote request received. We will follow up shortly.</div>
+        <div class="form-msg error" id="errorMsg">Could not send request. Please email us directly at bslbinod@gmail.com.</div>
 
         <h3 class="form-title">Request Your Quote</h3>
         <p class="form-subtitle">Fill out the form below and we'll be in touch soon</p>
@@ -223,16 +214,6 @@
               <option value="Other">Other (describe below)</option>
             </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="area">Coverage Area</label>
-              <input type="text" id="area" name="area" placeholder="e.g., 2000 sq ft or 5 acres" maxlength="100">
-            </div>
-            <div class="form-group">
-              <label for="zones">Number of Zones / Sensors</label>
-              <input type="text" id="zones" name="zones" placeholder="e.g., 4 zones, 96 pots" maxlength="100">
-            </div>
-          </div>
           <div class="form-group">
             <label for="timeline">Expected Timeline</label>
             <select id="timeline" name="timeline">
@@ -268,9 +249,7 @@
     document.getElementById('hamburger').classList.toggle('active');
   }
 
-  // ── FORM SUBMISSION via Formspree ──────────────────────────────────
-  // Replace YOUR_FORM_ID with your actual Formspree ID after signing up
-  const FORMSPREE_ID = 'YOUR_FORM_ID';
+  const QUOTE_FUNCTION_URL = 'https://zmhdclcjrkntrpynozvo.functions.supabase.co/submit-quote';
 
   let submitted = false; // prevents duplicate submissions
 
@@ -299,48 +278,58 @@
     const message = this.querySelector('[name="message"]').value.trim();
 
     if (!name || !email || !application || !message) {
-      errorMsg.textContent = '✗ Please fill in all required fields.';
+      errorMsg.textContent = 'Please fill in all required fields.';
       errorMsg.style.display = 'block';
       return;
     }
 
     // Simple email format check
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errorMsg.textContent = '✗ Please enter a valid email address.';
+      errorMsg.textContent = 'Please enter a valid email address.';
       errorMsg.style.display = 'block';
       return;
     }
-
-    // Sanitize inputs (strip HTML tags to prevent XSS in email)
-    function sanitize(str) { return str.replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
     btn.disabled = true;
     btn.textContent = 'Sending…';
     submitted = true;
 
-    const formData = new FormData(this);
+    const payload = {
+      name,
+      email,
+      phone: this.querySelector('[name="phone"]').value.trim(),
+      organization: this.querySelector('[name="organization"]').value.trim(),
+      application,
+      timeline: this.querySelector('[name="timeline"]').value,
+      message,
+      honey: honey ? honey.value : '',
+      sourceUrl: window.location.href
+    };
 
     try {
-      const response = await fetch('https://formspree.io/f/' + FORMSPREE_ID, {
+      const response = await fetch(QUOTE_FUNCTION_URL, {
         method: 'POST',
-        body: formData,
-        headers: { 'Accept': 'application/json' }
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
         successMsg.style.display = 'block';
         this.reset();
-        btn.textContent = 'Sent ✓';
-        // Scroll to success message
+        btn.textContent = 'Sent';
         successMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } else {
-        throw new Error('Server error');
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Server error');
       }
     } catch (err) {
       submitted = false; // allow retry on error
       btn.disabled = false;
       btn.textContent = 'Submit Quote Request';
-      errorMsg.textContent = '✗ Something went wrong. Please email us directly at bslbinod@gmail.com';
+      errorMsg.textContent = 'Could not send request. Please email us directly at bslbinod@gmail.com.';
       errorMsg.style.display = 'block';
     }
   });
