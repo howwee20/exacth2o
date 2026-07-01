@@ -1,23 +1,34 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertTriangle,
-  Database,
+  Download,
+  ExternalLink,
   LogOut,
-  RefreshCw,
-  UserCircle,
-  Wifi,
-  WifiOff,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { supabase } from "./supabase";
-import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
+import type { LatestState, PairingRow, SensorReading } from "./types";
 
 const defaultEmail = "";
 
 const graphReadLimit = 5000;
 const pageSize = 1000;
+const maxExportRowsPerSource = 100_000;
 const autoRefreshMs = 15_000;
 const staleAfterMs = 15 * 60 * 1000;
-const maxPointsPerSeries = 260;
+const maxPointsPerSeries = graphReadLimit;
+const tenMinutesMs = 10 * 60 * 1000;
+const dayMs = 24 * 60 * 60 * 1000;
 
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
@@ -27,32 +38,33 @@ const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
 
 const zone2Palette = [
   "#2563eb",
+  "#f97316",
   "#0891b2",
-  "#0284c7",
-  "#0ea5e9",
+  "#dc2626",
   "#14b8a6",
-  "#1d4ed8",
-  "#0f766e",
-  "#38bdf8",
+  "#7c3aed",
+  "#16a34a",
+  "#db2777",
   "#6366f1",
-  "#3b82f6",
+  "#ca8a04",
 ];
 
 const zone4Palette = [
-  "#16a34a",
-  "#65a30d",
-  "#84cc16",
-  "#f59e0b",
-  "#ea580c",
-  "#dc2626",
-  "#9333ea",
+  "#22c55e",
   "#a855f7",
+  "#84cc16",
+  "#0ea5e9",
+  "#ea580c",
+  "#2563eb",
   "#c026d3",
-  "#db2777",
+  "#10b981",
+  "#e11d48",
+  "#f59e0b",
 ];
 
 type DataMode = "auto" | "live" | "snapshot" | "combined";
 type EffectiveMode = Exclude<DataMode, "auto">;
+type ViewMode = "group" | "traces" | "individual" | "qc";
 
 type LoadState = {
   pairings: PairingRow[];
@@ -61,7 +73,6 @@ type LoadState = {
   totalImportedReadings: number;
   totalLiveReadings: number;
   latestLiveReading: SensorReading | null;
-  latestValveEvent: ValveEvent | null;
   latestIngestTime: string | null;
   lastCheckedAt: string | null;
   lastNewDataAt: string | null;
@@ -76,6 +87,7 @@ type ChartPoint = {
 
 type ChartSeries = {
   name: string;
+  kind: "pot" | "group";
   zone: number;
   potNumber: number;
   treatment: Treatment;
@@ -83,22 +95,65 @@ type ChartSeries = {
   color: string;
   points: ChartPoint[];
   rawPointCount: number;
+  memberCount?: number;
 };
 
 type Treatment = "control" | "drought" | "unknown";
 
 type Crop = "maize" | "sorghum" | "unknown";
 
-type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "zone2" | "zone4" | "custom";
+type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 
 type TooltipState = {
   x: number;
   y: number;
   seriesName: string;
+  seriesKind: "pot" | "group";
   color: string;
   zone: number;
   potNumber: number;
+  crop: Crop;
+  treatment: Treatment;
   point: ChartPoint;
+  locked?: boolean;
+};
+
+type PotStats = {
+  latestValue: number | null;
+  latestAt: string | null;
+  mean: number | null;
+  min: number | null;
+  max: number | null;
+  dryingRatePerDay: number | null;
+  missingReadings: number;
+  sharpDropCount: number;
+  status: "live" | "stale" | "warning" | "empty";
+  warning: string | null;
+};
+
+type CsvDownload = {
+  url: string;
+  filename: string;
+  rowCount: number;
+};
+
+type PanelPosition = {
+  x: number;
+  y: number;
+};
+
+type PanelSize = {
+  width: number;
+  height: number;
+};
+
+const defaultExpandedPanelSize: PanelSize = {
+  width: 300,
+  height: 430,
+};
+const minExpandedPanelSize: PanelSize = {
+  width: 190,
+  height: 46,
 };
 
 const initialLoadState: LoadState = {
@@ -108,7 +163,6 @@ const initialLoadState: LoadState = {
   totalImportedReadings: 0,
   totalLiveReadings: 0,
   latestLiveReading: null,
-  latestValveEvent: null,
   latestIngestTime: null,
   lastCheckedAt: null,
   lastNewDataAt: null,
@@ -205,6 +259,7 @@ function chartSeries(pairings: PairingRow[], readings: SensorReading[]): ChartSe
 
     return {
       name: pairing.name,
+      kind: "pot",
       zone: pairing.zone,
       potNumber: pairing.pot_number,
       treatment: treatmentForPairing(pairing),
@@ -216,6 +271,82 @@ function chartSeries(pairings: PairingRow[], readings: SensorReading[]): ChartSe
   });
 }
 
+function average(values: number[]) {
+  return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function formatPercent(value: number | null | undefined, digits = 1) {
+  return value == null || !Number.isFinite(value) ? "none" : `${value.toFixed(digits)}%`;
+}
+
+function formatNumber(value: number | null | undefined, digits = 1) {
+  return value == null || !Number.isFinite(value) ? "none" : value.toFixed(digits);
+}
+
+function statsForSeries(item?: ChartSeries | null): PotStats {
+  if (!item || item.points.length === 0) {
+    return {
+      latestValue: null,
+      latestAt: null,
+      mean: null,
+      min: null,
+      max: null,
+      dryingRatePerDay: null,
+      missingReadings: 0,
+      sharpDropCount: 0,
+      status: "empty",
+      warning: null,
+    };
+  }
+
+  const values = item.points.map((point) => point.value);
+  const first = item.points[0];
+  const latest = item.points[item.points.length - 1];
+  const spanMs = Math.max(1, latest.timestampMs - first.timestampMs);
+  const expected = Math.max(0, Math.floor(spanMs / tenMinutesMs) + 1);
+  let sharpDropCount = 0;
+  let sharpDropMessage: string | null = null;
+
+  for (let index = 1; index < item.points.length; index += 1) {
+    const previous = item.points[index - 1];
+    const current = item.points[index];
+    const delta = current.value - previous.value;
+    const elapsedMinutes = (current.timestampMs - previous.timestampMs) / 60_000;
+    if (delta <= -3 && elapsedMinutes <= 45) {
+      sharpDropCount += 1;
+      if (!sharpDropMessage) {
+        sharpDropMessage = `Sharp drop: ${previous.value.toFixed(1)}% to ${current.value.toFixed(1)}% in ${Math.max(1, Math.round(elapsedMinutes))} min`;
+      }
+    }
+  }
+
+  const latestAge = Date.now() - latest.timestampMs;
+  const missingReadings = Math.max(0, expected - item.rawPointCount);
+  const status =
+    sharpDropCount > 0 || latest.value < 8 || missingReadings > 6
+      ? "warning"
+      : latestAge > staleAfterMs
+        ? "stale"
+        : "live";
+  const warning =
+    sharpDropMessage ??
+    (latest.value < 8 ? `Low moisture: ${latest.value.toFixed(1)}% VWC` : null) ??
+    (missingReadings > 6 ? `${missingReadings} estimated missing readings` : null);
+
+  return {
+    latestValue: latest.value,
+    latestAt: latest.reading.device_recorded_at,
+    mean: average(values),
+    min: Math.min(...values),
+    max: Math.max(...values),
+    dryingRatePerDay: ((latest.value - first.value) / spanMs) * dayMs,
+    missingReadings,
+    sharpDropCount,
+    status,
+    warning,
+  };
+}
+
 function formatDateTime(value?: string | number | null) {
   if (!value) return "none";
   const date = new Date(value);
@@ -225,17 +356,6 @@ function formatDateTime(value?: string | number | null) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
-}
-
-function formatClock(value?: string | number | null) {
-  if (!value) return "not checked";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "not checked";
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
   });
 }
 
@@ -253,19 +373,6 @@ function axisLabel(timestampMs: number, spanMs: number) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function ageLabel(iso?: string | null) {
-  if (!iso) return "none";
-  const timestamp = new Date(iso).getTime();
-  if (!Number.isFinite(timestamp)) return "none";
-  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function newestByTime<T extends { device_recorded_at: string }>(items: T[]) {
@@ -288,51 +395,6 @@ function resolveEffectiveMode(mode: DataMode, totalLiveReadings: number): Effect
     return totalLiveReadings > 0 ? "live" : "snapshot";
   }
   return mode;
-}
-
-function modeLabel(mode: EffectiveMode) {
-  if (mode === "live") return "Live data";
-  if (mode === "combined") return "All data";
-  return "Saved snapshot";
-}
-
-function dataStatus(data: LoadState) {
-  if (data.effectiveMode === "snapshot") {
-    return {
-      label: "Snapshot",
-      detail: "Imported dataset",
-      className: "status-snapshot",
-      icon: WifiOff,
-    };
-  }
-
-  if (data.totalLiveReadings === 0) {
-    return {
-      label: "Waiting",
-      detail: "No live feed yet",
-      className: "status-stale",
-      icon: WifiOff,
-    };
-  }
-
-  const liveTimestamp =
-    data.latestLiveReading?.server_received_at ?? data.latestLiveReading?.device_recorded_at;
-  const liveAge = liveTimestamp ? Date.now() - new Date(liveTimestamp).getTime() : Infinity;
-  if (liveAge <= staleAfterMs) {
-    return {
-      label: "Live",
-      detail: `Last live ingest ${ageLabel(liveTimestamp)}`,
-      className: "status-live",
-      icon: Wifi,
-    };
-  }
-
-  return {
-    label: "Stale",
-    detail: `Last live ingest ${ageLabel(liveTimestamp)}`,
-    className: "status-stale",
-    icon: WifiOff,
-  };
 }
 
 function errorMessage(error: unknown) {
@@ -362,6 +424,49 @@ function dedupeReadings(readings: SensorReading[]) {
 
 function mergeReadings(base: SensorReading[], incoming: SensorReading[]) {
   return dedupeReadings([...incoming, ...base]);
+}
+
+function dedupeReadingsForExport(readings: SensorReading[]) {
+  const byKey = new Map<string, SensorReading>();
+  for (const reading of readings) {
+    byKey.set(reading.event_id || String(reading.id), reading);
+  }
+
+  return Array.from(byKey.values()).sort(
+    (a, b) =>
+      new Date(a.device_recorded_at).getTime() -
+      new Date(b.device_recorded_at).getTime(),
+  );
+}
+
+async function fetchAllReadingsByPrefix(prefix: string) {
+  const readings: SensorReading[] = [];
+
+  for (let from = 0; from < maxExportRowsPerSource; from += pageSize) {
+    const response = await supabase
+      .from("sensor_readings")
+      .select("*")
+      .like("event_id", prefix)
+      .order("device_recorded_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (response.error) throw response.error;
+
+    const page = (response.data ?? []) as SensorReading[];
+    readings.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return readings;
+}
+
+async function fetchAllExportReadings() {
+  const [importedReadings, liveReadings] = await Promise.all([
+    fetchAllReadingsByPrefix(importedPrefix),
+    fetchAllReadingsByPrefix(livePrefix),
+  ]);
+
+  return dedupeReadingsForExport([...importedReadings, ...liveReadings]);
 }
 
 async function fetchReadingsByPrefix(prefix: string, maxRows: number, newerThan?: string | null) {
@@ -423,24 +528,90 @@ async function countReadings(prefix: string) {
   return response.count ?? 0;
 }
 
+function sourceLabelForReading(reading: SensorReading) {
+  if (reading.event_id.startsWith("live-device:")) return "live";
+  if (reading.event_id.startsWith("balena-export-v2:")) return "snapshot";
+  return "unknown";
+}
+
+function csvEscape(value: unknown) {
+  const text = value == null ? "" : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function niceStep(range: number, targetTicks: number) {
+  const roughStep = range / Math.max(1, targetTicks - 1);
+  const power = Math.pow(10, Math.floor(Math.log10(Math.max(roughStep, 0.1))));
+  const normalized = roughStep / power;
+  const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return multiplier * power;
+}
+
+function vwcDomain(points: ChartPoint[]) {
+  if (points.length === 0) {
+    return {
+      yMin: 0,
+      yMax: 60,
+      ySpan: 60,
+      yTicks: [0, 15, 30, 45, 60],
+    };
+  }
+
+  const values = points.map((point) => point.value);
+  const rawMin = Math.max(0, Math.min(...values));
+  const rawMax = Math.min(60, Math.max(...values));
+  const rawSpan = Math.max(1, rawMax - rawMin);
+  const paddedSpan = Math.max(6, rawSpan * 1.22);
+  const center = (rawMin + rawMax) / 2;
+  const paddedMin = Math.max(0, center - paddedSpan / 2);
+  const paddedMax = Math.min(60, center + paddedSpan / 2);
+  const step = niceStep(Math.max(1, paddedMax - paddedMin), 6);
+  const yMin = Math.max(0, Math.floor(paddedMin / step) * step);
+  const yMax = Math.min(60, Math.ceil(paddedMax / step) * step);
+  const yTicks: number[] = [];
+
+  for (let tick = yMin; tick <= yMax + step / 2; tick += step) {
+    yTicks.push(Number(tick.toFixed(3)));
+  }
+
+  return {
+    yMin,
+    yMax,
+    ySpan: Math.max(1, yMax - yMin),
+    yTicks: yTicks.length >= 3 ? yTicks : [yMin, (yMin + yMax) / 2, yMax],
+  };
+}
+
+function formatAxisTick(value: number) {
+  return Math.abs(value - Math.round(value)) < 0.001 ? String(Math.round(value)) : value.toFixed(1);
+}
+
+function crispLine(value: number) {
+  return Math.round(value) + 0.5;
+}
+
 function chartBounds(series: ChartSeries[], width: number, height: number) {
   const margin = { top: 22, right: 24, bottom: 54, left: 68 };
   const plotWidth = Math.max(1, width - margin.left - margin.right);
   const plotHeight = Math.max(1, height - margin.top - margin.bottom);
   const allPoints = series.flatMap((item) => item.points);
+  const yDomain = vwcDomain(allPoints);
   const minX = allPoints.length ? Math.min(...allPoints.map((point) => point.timestampMs)) : 0;
   const maxX = allPoints.length ? Math.max(...allPoints.map((point) => point.timestampMs)) : 1;
   const spanX = Math.max(1, maxX - minX);
 
   const xScale = (timestampMs: number) =>
     margin.left + ((timestampMs - minX) / spanX) * plotWidth;
-  const yScale = (value: number) =>
-    margin.top + ((60 - Math.max(0, Math.min(60, value))) / 60) * plotHeight;
+  const yScale = (value: number) => {
+    const clamped = Math.max(yDomain.yMin, Math.min(yDomain.yMax, value));
+    return margin.top + ((yDomain.yMax - clamped) / yDomain.ySpan) * plotHeight;
+  };
 
   return {
     margin,
     plotWidth,
     plotHeight,
+    ...yDomain,
     minX,
     maxX,
     spanX,
@@ -452,13 +623,20 @@ function chartBounds(series: ChartSeries[], width: number, height: number) {
 function SensorCanvasChart({
   series,
   visibleNames,
+  selectedName,
+  viewMode,
+  onSelectSeries,
 }: {
   series: ChartSeries[];
   visibleNames: Set<string>;
+  selectedName: string | null;
+  viewMode: ViewMode;
+  onSelectSeries: (name: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [lockedSeriesName, setLockedSeriesName] = useState<string | null>(null);
 
   const visibleSeries = useMemo(
     () => series.filter((item) => visibleNames.has(item.name) && item.points.length > 0),
@@ -490,32 +668,37 @@ function SensorCanvasChart({
       context.fillRect(0, 0, width, height);
 
       const bounds = chartBounds(visibleSeries, width, height);
-      const { margin, plotWidth, plotHeight, minX, spanX, xScale, yScale } = bounds;
+      const { margin, plotWidth, plotHeight, minX, spanX, xScale, yScale, yTicks } = bounds;
 
       context.save();
-      context.strokeStyle = "#e2e8f0";
+      const axisFont = "500 12px Inter, Arial, sans-serif";
+      const axisColor = "#64748b";
+
       context.lineWidth = 1;
-      context.setLineDash([4, 4]);
-      context.fillStyle = "#64748b";
-      context.font = "12px Inter, Arial, sans-serif";
+      context.fillStyle = axisColor;
+      context.font = axisFont;
       context.textAlign = "right";
       context.textBaseline = "middle";
 
-      for (const tick of [0, 15, 30, 45, 60]) {
-        const y = yScale(tick);
+      context.setLineDash([]);
+      context.strokeStyle = "#e7edf5";
+      for (const tick of yTicks) {
+        const y = crispLine(yScale(tick));
         context.beginPath();
         context.moveTo(margin.left, y);
         context.lineTo(margin.left + plotWidth, y);
         context.stroke();
-        context.fillText(String(tick), margin.left - 10, y);
+        context.fillText(formatAxisTick(tick), margin.left - 10, y);
       }
 
-      const xTickCount = width < 720 ? 4 : 6;
+      const xTickCount = width < 720 ? 4 : 5;
       context.textAlign = "center";
       context.textBaseline = "top";
+      context.setLineDash([3, 6]);
+      context.strokeStyle = "#edf2f7";
       for (let index = 0; index <= xTickCount; index += 1) {
         const timestamp = minX + (spanX * index) / xTickCount;
-        const x = xScale(timestamp);
+        const x = crispLine(xScale(timestamp));
         context.beginPath();
         context.moveTo(x, margin.top);
         context.lineTo(x, margin.top + plotHeight);
@@ -524,31 +707,49 @@ function SensorCanvasChart({
       }
 
       context.setLineDash([]);
-      context.strokeStyle = "#94a3b8";
+      context.strokeStyle = "#a8b3c3";
       context.beginPath();
-      context.moveTo(margin.left, margin.top);
-      context.lineTo(margin.left, margin.top + plotHeight);
-      context.lineTo(margin.left + plotWidth, margin.top + plotHeight);
+      context.moveTo(crispLine(margin.left), margin.top);
+      context.lineTo(crispLine(margin.left), margin.top + plotHeight);
+      context.lineTo(margin.left + plotWidth, crispLine(margin.top + plotHeight));
       context.stroke();
 
       context.save();
       context.translate(18, margin.top + plotHeight / 2);
       context.rotate(-Math.PI / 2);
-      context.fillStyle = "#475569";
-      context.font = "13px Inter, Arial, sans-serif";
+      context.fillStyle = axisColor;
+      context.font = axisFont;
       context.textAlign = "center";
-      context.fillText("Soil moisture (% VWC)", 0, 0);
+      context.fillText("VWC (%)", 0, 0);
       context.restore();
 
       context.beginPath();
       context.rect(margin.left, margin.top, plotWidth, plotHeight);
       context.clip();
 
+      const visiblePotLineCount = visibleSeries.filter((item) => item.kind === "pot").length;
+      const isFocusedComparison = visiblePotLineCount > 1 && visiblePotLineCount <= 6;
+
       for (const item of visibleSeries) {
         if (item.points.length < 2) continue;
+        const selected = selectedName === item.name;
+        const isSummary = item.kind === "group";
+        const isQcWarning = statsForSeries(item).status === "warning";
+        context.globalAlpha =
+          selected ? 1 :
+          isSummary ? (viewMode === "individual" ? 0.85 : 0.95) :
+          viewMode === "group" ? 0.2 :
+          viewMode === "qc" ? (isQcWarning ? 0.9 : 0.12) :
+          isFocusedComparison ? 0.92 :
+          0.84;
         context.setLineDash(item.treatment === "drought" ? [7, 5] : []);
         context.strokeStyle = item.color;
-        context.lineWidth = 2.2;
+        context.lineWidth =
+          selected ? (isFocusedComparison ? 3.2 : 2.4) :
+          isSummary ? 3.2 :
+          viewMode === "qc" && isQcWarning ? 2.8 :
+          isFocusedComparison ? 2.25 :
+          1.85;
         context.lineJoin = "round";
         context.lineCap = "round";
         context.beginPath();
@@ -560,11 +761,18 @@ function SensorCanvasChart({
         });
         context.stroke();
         context.setLineDash([]);
+        context.globalAlpha = 1;
 
         const latest = item.points[item.points.length - 1];
         context.fillStyle = item.color;
         context.beginPath();
-        context.arc(xScale(latest.timestampMs), yScale(latest.value), 3.2, 0, Math.PI * 2);
+        context.arc(
+          xScale(latest.timestampMs),
+          yScale(latest.value),
+          selected || isSummary ? 4 : 2.8,
+          0,
+          Math.PI * 2,
+        );
         context.fill();
       }
 
@@ -591,11 +799,11 @@ function SensorCanvasChart({
       observer.disconnect();
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [visibleSeries]);
+  }, [visibleSeries, selectedName, viewMode]);
 
-  function updateTooltip(event: React.MouseEvent<HTMLCanvasElement>) {
+  function nearestAt(event: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -608,8 +816,7 @@ function SensorCanvasChart({
       y < margin.top ||
       y > margin.top + plotHeight
     ) {
-      setTooltip(null);
-      return;
+      return null;
     }
 
     let nearest: TooltipState | null = null;
@@ -626,43 +833,145 @@ function SensorCanvasChart({
             x: pointX,
             y: pointY,
             seriesName: item.name,
+            seriesKind: item.kind,
             color: item.color,
             zone: item.zone,
             potNumber: item.potNumber,
+            crop: item.crop,
+            treatment: item.treatment,
             point,
           };
         }
       }
     }
 
-    setTooltip(nearest && nearestDistance < 48 ? nearest : null);
+    return nearest && nearestDistance < 48 ? nearest : null;
+  }
+
+  function pointOnSeriesAtX(event: React.MouseEvent<HTMLCanvasElement>, seriesName: string) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const item = visibleSeries.find((seriesItem) => seriesItem.name === seriesName);
+    if (!item || item.points.length === 0) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const bounds = chartBounds(visibleSeries, rect.width, rect.height);
+    const { margin, plotWidth, plotHeight, xScale, yScale } = bounds;
+
+    if (
+      x < margin.left ||
+      x > margin.left + plotWidth ||
+      y < margin.top ||
+      y > margin.top + plotHeight
+    ) {
+      return null;
+    }
+
+    let point = item.points[0];
+    let nearestDistance = Infinity;
+    for (const candidate of item.points) {
+      const distance = Math.abs(xScale(candidate.timestampMs) - x);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        point = candidate;
+      }
+    }
+
+    return {
+      x: xScale(point.timestampMs),
+      y: yScale(point.value),
+      seriesName: item.name,
+      seriesKind: item.kind,
+      color: item.color,
+      zone: item.zone,
+      potNumber: item.potNumber,
+      crop: item.crop,
+      treatment: item.treatment,
+      point,
+      locked: true,
+    } satisfies TooltipState;
+  }
+
+  function updateTooltip(event: React.MouseEvent<HTMLCanvasElement>) {
+    if (lockedSeriesName) {
+      setTooltip(pointOnSeriesAtX(event, lockedSeriesName));
+      return;
+    }
+    setTooltip(nearestAt(event));
+  }
+
+  function selectNearest(event: React.MouseEvent<HTMLCanvasElement>) {
+    const nearest = nearestAt(event);
+    if (nearest?.seriesKind === "pot") {
+      setLockedSeriesName(nearest.seriesName);
+      onSelectSeries(nearest.seriesName);
+      setTooltip(pointOnSeriesAtX(event, nearest.seriesName) ?? nearest);
+      return;
+    }
+    setLockedSeriesName(null);
+    setTooltip(null);
   }
 
   return (
     <div ref={wrapperRef} className="canvas-chart">
       <canvas
         ref={canvasRef}
+        onMouseDown={selectNearest}
         onMouseMove={updateTooltip}
-        onMouseLeave={() => setTooltip(null)}
+        onClick={selectNearest}
+        onMouseLeave={() => {
+          if (!lockedSeriesName) setTooltip(null);
+        }}
         aria-label="Soil moisture chart"
       />
       {tooltip ? (
-        <div
-          className="chart-tooltip"
-          style={{
-            left: Math.min(Math.max(tooltip.x + 14, 10), 760),
-            top: Math.max(tooltip.y - 72, 10),
-            borderColor: tooltip.color,
-          }}
-        >
-          <strong>{tooltip.seriesName}</strong>
-          <span>{formatDateTime(tooltip.point.timestampMs)}</span>
-          <span>
-            {cropLabel(cropForPot(tooltip.potNumber))} / Zone {tooltip.zone} / Pot {tooltip.potNumber} /{" "}
-            {treatmentLabel(treatmentForPot(tooltip.potNumber))}
-          </span>
-          <b>{tooltip.point.value.toFixed(1)}% VWC</b>
-        </div>
+        <>
+          {tooltip.locked ? (
+            <div
+              className="chart-crosshair"
+              style={{ left: tooltip.x, backgroundColor: tooltip.color }}
+            />
+          ) : null}
+          <div
+            className={`chart-tooltip ${tooltip.locked ? "is-locked" : ""}`}
+            style={{
+              left: Math.min(
+                Math.max(tooltip.x + 14, 10),
+                Math.max(10, (wrapperRef.current?.clientWidth ?? 960) - 205),
+              ),
+              top: Math.min(
+                Math.max(tooltip.y - 72, 10),
+                Math.max(10, (wrapperRef.current?.clientHeight ?? 560) - 112),
+              ),
+              borderColor: tooltip.color,
+            }}
+          >
+            <strong>
+              {tooltip.seriesKind === "pot"
+                ? `Pot ${tooltip.potNumber}`
+                : `${cropLabel(tooltip.crop)} ${treatmentLabel(tooltip.treatment)}`}
+            </strong>
+            <span>{formatDateTime(tooltip.point.timestampMs)}</span>
+            {tooltip.seriesKind === "pot" ? (
+              <span>{cropLabel(tooltip.crop)} / {treatmentLabel(tooltip.treatment)}</span>
+            ) : (
+              <span>{cropLabel(tooltip.crop)} / {treatmentLabel(tooltip.treatment)} median</span>
+            )}
+            <b>{tooltip.point.value.toFixed(1)}% VWC</b>
+          </div>
+          {tooltip.locked ? (
+            <div
+              className="chart-lock-dot"
+              style={{
+                left: tooltip.x,
+                top: tooltip.y,
+                borderColor: tooltip.color,
+              }}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -675,41 +984,51 @@ export default function App() {
   const [sessionReady, setSessionReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<DataMode>("auto");
   const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
+  const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
+  const [graphExpanded, setGraphExpanded] = useState(false);
+  const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
+  const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
+  const [controlsHidden, setControlsHidden] = useState(false);
   const [data, setData] = useState<LoadState>(initialLoadState);
 
   const dataRef = useRef(data);
   const loadTokenRef = useRef(0);
+  const dashboardMainRef = useRef<HTMLElement | null>(null);
+  const controlPanelRef = useRef<HTMLElement | null>(null);
+  const panelDragOffsetRef = useRef<PanelPosition | null>(null);
 
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
   const sortedPairings = useMemo(() => orderedPairings(data.pairings), [data.pairings]);
+  const pairingByName = useMemo(
+    () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
+    [sortedPairings],
+  );
   const series = useMemo(() => chartSeries(sortedPairings, data.readings), [sortedPairings, data.readings]);
+  const seriesByName = useMemo(() => new Map(series.map((item) => [item.name, item])), [series]);
+  const chartDisplaySeries = useMemo(() => {
+    return series.slice().sort((a, b) => {
+      if (a.name === selectedSeriesName) return 1;
+      if (b.name === selectedSeriesName) return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [series, selectedSeriesName]);
   const visibleNames = useMemo(
-    () => new Set(sortedPairings.filter((pairing) => !hiddenPots.has(pairing.name)).map((pairing) => pairing.name)),
-    [sortedPairings, hiddenPots],
+    () => new Set(series.filter((item) => !hiddenPots.has(item.name)).map((item) => item.name)),
+    [series, hiddenPots],
   );
 
-  const latestDisplayedReading = useMemo(() => newestByTime(data.readings), [data.readings]);
-  const status = dataStatus(data);
-  const StatusIcon = status.icon;
-  const activePotCount = series.filter((item) => item.rawPointCount > 0).length;
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
   ).length;
-  const plottedPointCount = series
-    .filter((item) => visibleNames.has(item.name))
-    .reduce((sum, item) => sum + item.points.length, 0);
-  const rawPointCount = series.reduce((sum, item) => sum + item.rawPointCount, 0);
-  const noNewDataMessage =
-    data.lastCheckedAt && data.lastNewDataAt && data.lastCheckedAt !== data.lastNewDataAt
-      ? `No new data since ${formatClock(data.lastNewDataAt)}`
-      : null;
 
   const refresh = useCallback(
     async ({ incremental }: { incremental: boolean }) => {
@@ -726,7 +1045,6 @@ export default function App() {
           totalImportedReadings,
           totalLiveReadings,
           latestLiveReadings,
-          latestValveEvents,
         ] = await Promise.all([
           supabase.from("pairings").select("*").limit(1000),
           supabase.from("latest_device_state").select("*").limit(1).maybeSingle(),
@@ -738,14 +1056,9 @@ export default function App() {
             .like("event_id", livePrefix)
             .order("device_recorded_at", { ascending: false })
             .limit(1),
-          supabase
-            .from("valve_events")
-            .select("*")
-            .order("device_recorded_at", { ascending: false })
-            .limit(1),
         ]);
 
-        for (const result of [pairings, latestState, latestLiveReadings, latestValveEvents]) {
+        for (const result of [pairings, latestState, latestLiveReadings]) {
           if (result.error) throw result.error;
         }
 
@@ -771,7 +1084,6 @@ export default function App() {
             totalImportedReadings,
             totalLiveReadings,
             latestLiveReading: latestLiveReadings.data?.[0] ?? null,
-            latestValveEvent: latestValveEvents.data?.[0] ?? null,
             latestIngestTime:
               latestLiveReadings.data?.[0]?.server_received_at ??
               latestState.data?.updated_at ??
@@ -823,6 +1135,10 @@ export default function App() {
     dataRef.current = initialLoadState;
   }
 
+  function selectPot(name: string) {
+    setSelectedSeriesName(name);
+  }
+
   function applyPotPreset(preset: Exclude<PotPreset, "custom">) {
     setPotPreset(preset);
     setHiddenPots(() => {
@@ -835,8 +1151,6 @@ export default function App() {
         if (preset === "drought" && treatment !== "drought") hidden.add(pairing.name);
         if (preset === "maize" && crop !== "maize") hidden.add(pairing.name);
         if (preset === "sorghum" && crop !== "sorghum") hidden.add(pairing.name);
-        if (preset === "zone2" && pairing.zone !== 2) hidden.add(pairing.name);
-        if (preset === "zone4" && pairing.zone !== 4) hidden.add(pairing.name);
       }
       return hidden;
     });
@@ -844,13 +1158,183 @@ export default function App() {
 
   function togglePot(name: string) {
     setPotPreset("custom");
+    setSelectedSeriesName(name);
     setHiddenPots((current) => {
+      const allNames = sortedPairings.map((pairing) => pairing.name);
+      const visibleCount = allNames.filter((pairingName) => !current.has(pairingName)).length;
+
+      if (visibleCount === allNames.length) {
+        return new Set(allNames.filter((pairingName) => pairingName !== name));
+      }
+
       const next = new Set(current);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+      } else if (visibleCount > 1) {
+        next.add(name);
+      }
       return next;
     });
   }
+
+  function setGroupVisibility(pairings: PairingRow[], visible: boolean) {
+    setPotPreset("custom");
+    setHiddenPots((current) => {
+      const next = new Set(current);
+      for (const pairing of pairings) {
+        if (visible) next.delete(pairing.name);
+        else next.add(pairing.name);
+      }
+      return next;
+    });
+  }
+
+  function startPanelDrag(event: PointerEvent<HTMLElement>) {
+    if (!graphExpanded || !dashboardMainRef.current || !controlPanelRef.current) return;
+    const containerRect = dashboardMainRef.current.getBoundingClientRect();
+    const panelRect = controlPanelRef.current.getBoundingClientRect();
+    const dragOffset = {
+      x: event.clientX - panelRect.left,
+      y: event.clientY - panelRect.top,
+    };
+    panelDragOffsetRef.current = dragOffset;
+    setPanelPosition({
+      x: panelRect.left - containerRect.left,
+      y: panelRect.top - containerRect.top,
+    });
+
+    const movePanel = (moveEvent: globalThis.PointerEvent) => {
+      if (!dashboardMainRef.current || !controlPanelRef.current) return;
+      const currentContainerRect = dashboardMainRef.current.getBoundingClientRect();
+      const currentPanelRect = controlPanelRef.current.getBoundingClientRect();
+      const nextX = moveEvent.clientX - currentContainerRect.left - dragOffset.x;
+      const nextY = moveEvent.clientY - currentContainerRect.top - dragOffset.y;
+      setPanelPosition({
+        x: Math.max(8, Math.min(nextX, currentContainerRect.width - currentPanelRect.width - 8)),
+        y: Math.max(8, Math.min(nextY, currentContainerRect.height - currentPanelRect.height - 8)),
+      });
+    };
+
+    const stopPanel = () => {
+      panelDragOffsetRef.current = null;
+      window.removeEventListener("pointermove", movePanel);
+      window.removeEventListener("pointerup", stopPanel);
+      window.removeEventListener("pointercancel", stopPanel);
+    };
+
+    window.addEventListener("pointermove", movePanel);
+    window.addEventListener("pointerup", stopPanel);
+    window.addEventListener("pointercancel", stopPanel);
+  }
+
+  function startPanelResize(event: PointerEvent<HTMLElement>) {
+    if (!graphExpanded || !dashboardMainRef.current || !controlPanelRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const containerRect = dashboardMainRef.current.getBoundingClientRect();
+    const panelRect = controlPanelRef.current.getBoundingClientRect();
+    const startPanelX = panelRect.left - containerRect.left;
+    const startPanelY = panelRect.top - containerRect.top;
+    const maxWidth = Math.max(minExpandedPanelSize.width, containerRect.width - 16);
+    const maxHeight = Math.max(minExpandedPanelSize.height, containerRect.height - 16);
+
+    const resizePanel = (moveEvent: globalThis.PointerEvent) => {
+      const nextWidth = panelRect.width + moveEvent.clientX - startX;
+      const nextHeight = panelRect.height + moveEvent.clientY - startY;
+      const width = Math.max(minExpandedPanelSize.width, Math.min(nextWidth, maxWidth));
+      const height = Math.max(minExpandedPanelSize.height, Math.min(nextHeight, maxHeight));
+      setPanelSize({
+        width,
+        height,
+      });
+      setPanelPosition({
+        x: Math.max(8, Math.min(startPanelX, containerRect.width - width - 8)),
+        y: Math.max(8, Math.min(startPanelY, containerRect.height - height - 8)),
+      });
+    };
+
+    const stopResize = () => {
+      window.removeEventListener("pointermove", resizePanel);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    };
+
+    window.addEventListener("pointermove", resizePanel);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  }
+
+  function toggleExpandedGraph() {
+    const nextExpanded = !graphExpanded;
+    setGraphExpanded(nextExpanded);
+    if (nextExpanded) setControlsHidden(false);
+  }
+
+  async function prepareCsvDownload() {
+    setExportingCsv(true);
+    setCsvDownload(null);
+    setError(null);
+
+    try {
+      const readings = await fetchAllExportReadings();
+      const headers = [
+        "source",
+        "event_id",
+        "pairing_name",
+        "crop",
+        "treatment",
+        "zone",
+        "pot_number",
+        "sensor_key",
+        "device_recorded_at",
+        "server_received_at",
+        "calibrated_vwc",
+        "raw_value",
+        "temperature",
+        "electrical_conductivity",
+      ];
+      const rows = readings.map((reading) => {
+        const pairing = pairingByName.get(reading.pairing_name);
+        return [
+          sourceLabelForReading(reading),
+          reading.event_id,
+          reading.pairing_name,
+          pairing ? cropLabel(cropForPairing(pairing)) : "",
+          pairing ? treatmentLabel(treatmentForPairing(pairing)) : "",
+          pairing?.zone ?? "",
+          pairing?.pot_number ?? "",
+          reading.sensor_key,
+          reading.device_recorded_at,
+          reading.server_received_at,
+          reading.calibrated_value,
+          reading.raw_value,
+          reading.temperature,
+          reading.electrical_conductivity,
+        ].map(csvEscape).join(",");
+      });
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      setCsvDownload({
+        url,
+        filename: `exacth2o-readings-all-${new Date().toISOString().slice(0, 10)}.csv`,
+        rowCount: readings.length,
+      });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setExportingCsv(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (csvDownload) URL.revokeObjectURL(csvDownload.url);
+    };
+  }, [csvDownload]);
 
   useEffect(() => {
     const rememberedEmail = window.localStorage.getItem(rememberEmailKey);
@@ -876,15 +1360,57 @@ export default function App() {
     return () => window.clearInterval(intervalId);
   }, [sessionReady, refresh]);
 
+  useEffect(() => {
+    if (!sessionReady) return undefined;
+
+    let refreshTimer: number | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimer != null) return;
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        void refresh({ incremental: true });
+      }, 750);
+    };
+
+    const shouldRefreshForEvent = (eventId: unknown) => {
+      if (typeof eventId !== "string") return false;
+      if (selectedMode === "combined" || selectedMode === "auto") return true;
+      if (selectedMode === "live") return eventId.startsWith("live-device:");
+      return eventId.startsWith("balena-export-v2:");
+    };
+
+    const channel = supabase
+      .channel("exacth2o-dashboard-live")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "sensor_readings" },
+        (payload) => {
+          if (shouldRefreshForEvent(payload.new?.event_id)) {
+            scheduleRefresh();
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "latest_device_state" },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimer != null) window.clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionReady, selectedMode, refresh]);
+
   if (!sessionReady) {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="index.html?v=20260630-1355" className="portal-logo">
+          <a href="index.html?v=20260701-015709" className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
-            <a href="index.html?v=20260630-1355">Website</a>
             <a href="support.html">Support</a>
           </div>
         </header>
@@ -973,24 +1499,26 @@ export default function App() {
     zone2: sortedPairings.filter((pairing) => pairing.zone === 2),
     zone4: sortedPairings.filter((pairing) => pairing.zone === 4),
   };
+  const controlPanelStyle: CSSProperties | undefined = graphExpanded
+    ? {
+        width: panelSize.width,
+        height: panelSize.height,
+        ...(panelPosition
+          ? { left: panelPosition.x, top: panelPosition.y, right: "auto" }
+          : {}),
+      }
+    : undefined;
 
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
-        <a className="dashboard-logo" href="index.html?v=20260630-1355" aria-label="exactH2O home">
-          exact<span>H</span>2<span>O</span>
-        </a>
         <div className="header-actions">
-          <a className="outline-btn" href="index.html?v=20260630-1355">
-            Website
+          <a className="header-action site-link" href="index.html?v=20260701-015709" aria-label="Website" title="Website">
+            <ExternalLink size={15} />
+            Site
           </a>
-          <button className="outline-btn" type="button" onClick={() => refresh({ incremental: false })} disabled={loading || refreshing}>
-            <RefreshCw size={17} className={loading || refreshing ? "spin" : ""} />
-            Refresh
-          </button>
-          <button className="outline-btn" type="button" onClick={signOut}>
-            <LogOut size={20} />
-            Sign out
+          <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
+            <LogOut size={17} />
           </button>
         </div>
       </header>
@@ -1002,210 +1530,189 @@ export default function App() {
         </div>
       ) : null}
 
-      <section className="summary-strip" aria-label="Dashboard summary">
-        <div className="summary-main">
-          <strong>20 plants</strong>
-          <span>Maize 41-50 · Sorghum 91-100 · Control odd pots · Drought even pots</span>
-        </div>
-        <div>
-          <span>Showing</span>
-          <strong>{visiblePotCount} / {activePotCount}</strong>
-        </div>
-        <div>
-          <span>Readings</span>
-          <strong>{data.readings.length.toLocaleString()}</strong>
-        </div>
-        <div>
-          <span>Last reading</span>
-          <strong>{formatDateTime(latestDisplayedReading?.device_recorded_at)}</strong>
-          <small>{ageLabel(latestDisplayedReading?.device_recorded_at)}</small>
-        </div>
-        <div className={status.className}>
-          <span>Status</span>
-          <strong>
-            <StatusIcon size={16} />
-            {status.label}
-          </strong>
-          <small>{status.label === "Live" ? "Updating" : noNewDataMessage ?? status.detail}</small>
-        </div>
-      </section>
-
-      <section className="dashboard-main">
+      <section ref={dashboardMainRef} className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}>
         <section className="chart-card">
-          <div className="chart-card-head">
-            <div>
-              <h2>Soil Moisture (% VWC)</h2>
-              <p>
-                Control vs drought · {modeLabel(data.effectiveMode)} · {data.readings.length.toLocaleString()} readings
-              </p>
-            </div>
-            <div className={`mode-pill ${status.className}`}>
-              <StatusIcon size={16} />
-              {status.label}
-            </div>
+          <div className="chart-tools">
+            {csvDownload ? (
+              <a
+                className="csv-button is-ready"
+                href={csvDownload.url}
+                download={csvDownload.filename}
+                target="_blank"
+                rel="noreferrer"
+                title={`${csvDownload.rowCount.toLocaleString()} rows ready`}
+              >
+                <Download size={14} />
+                CSV
+              </a>
+            ) : (
+              <button
+                className="csv-button"
+                type="button"
+                title="Prepare clean CSV"
+                onClick={prepareCsvDownload}
+                disabled={exportingCsv}
+              >
+                <Download size={14} />
+                {exportingCsv ? "..." : "CSV"}
+              </button>
+            )}
+          <button
+              className="expand-button"
+              type="button"
+              aria-label={graphExpanded ? "Close expanded graph" : "Expand graph"}
+              title={graphExpanded ? "Close" : "Expand"}
+              onClick={toggleExpandedGraph}
+            >
+              {graphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
           </div>
-          <SensorCanvasChart series={series} visibleNames={visibleNames} />
+
+          <section className="chart-panel-main" aria-label="All plants chart">
+            <SensorCanvasChart
+              series={chartDisplaySeries}
+              visibleNames={visibleNames}
+              selectedName={selectedSeriesName}
+              viewMode="traces"
+              onSelectSeries={selectPot}
+            />
+          </section>
         </section>
 
-        <aside className="control-panel">
+        {graphExpanded && controlsHidden ? (
+          <button
+            type="button"
+            className="controls-restore-button"
+            onClick={() => setControlsHidden(false)}
+            aria-label="Show pot controls"
+            title="Show pots"
+          >
+            {visiblePotCount}
+          </button>
+        ) : (
+        <aside
+          ref={controlPanelRef}
+          className="control-panel"
+          style={controlPanelStyle}
+        >
           <section>
-            <div className="control-heading">
-              <h2>Data mode</h2>
-              <span>{selectedMode === "auto" ? `Auto -> ${modeLabel(data.effectiveMode)}` : modeLabel(data.effectiveMode)}</span>
-            </div>
-            <div className="mode-buttons">
-              {[
-                ["auto", "Auto"],
-                ["live", "Live data"],
-                ["snapshot", "Saved snapshot"],
-                ["combined", "All data"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={selectedMode === value ? "is-selected" : ""}
-                  onClick={() => setSelectedMode(value as DataMode)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="control-heading">
-              <h2>Research view</h2>
-              <span>{visiblePotCount} showing</span>
+            <div
+              className="control-heading"
+              onPointerDown={startPanelDrag}
+              aria-label="Move controls"
+            >
+              <span>{visiblePotCount}</span>
+              {graphExpanded ? (
+                <div className="panel-size-actions" onPointerDown={(event) => event.stopPropagation()}>
+                  <button
+                    type="button"
+                    aria-label="Hide controls"
+                    title="Hide"
+                    onClick={() => setControlsHidden(true)}
+                  >
+                    -
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="preset-buttons research-presets">
               <button
                 type="button"
-                className={potPreset === "all" ? "is-selected" : ""}
+                className={`preset-filter preset-all ${potPreset === "all" ? "is-selected" : ""}`}
                 onClick={() => applyPotPreset("all")}
               >
                 All
               </button>
               <button
                 type="button"
-                className={potPreset === "control" ? "is-selected" : ""}
+                className={`preset-filter preset-control ${potPreset === "control" ? "is-selected" : ""}`}
                 onClick={() => applyPotPreset("control")}
               >
                 Control
               </button>
               <button
                 type="button"
-                className={potPreset === "drought" ? "is-selected" : ""}
+                className={`preset-filter preset-drought ${potPreset === "drought" ? "is-selected" : ""}`}
                 onClick={() => applyPotPreset("drought")}
               >
                 Drought
               </button>
               <button
                 type="button"
-                className={potPreset === "maize" ? "is-selected" : ""}
+                className={`preset-filter preset-maize ${potPreset === "maize" ? "is-selected" : ""}`}
                 onClick={() => applyPotPreset("maize")}
               >
                 Maize
               </button>
               <button
                 type="button"
-                className={potPreset === "sorghum" ? "is-selected" : ""}
+                className={`preset-filter preset-sorghum ${potPreset === "sorghum" ? "is-selected" : ""}`}
                 onClick={() => applyPotPreset("sorghum")}
               >
                 Sorghum
-              </button>
-              <button
-                type="button"
-                className={potPreset === "zone2" ? "is-selected" : ""}
-                onClick={() => applyPotPreset("zone2")}
-              >
-                Zone 2
-              </button>
-              <button
-                type="button"
-                className={potPreset === "zone4" ? "is-selected" : ""}
-                onClick={() => applyPotPreset("zone4")}
-              >
-                Zone 4
               </button>
             </div>
           </section>
 
           {[
-            ["Maize / Zone 2", groupedPairings.zone2],
-            ["Sorghum / Zone 4", groupedPairings.zone4],
-          ].map(([label, pairings]) => (
-            <section className="pot-group" key={label as string}>
-              <h3>{label as string}</h3>
-              <div>
-                {(pairings as PairingRow[]).map((pairing) => {
-                  const item = series.find((entry) => entry.name === pairing.name);
-                  const visible = !hiddenPots.has(pairing.name);
-                  return (
-                    <button
-                      key={pairing.name}
-                      type="button"
-                      className={`pot-toggle ${visible ? "is-on" : ""}`}
-                      onClick={() => togglePot(pairing.name)}
-                    >
-                      <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
-                      <span>Pot {pairing.pot_number}</span>
-                      <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
-                        {treatmentForPairing(pairing) === "control" ? "C" : "D"}
-                      </em>
-                      <small>{(item?.rawPointCount ?? 0).toLocaleString()}</small>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+            ["Maize", groupedPairings.zone2],
+            ["Sorghum", groupedPairings.zone4],
+          ].map(([label, pairings]) => {
+            const groupPairings = pairings as PairingRow[];
+            const allVisible = groupPairings.every((pairing) => !hiddenPots.has(pairing.name));
+            return (
+              <section className="pot-group" key={label as string}>
+                <div className="pot-group-head">
+                  <h3>{label as string}</h3>
+                  <button
+                    type="button"
+                    className={`group-toggle ${allVisible ? "is-on" : ""}`}
+                    aria-label={`${allVisible ? "Hide" : "Show"} all ${label as string} pots`}
+                    title={allVisible ? "Hide all" : "Show all"}
+                    onClick={() => setGroupVisibility(groupPairings, !allVisible)}
+                  >
+                    <span />
+                  </button>
+                </div>
+                <div>
+                  {groupPairings.map((pairing) => {
+                    const visible = !hiddenPots.has(pairing.name);
+                    const latestValue = statsForSeries(seriesByName.get(pairing.name)).latestValue;
+                    return (
+                      <button
+                        key={pairing.name}
+                        type="button"
+                        className={`pot-toggle ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
+                        onClick={() => togglePot(pairing.name)}
+                        aria-label={`Pot ${pairing.pot_number}, ${formatPercent(latestValue)}`}
+                      >
+                        <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
+                        <span className="pot-reading">
+                          <b>{pairing.pot_number}</b>
+                          <strong>{formatPercent(latestValue)}</strong>
+                        </span>
+                        <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
+                          {treatmentForPairing(pairing) === "control" ? "C" : "D"}
+                        </em>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+          {graphExpanded ? (
+            <button
+              type="button"
+              className="panel-resize-grip"
+              aria-label="Resize controls"
+              title="Resize"
+              onPointerDown={startPanelResize}
+            />
+          ) : null}
         </aside>
+        )}
       </section>
-
-      <details className="proof-details">
-        <summary>
-          <Database size={17} />
-          Data details
-        </summary>
-        <dl>
-          <div>
-            <dt>Device</dt>
-            <dd>plain-feather</dd>
-          </div>
-          <div>
-            <dt>Dataset</dt>
-            <dd>{modeLabel(data.effectiveMode)}</dd>
-          </div>
-          <div>
-            <dt>Treatment Groups</dt>
-            <dd>10 control / 10 droughted</dd>
-          </div>
-          <div>
-            <dt>Crop Groups</dt>
-            <dd>Maize pots 41-50 / sorghum pots 91-100</dd>
-          </div>
-          <div>
-            <dt>Imported Rows in Database</dt>
-            <dd>{data.totalImportedReadings.toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt>Live Device Rows</dt>
-            <dd>{data.totalLiveReadings.toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt>Rows Displayed</dt>
-            <dd>{data.readings.length.toLocaleString()} recent readings</dd>
-          </div>
-          <div>
-            <dt>Points Plotted</dt>
-            <dd>{plottedPointCount.toLocaleString()} of {rawPointCount.toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt>Pots</dt>
-            <dd>{sortedPairings.length}</dd>
-          </div>
-        </dl>
-      </details>
     </main>
   );
 }
