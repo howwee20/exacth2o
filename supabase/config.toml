@@ -2,3 +2,6 @@ project_id = "zmhdclcjrkntrpynozvo"
 
 [functions.submit-quote]
 verify_jwt = false
+
+[functions.accept-invite]
+verify_jwt = false

@@ -6,6 +6,8 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
 
 - React/Vite frontend embedded in this website repo under `research-portal/`.
 - Supabase Auth login using the browser-safe anon key.
+- Invite-only account setup through a Supabase Edge Function. The browser sends
+  an invite token, email, and password; the service-role key stays server-side.
 - Dashboard queries the existing tables:
   - `pairings`
   - `sensor_readings`
@@ -17,8 +19,8 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
 
 ## What this is not
 
-- No new database schema.
 - No service role key in the frontend.
+- No open public signup that automatically grants project access.
 - No fake live data.
 - No command/control or irrigation actuation.
 - No new valve mappings.
@@ -53,3 +55,16 @@ npm run dev
 ```
 
 The portal uses snapshot mode automatically when no `live-device:%` rows are available.
+
+## Invite access
+
+Apply the `project_invites` migration and deploy the `accept-invite` Edge Function.
+Create a Matt project invite from the Supabase SQL editor:
+
+```sql
+select *
+from public.create_project_invite('person@example.com');
+```
+
+Send the returned `invite_url`. The raw token is only returned once; the database
+stores only its SHA-256 hash.

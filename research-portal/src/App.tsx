@@ -19,8 +19,6 @@ import {
 import { supabase } from "./supabase";
 import type { LatestState, PairingRow, SensorReading } from "./types";
 
-const defaultEmail = "";
-
 const graphReadLimit = 5000;
 const pageSize = 1000;
 const maxExportRowsPerSource = 100_000;
@@ -103,7 +101,15 @@ type Treatment = "control" | "drought" | "unknown";
 type Crop = "maize" | "sorghum" | "unknown";
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
-type AuthMode = "sign-in" | "sign-up" | "set-password";
+type AuthMode = "sign-in" | "accept-invite" | "set-password";
+
+type InviteAcceptResponse = {
+  ok?: boolean;
+  session?: {
+    access_token?: string;
+    refresh_token?: string;
+  };
+};
 
 type TooltipState = {
   x: number;
@@ -171,7 +177,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260701-account-setup";
+const portalVersion = "20260702-invite-access";
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -190,14 +196,23 @@ function portalUrl() {
   return `${window.location.origin}${window.location.pathname}`;
 }
 
+function inviteTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("invite") ?? params.get("token") ?? "";
+}
+
+function initialEmail() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("email") ?? "";
+}
+
 function initialAuthMode(): AuthMode {
   const params = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const requestedMode = params.get("mode");
   const authType = params.get("type") ?? hashParams.get("type");
 
-  if (requestedMode === "signup") return "sign-up";
-  if (authType === "invite" || authType === "recovery") return "set-password";
+  if (inviteTokenFromUrl()) return "accept-invite";
+  if (authType === "recovery") return "set-password";
   return "sign-in";
 }
 
@@ -437,6 +452,21 @@ function errorMessage(error: unknown) {
     if (typeof message === "string" && message) return message;
   }
   return "Request failed. Please try again.";
+}
+
+async function functionErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "context" in error) {
+    const context = (error as { context?: unknown }).context;
+    if (typeof Response !== "undefined" && context instanceof Response) {
+      try {
+        const body = await context.clone().json();
+        if (body && typeof body.error === "string") return body.error;
+      } catch {
+        // Fall through to the generic error parser.
+      }
+    }
+  }
+  return errorMessage(error);
 }
 
 function dedupeReadings(readings: SensorReading[]) {
@@ -1157,9 +1187,10 @@ function SensorCanvasChart({
 }
 
 export default function App() {
-  const [email, setEmail] = useState(defaultEmail);
+  const [email, setEmail] = useState(() => initialEmail());
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<AuthMode>(() => initialAuthMode());
+  const [inviteToken] = useState(() => inviteTokenFromUrl());
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [rememberDevice, setRememberDevice] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
@@ -1318,12 +1349,18 @@ export default function App() {
     setSessionReady(true);
   }
 
-  async function signUp(event?: FormEvent<HTMLFormElement>) {
+  async function acceptInvite(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setLoading(true);
     setError(null);
     setLoginError(null);
     setAuthNotice(null);
+
+    if (!inviteToken) {
+      setLoading(false);
+      setLoginError("Use a valid invite link to create an account.");
+      return;
+    }
 
     if (password.length < 8) {
       setLoading(false);
@@ -1331,33 +1368,49 @@ export default function App() {
       return;
     }
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: portalUrl(),
-      },
+    const { data: inviteData, error: inviteError } =
+      await supabase.functions.invoke<InviteAcceptResponse>("accept-invite", {
+        body: {
+          token: inviteToken,
+          email,
+          password,
+        },
+      });
+
+    if (inviteError) {
+      setLoading(false);
+      setLoginError(await functionErrorMessage(inviteError));
+      return;
+    }
+
+    const session = inviteData?.session;
+    if (!session?.access_token || !session.refresh_token) {
+      setLoading(false);
+      setLoginError("Invite accepted, but sign-in did not complete.");
+      return;
+    }
+
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
     });
 
     setLoading(false);
 
-    if (signUpError) {
-      setLoginError(errorMessage(signUpError));
+    if (sessionError) {
+      setLoginError(errorMessage(sessionError));
       return;
     }
 
     if (rememberDevice) {
       window.localStorage.setItem(rememberEmailKey, email);
+    } else {
+      window.localStorage.removeItem(rememberEmailKey);
     }
 
-    if (signUpData.session) {
-      setSessionReady(true);
-      return;
-    }
-
+    window.history.replaceState(null, "", portalUrl());
     setPassword("");
-    setAuthMode("sign-in");
-    setAuthNotice("Check your email, then sign in.");
+    setSessionReady(true);
   }
 
   async function setAccountPassword(event?: FormEvent<HTMLFormElement>) {
@@ -1394,7 +1447,7 @@ export default function App() {
       window.history.replaceState(
         null,
         "",
-        nextMode === "sign-up" ? `${portalUrl()}?mode=signup` : portalUrl(),
+        portalUrl(),
       );
     }
   }
@@ -1616,7 +1669,7 @@ export default function App() {
       setRememberDevice(true);
     }
     supabase.auth.getSession().then(({ data: sessionData }) => {
-      if (authMode === "set-password") return;
+      if (authMode === "set-password" || authMode === "accept-invite") return;
       setSessionReady(Boolean(sessionData.session));
     });
   }, [authMode]);
@@ -1678,24 +1731,24 @@ export default function App() {
   }, [sessionReady, selectedMode, refresh]);
 
   if (!sessionReady) {
-    const isSignUp = authMode === "sign-up";
+    const isInviteAccept = authMode === "accept-invite";
     const isPasswordSetup = authMode === "set-password";
-    const authTitle = isPasswordSetup ? "Set Password" : isSignUp ? "Create Account" : "Sign In";
+    const authTitle = isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign In";
     const authNote = isPasswordSetup
       ? "Choose a password for this exactH2O account."
-      : isSignUp
-        ? "Use the email that should access this dashboard."
+      : isInviteAccept
+        ? "Use the invited email and choose a password."
         : "Use your exactH2O account.";
     const authSubmitText = loading
       ? isPasswordSetup
         ? "Saving..."
-        : isSignUp
-          ? "Creating..."
+        : isInviteAccept
+          ? "Accepting..."
           : "Signing in..."
       : isPasswordSetup
         ? "Save Password"
-        : isSignUp
-          ? "Create Account"
+        : isInviteAccept
+          ? "Accept Invite"
           : "Open Dashboard";
 
     return (
@@ -1719,7 +1772,7 @@ export default function App() {
             <img src="sensor.jpg" alt="" />
           </div>
           <div className="portal-context-copy">
-            <h1>exactH2O Data Portal</h1>
+            <h1>exactH2O</h1>
           </div>
         </section>
 
@@ -1728,7 +1781,7 @@ export default function App() {
             <h2>{authTitle}</h2>
             <p className="portal-login-note">{authNote}</p>
 
-            <form onSubmit={isPasswordSetup ? setAccountPassword : isSignUp ? signUp : signIn}>
+            <form onSubmit={isPasswordSetup ? setAccountPassword : isInviteAccept ? acceptInvite : signIn}>
               {!isPasswordSetup ? (
                 <div className="portal-form-group">
                   <label htmlFor="portalEmail">Email</label>
@@ -1751,7 +1804,7 @@ export default function App() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  autoComplete={isSignUp || isPasswordSetup ? "new-password" : "current-password"}
+                  autoComplete={isInviteAccept || isPasswordSetup ? "new-password" : "current-password"}
                   required
                 />
               </div>
@@ -1769,13 +1822,17 @@ export default function App() {
                 ) : (
                   <span />
                 )}
-                <button
-                  className="portal-inline-action"
-                  type="button"
-                  onClick={() => switchAuthMode(isSignUp || isPasswordSetup ? "sign-in" : "sign-up")}
-                >
-                  {isSignUp || isPasswordSetup ? "Sign in" : "Create account"}
-                </button>
+                {isInviteAccept || isPasswordSetup ? (
+                  <button
+                    className="portal-inline-action"
+                    type="button"
+                    onClick={() => switchAuthMode("sign-in")}
+                  >
+                    Sign in
+                  </button>
+                ) : (
+                  <span />
+                )}
               </div>
               <button
                 className="portal-submit-btn"
@@ -1789,7 +1846,7 @@ export default function App() {
             </form>
 
             <div className="portal-support-line">
-              Need access? Contact{" "}
+              Need access? Ask for an invite or contact{" "}
               <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a>.
             </div>
           </div>
