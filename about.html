@@ -3,250 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>About Us — exactH2O</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<meta http-equiv="refresh" content="0; url=index.html#team">
+<title>Team moved - exactH2O</title>
 <style>
-  :root {
-    --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
-    --water: #1a6b4a; --water-light: #2e9e6e; --water-pale: #d4ede3;
-    --accent: #7cbf9e; --mist: #e8e3d8;
-    --rule: rgba(14,26,20,0.15); --card-bg: #ffffff;
-    --serif: 'DM Serif Display', serif; --mono: 'DM Mono', monospace; --sans: 'Instrument Sans', sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; overflow-x: hidden; }
-
-  /* NAV — identical to Applications */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 4rem; background: rgba(244,241,235,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule); }
-  .nav-logo { font-family: var(--mono); font-size: 1.05rem; font-weight: 500; letter-spacing: -0.02em; color: var(--water); text-decoration: none; }
-  .nav-logo span { color: var(--ink); opacity: 0.4; }
-  .nav-links { display: flex; gap: 2.5rem; list-style: none; }
-  .nav-links a { font-family: var(--mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); text-decoration: none; opacity: 0.55; transition: opacity 0.2s; }
-  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--water); }
-  .nav-cta { background: var(--water); color: var(--bg) !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: var(--water-light) !important; }
-  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
-  .hamburger span { width: 100%; height: 2px; background: var(--water); border-radius: 2px; transition: all 0.3s; }
-  .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
-  .hamburger.active span:nth-child(2) { opacity: 0; }
-  .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(6px,-6px); }
-  .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 250; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-  .mobile-menu.active { display: flex; }
-  .mobile-menu a { font-family: var(--serif); font-size: 2.2rem; color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
-  .mobile-menu a:hover { opacity: 0.7; }
-  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
-
-  /* PAGE HEADER — matches applications hero style */
-  .page-header { background: var(--bg); padding: 9rem 4rem 5rem; border-bottom: 1px solid var(--rule); }
-  .ph-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.8rem; }
-  .ph-eyebrow::before { content: ''; width: 2rem; height: 1px; background: var(--water); display: block; }
-  .page-header h1 { font-family: var(--serif); font-size: clamp(3rem, 5vw, 5rem); line-height: 1.0; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 1.5rem; }
-  .page-header h1 em { font-style: italic; color: var(--water); }
-  .ph-sub { font-size: 1.05rem; line-height: 1.75; color: var(--ink); opacity: 0.65; max-width: 55ch; border-left: 2px solid var(--water-light); padding-left: 1.25rem; }
-
-  /* SECTION HELPERS */
-  .section-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.7rem; }
-  .section-label::before { content: ''; width: 1.5rem; height: 1px; background: var(--water); display: block; }
-  .section-title { font-family: var(--serif); font-size: clamp(2.2rem, 3.5vw, 3.4rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 2rem; }
-
-  /* TEAM SECTION */
-  .team-section { padding: 6rem 4rem; background: var(--bg); }
-  .team-inner { max-width: 1400px; margin: 0 auto; }
-  .team-intro-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 4rem; align-items: end; margin-bottom: 5rem; padding-bottom: 4rem; border-bottom: 1px solid var(--rule); }
-  .team-intro-desc { font-size: 1.05rem; line-height: 1.8; opacity: 0.65; padding-top: 0.5rem; }
-
-  .founders-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
-  .founder-card { background: var(--bg); display: flex; flex-direction: column; transition: background 0.3s; }
-  .founder-card:hover { background: var(--water-pale); }
-  .founder-photo { width: 100%; height: 300px; overflow: hidden; background: var(--mist); }
-  .founder-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-  .founder-photo-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(160deg, var(--bg-dark) 0%, #1a3020 100%); }
-  .founder-initials { font-family: var(--serif); font-size: 4rem; color: var(--accent); opacity: 0.6; line-height: 1; }
-  .founder-upload-hint { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(124,191,158,0.35); margin-top: 0.8rem; }
-  .founder-info { padding: 2.2rem; flex: 1; }
-  .founder-num { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; color: var(--water); opacity: 0.5; margin-bottom: 1rem; }
-  .founder-name { font-family: var(--serif); font-size: 1.8rem; color: var(--ink); margin-bottom: 0.3rem; line-height: 1.1; }
-  .founder-title { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--water); margin-bottom: 1.5rem; opacity: 0.8; }
-  .founder-bio { font-size: 0.88rem; line-height: 1.75; color: var(--ink); opacity: 0.65; margin-bottom: 1.8rem; }
-  .founder-links { border-top: 1px solid var(--rule); padding-top: 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; }
-  .founder-link { display: flex; align-items: center; gap: 0.8rem; font-family: var(--mono); font-size: 0.72rem; color: var(--water); text-decoration: none; letter-spacing: 0.04em; transition: opacity 0.2s; }
-  .founder-link:hover { opacity: 0.7; }
-  .founder-link-icon { width: 28px; height: 28px; background: var(--water-pale); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
-
-  /* MISSION BAND */
-  .mission-band { background: var(--bg-dark); padding: 6rem 4rem; }
-  .mission-inner { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: start; }
-  .mission-band .section-label { color: var(--accent); }
-  .mission-band .section-label::before { background: var(--accent); }
-  .mission-band .section-title { color: #f4f1eb; }
-  .mission-body { font-size: 0.95rem; line-height: 1.85; color: rgba(244,241,235,0.6); margin-bottom: 1.2rem; }
-  .mission-pillars { display: flex; flex-direction: column; }
-  .mission-pillar { padding: 1.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.07); display: grid; grid-template-columns: 2.5rem 1fr; gap: 1.2rem; align-items: start; }
-  .mp-num { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); opacity: 0.5; padding-top: 0.2rem; }
-  .mp-title { font-family: var(--sans); font-size: 0.95rem; font-weight: 600; color: #f4f1eb; margin-bottom: 0.3rem; }
-  .mp-desc { font-size: 0.83rem; line-height: 1.65; color: rgba(244,241,235,0.45); }
-
-  /* CTA */
-  .cta-strip { background: var(--water); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; }
-  .cta-strip::before { content: ''; position: absolute; top: -80px; right: -80px; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.05); pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(255,255,255,0.75); margin-bottom: 2.5rem; position: relative; }
-  .btn-primary { background: #fff; color: var(--water); padding: 0.85rem 2.2rem; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; display: inline-block; transition: background 0.2s; }
-  .btn-primary:hover { background: rgba(255,255,255,0.9); }
-
-  /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.4); padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; }
-  .footer-logo { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
-  footer a { color: rgba(244,241,235,0.4); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-
-  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
-  .reveal.visible { opacity: 1; transform: none; }
-
-  @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .team-section, .mission-band, .cta-strip { padding: 4rem 1.5rem; }
-    .page-header { padding-top: 7rem; }
-    .team-intro-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-    .founders-grid { grid-template-columns: 1fr; }
-    .mission-inner { grid-template-columns: 1fr; gap: 3rem; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
-  }
+body {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  background: #f4f1eb;
+  color: #101a16;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+main {
+  max-width: 520px;
+  padding: 24px;
+}
+a {
+  color: #176b4b;
+  font-weight: 700;
+}
 </style>
 </head>
 <body>
-
-<nav>
-  <a href="index.html" class="nav-logo">exact<span>H</span>2<span>O</span></a>
-  <ul class="nav-links">
-    <li><a href="index.html">Home</a></li>
-    <li><a href="applications.html">Applications</a></li>
-    <li><a href="about.html" class="active">About Us</a></li>
-    <li><a href="support.html">Support</a></li>
-    <li><a href="portal.html?v=20260701-account-setup">Research Portal</a></li>
-    <li><a href="quote.html" class="nav-cta">Get Quote</a></li>
-  </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
-</nav>
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
-  <a href="index.html" onclick="toggleMenu()">Home</a>
-  <a href="applications.html" onclick="toggleMenu()">Applications</a>
-  <a href="about.html" onclick="toggleMenu()">About Us</a>
-  <a href="support.html" onclick="toggleMenu()">Support</a>
-  <a href="portal.html?v=20260701-account-setup" onclick="toggleMenu()">Research Portal</a>
-  <a href="quote.html" onclick="toggleMenu()">Get Quote</a>
-</div>
-
-<div class="page-header">
-  <div class="ph-eyebrow">Our Team</div>
-  <h1>The people behind<br><em>exactH2O</em></h1>
-  <p class="ph-sub">Bringing together plant biology, environmental sensing, and precision engineering to move irrigation out of the lab and into the real world.</p>
-</div>
-
-<div class="team-section">
-  <div class="team-inner">
-    <div class="team-intro-grid reveal">
-      <div><div class="section-label">Leadership</div><h2 class="section-title">Built by scientists,<br>for scientists</h2></div>
-      <p class="team-intro-desc">exactH2O was founded at Michigan State University by a team with deep expertise spanning plant physiology, environmental sensing, and instrument engineering. Every design decision reflects years of firsthand frustration with imprecise irrigation in research settings — and the conviction that it could be done better.</p>
-    </div>
-    <div class="founders-grid reveal">
-
-      <div class="founder-card">
-        <div class="founder-photo">
-          <img src="ceo.jpg" alt="Binod Basyal" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">BB</div><div class="founder-upload-hint">Upload as ceo.jpg</div></div>
-        </div>
-        <div class="founder-info">
-          <div class="founder-num">01 —</div>
-          <h3 class="founder-name">Binod Basyal</h3>
-          <div class="founder-title">Founder and Chief Executive Officer</div>
-          <p class="founder-bio">Binod is a plant biologist with over a decade of experience studying plant–water relationships under drought stress. He holds a PhD in Biology and is a Postdoctoral Research Associate at Michigan State University, where his work focuses on soil moisture dynamics, plant physiology, and resilient lignocellulosic biofuel systems. Co-inventor of the exactH2O programmable drought and irrigation control system, he bridges science and practical application.</p>
-          <div class="founder-links">
-            <a href="mailto:bslbinod@gmail.com" class="founder-link"><span class="founder-link-icon">✉</span>bslbinod@gmail.com</a>
-            <a href="https://linkedin.com/in/username" target="_blank" rel="noopener" class="founder-link"><span class="founder-link-icon">in</span>LinkedIn Profile</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="founder-card">
-        <div class="founder-photo">
-          <img src="cto.jpg" alt="Berkley Walker" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">BW</div><div class="founder-upload-hint">Upload as cto.jpg</div></div>
-        </div>
-        <div class="founder-info">
-          <div class="founder-num">02 —</div>
-          <h3 class="founder-name">Berkley Walker</h3>
-          <div class="founder-title">Founder and Chief Technology Officer</div>
-          <p class="founder-bio">Berkley leads technical strategy and product development at exactH2O. An Associate Professor at MSU, he teaches plant physiology and researches photosynthesis. His prior role as product manager at METER Group gave him hands-on expertise in sensor-based agricultural technologies. He translates biological insight and engineering rigor into scalable precision water management solutions.</p>
-          <div class="founder-links">
-            <a href="mailto:berkley@msu.edu" class="founder-link"><span class="founder-link-icon">✉</span>berkley@msu.edu</a>
-            <a href="https://berkleywalker.org" target="_blank" rel="noopener" class="founder-link"><span class="founder-link-icon">↗</span>berkleywalker.org</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="founder-card">
-        <div class="founder-photo">
-          <img src="coo.jpg" alt="Jacob Hicks" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">JH</div><div class="founder-upload-hint">Upload as coo.jpg</div></div>
-        </div>
-        <div class="founder-info">
-          <div class="founder-num">03 —</div>
-          <h3 class="founder-name">Jacob Hicks</h3>
-          <div class="founder-title">Founder and Chief Operating Officer</div>
-          <p class="founder-bio">Jacob is a skilled instrument maker whose expertise lies in troubleshooting, repairing, and optimizing complex scientific instruments. He played an instrumental role in the design and physical development of the exactH2O system — translating conceptual ideas into a functional, robust setup from the ground up. His hands-on problem-solving and technical depth are critical to the system's reliability.</p>
-          <div class="founder-links">
-            <a href="mailto:coo@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>coo@exacth2o.com</a>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<div class="mission-band">
-  <div class="mission-inner reveal">
-    <div>
-      <div class="section-label">Our Mission</div>
-      <h2 class="section-title">Science-first<br>irrigation</h2>
-      <p class="mission-body">exactH2O exists because imprecise watering was undermining good science. We saw researchers spending hours hand-watering pots, then struggling to justify their stress treatments to reviewers.</p>
-      <p class="mission-body">Our mission is to make publication-quality soil moisture control accessible at every scale of plant research and production — from a single bench to a multi-acre greenhouse complex.</p>
-    </div>
-    <div class="mission-pillars">
-      <div class="mission-pillar"><div class="mp-num">01</div><div><div class="mp-title">Precision by Design</div><div class="mp-desc">Every hardware and software decision is made with measurement accuracy as the primary constraint — not cost or convenience.</div></div></div>
-      <div class="mission-pillar"><div class="mp-num">02</div><div><div class="mp-title">Open &amp; Reproducible</div><div class="mp-desc">Data is yours: open export formats, documented calibration, and no proprietary lock-in. Science requires transparency.</div></div></div>
-      <div class="mission-pillar"><div class="mp-num">03</div><div><div class="mp-title">Built on Real Research</div><div class="mp-desc">exactH2O was developed and validated in active MSU research greenhouses — not in a product lab disconnected from the scientific method.</div></div></div>
-      <div class="mission-pillar"><div class="mp-num">04</div><div><div class="mp-title">Scalable &amp; Supported</div><div class="mp-desc">From first deployment to full greenhouse network, we provide technical support from people who understand both the biology and the engineering.</div></div></div>
-    </div>
-  </div>
-</div>
-
-<div class="cta-strip reveal">
-  <h2>Let's work together</h2>
-  <p>Discover how exactH2O can transform your irrigation management</p>
-  <a href="quote.html" class="btn-primary">Get Started Today</a>
-</div>
-
-<footer>
-  <div class="footer-logo">exactH2O</div>
-  <div>About Us · exacth2o.com</div>
-  <div><a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a></div>
-</footer>
-
-<script>
-  function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
-  }
-  const revealEls = document.querySelectorAll('.reveal');
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-  }, { threshold: 0.1 });
-  revealEls.forEach(el => obs.observe(el));
-</script>
+  <main>
+    <h1>Team now lives in the main demo.</h1>
+    <p><a href="index.html#team">Open the compressed exactH2O demo</a></p>
+  </main>
 </body>
 </html>

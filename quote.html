@@ -3,343 +3,861 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Get a Quote — exactH2O</title>
+<title>Quote - exactH2O</title>
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
-    --water: #1a6b4a; --water-light: #2e9e6e; --water-pale: #d4ede3;
-    --accent: #7cbf9e; --mist: #e8e3d8;
-    --rule: rgba(14,26,20,0.15);
-    --serif: 'DM Serif Display', serif; --mono: 'DM Mono', monospace; --sans: 'Instrument Sans', sans-serif;
+:root {
+  --cream: #f4f1eb;
+  --cream-2: #faf8f2;
+  --ink: #101a16;
+  --muted: #66746f;
+  --line: rgba(16, 26, 22, 0.13);
+  --green: #176b4b;
+  --green-2: #2e9e6e;
+  --green-soft: #dff2e9;
+  --blue: #2563eb;
+  --sky: #0ea5e9;
+  --orange: #f97316;
+  --magenta: #db2777;
+  --violet: #8b5cf6;
+  --teal: #14b8a6;
+  --lime: #84cc16;
+  --white: #ffffff;
+  --mono: "DM Mono", monospace;
+  --sans: "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--sans);
+  letter-spacing: 0;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 32px;
+  background: rgba(250, 248, 242, 0.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brand span {
+  color: rgba(23, 107, 75, 0.48);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 28px;
+}
+
+.nav-links a {
+  color: rgba(16, 26, 22, 0.62);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.nav-links a:hover {
+  color: var(--green);
+}
+
+.nav-quote {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--green);
+  color: #fff !important;
+}
+
+.menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+}
+
+.menu-toggle span,
+.menu-toggle::before,
+.menu-toggle::after {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 2px;
+  margin: 4px auto;
+  background: currentColor;
+}
+
+.quote-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  min-height: calc(100vh - 65px);
+  background: var(--cream-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.quote-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 58px 32px 58px clamp(32px, 6vw, 92px);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+}
+
+.quote-intro h1 {
+  max-width: 720px;
+  margin: 0;
+  font-size: clamp(52px, 7.5vw, 108px);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.quote-intro h1 span {
+  color: var(--green);
+}
+
+.quote-intro p {
+  max-width: 620px;
+  margin: 28px 0 0;
+  color: var(--muted);
+  font-size: clamp(18px, 2vw, 23px);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.quote-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 640px;
+  margin-top: 42px;
+}
+
+.quote-fact {
+  min-height: 94px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.quote-fact strong {
+  display: block;
+  color: var(--green);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.quote-fact span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quote-visual {
+  position: relative;
+  min-height: 620px;
+  overflow: hidden;
+  border-left: 1px solid var(--line);
+  background: #d9e9df;
+}
+
+.quote-visual img {
+  width: 100%;
+  height: 100%;
+  min-height: 620px;
+  object-fit: cover;
+}
+
+.signal-panel {
+  position: absolute;
+  right: clamp(18px, 4vw, 56px);
+  bottom: clamp(18px, 4vw, 56px);
+  width: min(440px, calc(100% - 36px));
+  padding: 18px;
+  border: 1px solid rgba(16, 26, 22, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 44px rgba(16, 26, 22, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.signal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signal-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
+}
+
+.signal-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+
+.signal-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.signal-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid rgba(16, 26, 22, 0.08);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.signal-row i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.signal-row span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.signal-row b {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.form-section {
+  padding: clamp(64px, 8vw, 104px) clamp(24px, 5vw, 82px);
+}
+
+.form-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(28px, 5vw, 68px);
+  max-width: 1320px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.section-title {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 72px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.section-copy {
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.checklist {
+  display: grid;
+  gap: 0;
+  margin-top: 34px;
+  border-top: 1px solid var(--line);
+}
+
+.checklist div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.checklist b {
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.checklist span {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.direct-card {
+  margin-top: 26px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.direct-card strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.direct-card a {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--green);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.quote-form {
+  padding: clamp(22px, 4vw, 38px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 18px 50px rgba(16, 26, 22, 0.08);
+}
+
+.form-msg {
+  display: none;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.form-msg.success {
+  border: 1px solid rgba(23, 107, 75, 0.3);
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.form-msg.error {
+  border: 1px solid rgba(220, 38, 38, 0.26);
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.form-group {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.form-group.full {
+  grid-column: 1 / -1;
+}
+
+label {
+  color: rgba(16, 26, 22, 0.68);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.req {
+  color: var(--green);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--cream-2);
+  color: var(--ink);
+  font-size: 16px;
+  outline: none;
+}
+
+input,
+select {
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+textarea {
+  min-height: 150px;
+  padding: 13px 14px;
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(23, 107, 75, 0.54);
+  box-shadow: 0 0 0 4px rgba(46, 158, 110, 0.12);
+}
+
+.hp-trap {
+  position: absolute;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.submit-btn {
+  display: inline-flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--green-2);
+}
+
+.submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 32px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 1080px) {
+  .quote-shell,
+  .form-layout {
+    grid-template-columns: 1fr;
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; overflow-x: hidden; }
 
-  /* NAV — identical to Applications */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 4rem; background: rgba(244,241,235,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule); }
-  .nav-logo { font-family: var(--mono); font-size: 1.05rem; font-weight: 500; letter-spacing: -0.02em; color: var(--water); text-decoration: none; }
-  .nav-logo span { color: var(--ink); opacity: 0.4; }
-  .nav-links { display: flex; gap: 2.5rem; list-style: none; }
-  .nav-links a { font-family: var(--mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); text-decoration: none; opacity: 0.55; transition: opacity 0.2s; }
-  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--water); }
-  .nav-cta { background: var(--water); color: var(--bg) !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: var(--water-light) !important; }
-  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
-  .hamburger span { width: 100%; height: 2px; background: var(--water); border-radius: 2px; transition: all 0.3s; }
-  .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
-  .hamburger.active span:nth-child(2) { opacity: 0; }
-  .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(6px,-6px); }
-  .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 250; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-  .mobile-menu.active { display: flex; }
-  .mobile-menu a { font-family: var(--serif); font-size: 2.2rem; color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
-  .mobile-menu a:hover { opacity: 0.7; }
-  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
-
-  /* PAGE HEADER */
-  .page-header { background: var(--bg); padding: 9rem 4rem 5rem; border-bottom: 1px solid var(--rule); }
-  .ph-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.8rem; }
-  .ph-eyebrow::before { content: ''; width: 2rem; height: 1px; background: var(--water); display: block; }
-  .page-header h1 { font-family: var(--serif); font-size: clamp(3rem, 5vw, 5rem); line-height: 1.0; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 1.5rem; }
-  .page-header h1 em { font-style: italic; color: var(--water); }
-  .ph-sub { font-size: 1.05rem; line-height: 1.75; color: var(--ink); opacity: 0.65; max-width: 55ch; border-left: 2px solid var(--water-light); padding-left: 1.25rem; }
-
-  /* SECTION HELPERS */
-  .section-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.7rem; }
-  .section-label::before { content: ''; width: 1.5rem; height: 1px; background: var(--water); display: block; }
-  .section-title { font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
-
-  /* QUOTE LAYOUT */
-  .quote-section { padding: 6rem 4rem; background: var(--bg); }
-  .quote-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 5rem; align-items: start; }
-  .q-sidebar { position: sticky; top: 7rem; }
-  .q-intro { font-size: 0.9rem; line-height: 1.75; opacity: 0.6; margin-bottom: 2.5rem; }
-  .q-points { display: flex; flex-direction: column; margin-bottom: 2.5rem; }
-  .q-point { padding: 1.1rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 2.2rem 1fr; gap: 0.8rem; align-items: start; }
-  .q-point-icon { color: var(--water); font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; margin-top: 0.1rem; }
-  .q-point-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.2rem; }
-  .q-point-desc { font-size: 0.8rem; line-height: 1.6; opacity: 0.55; }
-  .q-direct { background: var(--bg-dark); padding: 1.5rem; }
-  .q-direct-label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.8rem; }
-  .q-direct p { font-size: 0.85rem; color: rgba(244,241,235,0.6); line-height: 1.6; }
-  .q-direct a { color: var(--accent); text-decoration: none; }
-  .q-direct a:hover { text-decoration: underline; }
-
-  /* FORM */
-  .quote-form-wrap { background: var(--card-bg, #fff); border: 1px solid var(--rule); padding: 3rem; }
-  .form-title { font-family: var(--serif); font-size: 1.6rem; color: var(--ink); margin-bottom: 0.4rem; }
-  .form-subtitle { font-size: 0.88rem; opacity: 0.55; margin-bottom: 2.5rem; }
-
-  /* Success / Error messages */
-  .form-msg { display: none; padding: 1.2rem 1.5rem; border-radius: 2px; font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.03em; margin-bottom: 2rem; }
-  .form-msg.success { background: var(--water-pale); border: 1px solid var(--water); color: var(--water); }
-  .form-msg.error { background: #fdf0f0; border: 1px solid #c0392b; color: #c0392b; }
-
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
-  .form-group { margin-bottom: 1.5rem; }
-  .form-group label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); opacity: 0.6; margin-bottom: 0.5rem; }
-  .req { color: var(--water); }
-  .form-group input, .form-group select, .form-group textarea {
-    width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--rule); border-radius: 2px;
-    font-family: var(--sans); font-size: 0.92rem; color: var(--ink); background: var(--bg);
-    transition: border-color 0.2s, box-shadow 0.2s; appearance: none; -webkit-appearance: none;
+  .quote-visual {
+    min-height: 560px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-    outline: none; border-color: var(--water-light); box-shadow: 0 0 0 3px rgba(46,158,110,0.1);
+}
+
+@media (max-width: 760px) {
+  .site-nav {
+    padding: 12px 18px;
   }
-  .form-group textarea { resize: vertical; min-height: 130px; }
 
-  /* Honeypot — invisible to humans, visible to bots */
-  .hp-trap { opacity: 0; position: absolute; top: 0; left: 0; height: 0; width: 0; z-index: -1; pointer-events: none; overflow: hidden; }
-
-  .submit-btn { width: 100%; background: var(--water); color: #fff; padding: 1.1rem; border: none; border-radius: 2px; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; }
-  .submit-btn:hover:not(:disabled) { background: var(--water-light); }
-  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.4); padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; }
-  .footer-logo { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
-  footer a { color: rgba(244,241,235,0.4); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-
-  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
-  .reveal.visible { opacity: 1; transform: none; }
-
-  @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .quote-section { padding: 4rem 1.5rem; } .page-header { padding-top: 7rem; }
-    .quote-inner { grid-template-columns: 1fr; gap: 3rem; }
-    .q-sidebar { position: static; }
-    .form-row { grid-template-columns: 1fr; }
-    .quote-form-wrap { padding: 2rem 1.5rem; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
+  .nav-links {
+    position: fixed;
+    inset: 64px 12px auto 12px;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--white);
+    box-shadow: 0 18px 48px rgba(16, 26, 22, 0.13);
   }
+
+  .nav-links.is-open {
+    display: flex;
+  }
+
+  .nav-links a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+  }
+
+  .menu-toggle {
+    display: block;
+  }
+
+  .quote-intro {
+    padding: 42px 22px;
+  }
+
+  .quote-intro h1 {
+    font-size: clamp(46px, 15vw, 70px);
+  }
+
+  .quote-facts,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quote-visual,
+  .quote-visual img {
+    min-height: 500px;
+  }
+
+  .form-section {
+    padding: 56px 20px;
+  }
+
+  .form-group.full {
+    grid-column: auto;
+  }
+
+  footer {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px 20px;
+  }
+}
 </style>
 </head>
 <body>
-
-<nav>
-  <a href="index.html" class="nav-logo">exact<span>H</span>2<span>O</span></a>
-  <ul class="nav-links">
-    <li><a href="index.html">Home</a></li>
-    <li><a href="applications.html">Applications</a></li>
-    <li><a href="about.html">About Us</a></li>
-    <li><a href="support.html">Support</a></li>
-    <li><a href="portal.html?v=20260701-account-setup">Research Portal</a></li>
-    <li><a href="quote.html" class="nav-cta active">Get Quote</a></li>
-  </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+<nav class="site-nav" aria-label="Primary navigation">
+  <a href="index.html" class="brand">exact<span>H</span>2<span>O</span></a>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation" onclick="toggleMenu()"><span></span></button>
+  <div class="nav-links" id="navLinks">
+    <a href="index.html#technology">Technology</a>
+    <a href="index.html#use-cases">Use Cases</a>
+    <a href="index.html#data">Live Data</a>
+    <a href="index.html#research">Research</a>
+    <a href="index.html#team">Team</a>
+    <a href="portal.html?v=20260702-invite-access">Portal</a>
+    <a href="quote.html" class="nav-quote">Quote</a>
+  </div>
 </nav>
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
-  <a href="index.html" onclick="toggleMenu()">Home</a>
-  <a href="applications.html" onclick="toggleMenu()">Applications</a>
-  <a href="about.html" onclick="toggleMenu()">About Us</a>
-  <a href="support.html" onclick="toggleMenu()">Support</a>
-  <a href="portal.html?v=20260701-account-setup" onclick="toggleMenu()">Research Portal</a>
-  <a href="quote.html" onclick="toggleMenu()">Get Quote</a>
-</div>
 
-<div class="page-header">
-  <div class="ph-eyebrow">Get Started</div>
-  <h1>Tell us about<br>your <em>project</em></h1>
-  <p class="ph-sub">We'll design a solution around your facility, crop, and research needs — and get back to you within 24 hours.</p>
-</div>
-
-<div class="quote-section">
-  <div class="quote-inner reveal">
-
-    <div class="q-sidebar">
-      <div class="section-label">Why request a quote</div>
-      <h2 class="section-title">Custom-fitted<br>to your setup</h2>
-      <p class="q-intro">No two irrigation systems are identical. We size each deployment around your substrate, zone count, data requirements, and budget.</p>
-      <div class="q-points">
-        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Response</div><div class="q-point-desc">We'll get back to you within one business day with questions or a preliminary recommendation.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">System Fit</div><div class="q-point-desc">From single growth chambers to multi-range greenhouse complexes, every quote is specific to your needs.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">03</span><div><div class="q-point-title">Direct Review</div><div class="q-point-desc">Your request goes into the exactH2O database and notifies the team for follow-up.</div></div></div>
-      </div>
-      <div class="q-direct">
-        <div class="q-direct-label">Direct Contact</div>
-        <p>Prefer email? Reach us at <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a> — we're happy to discuss your project before a formal quote.</p>
+<main>
+  <section class="quote-shell">
+    <div class="quote-intro">
+      <div class="eyebrow">Project fit</div>
+      <h1>Size the system around <span>your experiment.</span></h1>
+      <p>Send the crop, pot count, treatment plan, greenhouse layout, and timeline. The reply should be practical: hardware scope, deployment path, and next questions.</p>
+      <div class="quote-facts" aria-label="Quote details">
+        <div class="quote-fact"><strong>100</strong><span>Individually controlled pots</span></div>
+        <div class="quote-fact"><strong>24/7</strong><span>Live monitoring option</span></div>
+        <div class="quote-fact"><strong>CSV</strong><span>Research-ready export</span></div>
+        <div class="quote-fact"><strong>MSU</strong><span>Greenhouse proven</span></div>
       </div>
     </div>
+    <div class="quote-visual" aria-label="exactH2O greenhouse setup">
+      <img src="product5.jpg" alt="Greenhouse plants with exactH2O irrigation hardware">
+      <div class="signal-panel">
+        <div class="signal-head">
+          <span>Quote inputs</span>
+          <span class="signal-dot">Ready</span>
+        </div>
+        <div class="signal-grid">
+          <div class="signal-row"><i style="background:var(--blue)"></i><span>Crop and substrate</span><b>Required</b></div>
+          <div class="signal-row"><i style="background:var(--orange)"></i><span>Treatments and zones</span><b>Required</b></div>
+          <div class="signal-row"><i style="background:var(--teal)"></i><span>Sensor and export needs</span><b>Helpful</b></div>
+          <div class="signal-row"><i style="background:var(--magenta)"></i><span>Timeline and facility notes</span><b>Helpful</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <div>
-      <div class="quote-form-wrap">
+  <section class="form-section" id="form">
+    <div class="form-layout">
+      <aside class="reveal">
+        <div class="eyebrow">Fast response</div>
+        <h2 class="section-title">What helps us quote cleanly.</h2>
+        <p class="section-copy">Keep it short. A rough facility description and research goal is enough to start.</p>
+        <div class="checklist">
+          <div><b>01</b><span>Pot count, crop, substrate, and greenhouse or chamber type.</span></div>
+          <div><b>02</b><span>Water treatments, target VWC ranges, and zone count.</span></div>
+          <div><b>03</b><span>Dashboard, CSV, monitoring, and installation requirements.</span></div>
+          <div><b>04</b><span>Timeline, budget constraints, and who should join follow-up.</span></div>
+        </div>
+        <div class="direct-card">
+          <strong>Direct email</strong>
+          <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a>
+        </div>
+      </aside>
+
+      <form class="quote-form reveal" id="quoteForm" novalidate>
         <div class="form-msg success" id="successMsg">Quote request received. We will follow up shortly.</div>
         <div class="form-msg error" id="errorMsg">Could not send request. Please email us directly at bslbinod@gmail.com.</div>
 
-        <h3 class="form-title">Request Your Quote</h3>
-        <p class="form-subtitle">Fill out the form below and we'll be in touch soon</p>
+        <div class="hp-trap" aria-hidden="true">
+          <input type="text" name="_honey" tabindex="-1" autocomplete="off">
+        </div>
 
-        <form id="quoteForm" novalidate>
-          <!-- Honeypot anti-spam trap — bots fill this, humans don't see it -->
-          <div class="hp-trap" aria-hidden="true">
-            <input type="text" name="_honey" tabindex="-1" autocomplete="off">
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="name">Full Name <span class="req">*</span></label>
-              <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100">
-            </div>
-            <div class="form-group">
-              <label for="email">Email Address <span class="req">*</span></label>
-              <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="phone">Phone Number</label>
-              <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567" autocomplete="tel" maxlength="30">
-            </div>
-            <div class="form-group">
-              <label for="org">Organization / Institution</label>
-              <input type="text" id="org" name="organization" placeholder="Michigan State University" autocomplete="organization" maxlength="150">
-            </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="name">Full Name <span class="req">*</span></label>
+            <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100">
           </div>
           <div class="form-group">
+            <label for="email">Email Address <span class="req">*</span></label>
+            <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200">
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567" autocomplete="tel" maxlength="30">
+          </div>
+          <div class="form-group">
+            <label for="org">Organization</label>
+            <input type="text" id="org" name="organization" placeholder="Michigan State University" autocomplete="organization" maxlength="150">
+          </div>
+          <div class="form-group full">
             <label for="application">Application Type <span class="req">*</span></label>
             <select id="application" name="application" required>
-              <option value="">Please select…</option>
+              <option value="">Select one</option>
               <option value="Plant Research / Drought Studies">Plant Research / Drought Studies</option>
               <option value="Research Greenhouse Operations">Research Greenhouse Operations</option>
               <option value="High-throughput Phenotyping">High-throughput Phenotyping</option>
               <option value="Cannabis / High-Value Crops">Cannabis / High-Value Crops</option>
               <option value="Commercial Agriculture / Field">Commercial Agriculture / Field</option>
-              <option value="Other">Other (describe below)</option>
+              <option value="Other">Other</option>
             </select>
           </div>
-          <div class="form-group">
+          <div class="form-group full">
             <label for="timeline">Expected Timeline</label>
             <select id="timeline" name="timeline">
-              <option value="">Select timeline…</option>
+              <option value="">Select timeline</option>
               <option value="Immediate (within 1 month)">Immediate (within 1 month)</option>
-              <option value="1-3 months">1–3 months</option>
-              <option value="3-6 months">3–6 months</option>
+              <option value="1-3 months">1-3 months</option>
+              <option value="3-6 months">3-6 months</option>
               <option value="6+ months">6+ months</option>
               <option value="Just planning / researching">Just planning / researching</option>
             </select>
           </div>
-          <div class="form-group">
+          <div class="form-group full">
             <label for="message">Project Details <span class="req">*</span></label>
-            <textarea id="message" name="message" required placeholder="Tell us about your irrigation needs, research goals, existing setup, or any specific requirements…" maxlength="3000"></textarea>
+            <textarea id="message" name="message" required placeholder="Pot count, crop, treatments, target VWC, greenhouse layout, timeline, and anything unusual about the setup." maxlength="3000"></textarea>
           </div>
-          <button type="submit" class="submit-btn" id="submitBtn">Submit Quote Request</button>
-        </form>
-      </div>
-    </div>
+        </div>
 
-  </div>
-</div>
+        <button type="submit" class="submit-btn" id="submitBtn">Submit Quote Request</button>
+      </form>
+    </div>
+  </section>
+</main>
 
 <footer>
-  <div class="footer-logo">exactH2O</div>
-  <div>Get Quote · exacth2o.com</div>
-  <div><a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a></div>
+  <div>exactH2O · water control for plant research</div>
+  <div><a href="portal.html?v=20260702-invite-access">Research Portal</a> · <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a></div>
 </footer>
 
 <script>
-  function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
+function toggleMenu() {
+  document.getElementById("navLinks").classList.toggle("is-open");
+}
+
+document.querySelectorAll(".nav-links a").forEach((link) => {
+  link.addEventListener("click", () => {
+    document.getElementById("navLinks").classList.remove("is-open");
+  });
+});
+
+const QUOTE_FUNCTION_URL = "https://zmhdclcjrkntrpynozvo.functions.supabase.co/submit-quote";
+let submitted = false;
+
+document.getElementById("quoteForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+  if (submitted) return;
+
+  const btn = document.getElementById("submitBtn");
+  const successMsg = document.getElementById("successMsg");
+  const errorMsg = document.getElementById("errorMsg");
+
+  successMsg.style.display = "none";
+  errorMsg.style.display = "none";
+
+  const honey = this.querySelector("[name='_honey']");
+  if (honey && honey.value) return;
+
+  const name = this.querySelector("[name='name']").value.trim();
+  const email = this.querySelector("[name='email']").value.trim();
+  const application = this.querySelector("[name='application']").value;
+  const message = this.querySelector("[name='message']").value.trim();
+
+  if (!name || !email || !application || !message) {
+    errorMsg.textContent = "Please fill in all required fields.";
+    errorMsg.style.display = "block";
+    return;
   }
 
-  const QUOTE_FUNCTION_URL = 'https://zmhdclcjrkntrpynozvo.functions.supabase.co/submit-quote';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errorMsg.textContent = "Please enter a valid email address.";
+    errorMsg.style.display = "block";
+    return;
+  }
 
-  let submitted = false; // prevents duplicate submissions
+  btn.disabled = true;
+  btn.textContent = "Sending...";
+  submitted = true;
 
-  document.getElementById('quoteForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+  const payload = {
+    name,
+    email,
+    phone: this.querySelector("[name='phone']").value.trim(),
+    organization: this.querySelector("[name='organization']").value.trim(),
+    application,
+    timeline: this.querySelector("[name='timeline']").value,
+    message,
+    honey: honey ? honey.value : "",
+    sourceUrl: window.location.href
+  };
 
-    // Block duplicate submissions
-    if (submitted) return;
+  try {
+    const response = await fetch(QUOTE_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
 
-    const btn = document.getElementById('submitBtn');
-    const successMsg = document.getElementById('successMsg');
-    const errorMsg = document.getElementById('errorMsg');
-
-    // Hide any previous messages
-    successMsg.style.display = 'none';
-    errorMsg.style.display = 'none';
-
-    // Honeypot check — if filled, silently reject (it's a bot)
-    const honey = this.querySelector('[name="_honey"]');
-    if (honey && honey.value) return;
-
-    // Basic client-side validation
-    const name = this.querySelector('[name="name"]').value.trim();
-    const email = this.querySelector('[name="email"]').value.trim();
-    const application = this.querySelector('[name="application"]').value;
-    const message = this.querySelector('[name="message"]').value.trim();
-
-    if (!name || !email || !application || !message) {
-      errorMsg.textContent = 'Please fill in all required fields.';
-      errorMsg.style.display = 'block';
-      return;
+    if (response.ok) {
+      successMsg.style.display = "block";
+      this.reset();
+      btn.textContent = "Sent";
+      successMsg.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.error || "Server error");
     }
+  } catch (err) {
+    submitted = false;
+    btn.disabled = false;
+    btn.textContent = "Submit Quote Request";
+    errorMsg.textContent = "Could not send request. Please email us directly at bslbinod@gmail.com.";
+    errorMsg.style.display = "block";
+  }
+});
 
-    // Simple email format check
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errorMsg.textContent = 'Please enter a valid email address.';
-      errorMsg.style.display = 'block';
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
-    submitted = true;
-
-    const payload = {
-      name,
-      email,
-      phone: this.querySelector('[name="phone"]').value.trim(),
-      organization: this.querySelector('[name="organization"]').value.trim(),
-      application,
-      timeline: this.querySelector('[name="timeline"]').value,
-      message,
-      honey: honey ? honey.value : '',
-      sourceUrl: window.location.href
-    };
-
-    try {
-      const response = await fetch(QUOTE_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        successMsg.style.display = 'block';
-        this.reset();
-        btn.textContent = 'Sent';
-        successMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      } else {
-        const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || 'Server error');
-      }
-    } catch (err) {
-      submitted = false; // allow retry on error
-      btn.disabled = false;
-      btn.textContent = 'Submit Quote Request';
-      errorMsg.textContent = 'Could not send request. Please email us directly at bslbinod@gmail.com.';
-      errorMsg.style.display = 'block';
-    }
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) entry.target.classList.add("visible");
   });
+}, { threshold: 0.16 });
 
-  // Reveal animations
-  const revealEls = document.querySelectorAll('.reveal');
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-  }, { threshold: 0.1 });
-  revealEls.forEach(el => obs.observe(el));
+document.querySelectorAll(".reveal").forEach((element) => revealObserver.observe(element));
 </script>
 </body>
 </html>
