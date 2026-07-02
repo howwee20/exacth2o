@@ -13,16 +13,17 @@
   --ink: #101a16;
   --muted: #66746f;
   --line: rgba(16, 26, 22, 0.13);
-  --green: #176b4b;
-  --green-2: #2e9e6e;
-  --green-soft: #dff2e9;
+  --brand-green: #176b4b;
+  --accent: #2563eb;
+  --accent-2: #7c3aed;
+  --accent-soft: #dbeafe;
   --blue: #2563eb;
   --sky: #0ea5e9;
   --orange: #f97316;
   --magenta: #db2777;
   --violet: #8b5cf6;
-  --teal: #14b8a6;
-  --lime: #84cc16;
+  --cyan: #06b6d4;
+  --status: #f97316;
   --white: #ffffff;
   --mono: "DM Mono", monospace;
   --sans: "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -76,7 +77,7 @@ select {
 }
 
 .brand {
-  color: var(--green);
+  color: rgba(16, 26, 22, 0.62);
   font-family: var(--mono);
   font-size: 16px;
   font-weight: 700;
@@ -84,7 +85,7 @@ select {
 }
 
 .brand span {
-  color: rgba(23, 107, 75, 0.48);
+  color: var(--accent);
 }
 
 .nav-links {
@@ -105,7 +106,7 @@ select {
 }
 
 .nav-links a:hover {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .nav-quote {
@@ -115,7 +116,7 @@ select {
   justify-content: center;
   padding: 0 16px;
   border-radius: 6px;
-  background: var(--green);
+  background: var(--accent);
   color: #fff !important;
 }
 
@@ -140,6 +141,131 @@ select {
   background: currentColor;
 }
 
+.home-slideshow {
+  position: relative;
+  min-height: calc(100vh - 65px);
+  overflow: hidden;
+  background: #07111f;
+  border-bottom: 1px solid var(--line);
+}
+
+.home-slides,
+.home-slide,
+.home-slide img {
+  position: absolute;
+  inset: 0;
+}
+
+.home-slides {
+  background: url("product1.jpg") center / cover no-repeat;
+}
+
+.home-slide {
+  margin: 0;
+  opacity: 0;
+  animation: homePhotoCycle 42s linear infinite;
+}
+
+.home-slide:first-child {
+  opacity: 1;
+}
+
+.home-slide:nth-child(2) { animation-delay: 6s; }
+.home-slide:nth-child(3) { animation-delay: 12s; }
+.home-slide:nth-child(4) { animation-delay: 18s; }
+.home-slide:nth-child(5) { animation-delay: 24s; }
+.home-slide:nth-child(6) { animation-delay: 30s; }
+.home-slide:nth-child(7) { animation-delay: 36s; }
+
+.home-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.03);
+}
+
+.home-slideshow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 17, 31, 0.06), rgba(7, 17, 31, 0.08) 38%, rgba(7, 17, 31, 0.62)),
+    linear-gradient(90deg, rgba(7, 17, 31, 0.42), transparent 58%);
+  pointer-events: none;
+}
+
+.home-content {
+  position: absolute;
+  z-index: 2;
+  left: clamp(24px, 6vw, 110px);
+  right: clamp(24px, 6vw, 110px);
+  bottom: clamp(38px, 9vw, 118px);
+  color: #fff;
+}
+
+.hero-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  width: min(920px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.hero-metric {
+  min-width: min(260px, 100%);
+  flex: 1 1 0;
+  padding: 18px 22px;
+  background: rgba(7, 17, 31, 0.34);
+  backdrop-filter: blur(10px);
+}
+
+.hero-metric strong {
+  display: block;
+  color: #fff;
+  font-size: clamp(34px, 5vw, 64px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.hero-metric span {
+  display: block;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-cta {
+  display: inline-flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 34px;
+  padding: 0 28px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+@keyframes homePhotoCycle {
+  0% { opacity: 1; }
+  12% { opacity: 1; }
+  16% { opacity: 0; }
+  96% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -160,7 +286,7 @@ select {
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
-  color: var(--green);
+  color: var(--accent);
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 600;
@@ -185,7 +311,7 @@ select {
 }
 
 .hero h1 span {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .hero-sub {
@@ -196,6 +322,26 @@ select {
   font-weight: 500;
   line-height: 1.45;
 }
+
+.trace-strip {
+  display: grid;
+  gap: 6px;
+  width: min(430px, 100%);
+  margin-top: 30px;
+}
+
+.trace-strip i {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.16);
+}
+
+.trace-strip i:nth-child(1) { width: 94%; background: var(--blue); }
+.trace-strip i:nth-child(2) { width: 78%; background: var(--orange); }
+.trace-strip i:nth-child(3) { width: 88%; background: var(--sky); }
+.trace-strip i:nth-child(4) { width: 66%; background: var(--magenta); }
+.trace-strip i:nth-child(5) { width: 82%; background: var(--violet); }
 
 .hero-actions {
   display: flex;
@@ -224,8 +370,8 @@ select {
 }
 
 .action.primary {
-  border-color: var(--green);
-  background: var(--green);
+  border-color: var(--accent);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -247,7 +393,7 @@ select {
 
 .proof strong {
   display: block;
-  color: var(--green);
+  color: var(--accent);
   font-size: 28px;
   line-height: 1;
 }
@@ -267,7 +413,7 @@ select {
   min-height: 620px;
   overflow: hidden;
   border-left: 1px solid var(--line);
-  background: #d9e9df;
+  background: #eef2ff;
 }
 
 .hero-visual img {
@@ -307,7 +453,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--green);
+  color: var(--accent);
 }
 
 .status-pill::before {
@@ -315,7 +461,7 @@ select {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--lime);
+  background: var(--status);
 }
 
 .mini-chart {
@@ -339,7 +485,7 @@ select {
 
 .line-blue { stroke: var(--blue); }
 .line-orange { stroke: var(--orange); }
-.line-teal { stroke: var(--teal); }
+.line-teal { stroke: var(--cyan); }
 .line-magenta { stroke: var(--magenta); }
 .line-violet { stroke: var(--violet); }
 
@@ -413,8 +559,19 @@ select {
 }
 
 .system-item {
+  display: block;
+  position: relative;
   min-height: 430px;
   background: var(--white);
+  color: inherit;
+  text-decoration: none;
+}
+
+.system-item::before {
+  content: "";
+  display: block;
+  height: 4px;
+  background: linear-gradient(90deg, var(--blue), var(--orange), var(--sky), var(--magenta), var(--violet));
 }
 
 .system-image {
@@ -435,7 +592,7 @@ select {
 }
 
 .system-kicker {
-  color: var(--green);
+  color: var(--accent);
   font-family: var(--mono);
   font-size: 10px;
   font-weight: 700;
@@ -490,7 +647,7 @@ select {
 }
 
 .use-num {
-  color: var(--green-2);
+  color: var(--accent-2);
   font-family: var(--mono);
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -623,7 +780,7 @@ select {
 }
 
 .team-role {
-  color: var(--green);
+  color: var(--accent);
   font-family: var(--mono);
   font-size: 10px;
   font-weight: 700;
@@ -678,7 +835,7 @@ select {
 .quote .action.primary {
   border-color: #f8f6f0;
   background: #f8f6f0;
-  color: var(--green);
+  color: var(--accent);
 }
 
 footer {
@@ -765,6 +922,18 @@ footer {
     padding: 42px 22px;
   }
 
+  .home-content {
+    left: 22px;
+    right: 22px;
+    bottom: 42px;
+  }
+
+  .hero-metrics {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: min(340px, 100%);
+  }
+
   .hero h1 {
     font-size: clamp(48px, 16vw, 72px);
   }
@@ -802,226 +971,77 @@ footer {
 </head>
 <body>
 <nav class="site-nav" aria-label="Primary navigation">
-  <a href="index.html" class="brand">exact<span>H</span>2<span>O</span></a>
+  <a href="index.html" class="brand">exact<span>H2O</span></a>
   <button class="menu-toggle" type="button" aria-label="Toggle navigation" onclick="toggleMenu()"><span></span></button>
   <div class="nav-links" id="navLinks">
-    <a href="#technology">Technology</a>
-    <a href="#use-cases">Use Cases</a>
-    <a href="#data">Live Data</a>
-    <a href="#research">Research</a>
-    <a href="#team">Team</a>
-    <a href="portal.html?v=20260702-invite-access">Portal</a>
-    <a href="quote.html" class="nav-quote">Quote</a>
+    <a href="technology.html">Technology</a>
+    <a href="team.html">Team</a>
+    <a href="portal.html?v=20260702-invite-access" class="nav-quote">Portal</a>
   </div>
 </nav>
 
 <main>
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="eyebrow">Live water control for plants</div>
-      <h1>Water control for <span>plant research.</span></h1>
-      <p class="hero-sub">exactH2O measures substrate water status, automates irrigation, and turns every pot into a timestamped data stream.</p>
-      <div class="hero-actions">
-        <a href="quote.html" class="action primary">Request Quote</a>
-        <a href="portal.html?v=20260702-invite-access" class="action">Open Portal</a>
-      </div>
-      <div class="proof-row" aria-label="exactH2O proof points">
-        <div class="proof"><strong>100</strong><span>Controlled pots</span></div>
-        <div class="proof"><strong>24/7</strong><span>Live monitoring</span></div>
-        <div class="proof"><strong>CSV</strong><span>Exportable data</span></div>
-        <div class="proof"><strong>MSU</strong><span>Greenhouse tested</span></div>
-      </div>
+  <section class="home-slideshow" aria-label="exactH2O greenhouse photo slideshow">
+    <div class="home-slides" aria-hidden="true">
+      <figure class="home-slide"><img src="product1.jpg" alt=""></figure>
+      <figure class="home-slide"><img src="product2.jpg" alt=""></figure>
+      <figure class="home-slide"><img src="product3.jpg" alt=""></figure>
+      <figure class="home-slide"><img src="product4.jpg" alt=""></figure>
+      <figure class="home-slide"><img src="product5.jpg" alt=""></figure>
+      <figure class="home-slide"><img src="product6.jpg" alt=""></figure>
+      <figure class="home-slide"><img src="sensor.jpg" alt=""></figure>
     </div>
-    <div class="hero-visual" aria-label="exactH2O greenhouse installation">
-      <img src="product1.jpg" alt="exactH2O greenhouse pot array with individual irrigation lines">
-      <div class="live-panel">
-        <div class="live-panel-head">
-          <span>ExactH2O live trace</span>
-          <span class="status-pill">Online</span>
-        </div>
-        <svg class="mini-chart" viewBox="0 0 520 178" role="img" aria-label="Soil moisture line chart">
-          <polyline class="chart-line line-blue" points="8,118 50,112 96,116 142,106 188,110 232,102 278,107 324,96 370,101 416,92 468,96 512,87"/>
-          <polyline class="chart-line line-orange" points="8,130 50,126 96,120 142,121 188,112 232,117 278,110 324,112 370,104 416,107 468,98 512,101"/>
-          <polyline class="chart-line line-teal" points="8,142 50,133 96,130 142,122 188,118 232,116 278,112 324,109 370,111 416,104 468,101 512,96"/>
-          <polyline class="chart-line line-magenta" points="8,102 50,104 96,98 142,101 188,96 232,100 278,91 324,94 370,89 416,91 468,84 512,82"/>
-          <polyline class="chart-line line-violet" points="8,68 50,75 96,82 142,86 188,90 232,94 278,101 324,108 370,117 416,124 468,132 512,137"/>
-        </svg>
-        <div class="live-metrics">
-          <div class="live-metric"><b>51.0%</b><span>Pot 41 VWC</span></div>
-          <div class="live-metric"><b>20</b><span>Sensors current</span></div>
-          <div class="live-metric"><b>0</b><span>Missing pots</span></div>
-        </div>
+    <div class="home-content">
+      <div class="hero-metrics" aria-label="exactH2O performance metrics">
+        <div class="hero-metric"><strong>&plusmn;2%</strong><span>VWC Accuracy</span></div>
+        <div class="hero-metric"><strong>24/7</strong><span>Live Monitoring</span></div>
+        <div class="hero-metric"><strong>100</strong><span>Individually Controlled Pots</span></div>
       </div>
+      <a href="quote.html" class="home-cta">Request Quote</a>
     </div>
   </section>
 
-  <section class="section" id="technology">
+  <section class="section">
     <div class="section-head reveal">
       <div>
-        <div class="eyebrow">Technology</div>
-        <h2 class="section-title">Measure. Decide. Irrigate. Verify.</h2>
+        <div class="eyebrow">Explore</div>
+        <h2 class="section-title">Explore exactH2O.</h2>
       </div>
-      <p class="section-copy">A closed-loop plant-water system: sensors in the substrate, valves on each treatment, and live software that shows the experiment while it is happening.</p>
+      <p class="section-copy">Technology, people, portal, and project fit each have their own page.</p>
     </div>
     <div class="system-grid">
-      <article class="system-item reveal">
-        <div class="system-image"><img src="sensor.jpg" alt="Soil moisture sensor being placed in a potted plant"></div>
+      <a class="system-item reveal" href="technology.html">
+        <div class="system-image"><img src="sensor.jpg" alt="Soil moisture sensor in a potted plant"></div>
         <div class="system-body">
-          <div class="system-kicker">01 sensing</div>
-          <h3>Root-zone data</h3>
-          <p>VWC, temperature, and EC readings from the substrate instead of guesswork from timers.</p>
+          <div class="system-kicker">Technology</div>
+          <h3>How it works</h3>
+          <p>Sensors, control logic, dashboard, and greenhouse deployment details.</p>
         </div>
-      </article>
-      <article class="system-item reveal">
-        <div class="system-image"><img src="product2.jpg" alt="exactH2O irrigation hardware in greenhouse pots"></div>
+      </a>
+      <a class="system-item reveal" href="team.html">
+        <div class="system-image"><img src="ceo.jpg" alt="exactH2O team member in greenhouse"></div>
         <div class="system-body">
-          <div class="system-kicker">02 control</div>
-          <h3>Pot-level irrigation</h3>
-          <p>Automated watering by threshold so drought and control treatments stay intentional.</p>
+          <div class="system-kicker">Team</div>
+          <h3>Who built it</h3>
+          <p>Plant biology, instrument engineering, and deployment operations.</p>
         </div>
-      </article>
-      <article class="system-item reveal">
-        <div class="system-image"><img src="dashboard.jpg" alt="exactH2O dashboard interface"></div>
+      </a>
+      <a class="system-item reveal" href="quote.html">
+        <div class="system-image"><img src="product5.jpg" alt="exactH2O greenhouse installation"></div>
         <div class="system-body">
-          <div class="system-kicker">03 dashboard</div>
-          <h3>Live experiment view</h3>
-          <p>Researchers can see traces, export CSV, and catch sensor issues before data quality slips.</p>
+          <div class="system-kicker">Quote</div>
+          <h3>Size a system</h3>
+          <p>Share pot count, crop, treatments, sensor needs, and timeline.</p>
         </div>
-      </article>
-      <article class="system-item reveal">
-        <div class="system-image"><img src="scaling.jpg" alt="Greenhouse scaling infrastructure"></div>
+      </a>
+      <a class="system-item reveal" href="portal.html?v=20260702-invite-access">
+        <div class="system-image"><img src="dashboard.jpg" alt="exactH2O research portal dashboard"></div>
         <div class="system-body">
-          <div class="system-kicker">04 scale</div>
-          <h3>Bench to range</h3>
-          <p>Start with one experiment and expand to larger greenhouse layouts without redesigning the system.</p>
+          <div class="system-kicker">Portal</div>
+          <h3>Open data</h3>
+          <p>Use the research portal for live traces, controls, and CSV export.</p>
         </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="section dark" id="use-cases">
-    <div class="section-head reveal">
-      <div>
-        <div class="eyebrow">Use cases</div>
-        <h2 class="section-title">Where water is the variable.</h2>
-      </div>
-      <p class="section-copy">Four clear starting points, one measurement-and-control system, no brochure wall.</p>
-    </div>
-    <div class="use-cases">
-      <article class="use-tile reveal">
-        <div class="use-num">01</div>
-        <div>
-          <h3>Drought stress</h3>
-          <p>Hold pots at target VWC levels and document the full stress and recovery curve.</p>
-        </div>
-      </article>
-      <article class="use-tile reveal">
-        <div class="use-num">02</div>
-        <div>
-          <h3>Phenotyping</h3>
-          <p>Separate genetic response from watering noise with controlled environmental ground truth.</p>
-        </div>
-      </article>
-      <article class="use-tile reveal">
-        <div class="use-num">03</div>
-        <div>
-          <h3>Research greenhouses</h3>
-          <p>Run multiple treatments, zones, and benches from one monitored control layer.</p>
-        </div>
-      </article>
-      <article class="use-tile reveal">
-        <div class="use-num">04</div>
-        <div>
-          <h3>Precision irrigation</h3>
-          <p>Use live root-zone data to reduce waste and make each watering decision defensible.</p>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="section" id="data">
-    <div class="data-band">
-      <div class="dashboard-frame reveal">
-        <img src="dashboard.jpg" alt="exactH2O web dashboard showing irrigation control and live metrics">
-      </div>
-      <div class="reveal">
-        <div class="eyebrow">Dashboard inspired</div>
-        <h2 class="section-title">The product should feel like the data.</h2>
-        <p class="section-copy">Bright surfaces, colored traces, dense-but-readable controls, and real-time feedback. This is the look the marketing site should inherit from the research portal.</p>
-        <div class="data-list">
-          <div class="data-row"><i class="data-dot" style="background:var(--blue)"></i><span>Maize control trace</span><b>51.0%</b></div>
-          <div class="data-row"><i class="data-dot" style="background:var(--orange)"></i><span>Drought treatment trace</span><b>35.7%</b></div>
-          <div class="data-row"><i class="data-dot" style="background:var(--teal)"></i><span>Live sensor health</span><b>20/20</b></div>
-          <div class="data-row"><i class="data-dot" style="background:var(--magenta)"></i><span>CSV-ready experiment history</span><b>Export</b></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="research">
-    <div class="research-proof">
-      <div class="proof-photo reveal">
-        <img src="product3.jpg" alt="Plant research setup in greenhouse with exactH2O hardware">
-      </div>
-      <div class="proof-copy reveal">
-        <div class="eyebrow">Research proof</div>
-        <h2 class="section-title">Validated in real greenhouse work.</h2>
-        <p class="section-copy">exactH2O came from MSU plant research, where imprecise watering can break an experiment. The site should lead with that credibility, then get out of the way.</p>
-        <div class="proof-row">
-          <div class="proof"><strong>122</strong><span>Study days</span></div>
-          <div class="proof"><strong>4</strong><span>Water treatments</span></div>
-          <div class="proof"><strong>1%</strong><span>Drought VWC target</span></div>
-          <div class="proof"><strong>25%</strong><span>Control VWC target</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="team">
-    <div class="section-head reveal">
-      <div>
-        <div class="eyebrow">People behind it</div>
-        <h2 class="section-title">Plant biology plus instrument engineering.</h2>
-      </div>
-      <p class="section-copy">Keep the team story short: exactH2O is credible because it was built by people who understand the biology, the greenhouse, and the hardware.</p>
-    </div>
-    <div class="team-grid">
-      <article class="team-card reveal">
-        <div class="team-photo"><img src="ceo.jpg" alt="Binod Basyal"></div>
-        <div class="team-body">
-          <div class="team-role">Plant water biology</div>
-          <h3>Binod Basyal</h3>
-          <p>Plant-water relationships, drought stress, and greenhouse research workflows.</p>
-        </div>
-      </article>
-      <article class="team-card reveal">
-        <div class="team-photo"><img src="cto.jpg" alt="Berkley Walker"></div>
-        <div class="team-body">
-          <div class="team-role">Technical strategy</div>
-          <h3>Berkley Walker</h3>
-          <p>Plant physiology, sensors, scalable agricultural technology, and product rigor.</p>
-        </div>
-      </article>
-      <article class="team-card reveal">
-        <div class="team-photo"><img src="coo.jpg" alt="Jacob Hicks"></div>
-        <div class="team-body">
-          <div class="team-role">Operations</div>
-          <h3>Jacob Hicks</h3>
-          <p>Deployment support, project coordination, and customer operations.</p>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="section dark">
-    <div class="quote reveal">
-      <div class="eyebrow">Next step</div>
-      <h2>Tell us your greenhouse setup.</h2>
-      <p>Send the crop, pot count, zones, sensor needs, and timeline. exactH2O can be sized around the experiment instead of forcing the experiment around the tool.</p>
-      <div class="hero-actions">
-        <a href="quote.html" class="action primary">Request Quote</a>
-        <a href="mailto:bslbinod@gmail.com" class="action">Email Team</a>
-      </div>
+      </a>
     </div>
   </section>
 </main>

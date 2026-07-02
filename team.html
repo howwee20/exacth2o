@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team - exactH2O</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #f4f1eb;
+  --cream-2: #fbfaf6;
+  --ink: #101a16;
+  --muted: #65716c;
+  --line: rgba(16, 26, 22, 0.16);
+  --brand-green: #176b4b;
+  --accent: #2563eb;
+  --accent-soft: #edf4ff;
+  --white: #ffffff;
+  --mono: "DM Mono", monospace;
+  --serif: "DM Serif Display", Georgia, serif;
+  --sans: "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--sans);
+  letter-spacing: 0;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+}
+
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 32px;
+  background: rgba(250, 248, 242, 0.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  color: rgba(16, 26, 22, 0.62);
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 28px;
+}
+
+.nav-links a {
+  color: rgba(16, 26, 22, 0.62);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.nav-links a:hover,
+.nav-links a[aria-current="page"] {
+  color: var(--accent);
+}
+
+.nav-quote {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff !important;
+}
+
+.menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+}
+
+.menu-toggle span,
+.menu-toggle::before,
+.menu-toggle::after {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 2px;
+  margin: 4px auto;
+  background: currentColor;
+}
+
+.team-page {
+  padding: clamp(34px, 4.5vw, 64px) clamp(16px, 4vw, 72px) clamp(64px, 8vw, 112px);
+}
+
+.founders-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.founder-card {
+  display: flex;
+  min-height: 780px;
+  flex-direction: column;
+  background: var(--cream-2);
+}
+
+.founder-card:nth-child(even) {
+  background: #f8f5ee;
+}
+
+.founder-card:nth-child(4) {
+  background: var(--accent-soft);
+}
+
+.founder-card:nth-child(4) .founder-photo {
+  background: linear-gradient(180deg, #dfeafb 0%, #eef5ff 100%);
+}
+
+.founder-photo {
+  height: clamp(330px, 29vw, 450px);
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: #e8e5dc;
+}
+
+.founder-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.founder-card:nth-child(2) .founder-photo img {
+  object-position: center 36%;
+}
+
+.founder-card:nth-child(4) .founder-photo img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.founder-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: clamp(30px, 4vw, 58px);
+}
+
+.founder-number {
+  color: rgba(37, 99, 235, 0.62);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.founder-name {
+  margin: 20px 0 8px;
+  font-family: var(--serif);
+  font-size: clamp(38px, 3.7vw, 64px);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.founder-title {
+  max-width: 560px;
+  margin: 0;
+  color: rgba(37, 99, 235, 0.72);
+  font-family: var(--mono);
+  font-size: clamp(10px, 0.8vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.founder-copy {
+  max-width: 660px;
+  margin: 34px 0 0;
+  color: var(--muted);
+  font-size: clamp(14px, 0.98vw, 17px);
+  font-weight: 400;
+  line-height: 1.58;
+}
+
+.founder-links {
+  display: grid;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 34px;
+  border-top: 1px solid rgba(16, 26, 22, 0.13);
+}
+
+.founder-links a,
+.founder-links span {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 12px;
+  color: rgba(16, 26, 22, 0.68);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+}
+
+.founder-links a::before,
+.founder-links span::before {
+  content: "";
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 32px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1320px) {
+  .founder-card {
+    min-height: 760px;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-nav {
+    padding: 12px 18px;
+  }
+
+  .nav-links {
+    position: fixed;
+    inset: 64px 12px auto 12px;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--white);
+    box-shadow: 0 18px 48px rgba(16, 26, 22, 0.13);
+  }
+
+  .nav-links.is-open {
+    display: flex;
+  }
+
+  .nav-links a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+  }
+
+  .menu-toggle {
+    display: block;
+  }
+
+  .team-page {
+    padding: 20px 14px 56px;
+  }
+
+  .founders-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .founder-card {
+    min-height: auto;
+  }
+
+  .founder-photo {
+    height: 330px;
+  }
+
+  .founder-body {
+    padding: 26px 24px 30px;
+  }
+
+  footer {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px 20px;
+  }
+}
+</style>
+</head>
+<body>
+<nav class="site-nav" aria-label="Primary navigation">
+  <a href="index.html" class="brand">exact<span>H2O</span></a>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation" onclick="toggleMenu()"><span></span></button>
+  <div class="nav-links" id="navLinks">
+    <a href="technology.html">Technology</a>
+    <a href="team.html" aria-current="page">Team</a>
+    <a href="portal.html?v=20260702-invite-access" class="nav-quote">Portal</a>
+  </div>
+</nav>
+
+<main class="team-page">
+  <section class="founders-grid" aria-label="exactH2O team">
+    <article class="founder-card">
+      <div class="founder-photo">
+        <img src="ceo.jpg" alt="Binod Basyal">
+      </div>
+      <div class="founder-body">
+        <div class="founder-number">01 -</div>
+        <h1 class="founder-name">Binod Basyal</h1>
+        <p class="founder-title">Founder and Chief Executive Officer</p>
+        <p class="founder-copy">Binod is a plant biologist with over a decade of experience studying plant-water relationships under drought stress. He holds a PhD in Biology and is a Postdoctoral Research Associate at Michigan State University, where his work focuses on soil moisture dynamics, plant physiology, and resilient lignocellulosic biofuel systems. Co-inventor of the exactH2O programmable drought and irrigation control system, he bridges science and practical application.</p>
+        <div class="founder-links">
+          <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="founder-card">
+      <div class="founder-photo">
+        <img src="cto.jpg" alt="Berkley Walker">
+      </div>
+      <div class="founder-body">
+        <div class="founder-number">02 -</div>
+        <h2 class="founder-name">Berkley Walker</h2>
+        <p class="founder-title">Founder and Chief Technology Officer</p>
+        <p class="founder-copy">Berkley leads technical strategy and product development at exactH2O. An Associate Professor at MSU, he teaches plant physiology and researches photosynthesis. His prior role as product manager at METER Group gave him hands-on expertise in sensor-based agricultural technologies. He translates biological insight and engineering rigor into scalable precision water management solutions.</p>
+        <div class="founder-links">
+          <a href="mailto:berkley@msu.edu">berkley@msu.edu</a>
+          <a href="https://berkleywalker.org">berkleywalker.org</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="founder-card">
+      <div class="founder-photo">
+        <img src="coo.jpg" alt="Jacob Hicks">
+      </div>
+      <div class="founder-body">
+        <div class="founder-number">03 -</div>
+        <h2 class="founder-name">Jacob Hicks</h2>
+        <p class="founder-title">Founder and Chief Operating Officer</p>
+        <p class="founder-copy">Jacob is a skilled instrument maker whose expertise lies in troubleshooting, repairing, and optimizing complex scientific instruments. He played an instrumental role in the design and physical development of the exactH2O system - translating conceptual ideas into a functional, robust setup from the ground up. His hands-on problem-solving and technical depth are critical to the system's reliability.</p>
+        <div class="founder-links">
+          <a href="mailto:coo@exacth2o.com">coo@exacth2o.com</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="founder-card">
+      <div class="founder-photo">
+        <img src="ej-howe.png" alt="EJ Howe">
+      </div>
+      <div class="founder-body">
+        <div class="founder-number">04 -</div>
+        <h2 class="founder-name">EJ Howe</h2>
+        <p class="founder-title">Software Engineer and Instrumentation Specialist</p>
+        <p class="founder-copy">EJ is a 2026 graduate of Michigan State University who brings software development and hands-on instrumentation support to exactH2O. He works across the platform's digital tools, sensor systems, and greenhouse deployments, helping turn the technology into a reliable research product.</p>
+        <div class="founder-links">
+          <span>Michigan State University</span>
+        </div>
+      </div>
+    </article>
+  </section>
+</main>
+
+<footer>
+  <div>exactH2O · team</div>
+  <div><a href="index.html">Home</a> · <a href="quote.html">Quote</a></div>
+</footer>
+
+<script>
+function toggleMenu() {
+  document.getElementById("navLinks").classList.toggle("is-open");
+}
+
+document.querySelectorAll(".nav-links a").forEach((link) => {
+  link.addEventListener("click", () => {
+    document.getElementById("navLinks").classList.remove("is-open");
+  });
+});
+</script>
+</body>
+</html>

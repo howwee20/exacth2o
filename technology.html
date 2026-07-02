@@ -3,32 +3,806 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="0; url=index.html#technology">
 <title>Technology - exactH2O</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root {
+  --cream: #f5f7fb;
+  --cream-2: #ffffff;
+  --ink: #07111f;
+  --muted: #5d6978;
+  --line: rgba(7, 17, 31, 0.12);
+  --brand-green: #176b4b;
+  --accent: #1d4ed8;
+  --accent-2: #0ea5e9;
+  --blue: #1d4ed8;
+  --sky: #38bdf8;
+  --orange: #f59e0b;
+  --magenta: #4f46e5;
+  --violet: #7c3aed;
+  --cyan: #06b6d4;
+  --white: #ffffff;
+  --mono: "DM Mono", monospace;
+  --sans: "Instrument Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
   margin: 0;
-  background: #f4f1eb;
-  color: #101a16;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-width: 320px;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--sans);
+  letter-spacing: 0;
 }
-main {
-  max-width: 520px;
-  padding: 24px;
+
+img {
+  display: block;
+  max-width: 100%;
 }
+
 a {
-  color: #176b4b;
+  color: inherit;
+}
+
+button {
+  font: inherit;
+}
+
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 32px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  color: rgba(16, 26, 22, 0.62);
+  font-family: var(--mono);
+  font-size: 16px;
   font-weight: 700;
+  text-decoration: none;
+}
+
+.brand span {
+  color: #2563eb;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 28px;
+}
+
+.nav-links a {
+  color: rgba(16, 26, 22, 0.62);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.nav-links a:hover,
+.nav-links a[aria-current="page"] {
+  color: var(--accent);
+}
+
+.nav-quote {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff !important;
+}
+
+.menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+}
+
+.menu-toggle span,
+.menu-toggle::before,
+.menu-toggle::after {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 2px;
+  margin: 4px auto;
+  background: currentColor;
+}
+
+.page-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  min-height: calc(100vh - 65px);
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 58px 32px 58px clamp(32px, 6vw, 92px);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+}
+
+h1 {
+  max-width: 820px;
+  margin: 0;
+  font-size: clamp(52px, 8vw, 112px);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+h1 span {
+  color: var(--accent);
+}
+
+.hero-copy p {
+  max-width: 650px;
+  margin: 28px 0 0;
+  color: var(--muted);
+  font-size: clamp(18px, 2vw, 23px);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.trace-strip {
+  display: grid;
+  gap: 6px;
+  width: min(430px, 100%);
+  margin-top: 30px;
+}
+
+.trace-strip i {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.16);
+}
+
+.trace-strip i:nth-child(1) { width: 94%; background: var(--blue); }
+.trace-strip i:nth-child(2) { width: 78%; background: var(--sky); }
+.trace-strip i:nth-child(3) { width: 88%; background: var(--cyan); }
+.trace-strip i:nth-child(4) { width: 66%; background: #94a3b8; }
+.trace-strip i:nth-child(5) { width: 82%; background: var(--orange); }
+
+.hero-specs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: min(560px, 100%);
+  margin-top: 30px;
+}
+
+.hero-specs span {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: rgba(7, 17, 31, 0.72);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.hero-visual {
+  position: relative;
+  min-height: 620px;
+  overflow: hidden;
+  border-left: 1px solid var(--line);
+  background: #dbeafe;
+}
+
+.hero-visual img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 42%, rgba(7, 17, 31, 0.48));
+  pointer-events: none;
+}
+
+.hero-panel {
+  position: absolute;
+  z-index: 2;
+  left: clamp(18px, 4vw, 42px);
+  right: clamp(18px, 4vw, 42px);
+  bottom: clamp(18px, 4vw, 42px);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 22px 60px rgba(7, 17, 31, 0.2);
+  backdrop-filter: blur(16px);
+}
+
+.hero-panel strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.signal-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 90px;
+  gap: 12px;
+  align-items: center;
+  min-height: 34px;
+  border-top: 1px solid rgba(7, 17, 31, 0.09);
+}
+
+.signal-row span,
+.signal-row b {
+  color: rgba(7, 17, 31, 0.72);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.signal-row i {
+  display: block;
+  width: var(--level);
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--sky));
+}
+
+.section {
+  padding: clamp(64px, 8vw, 112px) clamp(24px, 5vw, 82px);
+}
+
+.section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(28px, 6vw, 76px);
+  align-items: end;
+  max-width: 1380px;
+  margin: 0 auto 42px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: clamp(36px, 5.5vw, 74px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.section-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1380px;
+  margin: 0 auto;
+}
+
+.system-item {
+  position: relative;
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.system-item::before {
+  content: "";
+  display: block;
+  height: 4px;
+  background: var(--accent);
+}
+
+.system-image {
+  height: 230px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.system-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.system-body {
+  padding: 22px;
+}
+
+.kicker {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.system-body h3 {
+  margin: 14px 0 10px;
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+.system-body p,
+.use-tile p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.dark {
+  background: #07111f;
+  color: #f8fafc;
+}
+
+.dark .eyebrow,
+.dark .section-copy {
+  color: rgba(248, 250, 252, 0.7);
+}
+
+.dark .eyebrow::before {
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.use-cases {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1380px;
+  margin: 0 auto;
+}
+
+.use-tile {
+  min-height: 310px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px;
+  border: 1px solid rgba(248, 250, 252, 0.14);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.045);
+}
+
+.use-num {
+  color: var(--sky);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.use-tile h3 {
+  max-width: 230px;
+  margin: 28px 0 14px;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.use-tile p {
+  color: rgba(248, 250, 252, 0.68);
+}
+
+.data-band,
+.proof-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: clamp(28px, 5vw, 70px);
+  max-width: 1380px;
+  margin: 0 auto;
+  align-items: center;
+}
+
+.frame {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--white);
+  box-shadow: 0 18px 50px rgba(16, 26, 22, 0.08);
+}
+
+.frame img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.data-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.data-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.data-row span {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.data-row b {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.proof-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.proof {
+  min-height: 88px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.proof strong {
+  display: block;
+  color: var(--accent);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.proof span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 32px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1080px) {
+  .page-hero,
+  .section-head,
+  .data-band,
+  .proof-band {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-visual {
+    min-height: 560px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .system-grid,
+  .use-cases {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .site-nav {
+    padding: 12px 18px;
+  }
+
+  .nav-links {
+    position: fixed;
+    inset: 64px 12px auto 12px;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--white);
+    box-shadow: 0 18px 48px rgba(16, 26, 22, 0.13);
+  }
+
+  .nav-links.is-open {
+    display: flex;
+  }
+
+  .nav-links a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+  }
+
+  .menu-toggle {
+    display: block;
+  }
+
+  .hero-copy {
+    padding: 42px 22px;
+  }
+
+  .hero-specs {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-panel {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .signal-row {
+    grid-template-columns: 62px minmax(0, 1fr) 76px;
+  }
+
+  h1 {
+    font-size: clamp(46px, 15vw, 70px);
+  }
+
+  .section {
+    padding: 56px 20px;
+  }
+
+  .system-grid,
+  .use-cases,
+  .proof-row {
+    grid-template-columns: 1fr;
+  }
+
+  footer {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px 20px;
+  }
 }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Technology lives in the main demo.</h1>
-    <p><a href="index.html#technology">Open the exactH2O technology section</a></p>
-  </main>
+<nav class="site-nav" aria-label="Primary navigation">
+  <a href="index.html" class="brand">exact<span>H2O</span></a>
+  <button class="menu-toggle" type="button" aria-label="Toggle navigation" onclick="toggleMenu()"><span></span></button>
+  <div class="nav-links" id="navLinks">
+    <a href="technology.html" aria-current="page">Technology</a>
+    <a href="team.html">Team</a>
+    <a href="portal.html?v=20260702-invite-access" class="nav-quote">Portal</a>
+  </div>
+</nav>
+
+<main>
+  <section class="page-hero">
+    <div class="hero-copy">
+      <div class="eyebrow">Technology</div>
+      <h1>Pot-level <span>control.</span></h1>
+      <p>exactH2O connects root-zone sensors, irrigation valves, and a live dashboard so greenhouse teams can run water treatments from measured substrate data.</p>
+      <div class="hero-specs" aria-label="exactH2O technology stack">
+        <span>Sensor input</span>
+        <span>Valve output</span>
+        <span>Recorded event</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <img src="product2.jpg" alt="exactH2O irrigation control hardware in greenhouse pots">
+      <div class="hero-panel" aria-label="Closed-loop control sequence">
+        <strong>Closed-loop sequence</strong>
+        <div class="signal-row"><span>Read</span><i style="--level: 84%;"></i><b>VWC</b></div>
+        <div class="signal-row"><span>Compare</span><i style="--level: 68%;"></i><b>Target</b></div>
+        <div class="signal-row"><span>Irrigate</span><i style="--level: 76%;"></i><b>Valve</b></div>
+        <div class="signal-row"><span>Record</span><i style="--level: 92%;"></i><b>Portal</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">System</div>
+        <h2 class="section-title">From substrate signal to irrigation event.</h2>
+      </div>
+      <p class="section-copy">The system is a loop, not a schedule: measure the pot, compare it to the treatment target, actuate water, and record what happened.</p>
+    </div>
+    <div class="system-grid">
+      <article class="system-item">
+        <div class="system-image"><img src="sensor.jpg" alt="Soil moisture sensor being placed in a potted plant"></div>
+        <div class="system-body">
+          <div class="kicker">01 sensor input</div>
+          <h3>Root-zone signal</h3>
+          <p>Substrate readings come from the pot, where the plant is actually responding.</p>
+        </div>
+      </article>
+      <article class="system-item">
+        <div class="system-image"><img src="product1.jpg" alt="Greenhouse pot array with irrigation lines"></div>
+        <div class="system-body">
+          <div class="kicker">02 treatment logic</div>
+          <h3>Threshold control</h3>
+          <p>Each group can hold its own target band, keeping stress and control treatments distinct.</p>
+        </div>
+      </article>
+      <article class="system-item">
+        <div class="system-image"><img src="dashboard.jpg" alt="exactH2O dashboard interface"></div>
+        <div class="system-body">
+          <div class="kicker">03 valve output</div>
+          <h3>Pot-level actuation</h3>
+          <p>The controller opens irrigation only when the measured condition calls for it.</p>
+        </div>
+      </article>
+      <article class="system-item">
+        <div class="system-image"><img src="scaling.jpg" alt="Greenhouse scaling infrastructure"></div>
+        <div class="system-body">
+          <div class="kicker">04 data layer</div>
+          <h3>Research record</h3>
+          <p>Dashboard traces, status, and exports stay tied to the physical experiment.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section dark" id="use-cases">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Use cases</div>
+        <h2 class="section-title">Where water is the variable.</h2>
+      </div>
+      <p class="section-copy">Greenhouse screens, one measurement-and-control loop.</p>
+    </div>
+    <div class="use-cases">
+      <article class="use-tile"><div class="use-num">01</div><div><h3>Drought stress</h3><p>Hold pots at target VWC and document the stress/recovery curve.</p></div></article>
+      <article class="use-tile"><div class="use-num">02</div><div><h3>Phenotyping</h3><p>Separate genetic response from watering noise with controlled ground truth.</p></div></article>
+      <article class="use-tile"><div class="use-num">03</div><div><h3>Research greenhouses</h3><p>Run treatments, zones, and benches from one monitored control layer.</p></div></article>
+      <article class="use-tile"><div class="use-num">04</div><div><h3>Precision irrigation</h3><p>Use live root-zone data to make every watering decision defensible.</p></div></article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="data-band">
+      <div class="frame">
+        <img src="dashboard.jpg" alt="exactH2O web dashboard showing irrigation traces">
+      </div>
+      <div>
+        <div class="eyebrow">Dashboard</div>
+        <h2 class="section-title">A dashboard that mirrors the greenhouse.</h2>
+        <p class="section-copy">Sensor status, current values, target bands, and irrigation events are presented together so operators can see what changed and when.</p>
+        <div class="data-list">
+          <div class="data-row"><i class="data-dot" style="background:var(--blue)"></i><span>Maize control trace</span><b>51.0%</b></div>
+          <div class="data-row"><i class="data-dot" style="background:var(--orange)"></i><span>Drought treatment trace</span><b>35.7%</b></div>
+          <div class="data-row"><i class="data-dot" style="background:var(--cyan)"></i><span>Live sensor health</span><b>20/20</b></div>
+          <div class="data-row"><i class="data-dot" style="background:var(--magenta)"></i><span>CSV-ready history</span><b>Export</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="proof-band">
+      <div>
+        <div class="eyebrow">Research proof</div>
+        <h2 class="section-title">Built in real greenhouse work.</h2>
+        <p class="section-copy">exactH2O came from plant research where a missed watering event can change the result.</p>
+        <div class="proof-row">
+          <div class="proof"><strong>122</strong><span>Study days</span></div>
+          <div class="proof"><strong>4</strong><span>Water treatments</span></div>
+          <div class="proof"><strong>1%</strong><span>Drought VWC target</span></div>
+          <div class="proof"><strong>25%</strong><span>Control VWC target</span></div>
+        </div>
+      </div>
+      <div class="frame">
+        <img src="product3.jpg" alt="Plant research setup in greenhouse with exactH2O hardware">
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>exactH2O · technology</div>
+  <div><a href="index.html">Home</a> · <a href="quote.html">Quote</a></div>
+</footer>
+
+<script>
+function toggleMenu() {
+  document.getElementById("navLinks").classList.toggle("is-open");
+}
+
+document.querySelectorAll(".nav-links a").forEach((link) => {
+  link.addEventListener("click", () => {
+    document.getElementById("navLinks").classList.remove("is-open");
+  });
+});
+</script>
 </body>
 </html>
