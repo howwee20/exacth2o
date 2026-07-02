@@ -177,7 +177,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260702-invite-access";
+const portalVersion = "20260702-axis-scale";
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -621,15 +621,16 @@ function vwcDomain(points: ChartPoint[]) {
 
   const values = points.map((point) => point.value);
   const rawMin = Math.max(0, Math.min(...values));
-  const rawMax = Math.min(60, Math.max(...values));
+  const rawMax = Math.max(...values);
   const rawSpan = Math.max(1, rawMax - rawMin);
-  const paddedSpan = Math.max(6, rawSpan * 1.22);
+  const yPadding = Math.max(3, rawSpan * 0.12);
   const center = (rawMin + rawMax) / 2;
+  const paddedSpan = Math.max(6, rawSpan + yPadding * 2);
   const paddedMin = Math.max(0, center - paddedSpan / 2);
-  const paddedMax = Math.min(60, center + paddedSpan / 2);
-  const step = niceStep(Math.max(1, paddedMax - paddedMin), 6);
+  const paddedMax = Math.max(rawMax + yPadding, center + paddedSpan / 2);
+  const step = niceStep(Math.max(1, paddedMax - paddedMin), 8);
   const yMin = Math.max(0, Math.floor(paddedMin / step) * step);
-  const yMax = Math.min(60, Math.ceil(paddedMax / step) * step);
+  const yMax = Math.max(yMin + step, Math.ceil(paddedMax / step) * step);
   const yTicks: number[] = [];
 
   for (let tick = yMin; tick <= yMax + step / 2; tick += step) {
