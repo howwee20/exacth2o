@@ -177,7 +177,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260702-axis-scale";
+const portalVersion = "20260703-portal-controls-bg";
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -1869,6 +1869,30 @@ export default function App() {
           : {}),
       }
     : undefined;
+  const csvControl = csvDownload ? (
+    <a
+      className="csv-button is-ready"
+      href={csvDownload.url}
+      download={csvDownload.filename}
+      target="_blank"
+      rel="noreferrer"
+      title={`${csvDownload.rowCount.toLocaleString()} rows ready`}
+    >
+      <Download size={14} />
+      CSV
+    </a>
+  ) : (
+    <button
+      className="csv-button"
+      type="button"
+      title="Prepare clean CSV"
+      onClick={prepareCsvDownload}
+      disabled={exportingCsv}
+    >
+      <Download size={14} />
+      {exportingCsv ? "..." : "CSV"}
+    </button>
+  );
 
   return (
     <main className="dashboard-shell">
@@ -1897,31 +1921,7 @@ export default function App() {
       <section ref={dashboardMainRef} className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}>
         <section className="chart-card">
           <div className="chart-tools">
-            {csvDownload ? (
-              <a
-                className="csv-button is-ready"
-                href={csvDownload.url}
-                download={csvDownload.filename}
-                target="_blank"
-                rel="noreferrer"
-                title={`${csvDownload.rowCount.toLocaleString()} rows ready`}
-              >
-                <Download size={14} />
-                CSV
-              </a>
-            ) : (
-              <button
-                className="csv-button"
-                type="button"
-                title="Prepare clean CSV"
-                onClick={prepareCsvDownload}
-                disabled={exportingCsv}
-              >
-                <Download size={14} />
-                {exportingCsv ? "..." : "CSV"}
-              </button>
-            )}
-          <button
+            <button
               className="expand-button"
               type="button"
               aria-label={graphExpanded ? "Close expanded graph" : "Expand graph"}
@@ -1941,11 +1941,14 @@ export default function App() {
               onSelectSeries={selectPot}
             />
           </section>
-          <TimeRangeControl
-            bounds={timeBounds}
-            value={timeWindow}
-            onChange={setTimeWindow}
-          />
+          <div className="chart-bottom-controls">
+            <div className="chart-export-control">{csvControl}</div>
+            <TimeRangeControl
+              bounds={timeBounds}
+              value={timeWindow}
+              onChange={setTimeWindow}
+            />
+          </div>
         </section>
 
         {graphExpanded && controlsHidden ? (

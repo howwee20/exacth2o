@@ -2,7 +2,7 @@
 
 :root {
   color: #172033;
-  background: #f7f8fb;
+  background: #f4f1eb;
   --portal-bg: #f4f1eb;
   --portal-bg-dark: #0e1a14;
   --portal-ink: #0e1a14;
@@ -29,7 +29,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f7f8fb;
+  background: var(--portal-bg);
 }
 
 button,
@@ -47,7 +47,7 @@ button {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #f7f8fb;
+  background: var(--portal-bg);
 }
 
 .login-panel {
@@ -485,6 +485,7 @@ select {
   width: 100%;
   min-height: 100vh;
   padding: 14px 28px 24px;
+  background: var(--portal-bg);
   color: #172033;
 }
 
@@ -623,6 +624,21 @@ select {
   backdrop-filter: blur(8px);
 }
 
+.chart-bottom-controls {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+  padding: 0 44px 15px 28px;
+  background: #ffffff;
+}
+
+.chart-export-control {
+  min-height: 54px;
+  display: flex;
+  align-items: end;
+}
+
 .chart-panel-main {
   min-width: 0;
 }
@@ -642,7 +658,7 @@ select {
   overflow: auto;
   border: 1px solid #d7e0ec;
   border-radius: 10px;
-  background: #f8fafc;
+  background: var(--portal-bg);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
 }
 
@@ -755,8 +771,9 @@ select {
   z-index: 2;
   display: grid;
   gap: 6px;
-  padding: 0 44px 15px 68px;
-  background: #ffffff;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .time-range-labels {
