@@ -503,7 +503,7 @@ select {
 .dashboard-logo {
   display: inline-flex;
   align-items: center;
-  color: #172033;
+  color: #ffffff;
   font-size: 17px;
   font-weight: 800;
   line-height: 1;
@@ -512,7 +512,7 @@ select {
 }
 
 .dashboard-logo span {
-  color: #64748b;
+  color: #ffffff;
 }
 
 .header-actions {
@@ -660,19 +660,6 @@ select {
   border-radius: 10px;
   background: var(--portal-bg);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
-}
-
-.dashboard-main.is-expanded::before {
-  content: "exactH2O";
-  position: fixed;
-  top: 28px;
-  left: 32px;
-  z-index: 9;
-  color: #172033;
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0;
 }
 
 .dashboard-main.is-expanded .control-panel {

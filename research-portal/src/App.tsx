@@ -177,7 +177,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260703-portal-controls-bg";
+const portalVersion = "20260704-logo-fullscreen";
 
 const initialLoadState: LoadState = {
   pairings: [],
