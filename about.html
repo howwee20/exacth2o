@@ -75,19 +75,6 @@
   .founder-link:hover { opacity: 0.7; }
   .founder-link-icon { width: 28px; height: 28px; background: var(--water-pale); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
 
-  /* MISSION BAND */
-  .mission-band { background: var(--bg-dark); padding: 6rem 4rem; }
-  .mission-inner { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: start; }
-  .mission-band .section-label { color: var(--accent); }
-  .mission-band .section-label::before { background: var(--accent); }
-  .mission-band .section-title { color: #f4f1eb; }
-  .mission-body { font-size: 0.95rem; line-height: 1.85; color: rgba(244,241,235,0.6); margin-bottom: 1.2rem; }
-  .mission-pillars { display: flex; flex-direction: column; }
-  .mission-pillar { padding: 1.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.07); display: grid; grid-template-columns: 2.5rem 1fr; gap: 1.2rem; align-items: start; }
-  .mp-num { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); opacity: 0.5; padding-top: 0.2rem; }
-  .mp-title { font-family: var(--sans); font-size: 0.95rem; font-weight: 600; color: #f4f1eb; margin-bottom: 0.3rem; }
-  .mp-desc { font-size: 0.83rem; line-height: 1.65; color: rgba(244,241,235,0.45); }
-
   /* CTA */
   .cta-strip { background: var(--water); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; }
   .cta-strip::before { content: ''; position: absolute; top: -80px; right: -80px; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.05); pointer-events: none; }
@@ -107,11 +94,10 @@
 
   @media (max-width: 900px) {
     nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .team-section, .mission-band, .cta-strip { padding: 4rem 1.5rem; }
+    .page-header, .team-section, .cta-strip { padding: 4rem 1.5rem; }
     .page-header { padding-top: 7rem; }
     .team-intro-grid { grid-template-columns: 1fr; gap: 1.5rem; }
     .founders-grid { grid-template-columns: 1fr; }
-    .mission-inner { grid-template-columns: 1fr; gap: 3rem; }
     footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
   }
 </style>
@@ -204,23 +190,6 @@
         </div>
       </div>
 
-    </div>
-  </div>
-</div>
-
-<div class="mission-band">
-  <div class="mission-inner reveal">
-    <div>
-      <div class="section-label">Our Mission</div>
-      <h2 class="section-title">Science-first<br>irrigation</h2>
-      <p class="mission-body">exactH2O exists because imprecise watering was undermining good science. We saw researchers spending hours hand-watering pots, then struggling to justify their stress treatments to reviewers.</p>
-      <p class="mission-body">Our mission is to make publication-quality soil moisture control accessible at every scale of plant research and production — from a single bench to a multi-acre greenhouse complex.</p>
-    </div>
-    <div class="mission-pillars">
-      <div class="mission-pillar"><div class="mp-num">01</div><div><div class="mp-title">Precision by Design</div><div class="mp-desc">Every hardware and software decision is made with measurement accuracy as the primary constraint — not cost or convenience.</div></div></div>
-      <div class="mission-pillar"><div class="mp-num">02</div><div><div class="mp-title">Open &amp; Reproducible</div><div class="mp-desc">Data is yours: open export formats, documented calibration, and no proprietary lock-in. Science requires transparency.</div></div></div>
-      <div class="mission-pillar"><div class="mp-num">03</div><div><div class="mp-title">Built on Real Research</div><div class="mp-desc">exactH2O was developed and validated in active MSU research greenhouses — not in a product lab disconnected from the scientific method.</div></div></div>
-      <div class="mission-pillar"><div class="mp-num">04</div><div><div class="mp-title">Scalable &amp; Supported</div><div class="mp-desc">From first deployment to full greenhouse network, we provide technical support from people who understand both the biology and the engineering.</div></div></div>
     </div>
   </div>
 </div>
