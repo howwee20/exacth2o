@@ -233,6 +233,94 @@ nav {
 }
 .feat-card p { font-size: 0.85rem; line-height: 1.65; opacity: 0.6; }
 
+/* ── PUBLISHED USE CASE ── */
+.use-case-band {
+  background: #f8f4ec;
+  padding: 5.5rem 4rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.use-case-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr);
+  gap: 5rem;
+  align-items: start;
+}
+.case-kicker {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--water);
+  margin-bottom: 0.85rem;
+}
+.case-quote {
+  margin: 2rem 0 0;
+  padding-left: 1.35rem;
+  border-left: 2px solid var(--water);
+  font-family: var(--serif);
+  font-size: clamp(1.25rem, 2vw, 1.8rem);
+  line-height: 1.32;
+  color: var(--ink);
+}
+.case-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 2rem;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+.case-meta div {
+  background: var(--bg);
+  padding: 1.05rem 1.15rem;
+}
+.case-meta dt {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--water);
+  margin-bottom: 0.35rem;
+}
+.case-meta dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.case-copy {
+  display: grid;
+  gap: 1rem;
+  color: rgba(14, 26, 20, 0.68);
+  font-size: 0.98rem;
+  line-height: 1.82;
+}
+.case-copy p { margin: 0; }
+.case-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 2rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+}
+.case-proof span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(26, 107, 74, 0.18);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--water);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* ── CTA STRIP ── */
 .cta-strip {
   background: var(--water); padding: 5rem 4rem; text-align: center;
@@ -271,6 +359,7 @@ footer a:hover { color: var(--accent); }
 @media (max-width: 1024px) {
   .features-grid { grid-template-columns: repeat(2, 1fr); }
   .strip-header { grid-template-columns: 1fr; gap: 1rem; }
+  .use-case-inner { grid-template-columns: 1fr; gap: 3rem; }
 }
 @media (max-width: 768px) {
   nav { padding: 1rem 1.5rem; }
@@ -279,8 +368,9 @@ footer a:hover { color: var(--accent); }
   .hero { grid-template-columns: 1fr; }
   .hero-right { display: none; }
   .hero-left { padding: 8rem 1.5rem 4rem; }
-  .features-strip, .cta-strip { padding: 4rem 1.5rem; }
+  .features-strip, .use-case-band, .cta-strip { padding: 4rem 1.5rem; }
   .features-grid { grid-template-columns: 1fr; }
+  .case-meta { grid-template-columns: 1fr; }
   .hero-stats { gap: 2rem; flex-wrap: wrap; }
   footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
 }
@@ -433,6 +523,49 @@ footer a:hover { color: var(--accent); }
     </div>
   </div>
 </div>
+
+<!-- PUBLISHED USE CASE -->
+<section class="use-case-band">
+  <div class="use-case-inner">
+    <div>
+      <div class="section-label">Published use case</div>
+      <div class="case-kicker">MSU Greenhouse</div>
+      <h2 class="section-title">Switchgrass Drought Study</h2>
+      <blockquote class="case-quote">"The precision irrigation system enabled developmental stage-specific drought treatments while continuously maintaining target soil moisture conditions."</blockquote>
+    </div>
+    <div>
+      <dl class="case-meta">
+        <div>
+          <dt>Institution</dt>
+          <dd>Michigan State University</dd>
+        </div>
+        <div>
+          <dt>Facility</dt>
+          <dd>Research Greenhouse</dd>
+        </div>
+        <div>
+          <dt>Crop</dt>
+          <dd>Switchgrass (Panicum virgatum)</dd>
+        </div>
+        <div>
+          <dt>Duration</dt>
+          <dd>122 days, 4 watering treatments</dd>
+        </div>
+      </dl>
+      <div class="case-copy">
+        <p>Researchers at Michigan State University used the ExactH2O irrigation platform to study how drought timing affects switchgrass physiology, metabolism, and downstream biofuel production. Plants were grown in 8-liter pots under greenhouse conditions and assigned to well-watered control, vegetative drought, flowering drought, or senescence drought treatments.</p>
+        <p>The system was used to monitor soil moisture content and irrigate individual pots when soil moisture fell below programmed thresholds. Control plants were maintained at 25% VWC, while drought treatments were reduced to 1% VWC during specific developmental stages and then re-watered.</p>
+        <p>Continuous soil moisture control allowed researchers to impose precise developmental stage-specific drought and connect those treatments to gas exchange, chlorophyll fluorescence, metabolomics, biomass composition, and fermentation outcomes. The study showed that switchgrass maintained biomass under severe short-term drought, while drought timing strongly influenced metabolic responses and biofuel yield.</p>
+      </div>
+      <div class="case-proof">
+        <span>Published greenhouse drought experiment</span>
+        <span>122-day study</span>
+        <span>Developmental stage-specific drought in switchgrass</span>
+        <span>Journal of Experimental Botany</span>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- CTA -->
 <div class="cta-strip">
