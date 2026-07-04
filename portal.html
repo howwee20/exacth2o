@@ -7,6 +7,18 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>exactH2O Research Portal</title>
+    <script>
+      (function () {
+        var canonicalPath = "/portal";
+        var params = new URLSearchParams(window.location.search);
+        params.delete("v");
+        var search = params.toString();
+        var nextUrl = canonicalPath + (search ? "?" + search : "") + window.location.hash;
+        if (window.location.pathname !== canonicalPath || window.location.search.indexOf("v=") !== -1) {
+          window.history.replaceState(null, "", nextUrl);
+        }
+      })();
+    </script>
     <script type="module" crossorigin src="portal-app/assets/portal.js?v=20260704-clean-urls"></script>
     <link rel="stylesheet" crossorigin href="portal-app/assets/portal.css?v=20260704-clean-urls">
   </head>

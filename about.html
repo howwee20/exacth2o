@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>About Us — exactH2O</title>
+<script>
+(function () {
+  var canonicalPath = "/about";
+  var params = new URLSearchParams(window.location.search);
+  params.delete("v");
+  var search = params.toString();
+  var nextUrl = canonicalPath + (search ? "?" + search : "") + window.location.hash;
+  if (window.location.pathname !== canonicalPath || window.location.search.indexOf("v=") !== -1) {
+    window.history.replaceState(null, "", nextUrl);
+  }
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
