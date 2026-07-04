@@ -177,7 +177,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260704-menu-logo-home-cleanup";
+const portalVersion = "20260704-clean-urls";
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -193,6 +193,9 @@ const initialLoadState: LoadState = {
 };
 
 function portalUrl() {
+  if (window.location.hostname === "exacth2o.com") {
+    return `${window.location.origin}/portal`;
+  }
   return `${window.location.origin}${window.location.pathname}`;
 }
 
@@ -1755,11 +1758,11 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href={`index.html?v=${portalVersion}`} className="portal-logo">
+          <a href="/" className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
-            <a href="support.html">Support</a>
+            <a href="/support">Support</a>
           </div>
         </header>
 
@@ -1897,11 +1900,11 @@ export default function App() {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
-        <a className="dashboard-logo" href={`index.html?v=${portalVersion}`} aria-label="exactH2O home">
+        <a className="dashboard-logo" href="/" aria-label="exactH2O home">
           exactH2O
         </a>
         <div className="header-actions">
-          <a className="header-action site-link" href={`index.html?v=${portalVersion}`} aria-label="Website" title="Website">
+          <a className="header-action site-link" href="/" aria-label="Website" title="Website">
             <ExternalLink size={15} />
             Site
           </a>
