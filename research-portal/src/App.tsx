@@ -177,7 +177,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260704-logo-fullscreen";
+const portalVersion = "20260704-menu-logo-home-cleanup";
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -1918,7 +1918,10 @@ export default function App() {
         </div>
       ) : null}
 
-      <section ref={dashboardMainRef} className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}>
+      <section
+        ref={dashboardMainRef}
+        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""} ${controlsHidden ? "controls-hidden" : ""}`}
+      >
         <section className="chart-card">
           <div className="chart-tools">
             <button
@@ -1951,7 +1954,7 @@ export default function App() {
           </div>
         </section>
 
-        {graphExpanded && controlsHidden ? (
+        {controlsHidden ? (
           <button
             type="button"
             className="controls-restore-button"
@@ -1974,18 +1977,16 @@ export default function App() {
               aria-label="Move controls"
             >
               <span>{visiblePotCount}</span>
-              {graphExpanded ? (
-                <div className="panel-size-actions" onPointerDown={(event) => event.stopPropagation()}>
-                  <button
-                    type="button"
-                    aria-label="Hide controls"
-                    title="Hide"
-                    onClick={() => setControlsHidden(true)}
-                  >
-                    -
-                  </button>
-                </div>
-              ) : null}
+              <div className="panel-size-actions" onPointerDown={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  aria-label="Hide pot controls"
+                  title="Hide pots"
+                  onClick={() => setControlsHidden(true)}
+                >
+                  -
+                </button>
+              </div>
             </div>
             <div className="preset-buttons research-presets">
               <button

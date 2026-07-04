@@ -503,7 +503,7 @@ select {
 .dashboard-logo {
   display: inline-flex;
   align-items: center;
-  color: #ffffff;
+  color: #0f172a;
   font-size: 17px;
   font-weight: 800;
   line-height: 1;
@@ -512,7 +512,7 @@ select {
 }
 
 .dashboard-logo span {
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .header-actions {
@@ -584,11 +584,16 @@ select {
 }
 
 .dashboard-main {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 310px;
   gap: 16px;
   align-items: stretch;
   min-height: calc(100vh - 82px);
+}
+
+.dashboard-main.controls-hidden {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .control-panel {
@@ -943,6 +948,7 @@ select {
 }
 
 .control-heading {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -952,7 +958,6 @@ select {
 }
 
 .dashboard-main.is-expanded .control-heading {
-  position: relative;
   min-height: 26px;
   margin-bottom: 10px;
   cursor: move;
@@ -970,13 +975,13 @@ select {
 
 .panel-size-actions button,
 .controls-restore-button {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: inline-grid;
   place-items: center;
   padding: 0;
   border: 1px solid #dbe3ee;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.94);
   color: #334155;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
@@ -1001,8 +1006,15 @@ select {
   right: 24px;
   z-index: 6;
   width: 34px;
+  height: 28px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
+}
+
+.dashboard-main.controls-hidden:not(.is-expanded) .controls-restore-button {
+  top: 12px;
+  right: 58px;
 }
 
 .panel-resize-grip {

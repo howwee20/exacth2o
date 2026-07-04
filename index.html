@@ -233,37 +233,6 @@ nav {
 }
 .feat-card p { font-size: 0.85rem; line-height: 1.65; opacity: 0.6; }
 
-/* ── DARK BAND ── */
-.dark-band {
-  background: var(--bg-dark); padding: 5rem 4rem;
-  display: flex; align-items: center; justify-content: center;
-}
-.dark-band-inner { max-width: 1400px; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: center; }
-.dark-band .section-label { color: var(--accent); }
-.dark-band .section-label::before { background: var(--accent); }
-.dark-band .section-title { color: #f4f1eb; }
-.dark-band p { font-size: 0.95rem; line-height: 1.8; color: rgba(244,241,235,0.55); margin-top: 1.2rem; }
-.dark-band-visual { position: relative; }
-.data-widget {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(124,191,158,0.15);
-  border-radius: 4px; padding: 2rem; font-family: var(--mono);
-}
-.dw-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0.9rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
-  font-size: 0.78rem;
-}
-.dw-row:last-child { border-bottom: none; }
-.dw-label { color: rgba(244,241,235,0.4); letter-spacing: 0.06em; }
-.dw-val { color: var(--accent); font-weight: 500; }
-.dw-val.warn { color: #c8853a; }
-.dw-val.ok { color: #7cbf9e; }
-.dw-header {
-  font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase;
-  color: rgba(244,241,235,0.25); margin-bottom: 1.2rem; padding-bottom: 0.8rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
 /* ── CTA STRIP ── */
 .cta-strip {
   background: var(--water); padding: 5rem 4rem; text-align: center;
@@ -310,9 +279,8 @@ footer a:hover { color: var(--accent); }
   .hero { grid-template-columns: 1fr; }
   .hero-right { display: none; }
   .hero-left { padding: 8rem 1.5rem 4rem; }
-  .features-strip, .dark-band, .cta-strip { padding: 4rem 1.5rem; }
+  .features-strip, .cta-strip { padding: 4rem 1.5rem; }
   .features-grid { grid-template-columns: 1fr; }
-  .dark-band-inner { grid-template-columns: 1fr; gap: 3rem; }
   .hero-stats { gap: 2rem; flex-wrap: wrap; }
   footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
 }
@@ -461,31 +429,6 @@ footer a:hover { color: var(--accent); }
         <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="10" height="10" rx="1"/><rect x="23" y="3" width="10" height="10" rx="1"/><rect x="3" y="23" width="10" height="10" rx="1"/><rect x="23" y="23" width="10" height="10" rx="1"/><circle cx="18" cy="18" r="3"/></svg>
         <h3>Easy Scaling</h3>
         <p>Modular mesh network grows from a 100 sensors in a greenhouse bench to 400+ across a greenhouse range — no new infrastructure required.</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- DARK DATA BAND -->
-<div class="dark-band">
-  <div class="dark-band-inner">
-    <div>
-      <div class="section-label">Live System Data</div>
-      <h2 class="section-title">Every reading,<br>every second</h2>
-      <p>exactH2O logs continuous timestamped sensor data with calibration traceability — exportable as CSV (zipped). Publication-ready from day one.</p>
-      <div style="margin-top:2.5rem;">
-        <a href="applications.html" class="btn-secondary" style="display:inline-block;">Explore Applications →</a>
-      </div>
-    </div>
-    <div class="dark-band-visual">
-      <div class="data-widget">
-        <div class="dw-header">exactH2O · Live Sensor Logs</div>
-        <div class="dw-row"><span class="dw-label">Sensor A — VWC</span><span class="dw-val ok">32.4%</span></div>
-        <div class="dw-row"><span class="dw-label">Sensor B — VWC</span><span class="dw-val warn">14.1%</span></div>
-        <div class="dw-row"><span class="dw-label">Sensor D — EC</span><span class="dw-val">1.8 dS/m</span></div>
-        <div class="dw-row"><span class="dw-label">Group Temp</span><span class="dw-val">22.1 °C</span></div>
-        <div class="dw-row"><span class="dw-label">Valve 1 Status</span><span class="dw-val ok">Active</span></div>
-        <div class="dw-row"><span class="dw-label">Last Irrigation</span><span class="dw-val">08:42 AM</span></div>
       </div>
     </div>
   </div>
