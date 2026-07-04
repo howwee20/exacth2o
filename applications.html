@@ -410,115 +410,6 @@
     line-height: 1.6;
   }
 
-  /* ── CASE STUDY ── */
-  .case-study {
-    background: var(--water);
-    color: #f4f1eb;
-    padding: 6rem 4rem;
-    position: relative;
-    overflow: hidden;
-  }
-  .case-study::before {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 400px; height: 400px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.05);
-    pointer-events: none;
-  }
-  .case-study::after {
-    content: '';
-    position: absolute;
-    bottom: -80px; left: -40px;
-    width: 500px; height: 500px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.08);
-    pointer-events: none;
-  }
-  .case-inner {
-    max-width: 1400px;
-    margin: 0 auto;
-    position: relative;
-    z-index: 2;
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    gap: 6rem;
-    align-items: center;
-  }
-  .case-study .section-label { color: rgba(255,255,255,0.6); }
-  .case-study .section-label::before { background: rgba(255,255,255,0.6); }
-  .case-study .section-title { color: #fff; }
-
-  .case-quote {
-    font-family: var(--serif);
-    font-size: 1.3rem;
-    font-style: italic;
-    color: rgba(255,255,255,0.85);
-    line-height: 1.6;
-    border-left: 3px solid rgba(255,255,255,0.3);
-    padding-left: 1.5rem;
-    margin: 2rem 0;
-  }
-
-  .case-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-top: 2.5rem;
-  }
-  .case-detail {
-    background: rgba(0,0,0,0.15);
-    padding: 1.25rem;
-    border-radius: 2px;
-  }
-  .case-detail-label {
-    font-family: var(--mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.5);
-    margin-bottom: 0.5rem;
-  }
-  .case-detail-value {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: rgba(255,255,255,0.9);
-  }
-
-  .case-body {
-    font-size: 0.95rem;
-    line-height: 1.8;
-    color: rgba(255,255,255,0.75);
-  }
-  .case-result-bar {
-    margin-top: 2rem;
-    background: rgba(0,0,0,0.2);
-    border-radius: 2px;
-    height: 6px;
-    position: relative;
-    overflow: hidden;
-  }
-  .case-result-fill {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    background: rgba(255,255,255,0.7);
-    width: 78%;
-    border-radius: 2px;
-    animation: fillBar 1.2s 0.5s ease both;
-  }
-  @keyframes fillBar {
-    from { width: 0; }
-    to { width: 78%; }
-  }
-  .case-result-label {
-    margin-top: 0.6rem;
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.5);
-  }
-
   /* ── FOOTER ── */
   footer {
     background: var(--bg-dark);
@@ -556,10 +447,10 @@
     .hero { grid-template-columns: 1fr; }
     .hero-right { display: none; }
     .hero-left { padding: 8rem 2rem 4rem; }
-    section, .applications, .why-section, .case-study { padding: 4rem 2rem; }
+    section, .applications, .why-section { padding: 4rem 2rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
     .app-cards { grid-template-columns: 1fr; }
-    .why-inner, .case-inner { grid-template-columns: 1fr; gap: 3rem; }
+    .why-inner { grid-template-columns: 1fr; gap: 3rem; }
     footer { flex-direction: column; gap: 1rem; text-align: center; }
   }
 </style>
@@ -916,58 +807,6 @@
         </div>
       </li>
     </ul>
-  </div>
-</div>
-
-<!-- CASE STUDY -->
-<div class="case-study">
-  <div class="case-inner">
-    <div>
-      <div class="section-label">Published Use Case</div>
-      <h2 class="section-title">MSU Greenhouse<br>Switchgrass Drought Study</h2>
-      <div class="case-quote">
-        "The precision irrigation system enabled developmental stage-specific drought treatments while continuously maintaining target soil moisture conditions."
-      </div>
-      <div class="case-details">
-        <div class="case-detail">
-          <div class="case-detail-label">Institution</div>
-          <div class="case-detail-value">Michigan State University</div>
-        </div>
-        <div class="case-detail">
-          <div class="case-detail-label">Facility</div>
-          <div class="case-detail-value">Research Greenhouse</div>
-        </div>
-        <div class="case-detail">
-          <div class="case-detail-label">Crop</div>
-          <div class="case-detail-value">Switchgrass (Panicum virgatum)</div>
-        </div>
-        <div class="case-detail">
-          <div class="case-detail-label">Duration</div>
-          <div class="case-detail-value">122 days, 4 watering treatments</div>
-        </div>
-      </div>
-    </div>
-    <div>
-      <p class="case-body">
-        Researchers at Michigan State University used the ExactH2O irrigation platform to study how drought timing affects switchgrass physiology, metabolism, and downstream biofuel production. Plants were grown in 8-liter pots under greenhouse conditions and assigned to well-watered control, vegetative drought, flowering drought, or senescence drought treatments.
-      </p>
-      <p class="case-body" style="margin-top:1.2rem;">
-       The system was used to monitor soil moisture content and irrigate individual pots when soil moisture fell below programmed thresholds. Control plants were maintained at 25% VWC, while drought treatments were reduced to 1% VWC during specific developmental stages and then re-watered.
-      </p>
-      <p class="case-body" style="margin-top:1.2rem;">
-        Continuous soil moisture control allowed researchers to impose precise developmental stage-specific drought and connect those treatments to gas exchange, chlorophyll fluorescence, metabolomics, biomass composition, and fermentation outcomes. The study showed that switchgrass maintained biomass under severe short-term drought, while drought timing strongly influenced metabolic responses and biofuel yield.
-      </p>
-      <div style="margin-top:2rem;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-          <span style="font-family:var(--mono); font-size:0.7rem; color:rgba(255,255,255,0.6);">Published greenhouse drought experiment</span>
-          <span style="font-family:var(--mono); font-size:0.7rem; color:rgba(255,255,255,0.8);">122-day study</span>
-        </div>
-        <div class="case-result-bar">
-          <div class="case-result-fill"></div>
-        </div>
-        <div class="case-result-label">Developmental stage-specific drought in switchgrass — published in Journal of Experimental Botany</div>
-      </div>
-    </div>
   </div>
 </div>
 
