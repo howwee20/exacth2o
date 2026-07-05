@@ -9,12 +9,24 @@ import {
   useState,
 } from "react";
 import {
+  Activity,
   AlertTriangle,
+  CheckCircle2,
+  CircleAlert,
+  Database,
   Download,
   ExternalLink,
+  FileArchive,
+  Gauge,
+  Lock,
   LogOut,
   Maximize2,
   Minimize2,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  SlidersHorizontal,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 import { supabase } from "./supabase";
 import type { LatestState, PairingRow, SensorReading } from "./types";
@@ -154,6 +166,29 @@ type PanelSize = {
   height: number;
 };
 
+type SettingsSection =
+  | "overview"
+  | "pairings"
+  | "calibrations"
+  | "water"
+  | "groups"
+  | "hardware"
+  | "exports"
+  | "logs"
+  | "access";
+
+type SettingsNavItem = {
+  id: SettingsSection;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+type BoardConfig = {
+  address: string;
+  resetPin: string;
+};
+
 type TimeBounds = {
   startMs: number;
   endMs: number;
@@ -177,7 +212,64 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260704-clean-urls";
+const portalVersion = "20260704-portal-settings";
+
+const settingsNavItems: SettingsNavItem[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    description: "Live device and project state",
+    icon: Gauge,
+  },
+  {
+    id: "pairings",
+    label: "Pairings",
+    description: "Pots, sensors, valves, and targets",
+    icon: SlidersHorizontal,
+  },
+  {
+    id: "calibrations",
+    label: "Calibrations",
+    description: "Sensor correction workspace",
+    icon: Activity,
+  },
+  {
+    id: "water",
+    label: "Water Control",
+    description: "Targets and manual watering",
+    icon: ShieldCheck,
+  },
+  {
+    id: "groups",
+    label: "Groups",
+    description: "Treatments and crop groups",
+    icon: Database,
+  },
+  {
+    id: "hardware",
+    label: "Hardware",
+    description: "Boards, sensors, and system actions",
+    icon: Lock,
+  },
+  {
+    id: "exports",
+    label: "Exports",
+    description: "CSV and project files",
+    icon: FileArchive,
+  },
+  {
+    id: "logs",
+    label: "Logs & Audit",
+    description: "Errors, commands, and traceability",
+    icon: CircleAlert,
+  },
+  {
+    id: "access",
+    label: "Access",
+    description: "Invite-only project membership",
+    icon: CheckCircle2,
+  },
+];
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -407,6 +499,92 @@ function formatDateTime(value?: string | number | null) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatSettingsTimestamp(value?: string | number | null) {
+  if (!value) return "Not synced";
+  const formatted = formatDateTime(value);
+  return formatted === "none" ? "Not synced" : formatted;
+}
+
+function formatTargetVwc(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "Not set";
+  if (value <= -9999) return "Disabled";
+  return `${Number(value.toFixed(1))}%`;
+}
+
+function formatSecondsFromMs(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "Not set";
+  const seconds = value / 1000;
+  return `${Number(seconds.toFixed(seconds >= 10 ? 0 : 1))} sec`;
+}
+
+function formatIntervalFromMs(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "Not set";
+  const seconds = Math.round(value / 1000);
+  if (seconds >= 60 && seconds % 60 === 0) return `${seconds / 60} min`;
+  return `${seconds} sec`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function settingValue(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function boardConfigsFromPayload(payload?: Record<string, unknown> | null): BoardConfig[] {
+  if (!payload) return [];
+  const records = [
+    payload,
+    isRecord(payload.config) ? payload.config : null,
+    isRecord(payload.system) ? payload.system : null,
+    isRecord(payload.state) ? payload.state : null,
+  ].filter((item): item is Record<string, unknown> => Boolean(item));
+
+  for (const record of records) {
+    for (const key of ["board_configurations", "boardConfigs", "board_configs", "boards"]) {
+      const value = record[key];
+      if (!Array.isArray(value)) continue;
+      const configs = value
+        .filter(isRecord)
+        .map((item) => ({
+          address: settingValue(item, ["address", "addr", "i2c_address", "i2cAddress"]),
+          resetPin: settingValue(item, ["reset_pin", "resetPin", "reset", "pin"]),
+        }))
+        .filter((item) => item.address || item.resetPin);
+      if (configs.length > 0) return configs;
+    }
+  }
+  return [];
+}
+
+function pairingCalibrationName(pairing: PairingRow) {
+  const row = pairing as PairingRow & Record<string, unknown>;
+  const value =
+    row.calibration_name ??
+    row.calibration ??
+    row.calibration_label ??
+    row.calibration_id;
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number") return `Calibration ${value}`;
+  return "Not synced";
+}
+
+function shortJson(value: unknown) {
+  if (!value) return "No device payload synced yet.";
+  try {
+    const json = JSON.stringify(value, null, 2);
+    return json.length > 2400 ? `${json.slice(0, 2400)}\n...` : json;
+  } catch {
+    return "Device payload could not be rendered.";
+  }
 }
 
 function axisLabel(timestampMs: number, spanMs: number) {
@@ -1190,6 +1368,424 @@ function SensorCanvasChart({
   );
 }
 
+type PortalSettingsPanelProps = {
+  open: boolean;
+  activeSection: SettingsSection;
+  data: LoadState;
+  pairings: PairingRow[];
+  visiblePotCount: number;
+  csvDownload: CsvDownload | null;
+  exportingCsv: boolean;
+  onClose: () => void;
+  onSectionChange: (section: SettingsSection) => void;
+  onPrepareCsvDownload: () => void;
+  onDownloadPairingsCsv: () => void;
+};
+
+function PortalSettingsPanel({
+  open,
+  activeSection,
+  data,
+  pairings,
+  visiblePotCount,
+  csvDownload,
+  exportingCsv,
+  onClose,
+  onSectionChange,
+  onPrepareCsvDownload,
+  onDownloadPairingsCsv,
+}: PortalSettingsPanelProps) {
+  if (!open) return null;
+
+  const activeItem = settingsNavItems.find((item) => item.id === activeSection) ?? settingsNavItems[0];
+  const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
+  const uniqueSensors = new Set(pairings.map((pairing) => pairing.sensor_key).filter(Boolean));
+  const uniqueValves = new Set(pairings.map((pairing) => pairing.valve_key).filter(Boolean));
+  const syncedCalibrations = Array.from(new Set(pairings.map(pairingCalibrationName)))
+    .filter((label) => label !== "Not synced");
+  const treatmentGroups = [
+    {
+      label: "Maize control",
+      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "maize" && treatmentForPairing(pairing) === "control"),
+    },
+    {
+      label: "Maize drought",
+      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "maize" && treatmentForPairing(pairing) === "drought"),
+    },
+    {
+      label: "Sorghum control",
+      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "sorghum" && treatmentForPairing(pairing) === "control"),
+    },
+    {
+      label: "Sorghum drought",
+      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "sorghum" && treatmentForPairing(pairing) === "drought"),
+    },
+  ].filter((group) => group.pairings.length > 0);
+
+  const renderSection = () => {
+    if (activeSection === "overview") {
+      return (
+        <>
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>System Snapshot</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Device status</span>
+                  <strong>{data.latestState?.health_status ?? "Not synced"}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Device ID</span>
+                  <strong>{data.latestState?.device_id ?? "Not synced"}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Last device state</span>
+                  <strong>{formatSettingsTimestamp(data.latestState?.updated_at)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Latest ingest</span>
+                  <strong>{formatSettingsTimestamp(data.latestIngestTime)}</strong>
+                </div>
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>Project Data</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Configured pairings</span>
+                  <strong>{pairings.length}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Visible on chart</span>
+                  <strong>{visiblePotCount}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Live rows</span>
+                  <strong>{data.totalLiveReadings.toLocaleString()}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Snapshot rows</span>
+                  <strong>{data.totalImportedReadings.toLocaleString()}</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div className="settings-callout">
+            <ShieldCheck size={18} />
+            <div>
+              <strong>No experiment changes from this settings build.</strong>
+              <p>Live-control actions are intentionally locked until the protected command queue and device executor are deployed.</p>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (activeSection === "pairings") {
+      return (
+        <>
+          <div className="settings-toolbar">
+            <p>Current pot, sensor, valve, target, open-time, and measurement interval state synced from the portal project tables.</p>
+            <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
+              <Download size={14} />
+              Pairings CSV
+            </button>
+          </div>
+          <div className="settings-table-wrap">
+            <table className="settings-table">
+              <thead>
+                <tr>
+                  <th>Pot</th>
+                  <th>Sensor</th>
+                  <th>Valve</th>
+                  <th>Group</th>
+                  <th>Target</th>
+                  <th>Open</th>
+                  <th>Interval</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairings.map((pairing) => (
+                  <tr key={pairing.id}>
+                    <td>
+                      <b>{pairing.pot_number}</b>
+                      <span>{pairing.name}</span>
+                    </td>
+                    <td>{pairing.sensor_key}</td>
+                    <td>{pairing.valve_key}</td>
+                    <td>{cropLabel(cropForPairing(pairing))} / {treatmentLabel(treatmentForPairing(pairing))}</td>
+                    <td>{formatTargetVwc(pairing.wtc_percent_limit)}</td>
+                    <td>{formatSecondsFromMs(pairing.valve_open_time_ms)}</td>
+                    <td>{formatIntervalFromMs(pairing.measurement_interval_ms)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      );
+    }
+
+    if (activeSection === "calibrations") {
+      return (
+        <>
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>Synced Calibration State</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Calibrations visible to portal</span>
+                  <strong>{syncedCalibrations.length || "Not synced"}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Applied pairings</span>
+                  <strong>{syncedCalibrations.length ? pairings.length : "Not synced"}</strong>
+                </div>
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>Calibration Builder</h3>
+              <p className="settings-muted">The Balena calibration form should move here after command/audit tables exist.</p>
+              <button type="button" className="settings-locked-button" disabled>
+                <Lock size={14} />
+                Locked for live experiment
+              </button>
+            </section>
+          </div>
+          <div className="settings-list">
+            {(syncedCalibrations.length ? syncedCalibrations : ["Calibration details are not synced into Supabase yet."]).map((label) => (
+              <div className="settings-list-row" key={label}>
+                <span>{label}</span>
+                <em>{syncedCalibrations.length ? "Read only" : "Backend bridge needed"}</em>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    if (activeSection === "water") {
+      return (
+        <>
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>Current Targets</h3>
+              <div className="settings-rows">
+                {treatmentGroups.map((group) => {
+                  const targets = Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit))));
+                  return (
+                    <div className="settings-row" key={group.label}>
+                      <span>{group.label}</span>
+                      <strong>{targets.join(", ")}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>Manual Watering</h3>
+              <p className="settings-muted">Manual valve commands must go through a protected command queue before they can be enabled here.</p>
+              <div className="settings-control-row">
+                <select disabled aria-label="Manual water group">
+                  <option>Select group</option>
+                </select>
+                <input disabled value="5 sec" aria-label="Manual water duration" readOnly />
+                <button type="button" className="settings-locked-button" disabled>
+                  <Lock size={14} />
+                  Queue water
+                </button>
+              </div>
+            </section>
+          </div>
+          <div className="settings-callout is-warning">
+            <CircleAlert size={18} />
+            <div>
+              <strong>Valve control stays disabled in this pass.</strong>
+              <p>This preserves Matt's active experiment while the portal control backend is added safely.</p>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (activeSection === "groups") {
+      return (
+        <div className="settings-grid">
+          {treatmentGroups.map((group) => (
+            <section className="settings-card" key={group.label}>
+              <h3>{group.label}</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Pots</span>
+                  <strong>{group.pairings.map((pairing) => pairing.pot_number).join(", ")}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Count</span>
+                  <strong>{group.pairings.length}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Targets</span>
+                  <strong>{Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit)))).join(", ")}</strong>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeSection === "hardware") {
+      return (
+        <>
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>Hardware Snapshot</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Sensors</span>
+                  <strong>{uniqueSensors.size || "Not synced"}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Valves</span>
+                  <strong>{uniqueValves.size || "Not synced"}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Boards</span>
+                  <strong>{boardConfigs.length || "Not synced"}</strong>
+                </div>
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>Protected System Actions</h3>
+              <div className="settings-action-stack">
+                <button type="button" disabled><Lock size={14} /> Initialize sensors</button>
+                <button type="button" disabled><Lock size={14} /> Update board config</button>
+                <button type="button" disabled><Lock size={14} /> Stop system</button>
+              </div>
+            </section>
+          </div>
+          <div className="settings-list">
+            {(boardConfigs.length ? boardConfigs : [{ address: "Not synced", resetPin: "Not synced" }]).map((config, index) => (
+              <div className="settings-list-row" key={`${config.address}-${index}`}>
+                <span>Board {index + 1}</span>
+                <em>Address {config.address} · Reset pin {config.resetPin}</em>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    if (activeSection === "exports") {
+      return (
+        <div className="settings-grid">
+          <section className="settings-card">
+            <h3>Readings Export</h3>
+            <p className="settings-muted">Downloads all project readings currently accessible to your account.</p>
+            <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv}>
+              <Download size={14} />
+              {exportingCsv ? "Preparing..." : "Prepare readings CSV"}
+            </button>
+            {csvDownload ? (
+              <a className="settings-download-link" href={csvDownload.url} download={csvDownload.filename}>
+                Download {csvDownload.rowCount.toLocaleString()} rows
+              </a>
+            ) : null}
+          </section>
+          <section className="settings-card">
+            <h3>Configuration Export</h3>
+            <p className="settings-muted">Pairings export is available now. Hardware, calibration, and audit exports need backend sync tables.</p>
+            <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
+              <Download size={14} />
+              Download pairings CSV
+            </button>
+          </section>
+        </div>
+      );
+    }
+
+    if (activeSection === "logs") {
+      return (
+        <>
+          <div className="settings-callout">
+            <Database size={18} />
+            <div>
+              <strong>Audit trail target</strong>
+              <p>Every future calibration, pairing edit, valve command, and system action should write an immutable audit row.</p>
+            </div>
+          </div>
+          <pre className="settings-json-preview">{shortJson(data.latestState?.latest_payload)}</pre>
+        </>
+      );
+    }
+
+    return (
+      <div className="settings-grid">
+        <section className="settings-card">
+          <h3>Invite-only Access</h3>
+          <p className="settings-muted">Portal data remains protected by project membership and Supabase RLS. Public signup should not grant experiment access.</p>
+          <div className="settings-rows">
+            <div className="settings-row">
+              <span>Project access</span>
+              <strong>Membership required</strong>
+            </div>
+            <div className="settings-row">
+              <span>Control access</span>
+              <strong>Admin/operator role needed</strong>
+            </div>
+          </div>
+        </section>
+        <section className="settings-card">
+          <h3>Next Backend Piece</h3>
+          <p className="settings-muted">Add role-normalized command tables and an Edge Function before enabling live edits.</p>
+        </section>
+      </div>
+    );
+  };
+
+  return (
+    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label="Portal settings">
+      <section className="settings-modal">
+        <aside className="settings-sidebar" aria-label="Settings sections">
+          <button type="button" className="settings-back-button" onClick={onClose}>
+            <X size={16} />
+            Back to portal
+          </button>
+          <div className="settings-search">Search settings...</div>
+          <nav>
+            {settingsNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={item.id === activeSection ? "is-active" : ""}
+                  onClick={() => onSectionChange(item.id)}
+                >
+                  <Icon size={16} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+        <section className="settings-content">
+          <header className="settings-content-header">
+            <div>
+              <p>{activeItem.description}</p>
+              <h2>{activeItem.label}</h2>
+            </div>
+            <button type="button" className="settings-close-button" onClick={onClose} aria-label="Close settings">
+              <X size={18} />
+            </button>
+          </header>
+          <div className="settings-section-body">{renderSection()}</div>
+        </section>
+      </section>
+    </div>
+  );
+}
+
 export default function App() {
   const [email, setEmail] = useState(() => initialEmail());
   const [password, setPassword] = useState("");
@@ -1213,6 +1809,8 @@ export default function App() {
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
   const [controlsHidden, setControlsHidden] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("overview");
   const [data, setData] = useState<LoadState>(initialLoadState);
 
   const dataRef = useRef(data);
@@ -1224,6 +1822,15 @@ export default function App() {
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+
+  useEffect(() => {
+    if (!settingsOpen) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [settingsOpen]);
 
   const sortedPairings = useMemo(() => orderedPairings(data.pairings), [data.pairings]);
   const pairingByName = useMemo(
@@ -1660,6 +2267,45 @@ export default function App() {
     }
   }
 
+  function downloadPairingsCsv() {
+    const headers = [
+      "name",
+      "zone",
+      "pot_number",
+      "crop",
+      "treatment",
+      "sensor_key",
+      "valve_key",
+      "target_vwc",
+      "valve_open_seconds",
+      "measurement_interval_seconds",
+      "calibration",
+    ];
+    const rows = sortedPairings.map((pairing) => [
+      pairing.name,
+      pairing.zone,
+      pairing.pot_number,
+      cropLabel(cropForPairing(pairing)),
+      treatmentLabel(treatmentForPairing(pairing)),
+      pairing.sensor_key,
+      pairing.valve_key,
+      formatTargetVwc(pairing.wtc_percent_limit),
+      Number((pairing.valve_open_time_ms / 1000).toFixed(3)),
+      Number((pairing.measurement_interval_ms / 1000).toFixed(3)),
+      pairingCalibrationName(pairing),
+    ].map(csvEscape).join(","));
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `exacth2o-pairings-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   useEffect(() => {
     return () => {
       if (csvDownload) URL.revokeObjectURL(csvDownload.url);
@@ -1908,11 +2554,35 @@ export default function App() {
             <ExternalLink size={15} />
             Site
           </a>
+          <button
+            className="header-action"
+            type="button"
+            aria-label="Portal settings"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SettingsIcon size={15} />
+            Settings
+          </button>
           <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
             <LogOut size={17} />
           </button>
         </div>
       </header>
+
+      <PortalSettingsPanel
+        open={settingsOpen}
+        activeSection={settingsSection}
+        data={data}
+        pairings={sortedPairings}
+        visiblePotCount={visiblePotCount}
+        csvDownload={csvDownload}
+        exportingCsv={exportingCsv}
+        onClose={() => setSettingsOpen(false)}
+        onSectionChange={setSettingsSection}
+        onPrepareCsvDownload={prepareCsvDownload}
+        onDownloadPairingsCsv={downloadPairingsCsv}
+      />
 
       {error ? (
         <div className="banner error">
