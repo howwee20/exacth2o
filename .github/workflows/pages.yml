@@ -28,10 +28,25 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare static site
+        run: |
+          set -euo pipefail
+          rm -rf site-dist
+          mkdir -p site-dist/portal-app/assets
+
+          cp CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html site-dist/
+          cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
+          cp product1.jpg product2.jpg product3.jpg product4.jpg product5.jpg product6.jpg site-dist/
+          cp scheduling.jpg dashboard.jpg sensor.jpg scaling.jpg site-dist/
+
+          cp portal-app/assets/portal.js portal-app/assets/portal.css site-dist/portal-app/assets/
+          cp portal-app/product1.jpg portal-app/product2.jpg portal-app/product3.jpg site-dist/portal-app/
+          cp portal-app/scheduling.jpg portal-app/dashboard.jpg portal-app/sensor.jpg site-dist/portal-app/
+
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: site-dist
 
       - name: Deploy
         id: deployment
