@@ -189,6 +189,46 @@ type BoardConfig = {
   resetPin: string;
 };
 
+type ControlCommandType =
+  | "update_pairing"
+  | "bulk_update_pairings"
+  | "create_pairing"
+  | "create_group"
+  | "remove_group"
+  | "create_calibration"
+  | "delete_calibration"
+  | "apply_calibration"
+  | "manual_water"
+  | "update_board_config"
+  | "initialize_sensors"
+  | "update_system_state"
+  | "export_data";
+
+type ControlCommand = {
+  id: string;
+  project_id: string;
+  device_id: string | null;
+  command_type: ControlCommandType;
+  payload: Record<string, unknown>;
+  status: "queued" | "accepted" | "running" | "succeeded" | "failed" | "canceled" | "expired";
+  requested_at: string;
+  expires_at: string;
+  requires_confirmation: boolean;
+  result: Record<string, unknown> | null;
+  error: string | null;
+};
+
+type ControlCommandResponse = {
+  ok?: boolean;
+  command?: ControlCommand;
+};
+
+type QueueControlCommand = (
+  commandType: ControlCommandType,
+  payload: Record<string, unknown>,
+  options?: { confirm?: boolean },
+) => Promise<void>;
+
 type TimeBounds = {
   startMs: number;
   endMs: number;
@@ -212,7 +252,9 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260704-portal-settings";
+const portalVersion = "20260705-portal-control-queue";
+const mattProjectId = "22222222-2222-4222-8222-222222222222";
+const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
 const settingsNavItems: SettingsNavItem[] = [
   {
@@ -1368,6 +1410,59 @@ function SensorCanvasChart({
   );
 }
 
+function controlCommandLabel(commandType: ControlCommandType) {
+  const labels: Record<ControlCommandType, string> = {
+    update_pairing: "Update pairing",
+    bulk_update_pairings: "Bulk update pairings",
+    create_pairing: "Create pairing",
+    create_group: "Create group",
+    remove_group: "Remove group",
+    create_calibration: "Create calibration",
+    delete_calibration: "Delete calibration",
+    apply_calibration: "Apply calibration",
+    manual_water: "Manual water",
+    update_board_config: "Update board config",
+    initialize_sensors: "Initialize sensors",
+    update_system_state: "Update system state",
+    export_data: "Export data",
+  };
+  return labels[commandType];
+}
+
+function commandPayloadSummary(command: ControlCommand) {
+  const payload = command.payload ?? {};
+  if (command.command_type === "bulk_update_pairings" || command.command_type === "manual_water") {
+    const pairings = Array.isArray(payload.pairing_names) ? payload.pairing_names.length : 0;
+    return `${pairings} pairings`;
+  }
+  if (command.command_type === "create_pairing") return String(payload.name ?? "New pairing");
+  if (command.command_type === "create_group" || command.command_type === "remove_group") {
+    return String(payload.group_name ?? "Group");
+  }
+  if (command.command_type === "create_calibration") return String(payload.name ?? "Calibration");
+  if (command.command_type === "apply_calibration" || command.command_type === "delete_calibration") {
+    return String(payload.calibration_name ?? "Calibration");
+  }
+  if (command.command_type === "update_board_config") {
+    const boards = Array.isArray(payload.boards) ? payload.boards.length : 0;
+    return `${boards} boards`;
+  }
+  if (command.command_type === "update_system_state") return String(payload.state ?? "System state");
+  if (command.command_type === "export_data") return String(payload.data_type ?? "Export");
+  return "Queued request";
+}
+
+function commandStatusText(command: ControlCommand) {
+  if (command.error) return command.error;
+  if (command.status === "queued") return `Queued ${formatSettingsTimestamp(command.requested_at)}`;
+  if (command.status === "accepted") return "Accepted by device bridge";
+  if (command.status === "running") return "Running on device";
+  if (command.status === "succeeded") return "Applied";
+  if (command.status === "failed") return "Failed";
+  if (command.status === "expired") return "Expired";
+  return "Canceled";
+}
+
 type PortalSettingsPanelProps = {
   open: boolean;
   activeSection: SettingsSection;
@@ -1376,10 +1471,16 @@ type PortalSettingsPanelProps = {
   visiblePotCount: number;
   csvDownload: CsvDownload | null;
   exportingCsv: boolean;
+  controlBusy: boolean;
+  controlNotice: string | null;
+  controlError: string | null;
+  recentCommands: ControlCommand[];
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
   onDownloadPairingsCsv: () => void;
+  onRefreshCommands: () => void;
+  onQueueCommand: QueueControlCommand;
 };
 
 function PortalSettingsPanel({
@@ -1390,13 +1491,17 @@ function PortalSettingsPanel({
   visiblePotCount,
   csvDownload,
   exportingCsv,
+  controlBusy,
+  controlNotice,
+  controlError,
+  recentCommands,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
   onDownloadPairingsCsv,
+  onRefreshCommands,
+  onQueueCommand,
 }: PortalSettingsPanelProps) {
-  if (!open) return null;
-
   const activeItem = settingsNavItems.find((item) => item.id === activeSection) ?? settingsNavItems[0];
   const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
   const uniqueSensors = new Set(pairings.map((pairing) => pairing.sensor_key).filter(Boolean));
@@ -1421,6 +1526,175 @@ function PortalSettingsPanel({
       pairings: pairings.filter((pairing) => cropForPairing(pairing) === "sorghum" && treatmentForPairing(pairing) === "drought"),
     },
   ].filter((group) => group.pairings.length > 0);
+  const groupOptions = [
+    { value: "all", label: "All pairings", pairings },
+    ...treatmentGroups.map((group) => ({
+      value: group.label,
+      label: group.label,
+      pairings: group.pairings,
+    })),
+  ];
+  const [bulkGroup, setBulkGroup] = useState("all");
+  const [bulkTarget, setBulkTarget] = useState("20");
+  const [bulkOpenSeconds, setBulkOpenSeconds] = useState("5");
+  const [bulkIntervalSeconds, setBulkIntervalSeconds] = useState("600");
+  const [newPairingName, setNewPairingName] = useState("");
+  const [newPairingSensor, setNewPairingSensor] = useState("");
+  const [newPairingValve, setNewPairingValve] = useState("");
+  const [newPairingGroup, setNewPairingGroup] = useState("Matt's 20 pots");
+  const [newPairingTarget, setNewPairingTarget] = useState("20");
+  const [manualGroup, setManualGroup] = useState("all");
+  const [manualSeconds, setManualSeconds] = useState("5");
+  const [groupName, setGroupName] = useState("");
+  const [removeGroupName, setRemoveGroupName] = useState(treatmentGroups[0]?.label ?? "");
+  const [calibrationName, setCalibrationName] = useState("Corrected Calibration (+10)");
+  const [calibrationFunction, setCalibrationFunction] = useState("f(x) = 110.68 - 0.1289x + 0.00004x^2");
+  const [calibrationMode, setCalibrationMode] = useState("manual");
+  const [applyCalibrationName, setApplyCalibrationName] = useState(syncedCalibrations[0] ?? "Corrected Calibration (+10)");
+  const [applyCalibrationGroup, setApplyCalibrationGroup] = useState("all");
+  const [boardAddresses, setBoardAddresses] = useState(
+    boardConfigs.length ? boardConfigs.map((config) => config.address).join(", ") : "0x20, 0x24, 0x26",
+  );
+  const [boardResetPin, setBoardResetPin] = useState("16");
+  const [destructiveConfirm, setDestructiveConfirm] = useState(false);
+  const [exportDataType, setExportDataType] = useState("readings");
+
+  if (!open) return null;
+
+  function pairingsForGroup(groupValue: string) {
+    return groupOptions.find((group) => group.value === groupValue)?.pairings ?? [];
+  }
+
+  function pairingNamesForGroup(groupValue: string) {
+    return pairingsForGroup(groupValue).map((pairing) => pairing.name);
+  }
+
+  function parseNumber(value: string) {
+    return Number(value.trim());
+  }
+
+  async function submitBulkPairingUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("bulk_update_pairings", {
+      pairing_names: pairingNamesForGroup(bulkGroup),
+      target_vwc: parseNumber(bulkTarget),
+      open_time_seconds: parseNumber(bulkOpenSeconds),
+      measurement_interval_seconds: parseNumber(bulkIntervalSeconds),
+    });
+  }
+
+  async function submitCreatePairing(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("create_pairing", {
+      name: newPairingName,
+      sensor_key: newPairingSensor,
+      valve_key: newPairingValve,
+      group_name: newPairingGroup,
+      target_vwc: parseNumber(newPairingTarget),
+      open_time_seconds: parseNumber(bulkOpenSeconds),
+      measurement_interval_seconds: parseNumber(bulkIntervalSeconds),
+    });
+  }
+
+  async function submitManualWater(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("manual_water", {
+      pairing_names: pairingNamesForGroup(manualGroup),
+      duration_seconds: parseNumber(manualSeconds),
+    });
+  }
+
+  async function submitCreateGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("create_group", {
+      group_name: groupName,
+    });
+  }
+
+  async function submitRemoveGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("remove_group", {
+      group_name: removeGroupName || groupName,
+    }, { confirm: true });
+  }
+
+  async function submitCalibration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("create_calibration", {
+      name: calibrationName,
+      mode: calibrationMode,
+      function_text: calibrationFunction,
+    });
+  }
+
+  async function submitApplyCalibration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("apply_calibration", {
+      calibration_name: applyCalibrationName,
+      pairing_names: pairingNamesForGroup(applyCalibrationGroup),
+    });
+  }
+
+  async function deleteCalibration(name: string) {
+    await onQueueCommand("delete_calibration", {
+      calibration_name: name,
+    }, { confirm: true });
+  }
+
+  async function submitBoardConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const boards = boardAddresses
+      .split(/[,\n]/)
+      .map((address) => address.trim())
+      .filter(Boolean)
+      .map((address) => ({
+        address,
+        reset_pin: parseNumber(boardResetPin),
+      }));
+    await onQueueCommand("update_board_config", { boards }, { confirm: true });
+  }
+
+  async function queueSystemState(state: "running" | "stopped") {
+    await onQueueCommand("update_system_state", {
+      state,
+      reason: state === "stopped" ? "Portal stop request" : "Portal start request",
+    }, { confirm: destructiveConfirm || state === "running" });
+  }
+
+  async function queueInitializeSensors() {
+    await onQueueCommand("initialize_sensors", {
+      reason: "Portal initialize sensors request",
+    }, { confirm: destructiveConfirm });
+  }
+
+  async function queueExportData() {
+    await onQueueCommand("export_data", {
+      data_type: exportDataType,
+    });
+  }
+
+  const commandStatusPanel = (
+    <>
+      {controlNotice ? (
+        <div className="settings-callout is-success">
+          <CheckCircle2 size={18} />
+          <div>
+            <strong>{controlNotice}</strong>
+            <p>The request is queued. Device execution is handled by the protected backend bridge.</p>
+          </div>
+        </div>
+      ) : null}
+      {controlError ? (
+        <div className="settings-callout is-error">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>Control request was not queued.</strong>
+            <p>{controlError}</p>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 
   const renderSection = () => {
     if (activeSection === "overview") {
@@ -1473,10 +1747,11 @@ function PortalSettingsPanel({
           <div className="settings-callout">
             <ShieldCheck size={18} />
             <div>
-              <strong>No experiment changes from this settings build.</strong>
-              <p>Live-control actions are intentionally locked until the protected command queue and device executor are deployed.</p>
+              <strong>Controls are queued before they touch the device.</strong>
+              <p>Portal requests are authenticated, validated, and audited before a device-side executor can apply them to the live controller.</p>
             </div>
           </div>
+          {commandStatusPanel}
         </>
       );
     }
@@ -1484,6 +1759,73 @@ function PortalSettingsPanel({
     if (activeSection === "pairings") {
       return (
         <>
+          {commandStatusPanel}
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>Bulk Edit Targets</h3>
+              <form className="settings-form" onSubmit={submitBulkPairingUpdate}>
+                <label>
+                  Group
+                  <select value={bulkGroup} onChange={(event) => setBulkGroup(event.target.value)}>
+                    {groupOptions.map((group) => (
+                      <option value={group.value} key={group.value}>
+                        {group.label} ({group.pairings.length})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="settings-field-grid">
+                  <label>
+                    VWC %
+                    <input type="number" min="0" max="80" step="0.1" value={bulkTarget} onChange={(event) => setBulkTarget(event.target.value)} required />
+                  </label>
+                  <label>
+                    Open sec
+                    <input type="number" min="1" max="120" step="1" value={bulkOpenSeconds} onChange={(event) => setBulkOpenSeconds(event.target.value)} required />
+                  </label>
+                  <label>
+                    Interval sec
+                    <input type="number" min="30" max="3600" step="30" value={bulkIntervalSeconds} onChange={(event) => setBulkIntervalSeconds(event.target.value)} required />
+                  </label>
+                </div>
+                <button type="submit" className="settings-primary-button" disabled={controlBusy || pairingsForGroup(bulkGroup).length === 0}>
+                  Queue bulk update
+                </button>
+              </form>
+            </section>
+            <section className="settings-card">
+              <h3>Create Pairing</h3>
+              <form className="settings-form" onSubmit={submitCreatePairing}>
+                <div className="settings-field-grid is-two">
+                  <label>
+                    Name
+                    <input value={newPairingName} onChange={(event) => setNewPairingName(event.target.value)} placeholder="Zone4-Pot101" required />
+                  </label>
+                  <label>
+                    Group
+                    <input value={newPairingGroup} onChange={(event) => setNewPairingGroup(event.target.value)} placeholder="Matt's 20 pots" required />
+                  </label>
+                </div>
+                <div className="settings-field-grid is-two">
+                  <label>
+                    Sensor
+                    <input value={newPairingSensor} onChange={(event) => setNewPairingSensor(event.target.value)} placeholder="D30GQN2E:y" required />
+                  </label>
+                  <label>
+                    Valve
+                    <input value={newPairingValve} onChange={(event) => setNewPairingValve(event.target.value)} placeholder="0x20:49" required />
+                  </label>
+                </div>
+                <label>
+                  Initial VWC %
+                  <input type="number" min="0" max="80" step="0.1" value={newPairingTarget} onChange={(event) => setNewPairingTarget(event.target.value)} required />
+                </label>
+                <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
+                  Queue pairing
+                </button>
+              </form>
+            </section>
+          </div>
           <div className="settings-toolbar">
             <p>Current pot, sensor, valve, target, open-time, and measurement interval state synced from the portal project tables.</p>
             <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
@@ -1529,6 +1871,7 @@ function PortalSettingsPanel({
     if (activeSection === "calibrations") {
       return (
         <>
+          {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Synced Calibration State</h3>
@@ -1545,18 +1888,62 @@ function PortalSettingsPanel({
             </section>
             <section className="settings-card">
               <h3>Calibration Builder</h3>
-              <p className="settings-muted">The Balena calibration form should move here after command/audit tables exist.</p>
-              <button type="button" className="settings-locked-button" disabled>
-                <Lock size={14} />
-                Locked for live experiment
-              </button>
+              <form className="settings-form" onSubmit={submitCalibration}>
+                <label>
+                  Calibration name
+                  <input value={calibrationName} onChange={(event) => setCalibrationName(event.target.value)} required />
+                </label>
+                <label>
+                  Fit type
+                  <select value={calibrationMode} onChange={(event) => setCalibrationMode(event.target.value)}>
+                    <option value="manual">Manual function</option>
+                    <option value="linear">1st degree (linear)</option>
+                    <option value="polynomial">3rd degree polynomial</option>
+                  </select>
+                </label>
+                <label>
+                  Function
+                  <input value={calibrationFunction} onChange={(event) => setCalibrationFunction(event.target.value)} required />
+                </label>
+                <button type="submit" className="settings-primary-button" disabled={controlBusy}>
+                  Queue calibration
+                </button>
+              </form>
             </section>
           </div>
+          <section className="settings-card">
+            <h3>Apply Calibration</h3>
+            <form className="settings-form settings-inline-form" onSubmit={submitApplyCalibration}>
+              <label>
+                Calibration
+                <input value={applyCalibrationName} onChange={(event) => setApplyCalibrationName(event.target.value)} required />
+              </label>
+              <label>
+                Group
+                <select value={applyCalibrationGroup} onChange={(event) => setApplyCalibrationGroup(event.target.value)}>
+                  {groupOptions.map((group) => (
+                    <option value={group.value} key={group.value}>
+                      {group.label} ({group.pairings.length})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
+                Queue apply
+              </button>
+            </form>
+          </section>
           <div className="settings-list">
             {(syncedCalibrations.length ? syncedCalibrations : ["Calibration details are not synced into Supabase yet."]).map((label) => (
               <div className="settings-list-row" key={label}>
                 <span>{label}</span>
-                <em>{syncedCalibrations.length ? "Read only" : "Backend bridge needed"}</em>
+                {syncedCalibrations.length ? (
+                  <button type="button" className="settings-danger-button" onClick={() => void deleteCalibration(label)} disabled={controlBusy}>
+                    Delete
+                  </button>
+                ) : (
+                  <em>Backend bridge needed</em>
+                )}
               </div>
             ))}
           </div>
@@ -1567,6 +1954,7 @@ function PortalSettingsPanel({
     if (activeSection === "water") {
       return (
         <>
+          {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Current Targets</h3>
@@ -1584,24 +1972,32 @@ function PortalSettingsPanel({
             </section>
             <section className="settings-card">
               <h3>Manual Watering</h3>
-              <p className="settings-muted">Manual valve commands must go through a protected command queue before they can be enabled here.</p>
-              <div className="settings-control-row">
-                <select disabled aria-label="Manual water group">
-                  <option>Select group</option>
-                </select>
-                <input disabled value="5 sec" aria-label="Manual water duration" readOnly />
-                <button type="button" className="settings-locked-button" disabled>
-                  <Lock size={14} />
-                  Queue water
+              <form className="settings-form" onSubmit={submitManualWater}>
+                <label>
+                  Group
+                  <select value={manualGroup} onChange={(event) => setManualGroup(event.target.value)}>
+                    {groupOptions.map((group) => (
+                      <option value={group.value} key={group.value}>
+                        {group.label} ({group.pairings.length})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Duration seconds
+                  <input type="number" min="1" max="60" step="1" value={manualSeconds} onChange={(event) => setManualSeconds(event.target.value)} required />
+                </label>
+                <button type="submit" className="settings-primary-button" disabled={controlBusy || pairingsForGroup(manualGroup).length === 0}>
+                  Queue manual water
                 </button>
-              </div>
+              </form>
             </section>
           </div>
           <div className="settings-callout is-warning">
             <CircleAlert size={18} />
             <div>
-              <strong>Valve control stays disabled in this pass.</strong>
-              <p>This preserves Matt's active experiment while the portal control backend is added safely.</p>
+              <strong>Manual watering is treated as a live-control command.</strong>
+              <p>The portal queues the request with your user ID; the device bridge must apply it and write the result back.</p>
             </div>
           </div>
         </>
@@ -1610,33 +2006,68 @@ function PortalSettingsPanel({
 
     if (activeSection === "groups") {
       return (
-        <div className="settings-grid">
-          {treatmentGroups.map((group) => (
-            <section className="settings-card" key={group.label}>
-              <h3>{group.label}</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>Pots</span>
-                  <strong>{group.pairings.map((pairing) => pairing.pot_number).join(", ")}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Count</span>
-                  <strong>{group.pairings.length}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Targets</span>
-                  <strong>{Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit)))).join(", ")}</strong>
-                </div>
-              </div>
+        <>
+          {commandStatusPanel}
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>Create Group</h3>
+              <form className="settings-form" onSubmit={submitCreateGroup}>
+                <label>
+                  Group name
+                  <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Matt drought rows" required />
+                </label>
+                <button type="submit" className="settings-primary-button" disabled={controlBusy}>
+                  Queue group
+                </button>
+              </form>
             </section>
-          ))}
-        </div>
+            <section className="settings-card">
+              <h3>Remove Group</h3>
+              <form className="settings-form" onSubmit={submitRemoveGroup}>
+                <label>
+                  Group
+                  <select value={removeGroupName} onChange={(event) => setRemoveGroupName(event.target.value)}>
+                    <option value="">Type custom group above</option>
+                    {groupOptions.filter((group) => group.value !== "all").map((group) => (
+                      <option value={group.label} key={group.value}>{group.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <button type="submit" className="settings-danger-button" disabled={controlBusy || (!removeGroupName && !groupName)}>
+                  Queue remove
+                </button>
+              </form>
+            </section>
+          </div>
+          <div className="settings-grid">
+            {treatmentGroups.map((group) => (
+              <section className="settings-card" key={group.label}>
+                <h3>{group.label}</h3>
+                <div className="settings-rows">
+                  <div className="settings-row">
+                    <span>Pots</span>
+                    <strong>{group.pairings.map((pairing) => pairing.pot_number).join(", ")}</strong>
+                  </div>
+                  <div className="settings-row">
+                    <span>Count</span>
+                    <strong>{group.pairings.length}</strong>
+                  </div>
+                  <div className="settings-row">
+                    <span>Targets</span>
+                    <strong>{Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit)))).join(", ")}</strong>
+                  </div>
+                </div>
+              </section>
+            ))}
+          </div>
+        </>
       );
     }
 
     if (activeSection === "hardware") {
       return (
         <>
+          {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Hardware Snapshot</h3>
@@ -1657,13 +2088,43 @@ function PortalSettingsPanel({
             </section>
             <section className="settings-card">
               <h3>Protected System Actions</h3>
+              <label className="settings-check">
+                <input
+                  type="checkbox"
+                  checked={destructiveConfirm}
+                  onChange={(event) => setDestructiveConfirm(event.target.checked)}
+                />
+                <span>I understand this is a live system command.</span>
+              </label>
               <div className="settings-action-stack">
-                <button type="button" disabled><Lock size={14} /> Initialize sensors</button>
-                <button type="button" disabled><Lock size={14} /> Update board config</button>
-                <button type="button" disabled><Lock size={14} /> Stop system</button>
+                <button type="button" onClick={() => void queueSystemState("running")} disabled={controlBusy}>
+                  <CheckCircle2 size={14} /> Queue start system
+                </button>
+                <button type="button" onClick={() => void queueInitializeSensors()} disabled={controlBusy || !destructiveConfirm}>
+                  <AlertTriangle size={14} /> Queue initialize sensors
+                </button>
+                <button type="button" onClick={() => void queueSystemState("stopped")} disabled={controlBusy || !destructiveConfirm}>
+                  <AlertTriangle size={14} /> Queue stop system
+                </button>
               </div>
             </section>
           </div>
+          <section className="settings-card">
+            <h3>Board Configuration</h3>
+            <form className="settings-form settings-inline-form" onSubmit={submitBoardConfig}>
+              <label>
+                Board addresses
+                <input value={boardAddresses} onChange={(event) => setBoardAddresses(event.target.value)} placeholder="0x20, 0x24, 0x26" required />
+              </label>
+              <label>
+                Reset pin
+                <input type="number" min="0" max="40" step="1" value={boardResetPin} onChange={(event) => setBoardResetPin(event.target.value)} required />
+              </label>
+              <button type="submit" className="settings-danger-button" disabled={controlBusy || !destructiveConfirm}>
+                Queue board update
+              </button>
+            </form>
+          </section>
           <div className="settings-list">
             {(boardConfigs.length ? boardConfigs : [{ address: "Not synced", resetPin: "Not synced" }]).map((config, index) => (
               <div className="settings-list-row" key={`${config.address}-${index}`}>
@@ -1678,42 +2139,100 @@ function PortalSettingsPanel({
 
     if (activeSection === "exports") {
       return (
-        <div className="settings-grid">
-          <section className="settings-card">
-            <h3>Readings Export</h3>
-            <p className="settings-muted">Downloads all project readings currently accessible to your account.</p>
-            <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv}>
-              <Download size={14} />
-              {exportingCsv ? "Preparing..." : "Prepare readings CSV"}
-            </button>
-            {csvDownload ? (
-              <a className="settings-download-link" href={csvDownload.url} download={csvDownload.filename}>
-                Download {csvDownload.rowCount.toLocaleString()} rows
-              </a>
-            ) : null}
-          </section>
-          <section className="settings-card">
-            <h3>Configuration Export</h3>
-            <p className="settings-muted">Pairings export is available now. Hardware, calibration, and audit exports need backend sync tables.</p>
-            <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
-              <Download size={14} />
-              Download pairings CSV
-            </button>
-          </section>
-        </div>
+        <>
+          {commandStatusPanel}
+          <div className="settings-grid">
+            <section className="settings-card">
+              <h3>Readings Export</h3>
+              <p className="settings-muted">Downloads all project readings currently accessible to your account.</p>
+              <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv}>
+                <Download size={14} />
+                {exportingCsv ? "Preparing..." : "Prepare readings CSV"}
+              </button>
+              {csvDownload ? (
+                <a className="settings-download-link" href={csvDownload.url} download={csvDownload.filename}>
+                  Download {csvDownload.rowCount.toLocaleString()} rows
+                </a>
+              ) : null}
+            </section>
+            <section className="settings-card">
+              <h3>Configuration Export</h3>
+              <p className="settings-muted">Pairings export is available now. Device-side exports can be queued for the controller bridge.</p>
+              <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
+                <Download size={14} />
+                Download pairings CSV
+              </button>
+              <div className="settings-inline-form">
+                <label>
+                  Data type
+                  <select value={exportDataType} onChange={(event) => setExportDataType(event.target.value)}>
+                    <option value="groups">Groups</option>
+                    <option value="sensors">Sensors</option>
+                    <option value="valves">Valves</option>
+                    <option value="pairings">Pairings</option>
+                    <option value="calibrations">Calibrations</option>
+                    <option value="rules">Rules</option>
+                    <option value="logs">Logs</option>
+                    <option value="errors">Errors</option>
+                    <option value="audit">Audit</option>
+                    <option value="readings">Readings</option>
+                  </select>
+                </label>
+                <button type="button" className="settings-secondary-button" onClick={() => void queueExportData()} disabled={controlBusy}>
+                  Queue export
+                </button>
+              </div>
+            </section>
+          </div>
+        </>
       );
     }
 
     if (activeSection === "logs") {
       return (
         <>
+          {commandStatusPanel}
           <div className="settings-callout">
             <Database size={18} />
             <div>
-              <strong>Audit trail target</strong>
-              <p>Every future calibration, pairing edit, valve command, and system action should write an immutable audit row.</p>
+              <strong>Audit trail</strong>
+              <p>Calibration, pairing edit, valve command, export, and system-action requests are written to command and audit tables.</p>
             </div>
           </div>
+          <section className="settings-card">
+            <div className="settings-card-head">
+              <h3>Recent Commands</h3>
+              <button type="button" className="settings-secondary-button" onClick={onRefreshCommands}>
+                Refresh
+              </button>
+            </div>
+            <div className="settings-table-wrap">
+              <table className="settings-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>Scope</th>
+                    <th>Requested</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentCommands.length ? recentCommands.map((command) => (
+                    <tr key={command.id}>
+                      <td>{controlCommandLabel(command.command_type)}</td>
+                      <td>{command.status}</td>
+                      <td>{commandPayloadSummary(command)}</td>
+                      <td>{commandStatusText(command)}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={4}>No control commands synced yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
           <pre className="settings-json-preview">{shortJson(data.latestState?.latest_payload)}</pre>
         </>
       );
@@ -1736,8 +2255,8 @@ function PortalSettingsPanel({
           </div>
         </section>
         <section className="settings-card">
-          <h3>Next Backend Piece</h3>
-          <p className="settings-muted">Add role-normalized command tables and an Edge Function before enabling live edits.</p>
+          <h3>Control Permissions</h3>
+          <p className="settings-muted">Owner/admin members can queue control commands. Viewer/member accounts can keep read-only dashboard access.</p>
         </section>
       </div>
     );
@@ -1811,6 +2330,10 @@ export default function App() {
   const [controlsHidden, setControlsHidden] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("overview");
+  const [controlBusy, setControlBusy] = useState(false);
+  const [controlNotice, setControlNotice] = useState<string | null>(null);
+  const [controlError, setControlError] = useState<string | null>(null);
+  const [recentCommands, setRecentCommands] = useState<ControlCommand[]>([]);
   const [data, setData] = useState<LoadState>(initialLoadState);
 
   const dataRef = useRef(data);
@@ -1936,6 +2459,59 @@ export default function App() {
     },
     [selectedMode],
   );
+
+  const loadRecentCommands = useCallback(async () => {
+    try {
+      const response = await supabase
+        .from("project_control_commands")
+        .select("id, project_id, device_id, command_type, payload, status, requested_at, expires_at, requires_confirmation, result, error")
+        .eq("project_id", mattProjectId)
+        .order("requested_at", { ascending: false })
+        .limit(20);
+
+      if (response.error) throw response.error;
+      setRecentCommands((response.data ?? []) as ControlCommand[]);
+    } catch {
+      setRecentCommands([]);
+    }
+  }, []);
+
+  const queueControlCommand = useCallback<QueueControlCommand>(
+    async (commandType, payload, options) => {
+      setControlBusy(true);
+      setControlNotice(null);
+      setControlError(null);
+
+      try {
+        const response = await supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
+          body: {
+            project_id: mattProjectId,
+            device_id: dataRef.current.latestState?.device_id ?? mattDeviceId,
+            command_type: commandType,
+            payload,
+            confirm: options?.confirm === true,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(await functionErrorMessage(response.error));
+        }
+
+        setControlNotice(`${controlCommandLabel(commandType)} queued`);
+        await loadRecentCommands();
+      } catch (err) {
+        setControlError(errorMessage(err));
+      } finally {
+        setControlBusy(false);
+      }
+    },
+    [loadRecentCommands],
+  );
+
+  useEffect(() => {
+    if (!settingsOpen || !sessionReady) return;
+    void loadRecentCommands();
+  }, [loadRecentCommands, sessionReady, settingsOpen]);
 
   async function signIn(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -2578,10 +3154,16 @@ export default function App() {
         visiblePotCount={visiblePotCount}
         csvDownload={csvDownload}
         exportingCsv={exportingCsv}
+        controlBusy={controlBusy}
+        controlNotice={controlNotice}
+        controlError={controlError}
+        recentCommands={recentCommands}
         onClose={() => setSettingsOpen(false)}
         onSectionChange={setSettingsSection}
         onPrepareCsvDownload={prepareCsvDownload}
         onDownloadPairingsCsv={downloadPairingsCsv}
+        onRefreshCommands={loadRecentCommands}
+        onQueueCommand={queueControlCommand}
       />
 
       {error ? (

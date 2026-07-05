@@ -8,11 +8,14 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
 - Supabase Auth login using the browser-safe anon key.
 - Invite-only account setup through a Supabase Edge Function. The browser sends
   an invite token, email, and password; the service-role key stays server-side.
+- Portal settings can queue authenticated control commands through a Supabase
+  Edge Function. The browser never writes hardware settings directly.
 - Dashboard queries the existing tables:
   - `pairings`
   - `sensor_readings`
   - `valve_events`
   - `latest_device_state`
+  - `project_control_commands`
 - Data source prefixes:
   - imported Matt/Balena rows: `balena-export-v2:%`
   - future live device rows: `live-device:%`
@@ -22,8 +25,10 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
 - No service role key in the frontend.
 - No open public signup that automatically grants project access.
 - No fake live data.
-- No command/control or irrigation actuation.
-- No new valve mappings.
+- No direct browser-to-device irrigation actuation.
+- No frontend mutation of valve mappings, calibrations, or board config.
+- No device-side command executor in this static site; queued commands require
+  a protected backend/device bridge to apply them to the controller.
 
 ## Local run
 
