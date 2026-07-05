@@ -3,6 +3,9 @@ export type PairingRow = {
   name: string;
   zone: number;
   pot_number: number;
+  group_name?: string | null;
+  group?: string | null;
+  group_label?: string | null;
   source_sensor_id: number;
   sensor_key: string;
   source_valve_id: number;
@@ -10,6 +13,10 @@ export type PairingRow = {
   wtc_percent_limit: number;
   valve_open_time_ms: number;
   measurement_interval_ms: number;
+  calibration_name?: string | null;
+  calibration?: string | null;
+  calibration_label?: string | null;
+  calibration_id?: string | number | null;
 };
 
 export type LatestState = {

@@ -252,7 +252,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260705-portal-control-queue";
+const portalVersion = "20260705-portal-full-control";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -617,6 +617,23 @@ function pairingCalibrationName(pairing: PairingRow) {
   if (typeof value === "string" && value.trim()) return value;
   if (typeof value === "number") return `Calibration ${value}`;
   return "Not synced";
+}
+
+function pairingGroupName(pairing: PairingRow) {
+  const row = pairing as PairingRow & Record<string, unknown>;
+  const value =
+    row.group_name ??
+    row.group ??
+    row.group_label ??
+    row.pairing_group ??
+    row.project_group;
+  if (typeof value === "string" && value.trim()) return value;
+  return `${cropLabel(cropForPairing(pairing))} ${treatmentLabel(treatmentForPairing(pairing))}`;
+}
+
+function numberInputString(value: number | null | undefined, digits = 1) {
+  if (value == null || !Number.isFinite(value)) return "";
+  return Number(value.toFixed(digits)).toString();
 }
 
 function shortJson(value: unknown) {
@@ -1508,27 +1525,17 @@ function PortalSettingsPanel({
   const uniqueValves = new Set(pairings.map((pairing) => pairing.valve_key).filter(Boolean));
   const syncedCalibrations = Array.from(new Set(pairings.map(pairingCalibrationName)))
     .filter((label) => label !== "Not synced");
-  const treatmentGroups = [
-    {
-      label: "Maize control",
-      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "maize" && treatmentForPairing(pairing) === "control"),
-    },
-    {
-      label: "Maize drought",
-      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "maize" && treatmentForPairing(pairing) === "drought"),
-    },
-    {
-      label: "Sorghum control",
-      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "sorghum" && treatmentForPairing(pairing) === "control"),
-    },
-    {
-      label: "Sorghum drought",
-      pairings: pairings.filter((pairing) => cropForPairing(pairing) === "sorghum" && treatmentForPairing(pairing) === "drought"),
-    },
-  ].filter((group) => group.pairings.length > 0);
+  const projectGroups = Array.from(
+    pairings.reduce((groups, pairing) => {
+      const label = pairingGroupName(pairing);
+      groups.set(label, [...(groups.get(label) ?? []), pairing]);
+      return groups;
+    }, new Map<string, PairingRow[]>()),
+    ([label, groupPairings]) => ({ label, pairings: groupPairings }),
+  );
   const groupOptions = [
     { value: "all", label: "All pairings", pairings },
-    ...treatmentGroups.map((group) => ({
+    ...projectGroups.map((group) => ({
       value: group.label,
       label: group.label,
       pairings: group.pairings,
@@ -1538,6 +1545,14 @@ function PortalSettingsPanel({
   const [bulkTarget, setBulkTarget] = useState("20");
   const [bulkOpenSeconds, setBulkOpenSeconds] = useState("5");
   const [bulkIntervalSeconds, setBulkIntervalSeconds] = useState("600");
+  const [singlePairingName, setSinglePairingName] = useState(pairings[0]?.name ?? "");
+  const [singleTarget, setSingleTarget] = useState(pairings[0] ? numberInputString(pairings[0].wtc_percent_limit) : "20");
+  const [singleOpenSeconds, setSingleOpenSeconds] = useState(
+    pairings[0] ? numberInputString(pairings[0].valve_open_time_ms / 1000) : "5",
+  );
+  const [singleIntervalSeconds, setSingleIntervalSeconds] = useState(
+    pairings[0] ? numberInputString(pairings[0].measurement_interval_ms / 1000, 0) : "600",
+  );
   const [newPairingName, setNewPairingName] = useState("");
   const [newPairingSensor, setNewPairingSensor] = useState("");
   const [newPairingValve, setNewPairingValve] = useState("");
@@ -1546,7 +1561,7 @@ function PortalSettingsPanel({
   const [manualGroup, setManualGroup] = useState("all");
   const [manualSeconds, setManualSeconds] = useState("5");
   const [groupName, setGroupName] = useState("");
-  const [removeGroupName, setRemoveGroupName] = useState(treatmentGroups[0]?.label ?? "");
+  const [removeGroupName, setRemoveGroupName] = useState(projectGroups[0]?.label ?? "");
   const [calibrationName, setCalibrationName] = useState("Corrected Calibration (+10)");
   const [calibrationFunction, setCalibrationFunction] = useState("f(x) = 110.68 - 0.1289x + 0.00004x^2");
   const [calibrationMode, setCalibrationMode] = useState("manual");
@@ -1558,6 +1573,21 @@ function PortalSettingsPanel({
   const [boardResetPin, setBoardResetPin] = useState("16");
   const [destructiveConfirm, setDestructiveConfirm] = useState(false);
   const [exportDataType, setExportDataType] = useState("readings");
+  const selectedPairing = pairings.find((pairing) => pairing.name === singlePairingName) ?? pairings[0] ?? null;
+
+  useEffect(() => {
+    if (!open || pairings.length === 0) return;
+    setSinglePairingName((current) => (
+      current && pairings.some((pairing) => pairing.name === current) ? current : pairings[0].name
+    ));
+  }, [open, pairings]);
+
+  useEffect(() => {
+    if (!open || !selectedPairing) return;
+    setSingleTarget(numberInputString(selectedPairing.wtc_percent_limit));
+    setSingleOpenSeconds(numberInputString(selectedPairing.valve_open_time_ms / 1000));
+    setSingleIntervalSeconds(numberInputString(selectedPairing.measurement_interval_ms / 1000, 0));
+  }, [open, selectedPairing]);
 
   if (!open) return null;
 
@@ -1580,6 +1610,16 @@ function PortalSettingsPanel({
       target_vwc: parseNumber(bulkTarget),
       open_time_seconds: parseNumber(bulkOpenSeconds),
       measurement_interval_seconds: parseNumber(bulkIntervalSeconds),
+    });
+  }
+
+  async function submitSinglePairingUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onQueueCommand("update_pairing", {
+      pairing_name: selectedPairing?.name ?? singlePairingName,
+      target_vwc: parseNumber(singleTarget),
+      open_time_seconds: parseNumber(singleOpenSeconds),
+      measurement_interval_seconds: parseNumber(singleIntervalSeconds),
     });
   }
 
@@ -1762,6 +1802,38 @@ function PortalSettingsPanel({
           {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
+              <h3>Edit One Pairing</h3>
+              <form className="settings-form" onSubmit={submitSinglePairingUpdate}>
+                <label>
+                  Pairing
+                  <select value={singlePairingName} onChange={(event) => setSinglePairingName(event.target.value)} required>
+                    {pairings.map((pairing) => (
+                      <option value={pairing.name} key={pairing.id}>
+                        Pot {pairing.pot_number} · {pairing.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="settings-field-grid">
+                  <label>
+                    VWC %
+                    <input type="number" min="0" max="80" step="0.1" value={singleTarget} onChange={(event) => setSingleTarget(event.target.value)} required />
+                  </label>
+                  <label>
+                    Open sec
+                    <input type="number" min="1" max="120" step="1" value={singleOpenSeconds} onChange={(event) => setSingleOpenSeconds(event.target.value)} required />
+                  </label>
+                  <label>
+                    Interval sec
+                    <input type="number" min="30" max="3600" step="30" value={singleIntervalSeconds} onChange={(event) => setSingleIntervalSeconds(event.target.value)} required />
+                  </label>
+                </div>
+                <button type="submit" className="settings-primary-button" disabled={controlBusy || !selectedPairing}>
+                  Queue pairing update
+                </button>
+              </form>
+            </section>
+            <section className="settings-card">
               <h3>Bulk Edit Targets</h3>
               <form className="settings-form" onSubmit={submitBulkPairingUpdate}>
                 <label>
@@ -1855,7 +1927,7 @@ function PortalSettingsPanel({
                     </td>
                     <td>{pairing.sensor_key}</td>
                     <td>{pairing.valve_key}</td>
-                    <td>{cropLabel(cropForPairing(pairing))} / {treatmentLabel(treatmentForPairing(pairing))}</td>
+                    <td>{pairingGroupName(pairing)}</td>
                     <td>{formatTargetVwc(pairing.wtc_percent_limit)}</td>
                     <td>{formatSecondsFromMs(pairing.valve_open_time_ms)}</td>
                     <td>{formatIntervalFromMs(pairing.measurement_interval_ms)}</td>
@@ -1959,7 +2031,7 @@ function PortalSettingsPanel({
             <section className="settings-card">
               <h3>Current Targets</h3>
               <div className="settings-rows">
-                {treatmentGroups.map((group) => {
+                {projectGroups.map((group) => {
                   const targets = Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit))));
                   return (
                     <div className="settings-row" key={group.label}>
@@ -2040,7 +2112,7 @@ function PortalSettingsPanel({
             </section>
           </div>
           <div className="settings-grid">
-            {treatmentGroups.map((group) => (
+            {projectGroups.map((group) => (
               <section className="settings-card" key={group.label}>
                 <h3>{group.label}</h3>
                 <div className="settings-rows">
