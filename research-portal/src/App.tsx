@@ -22,6 +22,7 @@ import {
   LogOut,
   Maximize2,
   Minimize2,
+  Search,
   Settings as SettingsIcon,
   ShieldCheck,
   SlidersHorizontal,
@@ -181,6 +182,7 @@ type SettingsNavItem = {
   id: SettingsSection;
   label: string;
   description: string;
+  group: "Live System" | "Controls" | "Data" | "Admin";
   icon: LucideIcon;
 };
 
@@ -252,7 +254,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260705-portal-full-control";
+const portalVersion = "20260705-settings-ui";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -261,57 +263,74 @@ const settingsNavItems: SettingsNavItem[] = [
     id: "overview",
     label: "Overview",
     description: "Live device and project state",
+    group: "Live System",
     icon: Gauge,
   },
   {
     id: "pairings",
     label: "Pairings",
     description: "Pots, sensors, valves, and targets",
+    group: "Controls",
     icon: SlidersHorizontal,
   },
   {
     id: "calibrations",
     label: "Calibrations",
     description: "Sensor correction workspace",
+    group: "Controls",
     icon: Activity,
   },
   {
     id: "water",
     label: "Water Control",
     description: "Targets and manual watering",
+    group: "Controls",
     icon: ShieldCheck,
   },
   {
     id: "groups",
     label: "Groups",
     description: "Treatments and crop groups",
+    group: "Controls",
     icon: Database,
   },
   {
     id: "hardware",
     label: "Hardware",
     description: "Boards, sensors, and system actions",
+    group: "Controls",
     icon: Lock,
   },
   {
     id: "exports",
     label: "Exports",
     description: "CSV and project files",
+    group: "Data",
     icon: FileArchive,
   },
   {
     id: "logs",
     label: "Logs & Audit",
     description: "Errors, commands, and traceability",
+    group: "Data",
     icon: CircleAlert,
   },
   {
     id: "access",
     label: "Access",
     description: "Invite-only project membership",
+    group: "Admin",
     icon: CheckCircle2,
   },
 ];
+
+const settingsNavGroups = Array.from(
+  settingsNavItems.reduce((groups, item) => {
+    groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
+    return groups;
+  }, new Map<SettingsNavItem["group"], SettingsNavItem[]>()),
+  ([label, items]) => ({ label, items }),
+);
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -2342,22 +2361,30 @@ function PortalSettingsPanel({
             <X size={16} />
             Back to portal
           </button>
-          <div className="settings-search">Search settings...</div>
+          <div className="settings-search" aria-hidden="true">
+            <Search size={15} />
+            <span>Search settings...</span>
+          </div>
           <nav>
-            {settingsNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={item.id === activeSection ? "is-active" : ""}
-                  onClick={() => onSectionChange(item.id)}
-                >
-                  <Icon size={16} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
+            {settingsNavGroups.map((group) => (
+              <div className="settings-sidebar-group" key={group.label}>
+                <p className="settings-sidebar-group-label">{group.label}</p>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={item.id === activeSection ? "is-active" : ""}
+                      onClick={() => onSectionChange(item.id)}
+                    >
+                      <Icon size={16} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </aside>
         <section className="settings-content">
