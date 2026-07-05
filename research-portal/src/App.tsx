@@ -254,7 +254,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260705-settings-ui";
+const portalVersion = "20260705-simple-signin";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3086,20 +3086,6 @@ export default function App() {
             <a href="/support">Support</a>
           </div>
         </header>
-
-        <section className="portal-context-panel" aria-label="Portal context">
-          <div className="portal-photo-wall" aria-hidden="true">
-            <img src="product1.jpg" alt="" />
-            <img src="product2.jpg" alt="" />
-            <img src="product3.jpg" alt="" />
-            <img src="dashboard.jpg" alt="" />
-            <img src="scheduling.jpg" alt="" />
-            <img src="sensor.jpg" alt="" />
-          </div>
-          <div className="portal-context-copy">
-            <h1>exactH2O</h1>
-          </div>
-        </section>
 
         <section className="portal-login-panel" aria-label="Portal sign in">
           <div className="portal-login-card">
