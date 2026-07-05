@@ -70,6 +70,7 @@
   .team-intro-desc { font-size: 1.05rem; line-height: 1.8; opacity: 0.65; padding-top: 0.5rem; }
 
   .founders-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
+  .founders-grid-secondary { grid-template-columns: 1fr; width: calc(100% / 3); margin-top: 2px; }
   .founder-card { background: var(--bg); display: flex; flex-direction: column; transition: background 0.3s; }
   .founder-card:hover { background: var(--water-pale); }
   .founder-photo { width: 100%; height: 300px; overflow: hidden; background: var(--mist); }
@@ -110,6 +111,7 @@
     .page-header { padding-top: 7rem; }
     .team-intro-grid { grid-template-columns: 1fr; gap: 1.5rem; }
     .founders-grid { grid-template-columns: 1fr; }
+    .founders-grid-secondary { width: 100%; }
     footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
   }
 </style>
@@ -198,6 +200,25 @@
           <p class="founder-bio">Jacob is a skilled instrument maker whose expertise lies in troubleshooting, repairing, and optimizing complex scientific instruments. He played an instrumental role in the design and physical development of the exactH2O system — translating conceptual ideas into a functional, robust setup from the ground up. His hands-on problem-solving and technical depth are critical to the system's reliability.</p>
           <div class="founder-links">
             <a href="mailto:coo@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>coo@exacth2o.com</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="founders-grid founders-grid-secondary reveal">
+
+      <div class="founder-card">
+        <div class="founder-photo">
+          <img src="ej-howe.jpg" alt="EJ Howe" style="object-position: center 38%;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">EH</div><div class="founder-upload-hint">Upload as ej-howe.jpg</div></div>
+        </div>
+        <div class="founder-info">
+          <div class="founder-num">04 —</div>
+          <h3 class="founder-name">EJ Howe</h3>
+          <div class="founder-title" aria-hidden="true">&nbsp;</div>
+          <p class="founder-bio">EJ is a 2026 graduate of Michigan State University who brings software development and hands-on instrumentation support to exactH2O. He works across the platform's digital tools, sensor systems, and greenhouse deployments, helping turn the technology into a reliable research product.</p>
+          <div class="founder-links">
+            <a href="mailto:howeeva1@msu.edu" class="founder-link"><span class="founder-link-icon">✉</span>howeeva1@msu.edu</a>
           </div>
         </div>
       </div>
