@@ -460,25 +460,6 @@
     pointer-events: none;
     transition: transform 0.2s ease, opacity 0.2s ease;
   }
-  .app-card.flow-linked::after {
-    content: '';
-    position: absolute;
-    top: 1.7rem;
-    z-index: 3;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--flow-color);
-    opacity: var(--flow-card-progress);
-    box-shadow: 0 0 0 3px rgba(244,241,235,0.85);
-    transition: opacity 0.2s ease;
-  }
-  .app-card.flow-left-card::after {
-    right: -3px;
-  }
-  .app-card.flow-right-card::after {
-    right: -3px;
-  }
   .app-card > * {
     position: relative;
     z-index: 2;
@@ -1357,8 +1338,6 @@
     function resetCards() {
       cards.forEach(card => {
         card.classList.remove('flow-linked');
-        card.classList.remove('flow-left-card');
-        card.classList.remove('flow-right-card');
         card.style.removeProperty('--flow-color');
         card.style.removeProperty('--flow-card-progress');
       });
@@ -1383,20 +1362,19 @@
       const lastCardRect = docRect(cards[cards.length - 1]);
       flowStart = chartRect.bottom + (window.innerHeight * 0.08);
       flowEnd = Math.max(flowStart + 400, lastCardRect.bottom - (window.innerHeight * 0.35));
-      const centerX = gridRect.left + (gridRect.width / 2);
       const railX = Math.min(width - 70, gridRect.right + 94);
       const railTop = gridRect.top - 118;
+      const entryX = gridRect.right + 1;
+      const entryY = gridRect.top + (gridRect.height / 2);
 
       flows.forEach((flow, index) => {
         const start = traceEndpoint(flow.traceId);
         const card = cards[flow.cardIndex];
         if (!start || !card) return;
 
-        const cardRect = docRect(card);
-        const isLeftCard = cardRect.left < centerX;
         const laneX = railX + ((index - 1.5) * 7);
-        const targetX = cardRect.right - 1;
-        const targetY = cardRect.top + Math.min(cardRect.height - 42, 44 + ((index % 2) * 16));
+        const targetX = entryX;
+        const targetY = entryY + ((index - 1.5) * 3);
         const mergeY = Math.max(start.y + 104 + (index * 18), railTop);
         const controlX = Math.min(laneX - 42, start.x + 140 + (index * 12));
 
@@ -1421,7 +1399,6 @@
         path.style.strokeDasharray = String(length);
         path.style.strokeDashoffset = String(prefersReducedMotion ? 0 : length);
         card.classList.add('flow-linked');
-        card.classList.add(isLeftCard ? 'flow-left-card' : 'flow-right-card');
         card.style.setProperty('--flow-color', flow.color);
         card.style.setProperty('--flow-card-progress', prefersReducedMotion ? '1' : '0');
         flowItems.push({ path, dot, card, length, index });
