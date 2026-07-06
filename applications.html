@@ -324,6 +324,24 @@
   .experiment-chart.has-active .experiment-trace:not(.is-active) {
     opacity: 0.18;
   }
+  .flow-exit {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.9;
+    opacity: 0.56;
+    pointer-events: stroke;
+    transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
+  }
+  .flow-exit.is-hovered,
+  .flow-exit.is-active {
+    opacity: 0.95;
+    stroke-width: 2.6;
+    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.16));
+  }
+  .experiment-chart.has-active .flow-exit:not(.is-active) {
+    opacity: 0.18;
+  }
   .trace-end {
     opacity: 1;
   }
@@ -747,6 +765,13 @@
             <path class="experiment-trace is-muted" data-trace-id="run-51" data-label="Run 51" data-detail="Control" data-value="15.3% VWC" fill="none" stroke="#0891b2" d="M64 318 C118 316 160 318 196 320 C232 340 270 384 310 420 C350 454 402 456 456 454 C502 452 536 444 572 442 C626 438 680 438 724 442" />
           </g>
 
+          <g class="flow-exits">
+            <path class="flow-exit" data-trace-id="run-41" stroke="#2563eb" d="M724 340 C742 340 764 344 792 358" />
+            <path class="flow-exit" data-trace-id="run-43" stroke="#22c55e" d="M724 374 C742 374 764 378 792 392" />
+            <path class="flow-exit" data-trace-id="run-45" stroke="#f97316" d="M724 356 C742 356 764 360 792 374" />
+            <path class="flow-exit" data-trace-id="run-47" stroke="#14b8a6" d="M724 446 C742 446 764 452 792 468" />
+          </g>
+
           <g class="trace-end">
             <circle data-trace-id="run-41" cx="724" cy="340" r="3.6" fill="#2563eb" />
             <circle data-trace-id="run-42" cx="724" cy="382" r="3.6" fill="#a855f7" />
@@ -1093,6 +1118,7 @@
 
     const traces = Array.from(svg.querySelectorAll('.experiment-trace'));
     const dots = Array.from(svg.querySelectorAll('.trace-end circle'));
+    const exits = Array.from(svg.querySelectorAll('.flow-exit'));
     const tooltip = svg.querySelector('.experiment-readout');
     const crosshair = svg.querySelector('.experiment-crosshair');
     const accent = svg.querySelector('.tooltip-accent');
@@ -1212,6 +1238,11 @@
         dot.classList.toggle('is-hovered', dot.dataset.traceId === hoverId);
       });
 
+      exits.forEach(exit => {
+        exit.classList.toggle('is-active', exit.dataset.traceId === activeId);
+        exit.classList.toggle('is-hovered', exit.dataset.traceId === hoverId);
+      });
+
       const displayId = activeId || hoverId;
       const displayTrace = displayId ? traceById.get(displayId) : null;
       if (displayTrace && displayPoint) setTooltip(displayTrace, displayPoint);
@@ -1320,14 +1351,23 @@
       };
     }
 
-    function traceEndpoint(traceId) {
+    function flowExitPoint(traceId) {
+      const exitPath = chart.querySelector(`.flow-exit[data-trace-id="${traceId}"]`);
       const endpoint = chart.querySelector(`.trace-end circle[data-trace-id="${traceId}"]`);
       const matrix = chart.getScreenCTM();
-      if (!endpoint || !matrix) return null;
+      if (!matrix) return null;
 
       const point = chart.createSVGPoint();
-      point.x = Number(endpoint.getAttribute('cx'));
-      point.y = Number(endpoint.getAttribute('cy'));
+      if (exitPath) {
+        const pathPoint = exitPath.getPointAtLength(exitPath.getTotalLength());
+        point.x = pathPoint.x;
+        point.y = pathPoint.y;
+      } else if (endpoint) {
+        point.x = Number(endpoint.getAttribute('cx'));
+        point.y = Number(endpoint.getAttribute('cy'));
+      } else {
+        return null;
+      }
       const screenPoint = point.matrixTransform(matrix);
       return {
         x: screenPoint.x + window.scrollX,
@@ -1368,7 +1408,7 @@
       const entryY = gridRect.top + (gridRect.height / 2);
 
       flows.forEach((flow, index) => {
-        const start = traceEndpoint(flow.traceId);
+        const start = flowExitPoint(flow.traceId);
         const card = cards[flow.cardIndex];
         if (!start || !card) return;
 
