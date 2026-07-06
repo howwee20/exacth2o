@@ -47,6 +47,34 @@
     font-size: 16px;
     line-height: 1.6;
     overflow-x: hidden;
+    position: relative;
+  }
+
+  .applications-flow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .applications-flow path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    opacity: 0.52;
+    filter: drop-shadow(0 3px 5px rgba(14, 26, 20, 0.08));
+  }
+  .applications-flow circle {
+    opacity: 0;
+    transform-origin: center;
+    transition: opacity 0.2s ease;
+  }
+  .applications-flow circle.is-visible {
+    opacity: 0.9;
   }
 
   /* ── NAV ── */
@@ -58,7 +86,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.2rem 4rem;
-    background: rgba(244,241,235,0.9);
+    background: var(--bg);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--rule);
   }
@@ -108,6 +136,7 @@
     grid-template-columns: 1fr 1fr;
     position: relative;
     overflow: hidden;
+    z-index: 2;
   }
 
   .hero-left {
@@ -206,6 +235,14 @@
     max-height: min(58vh, 456px);
     min-height: 0;
     color: #172033;
+  }
+  .experiment-visual::before {
+    content: '';
+    position: absolute;
+    inset: -2.5rem;
+    z-index: -1;
+    background: radial-gradient(circle at 52% 48%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.36) 54%, rgba(244,241,235,0) 78%);
+    pointer-events: none;
   }
   .experiment-chart {
     display: block;
@@ -374,10 +411,12 @@
 
   /* ── APPLICATION CARDS ── */
   .applications {
-    background: var(--bg);
+    background: transparent;
     max-width: 1400px;
     margin: 0 auto;
     padding: 6rem 4rem;
+    position: relative;
+    z-index: 2;
   }
 
   .app-intro-grid {
@@ -399,12 +438,40 @@
   }
 
   .app-card {
+    --flow-color: var(--water);
+    --flow-card-progress: 0;
     background: var(--bg);
     padding: 2.5rem;
     position: relative;
     overflow: hidden;
     transition: background 0.3s;
     cursor: default;
+  }
+  .app-card.flow-linked::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--flow-color);
+    opacity: 0.5;
+    transform: scaleY(var(--flow-card-progress));
+    transform-origin: top;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  .app-card.flow-linked::after {
+    content: '';
+    position: absolute;
+    top: 1.65rem;
+    left: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--flow-color);
+    opacity: var(--flow-card-progress);
+    box-shadow: 0 0 0 3px rgba(244,241,235,0.85);
+    transition: opacity 0.2s ease;
   }
   .app-card:hover { background: var(--water-pale); }
 
@@ -468,6 +535,8 @@
     background: var(--bg-dark);
     color: #f4f1eb;
     padding: 6rem 4rem;
+    position: relative;
+    z-index: 2;
   }
   .why-inner {
     max-width: 1400px;
@@ -540,6 +609,8 @@
     font-family: var(--mono);
     font-size: 0.7rem;
     letter-spacing: 0.06em;
+    position: relative;
+    z-index: 2;
   }
   .footer-logo {
     color: var(--accent);
@@ -565,6 +636,7 @@
     .hamburger { display: flex; }
     .hero { grid-template-columns: 1fr; }
     .hero-right { display: none; }
+    .applications-flow { display: none; }
     .hero-left { padding: 8rem 2rem 4rem; }
     section, .applications, .why-section { padding: 4rem 2rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
@@ -710,6 +782,8 @@
     </div>
   </div>
 </section>
+
+<svg class="applications-flow" aria-hidden="true"></svg>
 
 <!-- APPLICATIONS -->
 <div class="applications">
@@ -1219,6 +1293,162 @@
     const wipe = el.querySelector('.experiment-wipe');
     if (wipe && !prefersReducedMotion) wipe.setAttribute('width', '0');
   });
+
+  function clampValue(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function setupApplicationsFlow() {
+    const layer = document.querySelector('.applications-flow');
+    const chart = document.querySelector('.experiment-chart');
+    const cards = Array.from(document.querySelectorAll('.app-card'));
+    if (!layer || !chart || cards.length < 4) return;
+
+    const flows = [
+      { traceId: 'run-41', cardIndex: 0, color: '#2563eb' },
+      { traceId: 'run-43', cardIndex: 1, color: '#22c55e' },
+      { traceId: 'run-45', cardIndex: 2, color: '#f97316' },
+      { traceId: 'run-47', cardIndex: 3, color: '#14b8a6' },
+    ];
+    let flowItems = [];
+    let flowStart = 0;
+    let flowEnd = 1;
+    let scrollFrame = null;
+    let buildFrame = null;
+
+    function docRect(element) {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left + window.scrollX,
+        top: rect.top + window.scrollY,
+        right: rect.right + window.scrollX,
+        bottom: rect.bottom + window.scrollY,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    function traceEndpoint(traceId) {
+      const endpoint = chart.querySelector(`.trace-end circle[data-trace-id="${traceId}"]`);
+      const matrix = chart.getScreenCTM();
+      if (!endpoint || !matrix) return null;
+
+      const point = chart.createSVGPoint();
+      point.x = Number(endpoint.getAttribute('cx'));
+      point.y = Number(endpoint.getAttribute('cy'));
+      const screenPoint = point.matrixTransform(matrix);
+      return {
+        x: screenPoint.x + window.scrollX,
+        y: screenPoint.y + window.scrollY,
+      };
+    }
+
+    function resetCards() {
+      cards.forEach(card => {
+        card.classList.remove('flow-linked');
+        card.style.removeProperty('--flow-color');
+        card.style.removeProperty('--flow-card-progress');
+      });
+    }
+
+    function drawFlow() {
+      const doc = document.documentElement;
+      const width = Math.max(doc.scrollWidth, window.innerWidth);
+      const height = Math.max(doc.scrollHeight, document.body.scrollHeight, window.innerHeight);
+      layer.innerHTML = '';
+      layer.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      layer.setAttribute('width', String(width));
+      layer.setAttribute('height', String(height));
+      layer.style.height = `${height}px`;
+      flowItems = [];
+      resetCards();
+
+      if (window.innerWidth <= 900) return;
+
+      const chartRect = docRect(chart);
+      const lastCardRect = docRect(cards[cards.length - 1]);
+      flowStart = chartRect.bottom + (window.innerHeight * 0.08);
+      flowEnd = Math.max(flowStart + 400, lastCardRect.bottom - (window.innerHeight * 0.35));
+
+      flows.forEach((flow, index) => {
+        const start = traceEndpoint(flow.traceId);
+        const card = cards[flow.cardIndex];
+        if (!start || !card) return;
+
+        const cardRect = docRect(card);
+        const targetX = cardRect.left + 1;
+        const targetY = cardRect.top + Math.min(cardRect.height - 48, 46 + (index * 12));
+        const laneX = Math.min(width - 72 - (index * 14), Math.max(chartRect.right + 28 + (index * 10), chartRect.right + 16));
+        const exitX = Math.min(laneX - 12, chartRect.right + 12 + (index * 8));
+        const dropY = Math.max(start.y + 120 + (index * 32), cardRect.top - 120 + (index * 22));
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        const d = [
+          `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
+          `C ${exitX.toFixed(1)} ${start.y.toFixed(1)} ${laneX.toFixed(1)} ${(start.y + 34).toFixed(1)} ${laneX.toFixed(1)} ${(start.y + 92).toFixed(1)}`,
+          `L ${laneX.toFixed(1)} ${dropY.toFixed(1)}`,
+          `C ${laneX.toFixed(1)} ${(targetY - 34).toFixed(1)} ${(targetX - 42).toFixed(1)} ${targetY.toFixed(1)} ${targetX.toFixed(1)} ${targetY.toFixed(1)}`,
+        ].join(' ');
+
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', flow.color);
+        dot.setAttribute('cx', String(targetX));
+        dot.setAttribute('cy', String(targetY));
+        dot.setAttribute('r', '3.5');
+        dot.setAttribute('fill', flow.color);
+        layer.append(path, dot);
+
+        const length = path.getTotalLength();
+        path.style.strokeDasharray = String(length);
+        path.style.strokeDashoffset = String(prefersReducedMotion ? 0 : length);
+        card.classList.add('flow-linked');
+        card.style.setProperty('--flow-color', flow.color);
+        card.style.setProperty('--flow-card-progress', prefersReducedMotion ? '1' : '0');
+        flowItems.push({ path, dot, card, length, index });
+      });
+
+      updateFlow();
+    }
+
+    function updateFlow() {
+      if (!flowItems.length) return;
+      const marker = window.scrollY + (window.innerHeight * 0.72);
+      const progress = prefersReducedMotion ? 1 : clampValue((marker - flowStart) / (flowEnd - flowStart), 0, 1);
+
+      flowItems.forEach(item => {
+        const pathProgress = prefersReducedMotion ? 1 : clampValue((progress - (item.index * 0.045)) / 0.72, 0, 1);
+        const cardProgress = clampValue((pathProgress - 0.78) / 0.22, 0, 1);
+        item.path.style.strokeDashoffset = String(item.length * (1 - pathProgress));
+        item.card.style.setProperty('--flow-card-progress', cardProgress.toFixed(3));
+        item.dot.classList.toggle('is-visible', cardProgress > 0.5);
+      });
+    }
+
+    function scheduleUpdate() {
+      if (scrollFrame) return;
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = null;
+        updateFlow();
+      });
+    }
+
+    function scheduleBuild() {
+      if (buildFrame) return;
+      buildFrame = requestAnimationFrame(() => {
+        buildFrame = null;
+        drawFlow();
+      });
+    }
+
+    drawFlow();
+    window.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleBuild);
+    window.addEventListener('load', scheduleBuild);
+    document.fonts?.ready.then(scheduleBuild);
+  }
+
+  setupApplicationsFlow();
 
   const revealEls = document.querySelectorAll('.reveal, .experiment-visual');
   const observer = new IntersectionObserver((entries) => {
