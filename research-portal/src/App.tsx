@@ -102,7 +102,7 @@ type ChartSeries = {
   zone: number;
   potNumber: number;
   treatment: Treatment;
-  crop: Crop;
+  plantGroup: PlantGroup;
   color: string;
   points: ChartPoint[];
   rawPointCount: number;
@@ -111,7 +111,7 @@ type ChartSeries = {
 
 type Treatment = "control" | "drought" | "unknown";
 
-type Crop = "maize" | "sorghum" | "unknown";
+type PlantGroup = "maize" | "sorghum" | "unknown";
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
@@ -132,7 +132,7 @@ type TooltipState = {
   color: string;
   zone: number;
   potNumber: number;
-  crop: Crop;
+  plantGroup: PlantGroup;
   treatment: Treatment;
   point: ChartPoint;
   locked?: boolean;
@@ -290,7 +290,7 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: "groups",
     label: "Groups",
-    description: "Treatments and crop groups",
+    description: "Treatments and plant groups",
     group: "Controls",
     icon: Database,
   },
@@ -401,15 +401,15 @@ function treatmentForPairing(pairing: PairingRow): Treatment {
   return treatmentForPot(pairing.pot_number);
 }
 
-function cropForPot(potNumber?: number | null): Crop {
+function plantGroupForPot(potNumber?: number | null): PlantGroup {
   if (typeof potNumber !== "number") return "unknown";
   if (potNumber >= 41 && potNumber <= 50) return "maize";
   if (potNumber >= 91 && potNumber <= 100) return "sorghum";
   return "unknown";
 }
 
-function cropForPairing(pairing: PairingRow): Crop {
-  return cropForPot(pairing.pot_number);
+function plantGroupForPairing(pairing: PairingRow): PlantGroup {
+  return plantGroupForPot(pairing.pot_number);
 }
 
 function treatmentLabel(treatment: Treatment) {
@@ -418,9 +418,9 @@ function treatmentLabel(treatment: Treatment) {
   return "Unassigned";
 }
 
-function cropLabel(crop: Crop) {
-  if (crop === "maize") return "Maize";
-  if (crop === "sorghum") return "Sorghum";
+function plantGroupLabel(plantGroup: PlantGroup) {
+  if (plantGroup === "maize") return "Maize";
+  if (plantGroup === "sorghum") return "Sorghum";
   return "Unassigned";
 }
 
@@ -466,7 +466,7 @@ function chartSeries(pairings: PairingRow[], readings: SensorReading[]): ChartSe
       zone: pairing.zone,
       potNumber: pairing.pot_number,
       treatment: treatmentForPairing(pairing),
-      crop: cropForPairing(pairing),
+      plantGroup: plantGroupForPairing(pairing),
       color: colorForPairing(pairing),
       points: samplePoints(points),
       rawPointCount: points.length,
@@ -647,7 +647,7 @@ function pairingGroupName(pairing: PairingRow) {
     row.pairing_group ??
     row.project_group;
   if (typeof value === "string" && value.trim()) return value;
-  return `${cropLabel(cropForPairing(pairing))} ${treatmentLabel(treatmentForPairing(pairing))}`;
+  return `${plantGroupLabel(plantGroupForPairing(pairing))} ${treatmentLabel(treatmentForPairing(pairing))}`;
 }
 
 function numberInputString(value: number | null | undefined, digits = 1) {
@@ -1306,7 +1306,7 @@ function SensorCanvasChart({
             color: item.color,
             zone: item.zone,
             potNumber: item.potNumber,
-            crop: item.crop,
+            plantGroup: item.plantGroup,
             treatment: item.treatment,
             point,
           };
@@ -1356,7 +1356,7 @@ function SensorCanvasChart({
       color: item.color,
       zone: item.zone,
       potNumber: item.potNumber,
-      crop: item.crop,
+      plantGroup: item.plantGroup,
       treatment: item.treatment,
       point,
       locked: true,
@@ -1420,13 +1420,13 @@ function SensorCanvasChart({
             <strong>
               {tooltip.seriesKind === "pot"
                 ? `Pot ${tooltip.potNumber}`
-                : `${cropLabel(tooltip.crop)} ${treatmentLabel(tooltip.treatment)}`}
+                : `${plantGroupLabel(tooltip.plantGroup)} ${treatmentLabel(tooltip.treatment)}`}
             </strong>
             <span>{formatDateTime(tooltip.point.timestampMs)}</span>
             {tooltip.seriesKind === "pot" ? (
-              <span>{cropLabel(tooltip.crop)} / {treatmentLabel(tooltip.treatment)}</span>
+              <span>{plantGroupLabel(tooltip.plantGroup)} / {treatmentLabel(tooltip.treatment)}</span>
             ) : (
-              <span>{cropLabel(tooltip.crop)} / {treatmentLabel(tooltip.treatment)} median</span>
+              <span>{plantGroupLabel(tooltip.plantGroup)} / {treatmentLabel(tooltip.treatment)} median</span>
             )}
             <b>{tooltip.point.value.toFixed(1)}% VWC</b>
           </div>
@@ -2758,11 +2758,11 @@ export default function App() {
       const hidden = new Set<string>();
       for (const pairing of sortedPairings) {
         const treatment = treatmentForPairing(pairing);
-        const crop = cropForPairing(pairing);
+        const plantGroup = plantGroupForPairing(pairing);
         if (preset === "control" && treatment !== "control") hidden.add(pairing.name);
         if (preset === "drought" && treatment !== "drought") hidden.add(pairing.name);
-        if (preset === "maize" && crop !== "maize") hidden.add(pairing.name);
-        if (preset === "sorghum" && crop !== "sorghum") hidden.add(pairing.name);
+        if (preset === "maize" && plantGroup !== "maize") hidden.add(pairing.name);
+        if (preset === "sorghum" && plantGroup !== "sorghum") hidden.add(pairing.name);
       }
       return hidden;
     });
@@ -2896,7 +2896,7 @@ export default function App() {
         "source",
         "event_id",
         "pairing_name",
-        "crop",
+        "plant_group",
         "treatment",
         "zone",
         "pot_number",
@@ -2914,7 +2914,7 @@ export default function App() {
           sourceLabelForReading(reading),
           reading.event_id,
           reading.pairing_name,
-          pairing ? cropLabel(cropForPairing(pairing)) : "",
+          pairing ? plantGroupLabel(plantGroupForPairing(pairing)) : "",
           pairing ? treatmentLabel(treatmentForPairing(pairing)) : "",
           pairing?.zone ?? "",
           pairing?.pot_number ?? "",
@@ -2947,7 +2947,7 @@ export default function App() {
       "name",
       "zone",
       "pot_number",
-      "crop",
+      "plant_group",
       "treatment",
       "sensor_key",
       "valve_key",
@@ -2960,7 +2960,7 @@ export default function App() {
       pairing.name,
       pairing.zone,
       pairing.pot_number,
-      cropLabel(cropForPairing(pairing)),
+      plantGroupLabel(plantGroupForPairing(pairing)),
       treatmentLabel(treatmentForPairing(pairing)),
       pairing.sensor_key,
       pairing.valve_key,
@@ -3215,21 +3215,24 @@ export default function App() {
             <ExternalLink size={15} />
             Site
           </a>
-          <button
-            className="header-action"
-            type="button"
-            aria-label="Portal settings"
-            title="Settings"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <SettingsIcon size={15} />
-            Settings
-          </button>
-          <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
-            <LogOut size={17} />
-          </button>
         </div>
       </header>
+
+      <div className="portal-corner-actions" aria-label="Portal account actions">
+        <button
+          className="header-action"
+          type="button"
+          aria-label="Portal settings"
+          title="Settings"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <SettingsIcon size={15} />
+          Settings
+        </button>
+        <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
+          <LogOut size={17} />
+        </button>
+      </div>
 
       <PortalSettingsPanel
         open={settingsOpen}
