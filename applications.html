@@ -427,6 +427,9 @@
     margin-bottom: 5rem;
     padding-bottom: 4rem;
     border-bottom: 1px solid var(--rule);
+    background: var(--bg);
+    position: relative;
+    z-index: 2;
   }
 
   .app-cards {
@@ -450,21 +453,18 @@
   .app-card.flow-linked::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 2px;
-    height: 100%;
-    background: var(--flow-color);
-    opacity: 0.5;
-    transform: scaleY(var(--flow-card-progress));
-    transform-origin: top;
+    inset: 0;
+    z-index: 1;
+    border: 2px solid var(--flow-color);
+    opacity: calc(var(--flow-card-progress) * 0.52);
+    pointer-events: none;
     transition: transform 0.2s ease, opacity 0.2s ease;
   }
   .app-card.flow-linked::after {
     content: '';
     position: absolute;
-    top: 1.65rem;
-    left: -3px;
+    top: 1.7rem;
+    z-index: 3;
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -472,6 +472,16 @@
     opacity: var(--flow-card-progress);
     box-shadow: 0 0 0 3px rgba(244,241,235,0.85);
     transition: opacity 0.2s ease;
+  }
+  .app-card.flow-left-card::after {
+    right: -3px;
+  }
+  .app-card.flow-right-card::after {
+    right: -3px;
+  }
+  .app-card > * {
+    position: relative;
+    z-index: 2;
   }
   .app-card:hover { background: var(--water-pale); }
 
@@ -1301,8 +1311,9 @@
   function setupApplicationsFlow() {
     const layer = document.querySelector('.applications-flow');
     const chart = document.querySelector('.experiment-chart');
+    const cardsGrid = document.querySelector('.app-cards');
     const cards = Array.from(document.querySelectorAll('.app-card'));
-    if (!layer || !chart || cards.length < 4) return;
+    if (!layer || !chart || !cardsGrid || cards.length < 4) return;
 
     const flows = [
       { traceId: 'run-41', cardIndex: 0, color: '#2563eb' },
@@ -1346,6 +1357,8 @@
     function resetCards() {
       cards.forEach(card => {
         card.classList.remove('flow-linked');
+        card.classList.remove('flow-left-card');
+        card.classList.remove('flow-right-card');
         card.style.removeProperty('--flow-color');
         card.style.removeProperty('--flow-card-progress');
       });
@@ -1366,9 +1379,13 @@
       if (window.innerWidth <= 900) return;
 
       const chartRect = docRect(chart);
+      const gridRect = docRect(cardsGrid);
       const lastCardRect = docRect(cards[cards.length - 1]);
       flowStart = chartRect.bottom + (window.innerHeight * 0.08);
       flowEnd = Math.max(flowStart + 400, lastCardRect.bottom - (window.innerHeight * 0.35));
+      const centerX = gridRect.left + (gridRect.width / 2);
+      const railX = Math.min(width - 70, gridRect.right + 94);
+      const railTop = gridRect.top - 118;
 
       flows.forEach((flow, index) => {
         const start = traceEndpoint(flow.traceId);
@@ -1376,19 +1393,20 @@
         if (!start || !card) return;
 
         const cardRect = docRect(card);
-        const targetX = cardRect.left + 1;
-        const targetY = cardRect.top + Math.min(cardRect.height - 48, 46 + (index * 12));
-        const laneX = Math.min(width - 72 - (index * 14), Math.max(chartRect.right + 28 + (index * 10), chartRect.right + 16));
-        const exitX = Math.min(laneX - 12, chartRect.right + 12 + (index * 8));
-        const dropY = Math.max(start.y + 120 + (index * 32), cardRect.top - 120 + (index * 22));
+        const isLeftCard = cardRect.left < centerX;
+        const laneX = railX + ((index - 1.5) * 7);
+        const targetX = cardRect.right - 1;
+        const targetY = cardRect.top + Math.min(cardRect.height - 42, 44 + ((index % 2) * 16));
+        const mergeY = Math.max(start.y + 104 + (index * 18), railTop);
+        const controlX = Math.min(laneX - 42, start.x + 140 + (index * 12));
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         const d = [
           `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
-          `C ${exitX.toFixed(1)} ${start.y.toFixed(1)} ${laneX.toFixed(1)} ${(start.y + 34).toFixed(1)} ${laneX.toFixed(1)} ${(start.y + 92).toFixed(1)}`,
-          `L ${laneX.toFixed(1)} ${dropY.toFixed(1)}`,
-          `C ${laneX.toFixed(1)} ${(targetY - 34).toFixed(1)} ${(targetX - 42).toFixed(1)} ${targetY.toFixed(1)} ${targetX.toFixed(1)} ${targetY.toFixed(1)}`,
+          `C ${controlX.toFixed(1)} ${start.y.toFixed(1)} ${laneX.toFixed(1)} ${(mergeY - 64).toFixed(1)} ${laneX.toFixed(1)} ${mergeY.toFixed(1)}`,
+          `L ${laneX.toFixed(1)} ${(targetY - 30).toFixed(1)}`,
+          `C ${laneX.toFixed(1)} ${(targetY - 8).toFixed(1)} ${(targetX + 48).toFixed(1)} ${targetY.toFixed(1)} ${targetX.toFixed(1)} ${targetY.toFixed(1)}`,
         ].join(' ');
 
         path.setAttribute('d', d);
@@ -1403,6 +1421,7 @@
         path.style.strokeDasharray = String(length);
         path.style.strokeDashoffset = String(prefersReducedMotion ? 0 : length);
         card.classList.add('flow-linked');
+        card.classList.add(isLeftCard ? 'flow-left-card' : 'flow-right-card');
         card.style.setProperty('--flow-color', flow.color);
         card.style.setProperty('--flow-card-progress', prefersReducedMotion ? '1' : '0');
         flowItems.push({ path, dot, card, length, index });
