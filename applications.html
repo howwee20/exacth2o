@@ -50,33 +50,6 @@
     position: relative;
   }
 
-  .applications-flow {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-    pointer-events: none;
-  }
-  .applications-flow path {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.8;
-    opacity: 0.52;
-    filter: drop-shadow(0 3px 5px rgba(14, 26, 20, 0.08));
-  }
-  .applications-flow circle {
-    opacity: 0;
-    transform-origin: center;
-    transition: opacity 0.2s ease;
-  }
-  .applications-flow circle.is-visible {
-    opacity: 0.9;
-  }
-
   /* ── NAV ── */
   nav {
     position: fixed;
@@ -324,24 +297,6 @@
   .experiment-chart.has-active .experiment-trace:not(.is-active) {
     opacity: 0.18;
   }
-  .flow-exit {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.9;
-    opacity: 0.56;
-    pointer-events: stroke;
-    transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
-  }
-  .flow-exit.is-hovered,
-  .flow-exit.is-active {
-    opacity: 0.95;
-    stroke-width: 2.6;
-    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.16));
-  }
-  .experiment-chart.has-active .flow-exit:not(.is-active) {
-    opacity: 0.18;
-  }
   .trace-end {
     opacity: 1;
   }
@@ -459,24 +414,12 @@
   }
 
   .app-card {
-    --flow-color: var(--water);
-    --flow-card-progress: 0;
     background: var(--bg);
     padding: 2.5rem;
     position: relative;
     overflow: hidden;
     transition: background 0.3s;
     cursor: default;
-  }
-  .app-card.flow-linked::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    border: 2px solid var(--flow-color);
-    opacity: calc(var(--flow-card-progress) * 0.52);
-    pointer-events: none;
-    transition: transform 0.2s ease, opacity 0.2s ease;
   }
   .app-card > * {
     position: relative;
@@ -645,7 +588,6 @@
     .hamburger { display: flex; }
     .hero { grid-template-columns: 1fr; }
     .hero-right { display: none; }
-    .applications-flow { display: none; }
     .hero-left { padding: 8rem 2rem 4rem; }
     section, .applications, .why-section { padding: 4rem 2rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
@@ -765,13 +707,6 @@
             <path class="experiment-trace is-muted" data-trace-id="run-51" data-label="Run 51" data-detail="Control" data-value="15.3% VWC" fill="none" stroke="#0891b2" d="M64 318 C118 316 160 318 196 320 C232 340 270 384 310 420 C350 454 402 456 456 454 C502 452 536 444 572 442 C626 438 680 438 724 442" />
           </g>
 
-          <g class="flow-exits">
-            <path class="flow-exit" data-trace-id="run-41" stroke="#2563eb" d="M724 340 C742 340 764 344 792 358" />
-            <path class="flow-exit" data-trace-id="run-43" stroke="#22c55e" d="M724 374 C742 374 764 378 792 392" />
-            <path class="flow-exit" data-trace-id="run-45" stroke="#f97316" d="M724 356 C742 356 764 360 792 374" />
-            <path class="flow-exit" data-trace-id="run-47" stroke="#14b8a6" d="M724 446 C742 446 764 452 792 468" />
-          </g>
-
           <g class="trace-end">
             <circle data-trace-id="run-41" cx="724" cy="340" r="3.6" fill="#2563eb" />
             <circle data-trace-id="run-42" cx="724" cy="382" r="3.6" fill="#a855f7" />
@@ -798,8 +733,6 @@
     </div>
   </div>
 </section>
-
-<svg class="applications-flow" aria-hidden="true"></svg>
 
 <!-- APPLICATIONS -->
 <div class="applications">
@@ -1118,7 +1051,6 @@
 
     const traces = Array.from(svg.querySelectorAll('.experiment-trace'));
     const dots = Array.from(svg.querySelectorAll('.trace-end circle'));
-    const exits = Array.from(svg.querySelectorAll('.flow-exit'));
     const tooltip = svg.querySelector('.experiment-readout');
     const crosshair = svg.querySelector('.experiment-crosshair');
     const accent = svg.querySelector('.tooltip-accent');
@@ -1238,11 +1170,6 @@
         dot.classList.toggle('is-hovered', dot.dataset.traceId === hoverId);
       });
 
-      exits.forEach(exit => {
-        exit.classList.toggle('is-active', exit.dataset.traceId === activeId);
-        exit.classList.toggle('is-hovered', exit.dataset.traceId === hoverId);
-      });
-
       const displayId = activeId || hoverId;
       const displayTrace = displayId ? traceById.get(displayId) : null;
       if (displayTrace && displayPoint) setTooltip(displayTrace, displayPoint);
@@ -1315,176 +1242,6 @@
     const wipe = el.querySelector('.experiment-wipe');
     if (wipe && !prefersReducedMotion) wipe.setAttribute('width', '0');
   });
-
-  function clampValue(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function setupApplicationsFlow() {
-    const layer = document.querySelector('.applications-flow');
-    const chart = document.querySelector('.experiment-chart');
-    const cardsGrid = document.querySelector('.app-cards');
-    const cards = Array.from(document.querySelectorAll('.app-card'));
-    if (!layer || !chart || !cardsGrid || cards.length < 4) return;
-
-    const flows = [
-      { traceId: 'run-41', cardIndex: 0, color: '#2563eb' },
-      { traceId: 'run-43', cardIndex: 1, color: '#22c55e' },
-      { traceId: 'run-45', cardIndex: 2, color: '#f97316' },
-      { traceId: 'run-47', cardIndex: 3, color: '#14b8a6' },
-    ];
-    let flowItems = [];
-    let flowStart = 0;
-    let flowEnd = 1;
-    let scrollFrame = null;
-    let buildFrame = null;
-
-    function docRect(element) {
-      const rect = element.getBoundingClientRect();
-      return {
-        left: rect.left + window.scrollX,
-        top: rect.top + window.scrollY,
-        right: rect.right + window.scrollX,
-        bottom: rect.bottom + window.scrollY,
-        width: rect.width,
-        height: rect.height,
-      };
-    }
-
-    function flowExitPoint(traceId) {
-      const exitPath = chart.querySelector(`.flow-exit[data-trace-id="${traceId}"]`);
-      const endpoint = chart.querySelector(`.trace-end circle[data-trace-id="${traceId}"]`);
-      const matrix = chart.getScreenCTM();
-      if (!matrix) return null;
-
-      const point = chart.createSVGPoint();
-      if (exitPath) {
-        const pathPoint = exitPath.getPointAtLength(exitPath.getTotalLength());
-        point.x = pathPoint.x;
-        point.y = pathPoint.y;
-      } else if (endpoint) {
-        point.x = Number(endpoint.getAttribute('cx'));
-        point.y = Number(endpoint.getAttribute('cy'));
-      } else {
-        return null;
-      }
-      const screenPoint = point.matrixTransform(matrix);
-      return {
-        x: screenPoint.x + window.scrollX,
-        y: screenPoint.y + window.scrollY,
-      };
-    }
-
-    function resetCards() {
-      cards.forEach(card => {
-        card.classList.remove('flow-linked');
-        card.style.removeProperty('--flow-color');
-        card.style.removeProperty('--flow-card-progress');
-      });
-    }
-
-    function drawFlow() {
-      const doc = document.documentElement;
-      const width = Math.max(doc.scrollWidth, window.innerWidth);
-      const height = Math.max(doc.scrollHeight, document.body.scrollHeight, window.innerHeight);
-      layer.innerHTML = '';
-      layer.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      layer.setAttribute('width', String(width));
-      layer.setAttribute('height', String(height));
-      layer.style.height = `${height}px`;
-      flowItems = [];
-      resetCards();
-
-      if (window.innerWidth <= 900) return;
-
-      const chartRect = docRect(chart);
-      const gridRect = docRect(cardsGrid);
-      const lastCardRect = docRect(cards[cards.length - 1]);
-      flowStart = chartRect.bottom + (window.innerHeight * 0.08);
-      flowEnd = Math.max(flowStart + 400, lastCardRect.bottom - (window.innerHeight * 0.35));
-      const railX = Math.min(width - 70, gridRect.right + 94);
-      const railTop = gridRect.top - 118;
-      const entryX = gridRect.right + 1;
-      const entryY = gridRect.top + (gridRect.height / 2);
-
-      flows.forEach((flow, index) => {
-        const start = flowExitPoint(flow.traceId);
-        const card = cards[flow.cardIndex];
-        if (!start || !card) return;
-
-        const laneX = railX + ((index - 1.5) * 7);
-        const targetX = entryX;
-        const targetY = entryY + ((index - 1.5) * 3);
-        const mergeY = Math.max(start.y + 104 + (index * 18), railTop);
-        const controlX = Math.min(laneX - 42, start.x + 140 + (index * 12));
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        const d = [
-          `M ${start.x.toFixed(1)} ${start.y.toFixed(1)}`,
-          `C ${controlX.toFixed(1)} ${start.y.toFixed(1)} ${laneX.toFixed(1)} ${(mergeY - 64).toFixed(1)} ${laneX.toFixed(1)} ${mergeY.toFixed(1)}`,
-          `L ${laneX.toFixed(1)} ${(targetY - 30).toFixed(1)}`,
-          `C ${laneX.toFixed(1)} ${(targetY - 8).toFixed(1)} ${(targetX + 48).toFixed(1)} ${targetY.toFixed(1)} ${targetX.toFixed(1)} ${targetY.toFixed(1)}`,
-        ].join(' ');
-
-        path.setAttribute('d', d);
-        path.setAttribute('stroke', flow.color);
-        dot.setAttribute('cx', String(targetX));
-        dot.setAttribute('cy', String(targetY));
-        dot.setAttribute('r', '3.5');
-        dot.setAttribute('fill', flow.color);
-        layer.append(path, dot);
-
-        const length = path.getTotalLength();
-        path.style.strokeDasharray = String(length);
-        path.style.strokeDashoffset = String(prefersReducedMotion ? 0 : length);
-        card.classList.add('flow-linked');
-        card.style.setProperty('--flow-color', flow.color);
-        card.style.setProperty('--flow-card-progress', prefersReducedMotion ? '1' : '0');
-        flowItems.push({ path, dot, card, length, index });
-      });
-
-      updateFlow();
-    }
-
-    function updateFlow() {
-      if (!flowItems.length) return;
-      const marker = window.scrollY + (window.innerHeight * 0.72);
-      const progress = prefersReducedMotion ? 1 : clampValue((marker - flowStart) / (flowEnd - flowStart), 0, 1);
-
-      flowItems.forEach(item => {
-        const pathProgress = prefersReducedMotion ? 1 : clampValue((progress - (item.index * 0.045)) / 0.72, 0, 1);
-        const cardProgress = clampValue((pathProgress - 0.78) / 0.22, 0, 1);
-        item.path.style.strokeDashoffset = String(item.length * (1 - pathProgress));
-        item.card.style.setProperty('--flow-card-progress', cardProgress.toFixed(3));
-        item.dot.classList.toggle('is-visible', cardProgress > 0.5);
-      });
-    }
-
-    function scheduleUpdate() {
-      if (scrollFrame) return;
-      scrollFrame = requestAnimationFrame(() => {
-        scrollFrame = null;
-        updateFlow();
-      });
-    }
-
-    function scheduleBuild() {
-      if (buildFrame) return;
-      buildFrame = requestAnimationFrame(() => {
-        buildFrame = null;
-        drawFlow();
-      });
-    }
-
-    drawFlow();
-    window.addEventListener('scroll', scheduleUpdate, { passive: true });
-    window.addEventListener('resize', scheduleBuild);
-    window.addEventListener('load', scheduleBuild);
-    document.fonts?.ready.then(scheduleBuild);
-  }
-
-  setupApplicationsFlow();
 
   const revealEls = document.querySelectorAll('.reveal, .experiment-visual');
   const observer = new IntersectionObserver((entries) => {
