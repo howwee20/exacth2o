@@ -52,21 +52,13 @@
   .mobile-menu a:hover { opacity: 0.7; }
   .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
 
-  /* PAGE HEADER */
-  .page-header { background: var(--bg); padding: 9rem 4rem 5rem; border-bottom: 1px solid var(--rule); }
-  .ph-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.8rem; }
-  .ph-eyebrow::before { content: ''; width: 2rem; height: 1px; background: var(--water); display: block; }
-  .page-header h1 { font-family: var(--serif); font-size: clamp(3rem, 5vw, 5rem); line-height: 1.0; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 1.5rem; }
-  .page-header h1 em { font-style: italic; color: var(--water); }
-  .ph-sub { font-size: 1.05rem; line-height: 1.75; color: var(--ink); opacity: 0.65; max-width: 55ch; border-left: 2px solid var(--water-light); padding-left: 1.25rem; }
-
   /* SECTION HELPERS */
   .section-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.7rem; }
   .section-label::before { content: ''; width: 1.5rem; height: 1px; background: var(--water); display: block; }
   .section-title { font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
 
   /* QUOTE LAYOUT */
-  .quote-section { padding: 6rem 4rem; background: var(--bg); }
+  .quote-section { padding: 8.5rem 4rem 6rem; background: var(--bg); }
   .quote-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 5rem; align-items: start; }
   .q-sidebar { position: sticky; top: 7rem; }
   .q-intro { font-size: 0.9rem; line-height: 1.75; opacity: 0.6; margin-bottom: 2.5rem; }
@@ -123,7 +115,7 @@
 
   @media (max-width: 900px) {
     nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .quote-section { padding: 4rem 1.5rem; } .page-header { padding-top: 7rem; }
+    .quote-section { padding: 7rem 1.5rem 4rem; }
     .quote-inner { grid-template-columns: 1fr; gap: 3rem; }
     .q-sidebar { position: static; }
     .form-row { grid-template-columns: 1fr; }
@@ -156,17 +148,11 @@
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
 
-<div class="page-header">
-  <div class="ph-eyebrow">Get Started</div>
-  <h1>Tell us about<br>your <em>project</em></h1>
-  <p class="ph-sub">We'll design a solution around your facility, experimental setup, and research needs — and get back to you within 24 hours.</p>
-</div>
-
 <div class="quote-section">
   <div class="quote-inner reveal">
 
     <div class="q-sidebar">
-      <div class="section-label">Why request a quote</div>
+      <div class="section-label">Get Started</div>
       <h2 class="section-title">Custom-fitted<br>to your setup</h2>
       <p class="q-intro">No two irrigation systems are identical. We size each deployment around your substrate, zone count, data requirements, and budget.</p>
       <div class="q-points">
