@@ -4,6 +4,9 @@
   color: #172033;
   background: #f4f1eb;
   --portal-bg: #f4f1eb;
+  --portal-dashboard-bg:
+    linear-gradient(180deg, rgba(218, 240, 255, 0.92) 0%, rgba(224, 248, 242, 0.96) 100%),
+    #e9f5fb;
   --portal-bg-dark: #0e1a14;
   --portal-ink: #0e1a14;
   --portal-water: #1a6b4a;
@@ -345,7 +348,7 @@ select {
   width: 100%;
   min-height: 100vh;
   padding: 14px 28px 24px;
-  background: var(--portal-bg);
+  background: var(--portal-dashboard-bg);
   color: #172033;
 }
 
@@ -454,9 +457,7 @@ select {
   overflow: auto;
   padding: 58px 10px 24px;
   border-right: 1px solid rgba(24, 37, 55, 0.08);
-  background:
-    linear-gradient(180deg, rgba(218, 240, 255, 0.92) 0%, rgba(224, 248, 242, 0.96) 100%),
-    #e9f5fb;
+  background: var(--portal-dashboard-bg);
 }
 
 .settings-back-button,
@@ -1030,7 +1031,7 @@ select {
   overflow: auto;
   border: 1px solid #d7e0ec;
   border-radius: 10px;
-  background: var(--portal-bg);
+  background: var(--portal-dashboard-bg);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
 }
 
