@@ -211,6 +211,12 @@
     height: 100%;
     overflow: visible;
     cursor: crosshair;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .experiment-chart:focus,
+  .experiment-chart:focus-visible {
+    outline: none;
   }
   .experiment-grid-line {
     stroke: #e7edf5;
@@ -1043,6 +1049,16 @@
       return Math.max(min, Math.min(max, value));
     }
 
+    function vwcFromPoint(point) {
+      const topY = 68;
+      const bottomY = 488;
+      const topVwc = 60;
+      const bottomVwc = 10;
+      const ratio = (clamp(point.y, topY, bottomY) - topY) / (bottomY - topY);
+      const vwc = topVwc - (ratio * (topVwc - bottomVwc));
+      return vwc.toFixed(1);
+    }
+
     function nearestPointOnTrace(trace, point) {
       const length = trace.getTotalLength();
       let bestPoint = trace.getPointAtLength(0);
@@ -1103,11 +1119,11 @@
       crosshair.setAttribute('x1', String(clamp(point.x, 64, 724)));
       crosshair.setAttribute('x2', String(clamp(point.x, 64, 724)));
       crosshair.classList.add('is-visible');
-      accent.setAttribute('fill', color);
+      accent.style.fill = color;
 
       if (tooltipTitle) tooltipTitle.textContent = trace.dataset.label || 'Run';
       if (tooltipDetail) tooltipDetail.textContent = trace.dataset.detail || 'VWC response';
-      if (tooltipValue) tooltipValue.textContent = trace.dataset.value || '';
+      if (tooltipValue) tooltipValue.textContent = `${vwcFromPoint(point)}% VWC`;
     }
 
     function hideTooltip() {
