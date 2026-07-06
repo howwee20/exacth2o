@@ -370,16 +370,14 @@ nav {
 
 /* ── CTA STRIP ── */
 .cta-strip {
-  background:
-    linear-gradient(180deg, rgba(124,191,158,0.12), rgba(124,191,158,0) 46%),
-    linear-gradient(135deg, #07130e 0%, #0e1a14 58%, #123821 100%);
+  background: var(--bg-dark);
   padding: 5rem 4rem; text-align: center;
   position: relative; overflow: hidden;
-  border-top: 1px solid rgba(244,241,235,0.18);
+  border-top: 1px solid rgba(244,241,235,0.08);
 }
 .cta-strip::before {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(124,191,158,0.12), transparent 44%, rgba(26,107,74,0.16));
+  background: none;
   pointer-events: none;
 }
 .cta-strip h2 {
@@ -402,7 +400,7 @@ footer {
   padding: 2.5rem 4rem; display: flex;
   justify-content: space-between; align-items: center;
   font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em;
-  border-top: 1px solid rgba(124,191,158,0.08);
+  border-top: 0;
 }
 .footer-logo { color: var(--accent); font-size: 0.85rem; }
 footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
@@ -634,8 +632,8 @@ footer a:hover { color: var(--accent); }
 <!-- FOOTER -->
 <footer>
   <div class="footer-logo">exactH2O</div>
-  <div>© 2025 exactH2O · All rights reserved</div>
-  <div><a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a></div>
+  <div>© 2026 exactH2O · All rights reserved</div>
+  <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
 </footer>
 
 <script>
