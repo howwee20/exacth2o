@@ -370,21 +370,31 @@ nav {
 
 /* ── CTA STRIP ── */
 .cta-strip {
-  background: var(--water); padding: 5rem 4rem; text-align: center;
+  background:
+    linear-gradient(180deg, rgba(124,191,158,0.12), rgba(124,191,158,0) 46%),
+    linear-gradient(135deg, #07130e 0%, #0e1a14 58%, #123821 100%);
+  padding: 5rem 4rem; text-align: center;
   position: relative; overflow: hidden;
+  border-top: 1px solid rgba(244,241,235,0.18);
 }
 .cta-strip::before {
-  content: ''; position: absolute; top: -80px; right: -80px;
-  width: 400px; height: 400px; border-radius: 50%;
-  background: rgba(255,255,255,0.05); pointer-events: none;
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(124,191,158,0.12), transparent 44%, rgba(26,107,74,0.16));
+  pointer-events: none;
 }
 .cta-strip h2 {
   font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem);
-  color: #fff; margin-bottom: 1rem; position: relative;
+  color: #fff; margin-bottom: 1rem; position: relative; z-index: 1;
 }
-.cta-strip p { font-size: 1.05rem; color: rgba(255,255,255,0.75); margin-bottom: 2.5rem; position: relative; }
-.cta-strip .btn-primary { background: #fff; color: var(--water); font-size: 0.8rem; }
-.cta-strip .btn-primary:hover { background: rgba(255,255,255,0.9); }
+.cta-strip p {
+  font-size: 1.05rem; color: rgba(244,241,235,0.72);
+  margin-bottom: 2.5rem; position: relative; z-index: 1;
+}
+.cta-strip .btn-primary {
+  background: #f4f1eb; color: var(--ink); font-size: 0.8rem;
+  position: relative; z-index: 1;
+}
+.cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
 
 /* ── FOOTER ── */
 footer {
