@@ -210,6 +210,7 @@
     width: 100%;
     height: 100%;
     overflow: visible;
+    cursor: crosshair;
   }
   .experiment-grid-line {
     stroke: #e7edf5;
@@ -245,9 +246,6 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  .experiment-band {
-    fill: rgba(46, 158, 110, 0.07);
-  }
   .experiment-target {
     stroke: rgba(26, 107, 74, 0.28);
     stroke-width: 1;
@@ -258,6 +256,9 @@
     stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
+    cursor: pointer;
+    pointer-events: stroke;
+    transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
   }
   .experiment-trace.is-dashed {
     stroke-dasharray: 7 5;
@@ -265,8 +266,36 @@
   .experiment-trace.is-muted {
     opacity: 0.82;
   }
+  .experiment-trace.is-hovered {
+    opacity: 1;
+    stroke-width: 3;
+    filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
+  }
+  .experiment-trace.is-active {
+    opacity: 1;
+    stroke-width: 3.4;
+    filter: drop-shadow(0 3px 5px rgba(15, 23, 42, 0.22));
+  }
+  .experiment-chart.has-active .experiment-trace:not(.is-active) {
+    opacity: 0.18;
+  }
   .trace-end {
     opacity: 1;
+  }
+  .trace-end circle {
+    cursor: pointer;
+    pointer-events: all;
+    stroke: #fff;
+    stroke-width: 1.5;
+    transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
+  }
+  .trace-end circle.is-hovered,
+  .trace-end circle.is-active {
+    stroke-width: 2.5;
+    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.18));
+  }
+  .experiment-chart.has-active .trace-end circle:not(.is-active) {
+    opacity: 0.2;
   }
   .experiment-visual.has-motion .trace-end {
     opacity: 0;
@@ -277,6 +306,26 @@
   }
   .experiment-readout {
     filter: drop-shadow(0 12px 22px rgba(15, 23, 42, 0.12));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+  }
+  .experiment-readout.is-visible {
+    opacity: 1;
+  }
+  .experiment-crosshair {
+    opacity: 0;
+    pointer-events: none;
+    stroke: #94a3b8;
+    stroke-width: 1;
+    stroke-dasharray: 4 6;
+    transition: opacity 0.16s ease;
+  }
+  .experiment-crosshair.is-visible {
+    opacity: 0.72;
+  }
+  .tooltip-accent {
+    fill: #22c55e;
   }
   @media (prefers-reduced-motion: reduce) {
     .experiment-visual.has-motion .trace-end {
@@ -571,10 +620,10 @@
   </div>
   <div class="hero-right">
     <div class="hero-right-inner">
-      <div class="experiment-visual" aria-label="Animated VWC experiment simulation">
-        <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" xmlns="http://www.w3.org/2000/svg">
-          <title id="experimentChartTitle">Fixed experiment VWC trace simulation</title>
-          <desc id="experimentChartDesc">A white portal-style chart with colored irrigation lines drawing from left to right.</desc>
+      <div class="experiment-visual" aria-label="Interactive VWC response chart">
+        <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" tabindex="0" xmlns="http://www.w3.org/2000/svg">
+          <title id="experimentChartTitle">72-hour VWC response chart</title>
+          <desc id="experimentChartDesc">A white portal-style chart with colored irrigation lines that can be selected.</desc>
           <defs>
             <clipPath id="experimentTraceReveal">
               <rect class="experiment-wipe" x="64" y="48" width="660" height="444" />
@@ -582,11 +631,9 @@
           </defs>
 
           <rect x="0" y="0" width="760" height="560" fill="#fff" />
-          <text class="experiment-caption" x="64" y="24">Fixed experiment simulation</text>
-          <text class="experiment-meta" x="64" y="42">VWC traces - 72 hour run</text>
+          <text class="experiment-caption" x="64" y="24">72-hour VWC response</text>
+          <text class="experiment-meta" x="64" y="42">VWC traces - active run</text>
 
-          <rect class="experiment-band" x="190" y="48" width="74" height="444" />
-          <rect class="experiment-band" x="500" y="48" width="72" height="444" />
           <line class="experiment-target" x1="64" y1="258" x2="724" y2="258" />
 
           <line class="experiment-grid-line" x1="64" y1="68" x2="724" y2="68" />
@@ -614,41 +661,42 @@
           <text class="experiment-tick-label" x="64" y="526" text-anchor="middle">Start</text>
           <text class="experiment-tick-label" x="328" y="526" text-anchor="middle">Irrigation event</text>
           <text class="experiment-tick-label" x="724" y="526" text-anchor="end">72 hr</text>
+          <line class="experiment-crosshair" x1="456" y1="48" x2="456" y2="492" />
 
           <g clip-path="url(#experimentTraceReveal)" fill="none">
-            <path class="experiment-trace" fill="none" stroke="#2563eb" d="M64 168 C118 165 158 166 196 166 C230 170 264 194 306 218 C352 246 404 244 460 242 C514 243 548 270 594 300 C640 326 692 326 724 340" />
-            <path class="experiment-trace is-dashed" fill="none" stroke="#a855f7" d="M64 188 C118 184 160 185 196 188 C242 198 280 226 320 252 C368 282 426 278 470 276 C526 282 570 314 606 340 C646 366 690 368 724 382" />
-            <path class="experiment-trace" fill="none" stroke="#22c55e" d="M64 214 C114 210 162 210 196 214 C236 224 270 250 312 274 C356 296 414 292 462 290 C514 294 552 318 598 342 C644 364 686 362 724 374" />
-            <path class="experiment-trace is-dashed" fill="none" stroke="#0ea5e9" d="M64 240 C118 238 162 238 196 242 C238 254 278 280 316 302 C362 326 416 322 462 320 C516 324 562 348 604 370 C648 392 690 390 724 406" />
-            <path class="experiment-trace" fill="none" stroke="#f97316" d="M64 316 C116 312 162 314 196 318 C234 330 284 342 328 344 C384 342 430 338 474 338 C528 342 568 348 606 348 C650 346 690 344 724 356" />
-            <path class="experiment-trace is-dashed" fill="none" stroke="#e11d48" d="M64 296 C116 292 160 294 196 296 C242 306 282 340 322 374 C366 410 416 410 462 410 C512 414 556 442 598 458 C646 474 688 470 724 484" />
-            <path class="experiment-trace" fill="none" stroke="#14b8a6" d="M64 360 C118 356 160 358 196 362 C236 374 282 410 326 436 C372 458 420 454 464 454 C514 454 548 454 594 454 C642 452 690 450 724 446" />
-            <path class="experiment-trace is-dashed" fill="none" stroke="#f59e0b" d="M64 284 C118 280 160 282 196 286 C236 300 282 326 326 350 C372 376 424 376 468 376 C516 382 556 416 600 436 C644 454 688 456 724 466" />
-            <path class="experiment-trace is-muted" fill="none" stroke="#16a34a" d="M64 212 C116 210 160 208 196 210 C236 222 276 260 316 306 C360 352 412 358 462 360 C512 364 552 396 596 424 C642 450 684 452 724 450" />
-            <path class="experiment-trace is-dashed is-muted" fill="none" stroke="#7c3aed" d="M64 178 C118 174 160 176 196 178 C240 190 282 220 324 246 C372 270 422 268 468 270 C522 274 564 306 606 334 C650 364 690 368 724 390" />
-            <path class="experiment-trace is-muted" fill="none" stroke="#0891b2" d="M64 318 C118 316 160 318 196 320 C232 340 270 384 310 420 C350 454 402 456 456 454 C502 452 536 444 572 442 C626 438 680 438 724 442" />
+            <path class="experiment-trace" data-trace-id="run-41" data-label="Run 41" data-detail="Control" data-value="27.8% VWC" fill="none" stroke="#2563eb" d="M64 168 C118 165 158 166 196 166 C230 170 264 194 306 218 C352 246 404 244 460 242 C514 243 548 270 594 300 C640 326 692 326 724 340" />
+            <path class="experiment-trace is-dashed" data-trace-id="run-42" data-label="Run 42" data-detail="Treatment" data-value="21.8% VWC" fill="none" stroke="#a855f7" d="M64 188 C118 184 160 185 196 188 C242 198 280 226 320 252 C368 282 426 278 470 276 C526 282 570 314 606 340 C646 366 690 368 724 382" />
+            <path class="experiment-trace" data-trace-id="run-43" data-label="Run 43" data-detail="Control" data-value="23.6% VWC" fill="none" stroke="#22c55e" d="M64 214 C114 210 162 210 196 214 C236 224 270 250 312 274 C356 296 414 292 462 290 C514 294 552 318 598 342 C644 364 686 362 724 374" />
+            <path class="experiment-trace is-dashed" data-trace-id="run-44" data-label="Run 44" data-detail="Treatment" data-value="19.7% VWC" fill="none" stroke="#0ea5e9" d="M64 240 C118 238 162 238 196 242 C238 254 278 280 316 302 C362 326 416 322 462 320 C516 324 562 348 604 370 C648 392 690 390 724 406" />
+            <path class="experiment-trace" data-trace-id="run-45" data-label="Run 45" data-detail="Control" data-value="25.8% VWC" fill="none" stroke="#f97316" d="M64 316 C116 312 162 314 196 318 C234 330 284 342 328 344 C384 342 430 338 474 338 C528 342 568 348 606 348 C650 346 690 344 724 356" />
+            <path class="experiment-trace is-dashed" data-trace-id="run-46" data-label="Run 46" data-detail="Treatment" data-value="10.4% VWC" fill="none" stroke="#e11d48" d="M64 296 C116 292 160 294 196 296 C242 306 282 340 322 374 C366 410 416 410 462 410 C512 414 556 442 598 458 C646 474 688 470 724 484" />
+            <path class="experiment-trace" data-trace-id="run-47" data-label="Run 47" data-detail="Control" data-value="14.8% VWC" fill="none" stroke="#14b8a6" d="M64 360 C118 356 160 358 196 362 C236 374 282 410 326 436 C372 458 420 454 464 454 C514 454 548 454 594 454 C642 452 690 450 724 446" />
+            <path class="experiment-trace is-dashed" data-trace-id="run-48" data-label="Run 48" data-detail="Treatment" data-value="12.6% VWC" fill="none" stroke="#f59e0b" d="M64 284 C118 280 160 282 196 286 C236 300 282 326 326 350 C372 376 424 376 468 376 C516 382 556 416 600 436 C644 454 688 456 724 466" />
+            <path class="experiment-trace is-muted" data-trace-id="run-49" data-label="Run 49" data-detail="Control" data-value="14.4% VWC" fill="none" stroke="#16a34a" d="M64 212 C116 210 160 208 196 210 C236 222 276 260 316 306 C360 352 412 358 462 360 C512 364 552 396 596 424 C642 450 684 452 724 450" />
+            <path class="experiment-trace is-dashed is-muted" data-trace-id="run-50" data-label="Run 50" data-detail="Treatment" data-value="21.6% VWC" fill="none" stroke="#7c3aed" d="M64 178 C118 174 160 176 196 178 C240 190 282 220 324 246 C372 270 422 268 468 270 C522 274 564 306 606 334 C650 364 690 368 724 390" />
+            <path class="experiment-trace is-muted" data-trace-id="run-51" data-label="Run 51" data-detail="Control" data-value="15.3% VWC" fill="none" stroke="#0891b2" d="M64 318 C118 316 160 318 196 320 C232 340 270 384 310 420 C350 454 402 456 456 454 C502 452 536 444 572 442 C626 438 680 438 724 442" />
           </g>
 
           <g class="trace-end">
-            <circle cx="724" cy="340" r="3.6" fill="#2563eb" />
-            <circle cx="724" cy="382" r="3.6" fill="#a855f7" />
-            <circle cx="724" cy="374" r="3.6" fill="#22c55e" />
-            <circle cx="724" cy="406" r="3.6" fill="#0ea5e9" />
-            <circle cx="724" cy="356" r="3.6" fill="#f97316" />
-            <circle cx="724" cy="484" r="3.6" fill="#e11d48" />
-            <circle cx="724" cy="446" r="3.6" fill="#14b8a6" />
-            <circle cx="724" cy="466" r="3.6" fill="#f59e0b" />
-            <circle cx="724" cy="450" r="3.6" fill="#16a34a" />
-            <circle cx="724" cy="390" r="3.6" fill="#7c3aed" />
-            <circle cx="724" cy="442" r="3.6" fill="#0891b2" />
+            <circle data-trace-id="run-41" cx="724" cy="340" r="3.6" fill="#2563eb" />
+            <circle data-trace-id="run-42" cx="724" cy="382" r="3.6" fill="#a855f7" />
+            <circle data-trace-id="run-43" cx="724" cy="374" r="3.6" fill="#22c55e" />
+            <circle data-trace-id="run-44" cx="724" cy="406" r="3.6" fill="#0ea5e9" />
+            <circle data-trace-id="run-45" cx="724" cy="356" r="3.6" fill="#f97316" />
+            <circle data-trace-id="run-46" cx="724" cy="484" r="3.6" fill="#e11d48" />
+            <circle data-trace-id="run-47" cx="724" cy="446" r="3.6" fill="#14b8a6" />
+            <circle data-trace-id="run-48" cx="724" cy="466" r="3.6" fill="#f59e0b" />
+            <circle data-trace-id="run-49" cx="724" cy="450" r="3.6" fill="#16a34a" />
+            <circle data-trace-id="run-50" cx="724" cy="390" r="3.6" fill="#7c3aed" />
+            <circle data-trace-id="run-51" cx="724" cy="442" r="3.6" fill="#0891b2" />
           </g>
 
           <g class="experiment-readout">
             <rect x="456" y="150" width="174" height="86" rx="8" fill="rgba(255,255,255,0.94)" stroke="#e2e8f0" />
-            <rect x="456" y="150" width="4" height="86" rx="2" fill="#22c55e" />
-            <text x="474" y="178" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="14" font-weight="800">Run 07</text>
-            <text x="474" y="202" fill="#64748b" font-family="Instrument Sans, sans-serif" font-size="12" font-weight="600">Replicated VWC response</text>
-            <text x="474" y="222" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="18" font-weight="800">42.6% VWC</text>
+            <rect class="tooltip-accent" x="456" y="150" width="4" height="86" rx="2" />
+            <text class="tooltip-title" x="474" y="178" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="14" font-weight="800">Run 41</text>
+            <text class="tooltip-detail" x="474" y="202" fill="#64748b" font-family="Instrument Sans, sans-serif" font-size="12" font-weight="600">Control</text>
+            <text class="tooltip-value" x="474" y="222" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="18" font-weight="800">27.8% VWC</text>
           </g>
         </svg>
       </div>
@@ -967,8 +1015,190 @@
     requestAnimationFrame(drawFrame);
   }
 
+  function setupInteractiveExperiment(target) {
+    const svg = target.querySelector('.experiment-chart');
+    if (!svg) return;
+
+    const traces = Array.from(svg.querySelectorAll('.experiment-trace'));
+    const dots = Array.from(svg.querySelectorAll('.trace-end circle'));
+    const tooltip = svg.querySelector('.experiment-readout');
+    const crosshair = svg.querySelector('.experiment-crosshair');
+    const accent = svg.querySelector('.tooltip-accent');
+    const tooltipTitle = svg.querySelector('.tooltip-title');
+    const tooltipDetail = svg.querySelector('.tooltip-detail');
+    const tooltipValue = svg.querySelector('.tooltip-value');
+    const traceById = new Map(traces.map(trace => [trace.dataset.traceId, trace]));
+    let lockedTraceId = null;
+    let hoveredTraceId = null;
+
+    function svgPoint(event) {
+      const point = svg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const matrix = svg.getScreenCTM();
+      return matrix ? point.matrixTransform(matrix.inverse()) : null;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function nearestPointOnTrace(trace, point) {
+      const length = trace.getTotalLength();
+      let bestPoint = trace.getPointAtLength(0);
+      let bestDistance = Infinity;
+      const samples = 96;
+
+      for (let index = 0; index <= samples; index += 1) {
+        const sample = trace.getPointAtLength((length * index) / samples);
+        const distance = ((sample.x - point.x) ** 2) + ((sample.y - point.y) ** 2);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestPoint = sample;
+        }
+      }
+
+      return { point: bestPoint, distance: Math.sqrt(bestDistance) };
+    }
+
+    function closestTrace(point) {
+      return traces.reduce((best, trace) => {
+        const candidate = nearestPointOnTrace(trace, point);
+        if (!best || candidate.distance < best.distance) {
+          return { trace, point: candidate.point, distance: candidate.distance };
+        }
+        return best;
+      }, null);
+    }
+
+    function endpointPoint(dot) {
+      return {
+        x: Number(dot.getAttribute('cx')),
+        y: Number(dot.getAttribute('cy')),
+      };
+    }
+
+    function directTraceFromEvent(event, fallbackPoint) {
+      const directTarget = event.target.closest('[data-trace-id]');
+      if (!directTarget || !svg.contains(directTarget)) return null;
+      const trace = traceById.get(directTarget.dataset.traceId);
+      if (!trace) return null;
+
+      if (directTarget.tagName.toLowerCase() === 'circle') {
+        return { trace, point: endpointPoint(directTarget), distance: 0 };
+      }
+
+      const candidate = nearestPointOnTrace(trace, fallbackPoint);
+      return { trace, point: candidate.point, distance: 0 };
+    }
+
+    function setTooltip(trace, point) {
+      if (!tooltip || !crosshair || !accent) return;
+      const tooltipX = clamp(point.x + 18, 76, 548);
+      const tooltipY = clamp(point.y - 58, 58, 398);
+      const color = trace.getAttribute('stroke') || '#22c55e';
+
+      tooltip.setAttribute('transform', `translate(${tooltipX - 456} ${tooltipY - 150})`);
+      tooltip.classList.add('is-visible');
+      crosshair.setAttribute('x1', String(clamp(point.x, 64, 724)));
+      crosshair.setAttribute('x2', String(clamp(point.x, 64, 724)));
+      crosshair.classList.add('is-visible');
+      accent.setAttribute('fill', color);
+
+      if (tooltipTitle) tooltipTitle.textContent = trace.dataset.label || 'Run';
+      if (tooltipDetail) tooltipDetail.textContent = trace.dataset.detail || 'VWC response';
+      if (tooltipValue) tooltipValue.textContent = trace.dataset.value || '';
+    }
+
+    function hideTooltip() {
+      tooltip?.classList.remove('is-visible');
+      crosshair?.classList.remove('is-visible');
+    }
+
+    function updateTraceClasses(displayPoint) {
+      const activeId = lockedTraceId;
+      const hoverId = activeId ? null : hoveredTraceId;
+      svg.classList.toggle('has-active', Boolean(activeId));
+
+      traces.forEach(trace => {
+        trace.classList.toggle('is-active', trace.dataset.traceId === activeId);
+        trace.classList.toggle('is-hovered', trace.dataset.traceId === hoverId);
+      });
+
+      dots.forEach(dot => {
+        dot.classList.toggle('is-active', dot.dataset.traceId === activeId);
+        dot.classList.toggle('is-hovered', dot.dataset.traceId === hoverId);
+      });
+
+      const displayId = activeId || hoverId;
+      const displayTrace = displayId ? traceById.get(displayId) : null;
+      if (displayTrace && displayPoint) setTooltip(displayTrace, displayPoint);
+      else hideTooltip();
+    }
+
+    svg.addEventListener('pointermove', event => {
+      const point = svgPoint(event);
+      if (!point) return;
+
+      if (lockedTraceId) {
+        const lockedTrace = traceById.get(lockedTraceId);
+        if (lockedTrace) {
+          const candidate = nearestPointOnTrace(lockedTrace, point);
+          updateTraceClasses(candidate.point);
+        }
+        return;
+      }
+
+      const direct = directTraceFromEvent(event, point);
+      const nearest = direct || closestTrace(point);
+
+      if (nearest && nearest.distance <= 28) {
+        hoveredTraceId = nearest.trace.dataset.traceId;
+        updateTraceClasses(nearest.point);
+      } else {
+        hoveredTraceId = null;
+        updateTraceClasses(null);
+      }
+    });
+
+    svg.addEventListener('pointerleave', () => {
+      if (!lockedTraceId) {
+        hoveredTraceId = null;
+        updateTraceClasses(null);
+      }
+    });
+
+    svg.addEventListener('click', event => {
+      const point = svgPoint(event);
+      if (!point) return;
+
+      const direct = directTraceFromEvent(event, point);
+      const nearest = direct || closestTrace(point);
+
+      if (nearest && nearest.distance <= 30) {
+        const traceId = nearest.trace.dataset.traceId;
+        lockedTraceId = lockedTraceId === traceId ? null : traceId;
+        hoveredTraceId = null;
+        updateTraceClasses(lockedTraceId ? nearest.point : null);
+      } else {
+        lockedTraceId = null;
+        hoveredTraceId = null;
+        updateTraceClasses(null);
+      }
+    });
+
+    svg.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        lockedTraceId = null;
+        hoveredTraceId = null;
+        updateTraceClasses(null);
+      }
+    });
+  }
+
   experimentVisuals.forEach(el => {
     el.classList.add('has-motion');
+    setupInteractiveExperiment(el);
     const wipe = el.querySelector('.experiment-wipe');
     if (wipe && !prefersReducedMotion) wipe.setAttribute('width', '0');
   });
