@@ -192,47 +192,97 @@
   .hero-right-inner {
     position: absolute;
     inset: 0;
-    background: var(--bg-dark);
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-end;
-    padding: 3rem;
-  }
-  .hero-diagram {
-    position: absolute;
-    inset: 0;
+    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.18;
+    padding: clamp(2rem, 4vw, 3.5rem);
   }
-  .hero-diagram svg {
-    width: 90%;
-    height: 90%;
-  }
-
-  .hero-tag {
+  .experiment-visual {
     position: relative;
-    z-index: 2;
-    background: rgba(42, 158, 110, 0.15);
-    border: 1px solid rgba(42, 158, 110, 0.3);
-    border-radius: 2px;
-    padding: 1.2rem 1.5rem;
-    max-width: 260px;
+    width: min(100%, 760px);
+    height: min(70vh, 560px);
+    min-height: 450px;
+    color: #172033;
   }
-  .hero-tag-label {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
+  .experiment-chart {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
   }
-  .hero-tag-text {
+  .experiment-grid-line {
+    stroke: #e7edf5;
+    stroke-width: 1;
+  }
+  .experiment-grid-line.is-vertical {
+    stroke: #edf2f7;
+    stroke-dasharray: 3 6;
+  }
+  .experiment-axis {
+    fill: none;
+    stroke: #a8b3c3;
+    stroke-width: 1.2;
+  }
+  .experiment-axis-label,
+  .experiment-tick-label {
+    fill: #64748b;
     font-family: var(--sans);
-    font-size: 0.9rem;
-    color: rgba(255,255,255,0.8);
-    line-height: 1.5;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .experiment-caption {
+    fill: #172033;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  .experiment-meta {
+    fill: #64748b;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .experiment-band {
+    fill: rgba(46, 158, 110, 0.07);
+  }
+  .experiment-target {
+    stroke: rgba(26, 107, 74, 0.28);
+    stroke-width: 1;
+    stroke-dasharray: 5 7;
+  }
+  .experiment-trace {
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .experiment-trace.is-dashed {
+    stroke-dasharray: 7 5;
+  }
+  .experiment-trace.is-muted {
+    opacity: 0.82;
+  }
+  .trace-end {
+    opacity: 1;
+  }
+  .experiment-visual.has-motion .trace-end {
+    opacity: 0;
+    transition: opacity 0.35s ease 2.25s;
+  }
+  .experiment-visual.has-motion.visible .trace-end {
+    opacity: 1;
+  }
+  .experiment-readout {
+    filter: drop-shadow(0 12px 22px rgba(15, 23, 42, 0.12));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .experiment-visual.has-motion .trace-end {
+      opacity: 1;
+      transition: none;
+    }
   }
 
   /* ── SECTION BASE ── */
@@ -521,29 +571,86 @@
   </div>
   <div class="hero-right">
     <div class="hero-right-inner">
-      <!-- Background circuit/data pattern -->
-      <div class="hero-diagram">
-        <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="250" cy="250" r="180" stroke="#2e9e6e" stroke-width="0.5" stroke-dasharray="4 8"/>
-          <circle cx="250" cy="250" r="120" stroke="#2e9e6e" stroke-width="0.5" stroke-dasharray="2 6"/>
-          <circle cx="250" cy="250" r="60" stroke="#2e9e6e" stroke-width="1"/>
-          <circle cx="250" cy="250" r="8" fill="#2e9e6e"/>
-          <line x1="250" y1="70" x2="250" y2="430" stroke="#2e9e6e" stroke-width="0.5"/>
-          <line x1="70" y1="250" x2="430" y2="250" stroke="#2e9e6e" stroke-width="0.5"/>
-          <line x1="123" y1="123" x2="377" y2="377" stroke="#2e9e6e" stroke-width="0.3" stroke-dasharray="3 6"/>
-          <line x1="377" y1="123" x2="123" y2="377" stroke="#2e9e6e" stroke-width="0.3" stroke-dasharray="3 6"/>
-          <!-- Data tick marks -->
-          <circle cx="250" cy="70" r="4" fill="#2e9e6e" opacity="0.6"/>
-          <circle cx="250" cy="430" r="4" fill="#2e9e6e" opacity="0.6"/>
-          <circle cx="70" cy="250" r="4" fill="#2e9e6e" opacity="0.6"/>
-          <circle cx="430" cy="250" r="4" fill="#2e9e6e" opacity="0.6"/>
-          <!-- Wave line -->
-          <path d="M80 300 Q130 260 180 300 Q230 340 280 300 Q330 260 380 300 Q405 320 420 310" stroke="#2e9e6e" stroke-width="1.5" fill="none"/>
+      <div class="experiment-visual" aria-label="Animated VWC experiment simulation">
+        <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" xmlns="http://www.w3.org/2000/svg">
+          <title id="experimentChartTitle">Fixed experiment VWC trace simulation</title>
+          <desc id="experimentChartDesc">A white portal-style chart with colored irrigation lines drawing from left to right.</desc>
+          <defs>
+            <clipPath id="experimentTraceReveal">
+              <rect class="experiment-wipe" x="64" y="48" width="660" height="444" />
+            </clipPath>
+          </defs>
+
+          <rect x="0" y="0" width="760" height="560" fill="#fff" />
+          <text class="experiment-caption" x="64" y="24">Fixed experiment simulation</text>
+          <text class="experiment-meta" x="64" y="42">VWC traces - 72 hour run</text>
+
+          <rect class="experiment-band" x="190" y="48" width="74" height="444" />
+          <rect class="experiment-band" x="500" y="48" width="72" height="444" />
+          <line class="experiment-target" x1="64" y1="258" x2="724" y2="258" />
+
+          <line class="experiment-grid-line" x1="64" y1="68" x2="724" y2="68" />
+          <line class="experiment-grid-line" x1="64" y1="152" x2="724" y2="152" />
+          <line class="experiment-grid-line" x1="64" y1="236" x2="724" y2="236" />
+          <line class="experiment-grid-line" x1="64" y1="320" x2="724" y2="320" />
+          <line class="experiment-grid-line" x1="64" y1="404" x2="724" y2="404" />
+          <line class="experiment-grid-line" x1="64" y1="488" x2="724" y2="488" />
+
+          <line class="experiment-grid-line is-vertical" x1="64" y1="48" x2="64" y2="492" />
+          <line class="experiment-grid-line is-vertical" x1="196" y1="48" x2="196" y2="492" />
+          <line class="experiment-grid-line is-vertical" x1="328" y1="48" x2="328" y2="492" />
+          <line class="experiment-grid-line is-vertical" x1="460" y1="48" x2="460" y2="492" />
+          <line class="experiment-grid-line is-vertical" x1="592" y1="48" x2="592" y2="492" />
+          <line class="experiment-grid-line is-vertical" x1="724" y1="48" x2="724" y2="492" />
+
+          <path class="experiment-axis" fill="none" d="M64 48 L64 492 L724 492" />
+          <text class="experiment-tick-label" x="44" y="72" text-anchor="end">60</text>
+          <text class="experiment-tick-label" x="44" y="156" text-anchor="end">50</text>
+          <text class="experiment-tick-label" x="44" y="240" text-anchor="end">40</text>
+          <text class="experiment-tick-label" x="44" y="324" text-anchor="end">30</text>
+          <text class="experiment-tick-label" x="44" y="408" text-anchor="end">20</text>
+          <text class="experiment-tick-label" x="44" y="492" text-anchor="end">10</text>
+          <text class="experiment-axis-label" x="18" y="270" transform="rotate(-90 18 270)" text-anchor="middle">VWC (%)</text>
+          <text class="experiment-tick-label" x="64" y="526" text-anchor="middle">Start</text>
+          <text class="experiment-tick-label" x="328" y="526" text-anchor="middle">Irrigation event</text>
+          <text class="experiment-tick-label" x="724" y="526" text-anchor="end">72 hr</text>
+
+          <g clip-path="url(#experimentTraceReveal)" fill="none">
+            <path class="experiment-trace" fill="none" stroke="#2563eb" d="M64 168 C118 165 158 166 196 166 C230 170 264 194 306 218 C352 246 404 244 460 242 C514 243 548 270 594 300 C640 326 692 326 724 340" />
+            <path class="experiment-trace is-dashed" fill="none" stroke="#a855f7" d="M64 188 C118 184 160 185 196 188 C242 198 280 226 320 252 C368 282 426 278 470 276 C526 282 570 314 606 340 C646 366 690 368 724 382" />
+            <path class="experiment-trace" fill="none" stroke="#22c55e" d="M64 214 C114 210 162 210 196 214 C236 224 270 250 312 274 C356 296 414 292 462 290 C514 294 552 318 598 342 C644 364 686 362 724 374" />
+            <path class="experiment-trace is-dashed" fill="none" stroke="#0ea5e9" d="M64 240 C118 238 162 238 196 242 C238 254 278 280 316 302 C362 326 416 322 462 320 C516 324 562 348 604 370 C648 392 690 390 724 406" />
+            <path class="experiment-trace" fill="none" stroke="#f97316" d="M64 316 C116 312 162 314 196 318 C234 330 284 342 328 344 C384 342 430 338 474 338 C528 342 568 348 606 348 C650 346 690 344 724 356" />
+            <path class="experiment-trace is-dashed" fill="none" stroke="#e11d48" d="M64 296 C116 292 160 294 196 296 C242 306 282 340 322 374 C366 410 416 410 462 410 C512 414 556 442 598 458 C646 474 688 470 724 484" />
+            <path class="experiment-trace" fill="none" stroke="#14b8a6" d="M64 360 C118 356 160 358 196 362 C236 374 282 410 326 436 C372 458 420 454 464 454 C514 454 548 454 594 454 C642 452 690 450 724 446" />
+            <path class="experiment-trace is-dashed" fill="none" stroke="#f59e0b" d="M64 284 C118 280 160 282 196 286 C236 300 282 326 326 350 C372 376 424 376 468 376 C516 382 556 416 600 436 C644 454 688 456 724 466" />
+            <path class="experiment-trace is-muted" fill="none" stroke="#16a34a" d="M64 212 C116 210 160 208 196 210 C236 222 276 260 316 306 C360 352 412 358 462 360 C512 364 552 396 596 424 C642 450 684 452 724 450" />
+            <path class="experiment-trace is-dashed is-muted" fill="none" stroke="#7c3aed" d="M64 178 C118 174 160 176 196 178 C240 190 282 220 324 246 C372 270 422 268 468 270 C522 274 564 306 606 334 C650 364 690 368 724 390" />
+            <path class="experiment-trace is-muted" fill="none" stroke="#0891b2" d="M64 318 C118 316 160 318 196 320 C232 340 270 384 310 420 C350 454 402 456 456 454 C502 452 536 444 572 442 C626 438 680 438 724 442" />
+          </g>
+
+          <g class="trace-end">
+            <circle cx="724" cy="340" r="3.6" fill="#2563eb" />
+            <circle cx="724" cy="382" r="3.6" fill="#a855f7" />
+            <circle cx="724" cy="374" r="3.6" fill="#22c55e" />
+            <circle cx="724" cy="406" r="3.6" fill="#0ea5e9" />
+            <circle cx="724" cy="356" r="3.6" fill="#f97316" />
+            <circle cx="724" cy="484" r="3.6" fill="#e11d48" />
+            <circle cx="724" cy="446" r="3.6" fill="#14b8a6" />
+            <circle cx="724" cy="466" r="3.6" fill="#f59e0b" />
+            <circle cx="724" cy="450" r="3.6" fill="#16a34a" />
+            <circle cx="724" cy="390" r="3.6" fill="#7c3aed" />
+            <circle cx="724" cy="442" r="3.6" fill="#0891b2" />
+          </g>
+
+          <g class="experiment-readout">
+            <rect x="456" y="150" width="174" height="86" rx="8" fill="rgba(255,255,255,0.94)" stroke="#e2e8f0" />
+            <rect x="456" y="150" width="4" height="86" rx="2" fill="#22c55e" />
+            <text x="474" y="178" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="14" font-weight="800">Run 07</text>
+            <text x="474" y="202" fill="#64748b" font-family="Instrument Sans, sans-serif" font-size="12" font-weight="600">Replicated VWC response</text>
+            <text x="474" y="222" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="18" font-weight="800">42.6% VWC</text>
+          </g>
         </svg>
-      </div>
-      <div class="hero-tag">
-        <div class="hero-tag-label">Live signal — Sensor Array 1</div>
-        <div class="hero-tag-text">Substrate VWC: 32.4% · Temp: 22.1°C</div>
       </div>
     </div>
   </div>
@@ -835,11 +942,43 @@
     document.getElementById('hamburger').classList.toggle('active');
   }
 
-  const revealEls = document.querySelectorAll('.reveal');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const experimentVisuals = document.querySelectorAll('.experiment-visual');
+
+  function animateExperiment(target) {
+    const wipe = target.querySelector('.experiment-wipe');
+    if (!wipe || prefersReducedMotion) {
+      if (wipe) wipe.setAttribute('width', '660');
+      return;
+    }
+
+    const duration = 2600;
+    const startWidth = 0;
+    const endWidth = 660;
+    const startedAt = performance.now();
+
+    function drawFrame(now) {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      wipe.setAttribute('width', String(startWidth + (endWidth - startWidth) * eased));
+      if (progress < 1) requestAnimationFrame(drawFrame);
+    }
+
+    requestAnimationFrame(drawFrame);
+  }
+
+  experimentVisuals.forEach(el => {
+    el.classList.add('has-motion');
+    const wipe = el.querySelector('.experiment-wipe');
+    if (wipe && !prefersReducedMotion) wipe.setAttribute('width', '0');
+  });
+
+  const revealEls = document.querySelectorAll('.reveal, .experiment-visual');
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => {
       if (e.isIntersecting) {
         e.target.classList.add('visible');
+        if (e.target.classList.contains('experiment-visual')) animateExperiment(e.target);
         observer.unobserve(e.target);
       }
     });
