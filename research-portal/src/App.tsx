@@ -364,7 +364,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-role-nav-fix";
+const portalVersion = "20260707-researcher-settings";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2540,13 +2540,13 @@ function PortalSettingsPanel({
             </div>
             <div className="settings-row">
               <span>Control access</span>
-              <strong>Admin/operator role needed</strong>
+              <strong>Admin or researcher role needed</strong>
             </div>
           </div>
         </section>
         <section className="settings-card">
           <h3>Control Permissions</h3>
-          <p className="settings-muted">Owner/admin members can queue control commands. Viewer/member accounts can keep read-only dashboard access.</p>
+          <p className="settings-muted">Admin and researcher accounts can use experiment settings, pairings, calibrations, hardware, exports, and command history. System Health and Sales &amp; Support stay admin-only.</p>
         </section>
       </div>
     );
@@ -3897,6 +3897,7 @@ export default function App() {
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
   ).length;
   const isAdmin = portalAccess?.role === "admin";
+  const canUseExperimentSettings = portalAccess?.role === "admin" || portalAccess?.role === "researcher";
 
   const loadPortalAccess = useCallback(async () => {
     setAccessLoading(true);
@@ -4107,7 +4108,7 @@ export default function App() {
   );
 
   const loadRecentCommands = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canUseExperimentSettings) {
       setRecentCommands([]);
       return;
     }
@@ -4125,12 +4126,12 @@ export default function App() {
     } catch {
       setRecentCommands([]);
     }
-  }, [isAdmin]);
+  }, [canUseExperimentSettings]);
 
   const queueControlCommand = useCallback<QueueControlCommand>(
     async (commandType, payload, options) => {
-      if (!isAdmin) {
-        setControlError("Admin access is required for portal controls.");
+      if (!canUseExperimentSettings) {
+        setControlError("Experiment settings access is required for portal controls.");
         return;
       }
 
@@ -4161,7 +4162,7 @@ export default function App() {
         setControlBusy(false);
       }
     },
-    [isAdmin, loadRecentCommands],
+    [canUseExperimentSettings, loadRecentCommands],
   );
 
   useEffect(() => {
@@ -4889,7 +4890,7 @@ export default function App() {
             Home
           </button>
         ) : null}
-        {isAdmin && portalView === "experiment" ? (
+        {canUseExperimentSettings && portalView === "experiment" ? (
           <button
             className="header-action"
             type="button"
@@ -4990,7 +4991,7 @@ export default function App() {
     <main className="dashboard-shell">
       {portalHeader}
 
-      {isAdmin ? (
+      {canUseExperimentSettings ? (
         <PortalSettingsPanel
           open={settingsOpen}
           activeSection={settingsSection}

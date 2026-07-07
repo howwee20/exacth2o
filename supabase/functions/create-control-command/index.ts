@@ -362,8 +362,8 @@ serve(async (request) => {
     return jsonResponse({ error: "Could not verify portal access" }, 500, origin);
   }
 
-  if (!access || String(access.role) !== "admin") {
-    return jsonResponse({ error: "Admin access is required for portal controls" }, 403, origin);
+  if (!access || !["admin", "researcher"].includes(String(access.role))) {
+    return jsonResponse({ error: "Experiment settings access is required for portal controls" }, 403, origin);
   }
 
   const now = new Date().toISOString();
