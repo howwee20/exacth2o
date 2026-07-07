@@ -351,19 +351,19 @@ serve(async (request) => {
     return jsonResponse({ error: "Invalid portal session" }, 401, origin);
   }
 
-  const { data: membership, error: membershipError } = await admin
-    .from("project_members")
+  const { data: access, error: accessError } = await admin
+    .from("portal_access")
     .select("role")
     .eq("project_id", projectId)
     .eq("user_id", userData.user.id)
     .maybeSingle();
 
-  if (membershipError) {
-    return jsonResponse({ error: "Could not verify project access" }, 500, origin);
+  if (accessError) {
+    return jsonResponse({ error: "Could not verify portal access" }, 500, origin);
   }
 
-  if (!membership || !["owner", "admin"].includes(String(membership.role))) {
-    return jsonResponse({ error: "Owner or admin access is required for portal controls" }, 403, origin);
+  if (!access || String(access.role) !== "admin") {
+    return jsonResponse({ error: "Admin access is required for portal controls" }, 403, origin);
   }
 
   const now = new Date().toISOString();

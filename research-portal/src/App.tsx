@@ -11,6 +11,7 @@ import {
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   CircleAlert,
   Database,
@@ -23,10 +24,14 @@ import {
   LogOut,
   Maximize2,
   Minimize2,
+  RefreshCw,
   Search,
+  Server,
   Settings as SettingsIcon,
   ShieldCheck,
   SlidersHorizontal,
+  Thermometer,
+  Wifi,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -116,6 +121,13 @@ type PlantGroup = "maize" | "sorghum" | "unknown";
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
+type PortalRole = "admin" | "researcher";
+type PortalView = "home" | "experiment" | "health";
+
+type PortalAccess = {
+  role: PortalRole;
+  email: string | null;
+} | null;
 
 type InviteAcceptResponse = {
   ok?: boolean;
@@ -232,6 +244,47 @@ type QueueControlCommand = (
   options?: { confirm?: boolean },
 ) => Promise<void>;
 
+type DeviceHealthSnapshot = {
+  id: string;
+  project_id: string;
+  device_id: string;
+  device_name: string;
+  source: string;
+  captured_at: string;
+  owner_checked_at: string | null;
+  status_endpoint_ok: boolean | null;
+  history_endpoint_ok: boolean | null;
+  status_http_status: number | null;
+  status_elapsed_ms: number | null;
+  history_samples: number | null;
+  overall_status: string | null;
+  api_status: string | null;
+  pi_online: boolean | null;
+  public_url_reachable: boolean | null;
+  ethernet_link: boolean | null;
+  ethernet_ip: string | null;
+  gateway_ping_ms: number | null;
+  undervoltage: boolean | null;
+  cpu_temp_c: number | null;
+  uptime_seconds: number | null;
+  sensors_expected: number | null;
+  sensors_current: number | null;
+  sensors_stale: number | null;
+  sensors_missing: number | null;
+  missing_sensors: unknown[] | null;
+  stale_sensors: unknown[] | null;
+  last_sensor_reading_at: string | null;
+  watering_last_event: string | null;
+  watering_last_event_at: string | null;
+  watering_events_last_24h: number | null;
+  scheduler_jobs_loaded: number | null;
+  active_alerts: unknown[] | null;
+  known_issues: unknown[] | null;
+  raw_status: Record<string, unknown> | null;
+  raw_history: Record<string, unknown> | null;
+  created_at: string;
+};
+
 type TimeBounds = {
   startMs: number;
   endMs: number;
@@ -255,7 +308,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260706-loading-4day-graph";
+const portalVersion = "20260707-admin-health";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -567,6 +620,53 @@ function formatSettingsTimestamp(value?: string | number | null) {
   if (!value) return "Not synced";
   const formatted = formatDateTime(value);
   return formatted === "none" ? "Not synced" : formatted;
+}
+
+function formatHealthNumber(value?: number | null, digits = 1, suffix = "") {
+  if (value == null || !Number.isFinite(value)) return "Not synced";
+  return `${Number(value.toFixed(digits))}${suffix}`;
+}
+
+function formatHealthInteger(value?: number | null) {
+  if (value == null || !Number.isFinite(value)) return "Not synced";
+  return Math.trunc(value).toLocaleString();
+}
+
+function formatHealthBoolean(value?: boolean | null, trueLabel = "Yes", falseLabel = "No") {
+  if (value == null) return "Not synced";
+  return value ? trueLabel : falseLabel;
+}
+
+function healthArray(value?: unknown[] | null) {
+  return Array.isArray(value) ? value : [];
+}
+
+function healthStatusLabel(snapshot?: DeviceHealthSnapshot | null) {
+  if (!snapshot) return "No snapshot";
+  return snapshot.overall_status || (snapshot.status_endpoint_ok ? "OK" : "Unreachable");
+}
+
+function healthTone(snapshot?: DeviceHealthSnapshot | null): "ok" | "warning" | "bad" | "unknown" {
+  if (!snapshot) return "unknown";
+  const status = healthStatusLabel(snapshot).toLowerCase();
+  if (!snapshot.status_endpoint_ok || status.includes("critical") || status.includes("down") || status.includes("fail")) {
+    return "bad";
+  }
+  if (
+    status.includes("warning") ||
+    status.includes("degraded") ||
+    status.includes("stale") ||
+    (snapshot.sensors_stale ?? 0) > 0 ||
+    (snapshot.sensors_missing ?? 0) > 0
+  ) {
+    return "warning";
+  }
+  return "ok";
+}
+
+function healthStatusText(snapshot?: DeviceHealthSnapshot | null) {
+  const label = healthStatusLabel(snapshot);
+  return label.toUpperCase() === "OK" ? "OK" : label;
 }
 
 function formatTargetVwc(value: number | null | undefined) {
@@ -2406,6 +2506,225 @@ function PortalSettingsPanel({
   );
 }
 
+function PortalStatusPill({ snapshot }: { snapshot?: DeviceHealthSnapshot | null }) {
+  const tone = healthTone(snapshot);
+  return (
+    <span className={`portal-status-pill is-${tone}`}>
+      {healthStatusText(snapshot)}
+    </span>
+  );
+}
+
+function PortalAdminHome({
+  data,
+  healthSnapshot,
+  healthLoading,
+  onOpenExperiment,
+  onOpenHealth,
+}: {
+  data: LoadState;
+  healthSnapshot: DeviceHealthSnapshot | null;
+  healthLoading: boolean;
+  onOpenExperiment: () => void;
+  onOpenHealth: () => void;
+}) {
+  const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
+  const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
+  const sensorLine = healthSnapshot
+    ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors`
+    : "No health snapshot";
+
+  return (
+    <section className="portal-admin-main" aria-label="Portal sections">
+      <div className="portal-launch-grid">
+        <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
+          <span className="portal-launch-icon">
+            <Server size={28} />
+          </span>
+          <span className="portal-launch-copy">
+            <span>System Health</span>
+            <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
+            <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
+          </span>
+          <PortalStatusPill snapshot={healthSnapshot} />
+        </button>
+
+        <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
+          <span className="portal-launch-icon">
+            <Activity size={28} />
+          </span>
+          <span className="portal-launch-copy">
+            <span>Matt Experiment</span>
+            <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
+            <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
+          </span>
+          <span className="portal-status-pill is-ok">OPEN</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function HealthMetricCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone = "unknown",
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "ok" | "warning" | "bad" | "unknown";
+}) {
+  return (
+    <section className={`health-metric-card is-${tone}`}>
+      <div className="health-metric-icon">
+        <Icon size={19} />
+      </div>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <span>{detail}</span>
+      </div>
+    </section>
+  );
+}
+
+function SystemHealthView({
+  snapshot,
+  loading,
+  error,
+  onRefresh,
+}: {
+  snapshot: DeviceHealthSnapshot | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}) {
+  const tone = healthTone(snapshot);
+  const missingSensors = healthArray(snapshot?.missing_sensors).map(String);
+  const staleSensors = healthArray(snapshot?.stale_sensors).map(String);
+  const activeAlerts = healthArray(snapshot?.active_alerts).map(String);
+
+  return (
+    <section className="system-health-main" aria-label="System health">
+      <header className={`health-condition is-${tone}`}>
+        <div>
+          <p>Current Condition</p>
+          <h1>{healthStatusText(snapshot)}</h1>
+          <span>
+            Updated {formatSettingsTimestamp(snapshot?.captured_at ?? snapshot?.created_at)}
+          </span>
+        </div>
+        <button type="button" className="health-refresh-button" onClick={onRefresh} disabled={loading}>
+          <RefreshCw size={15} />
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
+      </header>
+
+      {error ? (
+        <div className="banner error">
+          <AlertTriangle size={18} />
+          {error}
+        </div>
+      ) : null}
+
+      <div className="health-metric-grid">
+        <HealthMetricCard
+          icon={Server}
+          label="Controller"
+          value={snapshot?.api_status ?? "Not synced"}
+          detail={formatHealthBoolean(snapshot?.pi_online, "Pi online", "Pi offline")}
+          tone={snapshot?.api_status?.toLowerCase() === "ok" ? "ok" : healthTone(snapshot)}
+        />
+        <HealthMetricCard
+          icon={Wifi}
+          label="Ethernet"
+          value={formatHealthBoolean(snapshot?.ethernet_link, "Online", "Offline")}
+          detail={`${snapshot?.ethernet_ip ?? "No IP"} · ${formatHealthNumber(snapshot?.gateway_ping_ms, 3, " ms")}`}
+          tone={snapshot?.ethernet_link ? "ok" : snapshot?.ethernet_link === false ? "bad" : "unknown"}
+        />
+        <HealthMetricCard
+          icon={Thermometer}
+          label="Power"
+          value={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")}
+          detail={`Undervoltage ${formatHealthBoolean(snapshot?.undervoltage, "on", "off")}`}
+          tone={snapshot?.undervoltage ? "warning" : snapshot?.undervoltage === false ? "ok" : "unknown"}
+        />
+        <HealthMetricCard
+          icon={Activity}
+          label="Sensors"
+          value={`${formatHealthInteger(snapshot?.sensors_current)} / ${formatHealthInteger(snapshot?.sensors_expected)}`}
+          detail={`${formatHealthInteger(snapshot?.sensors_stale)} stale · ${formatHealthInteger(snapshot?.sensors_missing)} missing`}
+          tone={(snapshot?.sensors_stale ?? 0) > 0 || (snapshot?.sensors_missing ?? 0) > 0 ? "warning" : snapshot ? "ok" : "unknown"}
+        />
+      </div>
+
+      <div className="health-detail-grid">
+        <section className="health-detail-panel">
+          <h2>Signals</h2>
+          <div className="settings-rows">
+            <div className="settings-row">
+              <span>Owner-health API</span>
+              <strong>{formatHealthBoolean(snapshot?.status_endpoint_ok, "Reachable", "Unreachable")}</strong>
+            </div>
+            <div className="settings-row">
+              <span>History samples</span>
+              <strong>{formatHealthInteger(snapshot?.history_samples)}</strong>
+            </div>
+            <div className="settings-row">
+              <span>Last sensor reading</span>
+              <strong>{formatSettingsTimestamp(snapshot?.last_sensor_reading_at)}</strong>
+            </div>
+            <div className="settings-row">
+              <span>Scheduler jobs</span>
+              <strong>{formatHealthInteger(snapshot?.scheduler_jobs_loaded)}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="health-detail-panel">
+          <h2>Watering</h2>
+          <div className="settings-rows">
+            <div className="settings-row">
+              <span>Last event</span>
+              <strong>{snapshot?.watering_last_event ?? "Not synced"}</strong>
+            </div>
+            <div className="settings-row">
+              <span>Last event time</span>
+              <strong>{formatSettingsTimestamp(snapshot?.watering_last_event_at)}</strong>
+            </div>
+            <div className="settings-row">
+              <span>Events last 24h</span>
+              <strong>{formatHealthInteger(snapshot?.watering_events_last_24h)}</strong>
+            </div>
+            <div className="settings-row">
+              <span>Public URL</span>
+              <strong>{formatHealthBoolean(snapshot?.public_url_reachable, "Reachable", "Unreachable")}</strong>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="health-detail-panel">
+        <h2>Alerts</h2>
+        <div className="health-alert-list">
+          {[...activeAlerts, ...missingSensors.map((item) => `Missing ${item}`), ...staleSensors.map((item) => `Stale ${item}`)]
+            .slice(0, 10)
+            .map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          {activeAlerts.length === 0 && missingSensors.length === 0 && staleSensors.length === 0 ? (
+            <span>No active owner-health alerts</span>
+          ) : null}
+        </div>
+      </section>
+    </section>
+  );
+}
+
 export default function App() {
   const [email, setEmail] = useState(() => initialEmail());
   const [password, setPassword] = useState("");
@@ -2435,6 +2754,12 @@ export default function App() {
   const [controlError, setControlError] = useState<string | null>(null);
   const [recentCommands, setRecentCommands] = useState<ControlCommand[]>([]);
   const [data, setData] = useState<LoadState>(initialLoadState);
+  const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [portalView, setPortalView] = useState<PortalView>("experiment");
+  const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
 
   const dataRef = useRef(data);
   const loadTokenRef = useRef(0);
@@ -2482,6 +2807,54 @@ export default function App() {
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
   ).length;
+  const isAdmin = portalAccess?.role === "admin";
+
+  const loadPortalAccess = useCallback(async () => {
+    setAccessLoading(true);
+    try {
+      const response = await supabase
+        .from("portal_access")
+        .select("role, email")
+        .eq("project_id", mattProjectId)
+        .maybeSingle();
+
+      if (response.error) {
+        setPortalAccess({ role: "researcher", email: null });
+        setPortalView("experiment");
+        return;
+      }
+
+      const role = response.data?.role === "admin" ? "admin" : "researcher";
+      setPortalAccess({ role, email: response.data?.email ?? null });
+      setPortalView(role === "admin" ? "home" : "experiment");
+    } finally {
+      setAccessLoading(false);
+    }
+  }, []);
+
+  const loadHealthSnapshot = useCallback(async () => {
+    if (!isAdmin) return;
+    setHealthLoading(true);
+    setHealthError(null);
+
+    try {
+      const response = await supabase
+        .from("device_health_snapshots")
+        .select("*")
+        .eq("project_id", mattProjectId)
+        .eq("device_id", mattDeviceId)
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (response.error) throw response.error;
+      setHealthSnapshot((response.data ?? null) as DeviceHealthSnapshot | null);
+    } catch (err) {
+      setHealthError(errorMessage(err));
+    } finally {
+      setHealthLoading(false);
+    }
+  }, [isAdmin]);
 
   const refresh = useCallback(
     async ({ incremental }: { incremental: boolean }) => {
@@ -2561,6 +2934,11 @@ export default function App() {
   );
 
   const loadRecentCommands = useCallback(async () => {
+    if (!isAdmin) {
+      setRecentCommands([]);
+      return;
+    }
+
     try {
       const response = await supabase
         .from("project_control_commands")
@@ -2574,10 +2952,15 @@ export default function App() {
     } catch {
       setRecentCommands([]);
     }
-  }, []);
+  }, [isAdmin]);
 
   const queueControlCommand = useCallback<QueueControlCommand>(
     async (commandType, payload, options) => {
+      if (!isAdmin) {
+        setControlError("Admin access is required for portal controls.");
+        return;
+      }
+
       setControlBusy(true);
       setControlNotice(null);
       setControlError(null);
@@ -2605,7 +2988,7 @@ export default function App() {
         setControlBusy(false);
       }
     },
-    [loadRecentCommands],
+    [isAdmin, loadRecentCommands],
   );
 
   useEffect(() => {
@@ -2744,6 +3127,11 @@ export default function App() {
     setError(null);
     setLoginError(null);
     setSessionReady(false);
+    setPortalAccess(null);
+    setAccessLoading(false);
+    setPortalView("experiment");
+    setHealthSnapshot(null);
+    setHealthError(null);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
   }
@@ -3004,6 +3392,21 @@ export default function App() {
   }, [sessionReady, selectedMode, refresh]);
 
   useEffect(() => {
+    if (!sessionReady) {
+      setPortalAccess(null);
+      setPortalView("experiment");
+      setHealthSnapshot(null);
+      return;
+    }
+    void loadPortalAccess();
+  }, [loadPortalAccess, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return;
+    void loadHealthSnapshot();
+  }, [isAdmin, loadHealthSnapshot, sessionReady]);
+
+  useEffect(() => {
     if (!sessionReady) return undefined;
     const intervalId = window.setInterval(() => {
       void refresh({ incremental: true });
@@ -3203,21 +3606,41 @@ export default function App() {
     </button>
   );
 
-  return (
-    <main className="dashboard-shell">
-      <header className="dashboard-header">
-        <a className="dashboard-logo" href="/" aria-label="exactH2O home">
-          exactH2O
+  const portalHeader = (
+    <header className="dashboard-header">
+      <a className="dashboard-logo" href="/" aria-label="exactH2O home">
+        exactH2O
+      </a>
+      <div className="header-actions">
+        <a className="header-action site-link" href="/" aria-label="Website" title="Website">
+          <ExternalLink size={15} />
+          Site
         </a>
-        <div className="header-actions">
-          <a className="header-action site-link" href="/" aria-label="Website" title="Website">
-            <ExternalLink size={15} />
-            Site
-          </a>
-        </div>
-      </header>
+      </div>
+    </header>
+  );
 
-      <div className="portal-corner-actions" aria-label="Portal account actions">
+  const portalActions = (
+    <div className="portal-corner-actions" aria-label="Portal account actions">
+      {isAdmin && portalView !== "home" ? (
+        <button className="header-action" type="button" onClick={() => setPortalView("home")}>
+          <ArrowLeft size={15} />
+          Home
+        </button>
+      ) : null}
+      {isAdmin && portalView !== "experiment" ? (
+        <button className="header-action" type="button" onClick={() => setPortalView("experiment")}>
+          <Activity size={15} />
+          Experiment
+        </button>
+      ) : null}
+      {isAdmin && portalView !== "health" ? (
+        <button className="header-action" type="button" onClick={() => setPortalView("health")}>
+          <Server size={15} />
+          Health
+        </button>
+      ) : null}
+      {isAdmin ? (
         <button
           className="header-action"
           type="button"
@@ -3228,30 +3651,82 @@ export default function App() {
           <SettingsIcon size={15} />
           Settings
         </button>
-        <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
-          <LogOut size={17} />
-        </button>
-      </div>
+      ) : null}
+      <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
+        <LogOut size={17} />
+      </button>
+    </div>
+  );
 
-      <PortalSettingsPanel
-        open={settingsOpen}
-        activeSection={settingsSection}
-        data={data}
-        pairings={sortedPairings}
-        visiblePotCount={visiblePotCount}
-        csvDownload={csvDownload}
-        exportingCsv={exportingCsv}
-        controlBusy={controlBusy}
-        controlNotice={controlNotice}
-        controlError={controlError}
-        recentCommands={recentCommands}
-        onClose={() => setSettingsOpen(false)}
-        onSectionChange={setSettingsSection}
-        onPrepareCsvDownload={prepareCsvDownload}
-        onDownloadPairingsCsv={downloadPairingsCsv}
-        onRefreshCommands={loadRecentCommands}
-        onQueueCommand={queueControlCommand}
-      />
+  if (accessLoading && !portalAccess) {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        {portalActions}
+        <section className="portal-loading-screen">
+          <Loader2 className="chart-loading-spinner" size={32} aria-hidden="true" />
+        </section>
+      </main>
+    );
+  }
+
+  if (isAdmin && portalView === "home") {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        {portalActions}
+        <PortalAdminHome
+          data={data}
+          healthSnapshot={healthSnapshot}
+          healthLoading={healthLoading}
+          onOpenExperiment={() => setPortalView("experiment")}
+          onOpenHealth={() => setPortalView("health")}
+        />
+      </main>
+    );
+  }
+
+  if (isAdmin && portalView === "health") {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        {portalActions}
+        <SystemHealthView
+          snapshot={healthSnapshot}
+          loading={healthLoading}
+          error={healthError}
+          onRefresh={() => void loadHealthSnapshot()}
+        />
+      </main>
+    );
+  }
+
+  return (
+    <main className="dashboard-shell">
+      {portalHeader}
+      {portalActions}
+
+      {isAdmin ? (
+        <PortalSettingsPanel
+          open={settingsOpen}
+          activeSection={settingsSection}
+          data={data}
+          pairings={sortedPairings}
+          visiblePotCount={visiblePotCount}
+          csvDownload={csvDownload}
+          exportingCsv={exportingCsv}
+          controlBusy={controlBusy}
+          controlNotice={controlNotice}
+          controlError={controlError}
+          recentCommands={recentCommands}
+          onClose={() => setSettingsOpen(false)}
+          onSectionChange={setSettingsSection}
+          onPrepareCsvDownload={prepareCsvDownload}
+          onDownloadPairingsCsv={downloadPairingsCsv}
+          onRefreshCommands={loadRecentCommands}
+          onQueueCommand={queueControlCommand}
+        />
+      ) : null}
 
       {error ? (
         <div className="banner error">
