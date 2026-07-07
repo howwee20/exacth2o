@@ -314,7 +314,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-health-arrow-fix";
+const portalVersion = "20260707-health-detail-drawer";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2589,6 +2589,11 @@ type HealthChartSeries = {
   points: HealthChartPoint[];
 };
 
+type HealthSelectedDetail = {
+  title: string;
+  rows: Array<{ label: string; value: string }>;
+};
+
 type HealthHistoryRecord = Record<string, unknown> & {
   t?: string;
 };
@@ -2869,6 +2874,74 @@ function healthDateWithAge(value: string | null | undefined) {
   return `${formatSettingsTimestamp(value)} (${age})`;
 }
 
+function healthAgeText(value: string | null | undefined) {
+  if (!value) return "Not synced";
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return "Not synced";
+  const ageMinutesValue = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (ageMinutesValue < 1) return "now";
+  if (ageMinutesValue < 60) return `${ageMinutesValue}m ago`;
+  return `${Math.floor(ageMinutesValue / 60)}h ${ageMinutesValue % 60}m ago`;
+}
+
+function formatHealthDetailValue(value: number | null | undefined, unit = "") {
+  if (value == null || !Number.isFinite(value)) return "No value";
+  const rounded = Math.abs(value - Math.round(value)) < 0.001 ? String(Math.round(value)) : String(Number(value.toFixed(2)));
+  return unit ? `${rounded}${unit}` : rounded;
+}
+
+function healthEventText(value: unknown) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function healthFirstText(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = healthEventText(record[key]);
+    if (value) return value;
+  }
+  return "Not synced";
+}
+
+function HealthSelectedDetailDrawer({
+  detail,
+  onClose,
+}: {
+  detail: HealthSelectedDetail | null;
+  onClose: () => void;
+}) {
+  if (!detail) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="health-detail-scrim"
+        aria-label="Close selected detail"
+        onClick={onClose}
+      />
+      <aside className="health-selected-detail" aria-label="Selected detail">
+        <header>
+          <div>
+            <p>Selected Detail</p>
+            <h2>{detail.title}</h2>
+          </div>
+          <button type="button" onClick={onClose}>Close</button>
+        </header>
+        <div className="health-selected-detail-rows">
+          {detail.rows.map((row) => (
+            <div className="health-selected-detail-row" key={row.label}>
+              <span>{row.label}</span>
+              <strong>{row.value}</strong>
+            </div>
+          ))}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 function HealthMetricCard({
   icon: Icon,
   label,
@@ -2938,12 +3011,14 @@ function HealthTrendChart({
   yMax,
   yTitle,
   unit = "",
+  onSelectDetail,
 }: {
   series: HealthChartSeries[];
   yMin?: number;
   yMax?: number;
   yTitle: string;
   unit?: string;
+  onSelectDetail?: (detail: HealthSelectedDetail) => void;
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
@@ -3012,17 +3087,38 @@ function HealthTrendChart({
         ))}
         {visibleSeries.flatMap((item) => item.points
           .filter((point, index, points) => point.value != null && (index === points.length - 1 || index % Math.max(1, Math.ceil(points.length / 48)) === 0))
-          .map((point) => (
-            <circle
-              key={`${item.label}-${point.iso}`}
-              cx={Math.max(padLeft, Math.min(width - padRight, xFor(point.t)))}
-              cy={Math.max(padTop, Math.min(height - padBottom, yFor(point.value as number)))}
-              r={3.5}
-              className={`health-chart-dot is-${item.tone}`}
-            >
-              <title>{`${item.label}: ${point.value} at ${formatSettingsTimestamp(point.iso)}`}</title>
-            </circle>
-          )))}
+          .map((point) => {
+            const openDetail = () => {
+              onSelectDetail?.({
+                title: item.label,
+                rows: [
+                  { label: "Value", value: formatHealthDetailValue(point.value, unit) },
+                  { label: "Sample time", value: formatSettingsTimestamp(point.iso) },
+                  { label: "Series", value: item.label },
+                ],
+              });
+            };
+            return (
+              <circle
+                key={`${item.label}-${point.iso}`}
+                cx={Math.max(padLeft, Math.min(width - padRight, xFor(point.t)))}
+                cy={Math.max(padTop, Math.min(height - padBottom, yFor(point.value as number)))}
+                r={3.5}
+                className={`health-chart-dot is-${item.tone}`}
+                role="button"
+                tabIndex={0}
+                onClick={openDetail}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openDetail();
+                  }
+                }}
+              >
+                <title>{`${item.label}: ${point.value} at ${formatSettingsTimestamp(point.iso)}`}</title>
+              </circle>
+            );
+          }))}
         <text x={padLeft} y={height - 12} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(minTime).toISOString())}</text>
         <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
         <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
@@ -3032,7 +3128,13 @@ function HealthTrendChart({
   );
 }
 
-function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
+function HealthWateringChart({
+  events,
+  onSelectDetail,
+}: {
+  events: HealthWateringEvent[];
+  onSelectDetail?: (detail: HealthSelectedDetail) => void;
+}) {
   const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
   const height = 270;
@@ -3105,8 +3207,41 @@ function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
           const time = healthTimestampMs(event.t) ?? minTime;
           const label = wateringEventLabel(event);
           const duration = healthNumber(event.valveOpenTimeMs);
+          const eventRecord = event as Record<string, unknown>;
+          const durationText = duration == null ? "--" : `${Math.round(duration / 1000)} sec`;
+          const openDetail = () => {
+            onSelectDetail?.({
+              title: healthString(event.pairing) ?? label,
+              rows: [
+                { label: "Event", value: "Valve opened" },
+                { label: "Time", value: formatSettingsTimestamp(event.t) },
+                { label: "Age", value: healthAgeText(event.t) },
+                { label: "Pot", value: label },
+                { label: "Pairing", value: healthString(event.pairing) ?? label },
+                { label: "Sensor", value: healthFirstText(eventRecord, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
+                { label: "Valve", value: healthFirstText(eventRecord, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
+                { label: "Duration", value: durationText },
+                { label: "Event ID", value: healthFirstText(eventRecord, ["id", "eventId", "event_id"]) },
+              ],
+            });
+          };
           return (
-            <circle key={`${event.id ?? event.t}-${label}`} cx={xFor(time)} cy={yFor(label)} r={5.5} className="watering-event-dot">
+            <circle
+              key={`${event.id ?? event.t}-${label}`}
+              cx={xFor(time)}
+              cy={yFor(label)}
+              r={5.5}
+              className="watering-event-dot"
+              role="button"
+              tabIndex={0}
+              onClick={openDetail}
+              onKeyDown={(keyboardEvent) => {
+                if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                  keyboardEvent.preventDefault();
+                  openDetail();
+                }
+              }}
+            >
               <title>{`${healthString(event.pairing) ?? label} opened ${formatSettingsTimestamp(event.t)}${duration == null ? "" : ` for ${Math.round(duration / 1000)} sec`}`}</title>
             </circle>
           );
@@ -3131,6 +3266,7 @@ function SystemHealthView({
   error: string | null;
   onRefresh: () => void;
 }) {
+  const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
   const tone = healthTone(snapshot);
   const records = healthHistoryRecords(snapshot);
   const evidenceRecords = healthRecentRecords(records, 8);
@@ -3157,6 +3293,10 @@ function SystemHealthView({
 
   return (
     <section className="system-health-main" aria-label="System health">
+      <HealthSelectedDetailDrawer
+        detail={selectedDetail}
+        onClose={() => setSelectedDetail(null)}
+      />
       <header className={`health-condition is-${tone}`}>
         <div>
           <p>Current Condition</p>
@@ -3225,6 +3365,7 @@ function SystemHealthView({
         </div>
         <HealthTrendChart
           yTitle="Uptime minutes"
+          onSelectDetail={setSelectedDetail}
           series={[
             {
               label: "Host uptime minutes",
@@ -3271,6 +3412,7 @@ function SystemHealthView({
             yTitle="Temperature C / flag marker"
             yMax={85}
             unit="C"
+            onSelectDetail={setSelectedDetail}
             series={[
               { label: "CPU temp", tone: "primary", points: records.map((record) => healthChartPoint(record, "cpuTempC")) },
               {
@@ -3316,6 +3458,7 @@ function SystemHealthView({
           <HealthTrendChart
             yTitle="Ethernet link"
             yMax={1}
+            onSelectDetail={setSelectedDetail}
             series={[
               {
                 label: "Ethernet link",
@@ -3340,7 +3483,7 @@ function SystemHealthView({
           <HealthMiniFact label="24h opens" value={formatHealthInteger(snapshot?.watering_events_last_24h)} />
           <HealthMiniFact label="Watering disabled" value={disabledWatering.length ? disabledWatering.join(", ") : "none"} />
         </div>
-        <HealthWateringChart events={wateringEvents} />
+        <HealthWateringChart events={wateringEvents} onSelectDetail={setSelectedDetail} />
         <div className="health-event-list">
           {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => (
             <div className="health-event-row" key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}`}>
@@ -3375,6 +3518,7 @@ function SystemHealthView({
         <HealthTrendChart
           yTitle="Sensor count"
           yMax={Math.max(20, expectedSensors ?? 20)}
+          onSelectDetail={setSelectedDetail}
           series={[
             { label: "Not updating or missing", tone: "warning", points: records.map((record) => healthChartPoint(record, "staleOrMissingSensors", 0)) },
             { label: "Total mapped sensors", tone: "secondary", points: records.map((record) => healthChartPoint(record, "sensorRows")) },

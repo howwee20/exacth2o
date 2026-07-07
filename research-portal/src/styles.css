@@ -1018,10 +1018,21 @@ select {
   stroke: #dc2626;
 }
 
+.health-chart-dot,
+.watering-event-dot {
+  cursor: pointer;
+}
+
+.health-chart-dot:focus-visible,
+.watering-event-dot:focus-visible {
+  outline: none;
+  stroke-width: 5;
+}
+
 .watering-event-dot {
   fill: #ffffff;
   stroke: #2563eb;
-  cursor: default;
+  cursor: pointer;
 }
 
 .health-chart-empty {
@@ -1064,6 +1075,110 @@ select {
   font-size: 0.82rem;
   font-style: normal;
   font-weight: 750;
+}
+
+.health-detail-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  border: 0;
+  padding: 0;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.36));
+  cursor: default;
+}
+
+.health-selected-detail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 71;
+  width: min(430px, 100vw);
+  overflow: auto;
+  padding: 28px 22px 34px;
+  border-left: 1px solid #dbe3ee;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: -24px 0 54px rgba(15, 23, 42, 0.18);
+}
+
+.health-selected-detail header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.health-selected-detail header p,
+.health-selected-detail header h2 {
+  margin: 0;
+}
+
+.health-selected-detail header p {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.health-selected-detail header h2 {
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 1.18rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.health-selected-detail header button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.health-selected-detail header button:hover,
+.health-selected-detail header button:focus-visible {
+  border-color: #b7c5d8;
+  background: #f8fafc;
+  outline: none;
+}
+
+.health-selected-detail-rows {
+  display: grid;
+}
+
+.health-selected-detail-row {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.health-selected-detail-row span {
+  flex: 0 0 auto;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.health-selected-detail-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 850;
+  text-align: right;
 }
 
 .settings-backdrop {
