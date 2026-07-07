@@ -254,7 +254,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260705-cream-background";
+const portalVersion = "20260706-controls-menu-cleanup";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2426,7 +2426,6 @@ export default function App() {
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
-  const [controlsHidden, setControlsHidden] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("overview");
   const [controlBusy, setControlBusy] = useState(false);
@@ -2880,9 +2879,7 @@ export default function App() {
   }
 
   function toggleExpandedGraph() {
-    const nextExpanded = !graphExpanded;
-    setGraphExpanded(nextExpanded);
-    if (nextExpanded) setControlsHidden(false);
+    setGraphExpanded((expanded) => !expanded);
   }
 
   async function prepareCsvDownload() {
@@ -3263,7 +3260,7 @@ export default function App() {
 
       <section
         ref={dashboardMainRef}
-        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""} ${controlsHidden ? "controls-hidden" : ""}`}
+        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}
       >
         <section className="chart-card">
           <div className="chart-tools">
@@ -3297,40 +3294,21 @@ export default function App() {
           </div>
         </section>
 
-        {controlsHidden ? (
-          <button
-            type="button"
-            className="controls-restore-button"
-            onClick={() => setControlsHidden(false)}
-            aria-label="Show pot controls"
-            title="Show pots"
-          >
-            {visiblePotCount}
-          </button>
-        ) : (
         <aside
           ref={controlPanelRef}
           className="control-panel"
           style={controlPanelStyle}
         >
           <section>
-            <div
-              className="control-heading"
-              onPointerDown={startPanelDrag}
-              aria-label="Move controls"
-            >
-              <span>{visiblePotCount}</span>
-              <div className="panel-size-actions" onPointerDown={(event) => event.stopPropagation()}>
-                <button
-                  type="button"
-                  aria-label="Hide pot controls"
-                  title="Hide pots"
-                  onClick={() => setControlsHidden(true)}
-                >
-                  -
-                </button>
+            {graphExpanded ? (
+              <div
+                className="control-heading"
+                onPointerDown={startPanelDrag}
+                aria-label="Move controls"
+              >
+                <span />
               </div>
-            </div>
+            ) : null}
             <div className="preset-buttons research-presets">
               <button
                 type="button"
@@ -3427,7 +3405,6 @@ export default function App() {
             />
           ) : null}
         </aside>
-        )}
       </section>
     </main>
   );
