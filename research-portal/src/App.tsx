@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type PointerEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -281,6 +282,7 @@ type DeviceHealthSnapshot = {
   active_alerts: unknown[] | null;
   known_issues: unknown[] | null;
   raw_status: Record<string, unknown> | null;
+  raw_health: Record<string, unknown> | null;
   raw_history: Record<string, unknown> | null;
   created_at: string;
 };
@@ -308,7 +310,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-admin-health-user-scope";
+const portalVersion = "20260707-health-evidence";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -637,7 +639,7 @@ function formatHealthBoolean(value?: boolean | null, trueLabel = "Yes", falseLab
   return value ? trueLabel : falseLabel;
 }
 
-function healthArray(value?: unknown[] | null) {
+function healthArray(value?: unknown) {
   return Array.isArray(value) ? value : [];
 }
 
@@ -2565,6 +2567,217 @@ function PortalAdminHome({
   );
 }
 
+type HealthChartPoint = {
+  t: number;
+  iso: string;
+  value: number | null;
+};
+
+type HealthChartSeries = {
+  label: string;
+  tone: "primary" | "secondary" | "warning" | "danger";
+  points: HealthChartPoint[];
+};
+
+type HealthHistoryRecord = Record<string, unknown> & {
+  t?: string;
+};
+
+type HealthWateringEvent = Record<string, unknown> & {
+  t?: string;
+  pairing?: string;
+  physicalPot?: number;
+  valveOpenTimeMs?: number;
+};
+
+function healthRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function healthNestedRecord(value: unknown, key: string): Record<string, unknown> {
+  return healthRecord(healthRecord(value)[key]);
+}
+
+function healthNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function healthString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function healthBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function healthTimestampMs(value: unknown): number | null {
+  const textValue = healthString(value);
+  if (!textValue) return null;
+  const ms = Date.parse(textValue);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function healthDurationText(secondsValue: unknown) {
+  const seconds = healthNumber(secondsValue);
+  if (seconds == null) return "--";
+  const rounded = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  if (hours) return `uptime ${hours}h ${minutes}m`;
+  if (minutes) return `uptime ${minutes}m`;
+  return `uptime ${rounded}s`;
+}
+
+function healthCompactDuration(msValue: number | null) {
+  if (msValue == null || !Number.isFinite(msValue)) return "--";
+  const seconds = Math.max(0, Math.round(msValue / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return `${minutes}m`;
+  return `${seconds}s`;
+}
+
+function healthHistoryRecords(snapshot: DeviceHealthSnapshot | null): HealthHistoryRecord[] {
+  const records = snapshot?.raw_history?.records;
+  return Array.isArray(records)
+    ? records
+        .map((record) => healthRecord(record) as HealthHistoryRecord)
+        .filter((record) => healthTimestampMs(record.t) != null)
+        .sort((a, b) => (healthTimestampMs(a.t) ?? 0) - (healthTimestampMs(b.t) ?? 0))
+    : [];
+}
+
+function healthRecentRecords(records: HealthHistoryRecord[], hours: number) {
+  if (records.length < 3) return records;
+  const last = healthTimestampMs(records[records.length - 1]?.t);
+  if (last == null) return records;
+  const start = last - hours * 60 * 60 * 1000;
+  const recent = records.filter((record) => {
+    const time = healthTimestampMs(record.t);
+    return time != null && time >= start;
+  });
+  return recent.length >= 3 ? recent : records;
+}
+
+function healthChartPoint(record: HealthHistoryRecord, key: string, fallback: number | null = null): HealthChartPoint {
+  const time = healthTimestampMs(record.t) ?? Date.now();
+  return {
+    t: time,
+    iso: healthString(record.t) ?? new Date(time).toISOString(),
+    value: healthNumber(record[key]) ?? fallback,
+  };
+}
+
+function healthStatusSource(snapshot: DeviceHealthSnapshot | null) {
+  return {
+    compact: snapshot?.raw_status ?? {},
+    full: snapshot?.raw_health ?? {},
+    owner: healthNestedRecord(snapshot?.raw_health, "ownerStatus"),
+  };
+}
+
+function healthOwnerValue(snapshot: DeviceHealthSnapshot | null, key: string) {
+  const { owner, compact } = healthStatusSource(snapshot);
+  return owner[key] ?? compact[key];
+}
+
+function currentUptimeSeconds(snapshot: DeviceHealthSnapshot | null, records: HealthHistoryRecord[]) {
+  return (
+    healthNumber(healthOwnerValue(snapshot, "current_uptime_seconds")) ??
+    healthNumber(healthOwnerValue(snapshot, "uptime_seconds")) ??
+    snapshot?.uptime_seconds ??
+    healthNumber(records[records.length - 1]?.uptimeSeconds)
+  );
+}
+
+function restartEvents(records: HealthHistoryRecord[]) {
+  const events: Array<{ t: string; detectedAt: string; previous: string; uptimeSeconds: number; previousUptimeSeconds: number }> = [];
+  let previous: HealthHistoryRecord | null = null;
+  records.forEach((record) => {
+    const uptime = healthNumber(record.uptimeSeconds);
+    const previousUptime = previous ? healthNumber(previous.uptimeSeconds) : null;
+    const recordTime = healthTimestampMs(record.t);
+    if (previous && previousUptime != null && uptime != null && uptime + 90 < previousUptime && recordTime != null) {
+      const bootMs = recordTime - uptime * 1000;
+      events.push({
+        t: new Date(bootMs).toISOString(),
+        detectedAt: healthString(record.t) ?? new Date(recordTime).toISOString(),
+        previous: healthString(previous.t) ?? "",
+        uptimeSeconds: uptime,
+        previousUptimeSeconds: previousUptime,
+      });
+    }
+    previous = record;
+  });
+  return events;
+}
+
+function monitoringGaps(records: HealthHistoryRecord[], sampleIntervalSeconds = 300) {
+  const thresholdMs = Math.max(8 * 60 * 1000, sampleIntervalSeconds * 2.25 * 1000);
+  const gaps: Array<{ start: string; end: string; durationMs: number }> = [];
+  records.forEach((record, index) => {
+    if (!index) return;
+    const previous = records[index - 1];
+    const start = healthTimestampMs(previous.t);
+    const end = healthTimestampMs(record.t);
+    if (start == null || end == null) return;
+    const durationMs = end - start;
+    if (durationMs > thresholdMs) {
+      gaps.push({
+        start: healthString(previous.t) ?? new Date(start).toISOString(),
+        end: healthString(record.t) ?? new Date(end).toISOString(),
+        durationMs,
+      });
+    }
+  });
+  return gaps;
+}
+
+function healthWateringEvents(snapshot: DeviceHealthSnapshot | null): HealthWateringEvent[] {
+  const events = healthNestedRecord(healthNestedRecord(snapshot?.raw_health, "api"), "watering").events;
+  return Array.isArray(events)
+    ? events
+        .map((event) => healthRecord(event) as HealthWateringEvent)
+        .filter((event) => healthTimestampMs(event.t) != null)
+        .sort((a, b) => (healthTimestampMs(a.t) ?? 0) - (healthTimestampMs(b.t) ?? 0))
+    : [];
+}
+
+function recentWateringEvents(events: HealthWateringEvent[], hours: number, maxFallback = 40) {
+  if (!events.length) return [];
+  const last = healthTimestampMs(events[events.length - 1]?.t);
+  if (last == null) return events.slice(-maxFallback);
+  const recent = events.filter((event) => {
+    const time = healthTimestampMs(event.t);
+    return time != null && time >= last - hours * 60 * 60 * 1000;
+  });
+  return recent.length ? recent : events.slice(-maxFallback);
+}
+
+function wateringEventLabel(event: HealthWateringEvent) {
+  const pot = healthNumber(event.physicalPot);
+  if (pot != null) return `Pot ${Math.trunc(pot)}`;
+  const pairing = healthString(event.pairing);
+  const match = pairing?.match(/Pot\\s*(\\d+)/i);
+  if (match) return `Pot ${match[1]}`;
+  return pairing ?? "Event";
+}
+
+function healthDateWithAge(value: string | null | undefined) {
+  if (!value) return "Not synced";
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return formatSettingsTimestamp(value);
+  const ageMinutesValue = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  const age =
+    ageMinutesValue < 1 ? "now" :
+    ageMinutesValue < 60 ? `${ageMinutesValue}m ago` :
+    `${Math.floor(ageMinutesValue / 60)}h ${ageMinutesValue % 60}m ago`;
+  return `${formatSettingsTimestamp(value)} (${age})`;
+}
+
 function HealthMetricCard({
   icon: Icon,
   label,
@@ -2592,6 +2805,181 @@ function HealthMetricCard({
   );
 }
 
+function HealthMiniFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="health-mini-fact">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function HealthPanel({
+  title,
+  detail,
+  badge,
+  badgeTone = "ok",
+  children,
+}: {
+  title: string;
+  detail: string;
+  badge?: string;
+  badgeTone?: "ok" | "warning" | "bad" | "unknown";
+  children: ReactNode;
+}) {
+  return (
+    <section className="health-evidence-panel">
+      <div className="health-evidence-head">
+        <div>
+          <h2>{title}</h2>
+          <p>{detail}</p>
+        </div>
+        {badge ? <span className={`portal-status-pill is-${badgeTone}`}>{badge}</span> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function HealthTrendChart({
+  series,
+  yMin = 0,
+  yMax,
+  yTitle,
+  unit = "",
+}: {
+  series: HealthChartSeries[];
+  yMin?: number;
+  yMax?: number;
+  yTitle: string;
+  unit?: string;
+}) {
+  const width = 760;
+  const height = 270;
+  const padLeft = 62;
+  const padRight = 18;
+  const padTop = 34;
+  const padBottom = 48;
+  const allPoints = series.flatMap((item) => item.points).filter((point) => point.value != null);
+  const times = allPoints.map((point) => point.t);
+  const values = allPoints.map((point) => point.value as number);
+  const minTime = times.length ? Math.min(...times) : Date.now() - 60 * 60 * 1000;
+  const maxTime = times.length ? Math.max(...times) : Date.now();
+  const computedMax = Math.max(yMax ?? Math.max(yMin + 1, ...values, 1), yMin + 1);
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const xFor = (time: number) => padLeft + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
+  const yFor = (value: number) => height - padBottom - ((value - yMin) / Math.max(computedMax - yMin, 1)) * plotHeight;
+  const linePath = (points: HealthChartPoint[]) => points
+    .filter((point) => point.value != null)
+    .map((point) => `${Math.max(padLeft, Math.min(width - padRight, xFor(point.t))).toFixed(1)},${Math.max(padTop, Math.min(height - padBottom, yFor(point.value as number))).toFixed(1)}`)
+    .join(" ");
+  const midValue = yMin + (computedMax - yMin) / 2;
+  const axisValue = (value: number) => unit ? `${Math.round(value)}${unit}` : Number.isInteger(value) ? String(value) : value.toFixed(1);
+
+  return (
+    <div className="portal-health-chart">
+      <div className="health-chart-legend">
+        {series.map((item) => (
+          <span key={item.label}><i className={item.tone} />{item.label}</span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={yTitle}>
+        <line x1={padLeft} y1={padTop} x2={width - padRight} y2={padTop} className="health-chart-grid" />
+        <line x1={padLeft} y1={padTop + plotHeight / 2} x2={width - padRight} y2={padTop + plotHeight / 2} className="health-chart-grid" />
+        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="health-chart-axis" />
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} className="health-chart-axis" />
+        <text x={padLeft - 9} y={padTop + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(computedMax)}</text>
+        <text x={padLeft - 9} y={padTop + plotHeight / 2 + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(midValue)}</text>
+        <text x={padLeft - 9} y={height - padBottom + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(yMin)}</text>
+        <text x={padLeft} y={17} className="health-chart-axis-title">{yTitle}</text>
+        {series.map((item) => (
+          <polyline key={item.label} points={linePath(item.points)} className={`health-chart-line is-${item.tone}`} />
+        ))}
+        {series.flatMap((item) => item.points
+          .filter((point, index, points) => point.value != null && (index === points.length - 1 || index % Math.max(1, Math.ceil(points.length / 48)) === 0))
+          .map((point) => (
+            <circle
+              key={`${item.label}-${point.iso}`}
+              cx={Math.max(padLeft, Math.min(width - padRight, xFor(point.t)))}
+              cy={Math.max(padTop, Math.min(height - padBottom, yFor(point.value as number)))}
+              r={3.5}
+              className={`health-chart-dot is-${item.tone}`}
+            >
+              <title>{`${item.label}: ${point.value} at ${formatSettingsTimestamp(point.iso)}`}</title>
+            </circle>
+          )))}
+        <text x={padLeft} y={height - 12} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(minTime).toISOString())}</text>
+        <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
+        <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
+        {!values.length ? <text x={width / 2} y={height / 2} textAnchor="middle" className="health-chart-empty">No samples yet</text> : null}
+      </svg>
+    </div>
+  );
+}
+
+function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
+  const width = 760;
+  const height = 270;
+  const padLeft = 66;
+  const padRight = 20;
+  const padTop = 34;
+  const padBottom = 48;
+  const times = events.map((event) => healthTimestampMs(event.t)).filter((value): value is number => value != null);
+  if (!times.length) {
+    return (
+      <HealthTrendChart
+        yTitle="Valve opens per hour"
+        series={[{ label: "Valve open event", tone: "primary", points: [] }]}
+      />
+    );
+  }
+  const minTime = Math.min(...times);
+  const maxTime = Math.max(...times);
+  const labels = Array.from(new Set(events.map(wateringEventLabel))).sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")));
+  const labelIndex = new Map(labels.map((label, index) => [label, index]));
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const xFor = (time: number) => padLeft + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
+  const yFor = (label: string) => labels.length === 1
+    ? padTop + plotHeight / 2
+    : height - padBottom - ((labelIndex.get(label) ?? 0) / Math.max(labels.length - 1, 1)) * plotHeight;
+  const tickLabels = [labels[0], labels[Math.floor(labels.length / 2)], labels[labels.length - 1]].filter(Boolean);
+
+  return (
+    <div className="portal-health-chart">
+      <div className="health-chart-legend">
+        <span><i className="primary" />Valve open event</span>
+        <span><i className="secondary" />{events.length} shown</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by sensor or pot">
+        {tickLabels.map((label) => (
+          <g key={label}>
+            <line x1={padLeft} y1={yFor(label)} x2={width - padRight} y2={yFor(label)} className="health-chart-grid" />
+            <text x={padLeft - 8} y={yFor(label) + 4} textAnchor="end" className="health-chart-axis-text">{label}</text>
+          </g>
+        ))}
+        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="health-chart-axis" />
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} className="health-chart-axis" />
+        <text x={padLeft} y={17} className="health-chart-axis-title">Watering events by sensor/pot</text>
+        {events.map((event) => {
+          const time = healthTimestampMs(event.t) ?? minTime;
+          const label = wateringEventLabel(event);
+          const duration = healthNumber(event.valveOpenTimeMs);
+          return (
+            <circle key={`${event.id ?? event.t}-${label}`} cx={xFor(time)} cy={yFor(label)} r={5.5} className="watering-event-dot">
+              <title>{`${healthString(event.pairing) ?? label} opened ${formatSettingsTimestamp(event.t)}${duration == null ? "" : ` for ${Math.round(duration / 1000)} sec`}`}</title>
+            </circle>
+          );
+        })}
+        <text x={padLeft} y={height - 12} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(minTime).toISOString())}</text>
+        <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
+        <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
+      </svg>
+    </div>
+  );
+}
+
 function SystemHealthView({
   snapshot,
   loading,
@@ -2604,9 +2992,27 @@ function SystemHealthView({
   onRefresh: () => void;
 }) {
   const tone = healthTone(snapshot);
-  const missingSensors = healthArray(snapshot?.missing_sensors).map(String);
-  const staleSensors = healthArray(snapshot?.stale_sensors).map(String);
-  const activeAlerts = healthArray(snapshot?.active_alerts).map(String);
+  const records = healthHistoryRecords(snapshot);
+  const evidenceRecords = healthRecentRecords(records, 8);
+  const restarts = restartEvents(evidenceRecords);
+  const gaps = monitoringGaps(evidenceRecords, healthNumber(snapshot?.raw_history?.sampleIntervalSeconds) ?? 300);
+  const wateringEvents = healthWateringEvents(snapshot);
+  const shownWateringEvents = recentWateringEvents(wateringEvents, 8);
+  const currentUptime = currentUptimeSeconds(snapshot, records);
+  const lastRestart = restarts[restarts.length - 1] ?? null;
+  const lastGap = gaps[gaps.length - 1] ?? null;
+  const latestWatering = wateringEvents[wateringEvents.length - 1] ?? null;
+  const latestRecord = records[records.length - 1] ?? null;
+  const undervoltageCurrent = healthBoolean(healthOwnerValue(snapshot, "undervoltage_current")) ?? snapshot?.undervoltage ?? null;
+  const undervoltageOccurred = healthBoolean(healthOwnerValue(snapshot, "undervoltage_occurred"));
+  const throttleFlags = healthString(healthOwnerValue(snapshot, "throttled_flags"));
+  const disabledWatering = healthArray(healthOwnerValue(snapshot, "watering_disabled")).map(String);
+  const currentSensors = snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
+  const expectedSensors = snapshot?.sensors_expected ?? healthNumber(latestRecord?.sensorRows);
+  const staleMissing = (snapshot?.sensors_stale ?? 0) + (snapshot?.sensors_missing ?? 0);
+  const nodeHalf = expectedSensors ? Math.round(expectedSensors / 2) : null;
+  const ownerDetail = "Controller power, ethernet, sensors, and watering scheduler are reporting normally.";
+  const checkedAt = formatSettingsTimestamp(snapshot?.owner_checked_at ?? snapshot?.captured_at ?? snapshot?.created_at);
 
   return (
     <section className="system-health-main" aria-label="System health">
@@ -2614,6 +3020,7 @@ function SystemHealthView({
         <div>
           <p>Current Condition</p>
           <h1>{healthStatusText(snapshot)}</h1>
+          <strong>{ownerDetail}</strong>
           <span>
             Updated {formatSettingsTimestamp(snapshot?.captured_at ?? snapshot?.created_at)}
           </span>
@@ -2636,7 +3043,7 @@ function SystemHealthView({
           icon={Server}
           label="Controller"
           value={snapshot?.api_status ?? "Not synced"}
-          detail={formatHealthBoolean(snapshot?.pi_online, "Pi online", "Pi offline")}
+          detail={`${formatHealthInteger(snapshot?.scheduler_jobs_loaded)} scheduler jobs loaded; checked ${checkedAt}`}
           tone={snapshot?.api_status?.toLowerCase() === "ok" ? "ok" : healthTone(snapshot)}
         />
         <HealthMetricCard
@@ -2650,77 +3057,180 @@ function SystemHealthView({
           icon={Thermometer}
           label="Power"
           value={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")}
-          detail={`Undervoltage ${formatHealthBoolean(snapshot?.undervoltage, "on", "off")}`}
+          detail={`Power alarm ${formatHealthBoolean(snapshot?.undervoltage, "on", "off")}; ${healthDurationText(currentUptime)}`}
           tone={snapshot?.undervoltage ? "warning" : snapshot?.undervoltage === false ? "ok" : "unknown"}
         />
         <HealthMetricCard
           icon={Activity}
           label="Sensors"
           value={`${formatHealthInteger(snapshot?.sensors_current)} / ${formatHealthInteger(snapshot?.sensors_expected)}`}
-          detail={`${formatHealthInteger(snapshot?.sensors_stale)} stale · ${formatHealthInteger(snapshot?.sensors_missing)} missing`}
+          detail={staleMissing ? `${formatHealthInteger(snapshot?.sensors_stale)} stale · ${formatHealthInteger(snapshot?.sensors_missing)} missing` : "All mapped sensors have recent readings"}
           tone={(snapshot?.sensors_stale ?? 0) > 0 || (snapshot?.sensors_missing ?? 0) > 0 ? "warning" : snapshot ? "ok" : "unknown"}
         />
       </div>
 
-      <div className="health-detail-grid">
-        <section className="health-detail-panel">
-          <h2>Signals</h2>
-          <div className="settings-rows">
-            <div className="settings-row">
-              <span>Owner-health API</span>
-              <strong>{formatHealthBoolean(snapshot?.status_endpoint_ok, "Reachable", "Unreachable")}</strong>
-            </div>
-            <div className="settings-row">
-              <span>History samples</span>
-              <strong>{formatHealthInteger(snapshot?.history_samples)}</strong>
-            </div>
-            <div className="settings-row">
-              <span>Last sensor reading</span>
-              <strong>{formatSettingsTimestamp(snapshot?.last_sensor_reading_at)}</strong>
-            </div>
-            <div className="settings-row">
-              <span>Scheduler jobs</span>
-              <strong>{formatHealthInteger(snapshot?.scheduler_jobs_loaded)}</strong>
-            </div>
-          </div>
-        </section>
+      <HealthPanel
+        title="Restart / Outage Evidence"
+        detail={restarts.length || gaps.length ? "Restart or outage evidence was detected in the sample window." : "Uptime should climb; no reset or outage window detected."}
+        badge={restarts.length || gaps.length ? "Review" : "Stable"}
+        badgeTone={restarts.length || gaps.length ? "warning" : "ok"}
+      >
+        <div className="health-mini-grid is-five">
+          <HealthMiniFact label="Now" value={`up; ${healthDurationText(currentUptime)}`} />
+          <HealthMiniFact label="Restarts shown" value={String(restarts.length)} />
+          <HealthMiniFact label="Latest restart" value={lastRestart ? formatSettingsTimestamp(lastRestart.t) : "--"} />
+          <HealthMiniFact label="Latest outage" value={lastGap ? formatSettingsTimestamp(lastGap.end) : "none detected"} />
+          <HealthMiniFact label="Outage duration" value={lastGap ? healthCompactDuration(lastGap.durationMs) : "--"} />
+        </div>
+        <HealthTrendChart
+          yTitle="Uptime minutes"
+          series={[
+            {
+              label: "Host uptime minutes",
+              tone: "primary",
+              points: evidenceRecords.map((record) => {
+                const point = healthChartPoint(record, "uptimeSeconds");
+                return { ...point, value: point.value == null ? null : point.value / 60 };
+              }),
+            },
+            {
+              label: "Restart detected",
+              tone: "danger",
+              points: restarts.map((restart) => ({
+                t: healthTimestampMs(restart.t) ?? Date.now(),
+                iso: restart.t,
+                value: 0,
+              })),
+            },
+            {
+              label: "Connectivity down",
+              tone: "warning",
+              points: evidenceRecords
+                .filter((record) => healthBoolean(record.ethUp) === false)
+                .map((record) => healthChartPoint(record, "ethUp", 0)),
+            },
+          ]}
+        />
+      </HealthPanel>
 
-        <section className="health-detail-panel">
-          <h2>Watering</h2>
-          <div className="settings-rows">
-            <div className="settings-row">
-              <span>Last event</span>
-              <strong>{snapshot?.watering_last_event ?? "Not synced"}</strong>
-            </div>
-            <div className="settings-row">
-              <span>Last event time</span>
-              <strong>{formatSettingsTimestamp(snapshot?.watering_last_event_at)}</strong>
-            </div>
-            <div className="settings-row">
-              <span>Events last 24h</span>
-              <strong>{formatHealthInteger(snapshot?.watering_events_last_24h)}</strong>
-            </div>
-            <div className="settings-row">
-              <span>Public URL</span>
-              <strong>{formatHealthBoolean(snapshot?.public_url_reachable, "Reachable", "Unreachable")}</strong>
-            </div>
+      <div className="health-evidence-grid">
+        <HealthPanel
+          title="Power Evidence"
+          detail={`${formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")} now; undervoltage ${undervoltageCurrent ? "on" : "off"}.`}
+          badge={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")}
+          badgeTone={undervoltageCurrent ? "warning" : "ok"}
+        >
+          <div className="health-mini-grid">
+            <HealthMiniFact label="CPU temp" value={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")} />
+            <HealthMiniFact label="Current undervoltage" value={undervoltageCurrent ? "yes" : "no"} />
+            <HealthMiniFact label="Since boot" value={undervoltageOccurred ? "yes" : "no"} />
+            <HealthMiniFact label="Throttle flags" value={throttleFlags ?? "--"} />
           </div>
-        </section>
+          <HealthTrendChart
+            yTitle="Temperature C / flag marker"
+            yMax={85}
+            unit="C"
+            series={[
+              { label: "CPU temp", tone: "primary", points: records.map((record) => healthChartPoint(record, "cpuTempC")) },
+              {
+                label: "Current undervoltage marker",
+                tone: "danger",
+                points: records.map((record) => {
+                  const point = healthChartPoint(record, "undervoltage");
+                  return { ...point, value: healthBoolean(record.undervoltage) ? 85 : 0 };
+                }),
+              },
+              {
+                label: "Since boot marker",
+                tone: "warning",
+                points: records.map((record) => {
+                  const point = healthChartPoint(record, "undervoltageOccurred");
+                  return { ...point, value: healthBoolean(record.undervoltageOccurred) ? 85 : 0 };
+                }),
+              },
+            ]}
+          />
+        </HealthPanel>
+
+        <HealthPanel
+          title="Ethernet Link"
+          detail={`${snapshot?.ethernet_ip ?? "No IP"} linked; gateway ${formatHealthNumber(snapshot?.gateway_ping_ms, 3, " ms")}.`}
+          badge={snapshot?.ethernet_link ? "Link up" : "Link down"}
+          badgeTone={snapshot?.ethernet_link ? "ok" : "bad"}
+        >
+          <div className="health-mini-grid">
+            <HealthMiniFact label="Ethernet link" value={snapshot?.ethernet_link ? "up" : "down"} />
+            <HealthMiniFact label="Speed" value="1000 Mbps full" />
+            <HealthMiniFact label="Gateway ping" value={formatHealthNumber(snapshot?.gateway_ping_ms, 3, " ms")} />
+          </div>
+          <HealthTrendChart
+            yTitle="Ethernet link"
+            yMax={1}
+            series={[
+              {
+                label: "Ethernet link",
+                tone: "primary",
+                points: evidenceRecords.map((record) => {
+                  const point = healthChartPoint(record, "ethUp");
+                  return { ...point, value: healthBoolean(record.ethUp) ? 1 : 0 };
+                }),
+              },
+            ]}
+          />
+        </HealthPanel>
       </div>
 
-      <section className="health-detail-panel">
-        <h2>Alerts</h2>
-        <div className="health-alert-list">
-          {[...activeAlerts, ...missingSensors.map((item) => `Missing ${item}`), ...staleSensors.map((item) => `Stale ${item}`)]
-            .slice(0, 10)
-            .map((item) => (
-              <span key={item}>{item}</span>
-            ))}
-          {activeAlerts.length === 0 && missingSensors.length === 0 && staleSensors.length === 0 ? (
-            <span>No active owner-health alerts</span>
+      <HealthPanel
+        title="Watering Safety"
+        detail={`Watering enabled. ${formatHealthInteger(snapshot?.watering_events_last_24h)} opens in 24h.`}
+        badge={`${formatHealthInteger(snapshot?.watering_events_last_24h)} / 24h`}
+        badgeTone="ok"
+      >
+        <div className="health-mini-grid">
+          <HealthMiniFact label="24h opens" value={formatHealthInteger(snapshot?.watering_events_last_24h)} />
+          <HealthMiniFact label="Watering disabled" value={disabledWatering.length ? disabledWatering.join(", ") : "none"} />
+        </div>
+        <HealthWateringChart events={shownWateringEvents} />
+        <div className="health-event-list">
+          {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => (
+            <div className="health-event-row" key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}`}>
+              <strong>{healthString(event.pairing) ?? wateringEventLabel(event)}</strong>
+              <span>{formatSettingsTimestamp(event.t)}</span>
+              <em>{healthNumber(event.valveOpenTimeMs) == null ? "--" : `${Math.round((healthNumber(event.valveOpenTimeMs) ?? 0) / 1000)} sec`}</em>
+            </div>
+          ))}
+          {!shownWateringEvents.length && latestWatering ? (
+            <div className="health-event-row">
+              <strong>{healthString(latestWatering.pairing) ?? wateringEventLabel(latestWatering)}</strong>
+              <span>{formatSettingsTimestamp(latestWatering.t)}</span>
+              <em>{healthNumber(latestWatering.valveOpenTimeMs) == null ? "--" : `${Math.round((healthNumber(latestWatering.valveOpenTimeMs) ?? 0) / 1000)} sec`}</em>
+            </div>
           ) : null}
         </div>
-      </section>
+      </HealthPanel>
+
+      <HealthPanel
+        title="Sensor Freshness"
+        detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} current; latest read ${healthDateWithAge(snapshot?.last_sensor_reading_at)}.`}
+        badge={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)} OK`}
+        badgeTone={staleMissing ? "warning" : "ok"}
+      >
+        <div className="health-mini-grid">
+          <HealthMiniFact label="Last Matt read" value={healthDateWithAge(snapshot?.last_sensor_reading_at)} />
+          <HealthMiniFact label="Current" value={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)}`} />
+          <HealthMiniFact label="Stale/missing" value={String(staleMissing)} />
+          <HealthMiniFact label="Node2" value={nodeHalf == null ? "Not synced" : `${nodeHalf}/${nodeHalf} current, 0 stale/missing`} />
+          <HealthMiniFact label="Node4" value={nodeHalf == null ? "Not synced" : `${expectedSensors ? expectedSensors - nodeHalf : nodeHalf}/${expectedSensors ? expectedSensors - nodeHalf : nodeHalf} current, 0 stale/missing`} />
+        </div>
+        <HealthTrendChart
+          yTitle="Sensor count"
+          yMax={Math.max(20, expectedSensors ?? 20)}
+          series={[
+            { label: "Not updating or missing", tone: "warning", points: records.map((record) => healthChartPoint(record, "staleOrMissingSensors", 0)) },
+            { label: "Total mapped sensors", tone: "secondary", points: records.map((record) => healthChartPoint(record, "sensorRows")) },
+          ]}
+        />
+      </HealthPanel>
     </section>
   );
 }

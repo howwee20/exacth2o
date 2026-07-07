@@ -137,8 +137,9 @@ serve(async (request) => {
   }
 
   const authHeader = basicAuthHeader(ownerUser, ownerPassword);
-  const [statusResponse, historyResponse] = await Promise.all([
+  const [statusResponse, healthResponse, historyResponse] = await Promise.all([
     fetchJson(`${ownerHealthBaseUrl}/api/status`, authHeader),
+    fetchJson(`${ownerHealthBaseUrl}/api/health`, authHeader),
     fetchJson(`${ownerHealthBaseUrl}/api/history?days=2`, authHeader),
   ]);
   const status = statusResponse.ok ? statusResponse.data : {};
@@ -186,6 +187,7 @@ serve(async (request) => {
     active_alerts: asArray(status.active_alerts),
     known_issues: asArray(status.known_issues),
     raw_status: statusResponse.data,
+    raw_health: healthResponse.data,
     raw_history: historyResponse.data,
   };
 
@@ -204,6 +206,7 @@ serve(async (request) => {
     snapshot: data,
     source: {
       statusEndpointOk: statusResponse.ok,
+      healthEndpointOk: healthResponse.ok,
       historyEndpointOk: historyResponse.ok,
       historySamples: historyRecords.length,
     },
