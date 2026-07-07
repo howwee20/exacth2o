@@ -13,6 +13,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   CircleAlert,
   Database,
@@ -43,6 +44,9 @@ const graphReadLimit = 12_000;
 const pageSize = 1000;
 const maxExportRowsPerSource = 100_000;
 const autoRefreshMs = 15_000;
+const healthSnapshotPollMs = 15_000;
+const healthAutoSyncMs = 60_000;
+const healthChartWindowHours = 8;
 const staleAfterMs = 15 * 60 * 1000;
 const maxPointsPerSeries = graphReadLimit;
 const tenMinutesMs = 10 * 60 * 1000;
@@ -310,7 +314,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-health-evidence";
+const portalVersion = "20260707-health-live-controls";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2573,6 +2577,12 @@ type HealthChartPoint = {
   value: number | null;
 };
 
+type HealthChartWindow = {
+  startMs: number;
+  endMs: number;
+  maxOffset: number;
+};
+
 type HealthChartSeries = {
   label: string;
   tone: "primary" | "secondary" | "warning" | "danger";
@@ -2669,6 +2679,87 @@ function healthChartPoint(record: HealthHistoryRecord, key: string, fallback: nu
     iso: healthString(record.t) ?? new Date(time).toISOString(),
     value: healthNumber(record[key]) ?? fallback,
   };
+}
+
+function healthChartWindow(times: number[], offset: number, windowHours = healthChartWindowHours): HealthChartWindow {
+  const spanMs = windowHours * 60 * 60 * 1000;
+  const validTimes = times.filter((time) => Number.isFinite(time)).sort((a, b) => a - b);
+  const now = Date.now();
+
+  if (!validTimes.length) {
+    return {
+      startMs: now - spanMs,
+      endMs: now,
+      maxOffset: 0,
+    };
+  }
+
+  const first = validTimes[0];
+  const last = validTimes[validTimes.length - 1];
+  if (last <= first || last - first <= spanMs) {
+    return {
+      startMs: first,
+      endMs: Math.max(first + 1, last),
+      maxOffset: 0,
+    };
+  }
+
+  const maxOffset = Math.max(0, Math.ceil((last - first) / spanMs) - 1);
+  const safeOffset = Math.max(0, Math.min(offset, maxOffset));
+  let endMs = last - safeOffset * spanMs;
+  let startMs = endMs - spanMs;
+
+  if (startMs < first) {
+    startMs = first;
+    endMs = Math.min(last, first + spanMs);
+  }
+
+  return {
+    startMs,
+    endMs: Math.max(startMs + 1, endMs),
+    maxOffset,
+  };
+}
+
+function HealthChartControls({
+  windowOffset,
+  maxOffset,
+  onChange,
+}: {
+  windowOffset: number;
+  maxOffset: number;
+  onChange: (offset: number) => void;
+}) {
+  return (
+    <div className="health-chart-controls" aria-label="Chart time window">
+      <button
+        type="button"
+        aria-label="Older samples"
+        title="Older samples"
+        disabled={windowOffset >= maxOffset}
+        onClick={() => onChange(Math.min(maxOffset, windowOffset + 1))}
+      >
+        <ArrowLeft size={14} />
+      </button>
+      <button
+        type="button"
+        aria-label="Newer samples"
+        title="Newer samples"
+        disabled={windowOffset <= 0}
+        onClick={() => onChange(Math.max(0, windowOffset - 1))}
+      >
+        <ArrowRight size={14} />
+      </button>
+      <button
+        type="button"
+        className="health-chart-reset"
+        disabled={windowOffset === 0}
+        onClick={() => onChange(0)}
+      >
+        Reset
+      </button>
+    </div>
+  );
 }
 
 function healthStatusSource(snapshot: DeviceHealthSnapshot | null) {
@@ -2854,17 +2945,29 @@ function HealthTrendChart({
   yTitle: string;
   unit?: string;
 }) {
+  const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
   const height = 270;
   const padLeft = 62;
   const padRight = 18;
   const padTop = 34;
   const padBottom = 48;
-  const allPoints = series.flatMap((item) => item.points).filter((point) => point.value != null);
-  const times = allPoints.map((point) => point.t);
+  const allTimes = series.flatMap((item) => item.points.map((point) => point.t));
+  const windowInfo = useMemo(
+    () => healthChartWindow(allTimes, windowOffset),
+    [allTimes, windowOffset],
+  );
+  const visibleSeries = useMemo(
+    () => series.map((item) => ({
+      ...item,
+      points: item.points.filter((point) => point.t >= windowInfo.startMs && point.t <= windowInfo.endMs),
+    })),
+    [series, windowInfo.endMs, windowInfo.startMs],
+  );
+  const allPoints = visibleSeries.flatMap((item) => item.points).filter((point) => point.value != null);
   const values = allPoints.map((point) => point.value as number);
-  const minTime = times.length ? Math.min(...times) : Date.now() - 60 * 60 * 1000;
-  const maxTime = times.length ? Math.max(...times) : Date.now();
+  const minTime = windowInfo.startMs;
+  const maxTime = windowInfo.endMs;
   const computedMax = Math.max(yMax ?? Math.max(yMin + 1, ...values, 1), yMin + 1);
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
@@ -2877,8 +2980,19 @@ function HealthTrendChart({
   const midValue = yMin + (computedMax - yMin) / 2;
   const axisValue = (value: number) => unit ? `${Math.round(value)}${unit}` : Number.isInteger(value) ? String(value) : value.toFixed(1);
 
+  useEffect(() => {
+    if (windowOffset > windowInfo.maxOffset) {
+      setWindowOffset(windowInfo.maxOffset);
+    }
+  }, [windowInfo.maxOffset, windowOffset]);
+
   return (
     <div className="portal-health-chart">
+      <HealthChartControls
+        windowOffset={windowOffset}
+        maxOffset={windowInfo.maxOffset}
+        onChange={setWindowOffset}
+      />
       <div className="health-chart-legend">
         {series.map((item) => (
           <span key={item.label}><i className={item.tone} />{item.label}</span>
@@ -2893,10 +3007,10 @@ function HealthTrendChart({
         <text x={padLeft - 9} y={padTop + plotHeight / 2 + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(midValue)}</text>
         <text x={padLeft - 9} y={height - padBottom + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(yMin)}</text>
         <text x={padLeft} y={17} className="health-chart-axis-title">{yTitle}</text>
-        {series.map((item) => (
+        {visibleSeries.map((item) => (
           <polyline key={item.label} points={linePath(item.points)} className={`health-chart-line is-${item.tone}`} />
         ))}
-        {series.flatMap((item) => item.points
+        {visibleSeries.flatMap((item) => item.points
           .filter((point, index, points) => point.value != null && (index === points.length - 1 || index % Math.max(1, Math.ceil(points.length / 48)) === 0))
           .map((point) => (
             <circle
@@ -2919,6 +3033,7 @@ function HealthTrendChart({
 }
 
 function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
+  const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
   const height = 270;
   const padLeft = 66;
@@ -2926,6 +3041,36 @@ function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
   const padTop = 34;
   const padBottom = 48;
   const times = events.map((event) => healthTimestampMs(event.t)).filter((value): value is number => value != null);
+  const windowInfo = useMemo(
+    () => healthChartWindow(times, windowOffset),
+    [times, windowOffset],
+  );
+  const visibleEvents = useMemo(
+    () => events.filter((event) => {
+      const time = healthTimestampMs(event.t);
+      return time != null && time >= windowInfo.startMs && time <= windowInfo.endMs;
+    }),
+    [events, windowInfo.endMs, windowInfo.startMs],
+  );
+  const minTime = windowInfo.startMs;
+  const maxTime = windowInfo.endMs;
+  const labels = Array.from(new Set((visibleEvents.length ? visibleEvents : events).map(wateringEventLabel)))
+    .sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")));
+  const labelIndex = new Map(labels.map((label, index) => [label, index]));
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const xFor = (time: number) => padLeft + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
+  const yFor = (label: string) => labels.length === 1
+    ? padTop + plotHeight / 2
+    : height - padBottom - ((labelIndex.get(label) ?? 0) / Math.max(labels.length - 1, 1)) * plotHeight;
+  const tickLabels = Array.from(new Set([labels[0], labels[Math.floor(labels.length / 2)], labels[labels.length - 1]].filter(Boolean)));
+
+  useEffect(() => {
+    if (windowOffset > windowInfo.maxOffset) {
+      setWindowOffset(windowInfo.maxOffset);
+    }
+  }, [windowInfo.maxOffset, windowOffset]);
+
   if (!times.length) {
     return (
       <HealthTrendChart
@@ -2934,23 +3079,17 @@ function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
       />
     );
   }
-  const minTime = Math.min(...times);
-  const maxTime = Math.max(...times);
-  const labels = Array.from(new Set(events.map(wateringEventLabel))).sort((a, b) => Number(a.replace(/\D/g, "")) - Number(b.replace(/\D/g, "")));
-  const labelIndex = new Map(labels.map((label, index) => [label, index]));
-  const plotWidth = width - padLeft - padRight;
-  const plotHeight = height - padTop - padBottom;
-  const xFor = (time: number) => padLeft + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
-  const yFor = (label: string) => labels.length === 1
-    ? padTop + plotHeight / 2
-    : height - padBottom - ((labelIndex.get(label) ?? 0) / Math.max(labels.length - 1, 1)) * plotHeight;
-  const tickLabels = [labels[0], labels[Math.floor(labels.length / 2)], labels[labels.length - 1]].filter(Boolean);
 
   return (
     <div className="portal-health-chart">
+      <HealthChartControls
+        windowOffset={windowOffset}
+        maxOffset={windowInfo.maxOffset}
+        onChange={setWindowOffset}
+      />
       <div className="health-chart-legend">
         <span><i className="primary" />Valve open event</span>
-        <span><i className="secondary" />{events.length} shown</span>
+        <span><i className="secondary" />{visibleEvents.length} shown</span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by sensor or pot">
         {tickLabels.map((label) => (
@@ -2962,7 +3101,7 @@ function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
         <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="health-chart-axis" />
         <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} className="health-chart-axis" />
         <text x={padLeft} y={17} className="health-chart-axis-title">Watering events by sensor/pot</text>
-        {events.map((event) => {
+        {visibleEvents.map((event) => {
           const time = healthTimestampMs(event.t) ?? minTime;
           const label = wateringEventLabel(event);
           const duration = healthNumber(event.valveOpenTimeMs);
@@ -2972,6 +3111,7 @@ function HealthWateringChart({ events }: { events: HealthWateringEvent[] }) {
             </circle>
           );
         })}
+        {!visibleEvents.length ? <text x={width / 2} y={height / 2} textAnchor="middle" className="health-chart-empty">No watering events in this window</text> : null}
         <text x={padLeft} y={height - 12} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(minTime).toISOString())}</text>
         <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
         <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
@@ -2995,6 +3135,7 @@ function SystemHealthView({
   const records = healthHistoryRecords(snapshot);
   const evidenceRecords = healthRecentRecords(records, 8);
   const restarts = restartEvents(evidenceRecords);
+  const allRestarts = restartEvents(records);
   const gaps = monitoringGaps(evidenceRecords, healthNumber(snapshot?.raw_history?.sampleIntervalSeconds) ?? 300);
   const wateringEvents = healthWateringEvents(snapshot);
   const shownWateringEvents = recentWateringEvents(wateringEvents, 8);
@@ -3088,7 +3229,7 @@ function SystemHealthView({
             {
               label: "Host uptime minutes",
               tone: "primary",
-              points: evidenceRecords.map((record) => {
+              points: records.map((record) => {
                 const point = healthChartPoint(record, "uptimeSeconds");
                 return { ...point, value: point.value == null ? null : point.value / 60 };
               }),
@@ -3096,7 +3237,7 @@ function SystemHealthView({
             {
               label: "Restart detected",
               tone: "danger",
-              points: restarts.map((restart) => ({
+              points: allRestarts.map((restart) => ({
                 t: healthTimestampMs(restart.t) ?? Date.now(),
                 iso: restart.t,
                 value: 0,
@@ -3105,7 +3246,7 @@ function SystemHealthView({
             {
               label: "Connectivity down",
               tone: "warning",
-              points: evidenceRecords
+              points: records
                 .filter((record) => healthBoolean(record.ethUp) === false)
                 .map((record) => healthChartPoint(record, "ethUp", 0)),
             },
@@ -3148,6 +3289,15 @@ function SystemHealthView({
                   return { ...point, value: healthBoolean(record.undervoltageOccurred) ? 85 : 0 };
                 }),
               },
+              {
+                label: "Restart evidence",
+                tone: "secondary",
+                points: allRestarts.map((restart) => ({
+                  t: healthTimestampMs(restart.t) ?? Date.now(),
+                  iso: restart.t,
+                  value: 0,
+                })),
+              },
             ]}
           />
         </HealthPanel>
@@ -3170,7 +3320,7 @@ function SystemHealthView({
               {
                 label: "Ethernet link",
                 tone: "primary",
-                points: evidenceRecords.map((record) => {
+                points: records.map((record) => {
                   const point = healthChartPoint(record, "ethUp");
                   return { ...point, value: healthBoolean(record.ethUp) ? 1 : 0 };
                 }),
@@ -3190,7 +3340,7 @@ function SystemHealthView({
           <HealthMiniFact label="24h opens" value={formatHealthInteger(snapshot?.watering_events_last_24h)} />
           <HealthMiniFact label="Watering disabled" value={disabledWatering.length ? disabledWatering.join(", ") : "none"} />
         </div>
-        <HealthWateringChart events={shownWateringEvents} />
+        <HealthWateringChart events={wateringEvents} />
         <div className="health-event-list">
           {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => (
             <div className="health-event-row" key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}`}>
@@ -3352,10 +3502,13 @@ export default function App() {
     }
   }, []);
 
-  const loadHealthSnapshot = useCallback(async () => {
+  const loadHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!isAdmin) return;
-    setHealthLoading(true);
-    setHealthError(null);
+    const silent = options.silent === true;
+    if (!silent) {
+      setHealthLoading(true);
+      setHealthError(null);
+    }
 
     try {
       const response = await supabase
@@ -3370,11 +3523,40 @@ export default function App() {
       if (response.error) throw response.error;
       setHealthSnapshot((response.data ?? null) as DeviceHealthSnapshot | null);
     } catch (err) {
-      setHealthError(errorMessage(err));
+      if (!silent) setHealthError(errorMessage(err));
     } finally {
-      setHealthLoading(false);
+      if (!silent) setHealthLoading(false);
     }
   }, [isAdmin]);
+
+  const syncHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!isAdmin) return;
+    const silent = options.silent === true;
+    if (!silent) {
+      setHealthLoading(true);
+      setHealthError(null);
+    }
+
+    try {
+      const response = await supabase.functions.invoke("sync-owner-health", {
+        body: {
+          project_id: mattProjectId,
+          device_id: mattDeviceId,
+          source: "portal",
+        },
+      });
+
+      if (response.error) {
+        throw new Error(await functionErrorMessage(response.error));
+      }
+
+      await loadHealthSnapshot({ silent: true });
+    } catch (err) {
+      if (!silent) setHealthError(errorMessage(err));
+    } finally {
+      if (!silent) setHealthLoading(false);
+    }
+  }, [isAdmin, loadHealthSnapshot]);
 
   const refresh = useCallback(
     async ({ incremental }: { incremental: boolean }) => {
@@ -3651,6 +3833,7 @@ export default function App() {
     setAccessLoading(false);
     setPortalView("experiment");
     setHealthSnapshot(null);
+    setHealthLoading(false);
     setHealthError(null);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
@@ -3924,7 +4107,22 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady || !isAdmin) return;
     void loadHealthSnapshot();
-  }, [isAdmin, loadHealthSnapshot, sessionReady]);
+    void syncHealthSnapshot({ silent: true });
+  }, [isAdmin, loadHealthSnapshot, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return undefined;
+    const pollId = window.setInterval(() => {
+      void loadHealthSnapshot({ silent: true });
+    }, healthSnapshotPollMs);
+    const syncId = window.setInterval(() => {
+      void syncHealthSnapshot({ silent: true });
+    }, healthAutoSyncMs);
+    return () => {
+      window.clearInterval(pollId);
+      window.clearInterval(syncId);
+    };
+  }, [isAdmin, loadHealthSnapshot, sessionReady, syncHealthSnapshot]);
 
   useEffect(() => {
     if (!sessionReady) return undefined;
@@ -3976,6 +4174,35 @@ export default function App() {
       void supabase.removeChannel(channel);
     };
   }, [sessionReady, selectedMode, refresh]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return undefined;
+
+    const channel = supabase
+      .channel("exacth2o-health-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "device_health_snapshots",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
+        (payload) => {
+          const row = payload.new as Partial<DeviceHealthSnapshot>;
+          if (row.device_id === mattDeviceId) {
+            setHealthSnapshot(row as DeviceHealthSnapshot);
+            return;
+          }
+          void loadHealthSnapshot({ silent: true });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin, loadHealthSnapshot, sessionReady]);
 
   if (!sessionReady) {
     const isInviteAccept = authMode === "accept-invite";
@@ -4215,7 +4442,7 @@ export default function App() {
           snapshot={healthSnapshot}
           loading={healthLoading}
           error={healthError}
-          onRefresh={() => void loadHealthSnapshot()}
+          onRefresh={() => void syncHealthSnapshot()}
         />
       </main>
     );

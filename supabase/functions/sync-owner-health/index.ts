@@ -5,6 +5,18 @@ const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 const ownerHealthBaseUrl = `https://${mattDeviceId}.balena-devices.com/owner-health`;
 
+const allowedOrigins = new Set([
+  "https://exacth2o.com",
+  "https://www.exacth2o.com",
+  "http://exacth2o.com",
+  "http://www.exacth2o.com",
+  "https://howwee20.github.io",
+  "http://127.0.0.1:5173",
+  "http://localhost:5173",
+  "http://127.0.0.1:8123",
+  "http://localhost:8123",
+]);
+
 type FetchResult = {
   ok: boolean;
   status: number | null;
@@ -13,10 +25,21 @@ type FetchResult = {
   error: string | null;
 };
 
-function jsonResponse(body: unknown, status = 200) {
+function corsHeaders(origin: string | null) {
+  const allowedOrigin = origin && allowedOrigins.has(origin) ? origin : "https://exacth2o.com";
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-sync-owner-health-secret",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+function jsonResponse(body: unknown, status = 200, origin: string | null = null) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
+      ...corsHeaders(origin),
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
     },
@@ -31,10 +54,31 @@ function bearerToken(request: Request) {
   return (request.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
 }
 
-function authorized(request: Request) {
+function hasSyncSecret(request: Request) {
   const syncSecret = cleanSecret(Deno.env.get("SYNC_OWNER_HEALTH_SECRET"));
   if (!syncSecret) return false;
   return request.headers.get("x-sync-owner-health-secret") === syncSecret || bearerToken(request) === syncSecret;
+}
+
+async function portalAdminUserId(
+  admin: ReturnType<typeof createClient>,
+  request: Request,
+) {
+  const jwt = bearerToken(request);
+  if (!jwt) return null;
+
+  const { data: userData, error: userError } = await admin.auth.getUser(jwt);
+  if (userError || !userData.user) return null;
+
+  const { data: access, error: accessError } = await admin
+    .from("portal_access")
+    .select("role")
+    .eq("project_id", mattProjectId)
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+
+  if (accessError || access?.role !== "admin") return null;
+  return userData.user.id;
 }
 
 function basicAuthHeader(username: string, password: string) {
@@ -115,12 +159,14 @@ function asTimestamp(value: unknown) {
 }
 
 serve(async (request) => {
-  if (request.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+  const origin = request.headers.get("Origin");
+
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders(origin) });
   }
 
-  if (!authorized(request)) {
-    return jsonResponse({ error: "Sync secret is required" }, 401);
+  if (request.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405, origin);
   }
 
   const supabaseUrl = cleanSecret(Deno.env.get("SUPABASE_URL"));
@@ -129,11 +175,24 @@ serve(async (request) => {
   const ownerPassword = cleanSecret(Deno.env.get("MATT_OWNER_HEALTH_PASSWORD"));
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse({ error: "Server is missing Supabase configuration" }, 500);
+    return jsonResponse({ error: "Server is missing Supabase configuration" }, 500, origin);
   }
 
   if (!ownerUser || !ownerPassword) {
-    return jsonResponse({ error: "Server is missing owner-health credentials" }, 500);
+    return jsonResponse({ error: "Server is missing owner-health credentials" }, 500, origin);
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+
+  const syncSecretAuthorized = hasSyncSecret(request);
+  const requestedBy = syncSecretAuthorized
+    ? null
+    : await portalAdminUserId(admin, request);
+
+  if (!syncSecretAuthorized && !requestedBy) {
+    return jsonResponse({ error: "Admin access is required for owner-health sync" }, 403, origin);
   }
 
   const authHeader = basicAuthHeader(ownerUser, ownerPassword);
@@ -146,10 +205,6 @@ serve(async (request) => {
   const history = historyResponse.ok ? historyResponse.data : {};
   const historyRecords = Array.isArray(history.records) ? history.records : [];
   const nowIso = new Date().toISOString();
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
 
   const snapshot = {
     project_id: mattProjectId,
@@ -198,7 +253,7 @@ serve(async (request) => {
     .single();
 
   if (error) {
-    return jsonResponse({ error: "Could not write health snapshot" }, 500);
+    return jsonResponse({ error: "Could not write health snapshot" }, 500, origin);
   }
 
   return jsonResponse({
@@ -210,5 +265,5 @@ serve(async (request) => {
       historyEndpointOk: historyResponse.ok,
       historySamples: historyRecords.length,
     },
-  });
+  }, 200, origin);
 });

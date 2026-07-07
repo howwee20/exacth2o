@@ -842,6 +842,7 @@ select {
 }
 
 .portal-health-chart {
+  position: relative;
   min-width: 0;
   overflow: hidden;
   border: 1px solid #dfe5ee;
@@ -860,7 +861,8 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 14px 16px 0;
+  min-height: 48px;
+  padding: 14px 150px 0 16px;
 }
 
 .health-chart-legend span {
@@ -889,6 +891,52 @@ select {
 
 .health-chart-legend i.danger {
   background: #dc2626;
+}
+
+.health-chart-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.health-chart-controls button {
+  min-width: 32px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 9px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 850;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+
+.health-chart-controls button:hover:not(:disabled),
+.health-chart-controls button:focus-visible:not(:disabled) {
+  border-color: #b7c5d8;
+  background: #f8fafc;
+  outline: none;
+}
+
+.health-chart-controls button:disabled {
+  color: #b6c1cf;
+  cursor: not-allowed;
+  background: #f8fafc;
+  border-color: #e7edf5;
+  box-shadow: none;
+}
+
+.health-chart-controls .health-chart-reset {
+  min-width: 54px;
 }
 
 .health-chart-grid {
@@ -2602,6 +2650,17 @@ select {
 
   .health-evidence-panel {
     padding: 16px;
+  }
+
+  .health-chart-controls {
+    position: static;
+    justify-content: flex-end;
+    padding: 12px 12px 0;
+  }
+
+  .health-chart-legend {
+    min-height: 0;
+    padding: 12px 12px 0;
   }
 
   .health-mini-grid,
