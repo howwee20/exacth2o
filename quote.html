@@ -169,7 +169,7 @@
     <div>
       <div class="quote-form-wrap">
         <div class="form-msg success" id="successMsg">Quote request received. We will follow up shortly.</div>
-        <div class="form-msg error" id="errorMsg">Could not send request. Please email us directly at support@exacth2o.com.</div>
+        <div class="form-msg error" id="errorMsg">Could not save request. Please email us directly at support@exacth2o.com.</div>
 
         <h3 class="form-title">Request Your Quote</h3>
         <p class="form-subtitle">Fill out the form below and we'll be in touch soon</p>
@@ -314,20 +314,21 @@
         body: JSON.stringify(payload)
       });
 
-      if (response.ok) {
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
         this.reset();
         btn.textContent = 'Sent';
         successMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } else {
-        const result = await response.json().catch(() => ({}));
         throw new Error(result.error || 'Server error');
       }
     } catch (err) {
       submitted = false; // allow retry on error
       btn.disabled = false;
       btn.textContent = 'Submit Quote Request';
-      errorMsg.textContent = 'Could not send request. Please email us directly at support@exacth2o.com.';
+      errorMsg.textContent = 'Could not save request. Please email us directly at support@exacth2o.com.';
       errorMsg.style.display = 'block';
     }
   });

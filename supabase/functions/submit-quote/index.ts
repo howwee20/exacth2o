@@ -254,9 +254,10 @@ serve(async (request) => {
       .eq("id", quote.id);
 
     return jsonResponse({
-      error: "Quote was saved, but email notifications are not configured yet.",
+      ok: true,
+      warning: "Quote was saved, but email notifications are not configured yet.",
       requestId: quote.id,
-    }, 500, origin);
+    }, 200, origin);
   }
 
   const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -289,9 +290,10 @@ serve(async (request) => {
       .eq("id", quote.id);
 
     return jsonResponse({
-      error: "Quote was saved, but the email notification failed.",
+      ok: true,
+      warning: "Quote was saved, but the email notification failed.",
       requestId: quote.id,
-    }, 502, origin);
+    }, 200, origin);
   }
 
   await supabase

@@ -309,7 +309,10 @@ type QuoteRequestRow = {
   timeline: string | null;
   message: string;
   source_url: string | null;
+  referrer: string | null;
+  notification_email: string | null;
   notification_status: string | null;
+  notification_error: string | null;
   status: SupportStatus | null;
   priority: string | null;
 };
@@ -336,9 +339,26 @@ type SupportThreadRow = {
   metadata: Record<string, unknown> | null;
 };
 
+type SupportMessageRow = {
+  id: string;
+  thread_id: string;
+  project_id: string;
+  created_at: string;
+  direction: "inbound" | "outbound" | "internal" | "system";
+  channel: "email" | "form" | "portal" | "system";
+  from_email: string | null;
+  from_name: string | null;
+  to_emails: string[] | null;
+  subject: string | null;
+  body_text: string | null;
+  body_html: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
 type SalesSupportData = {
   quotes: QuoteRequestRow[];
   threads: SupportThreadRow[];
+  messages: SupportMessageRow[];
 };
 
 type TimeBounds = {
@@ -364,7 +384,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-researcher-settings";
+const portalVersion = "20260707-support-detail-fix";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -458,6 +478,7 @@ const initialLoadState: LoadState = {
 const initialSalesSupportData: SalesSupportData = {
   quotes: [],
   threads: [],
+  messages: [],
 };
 
 function portalUrl() {
@@ -715,6 +736,19 @@ function mailtoUrl(email: string, subject?: string | null) {
   const params = new URLSearchParams();
   if (subject) params.set("subject", `Re: ${subject}`);
   return `mailto:${email}${params.size ? `?${params.toString()}` : ""}`;
+}
+
+function supportDetailValue(value?: string | number | null) {
+  if (value == null) return "Not provided";
+  const text = String(value).trim();
+  return text || "Not provided";
+}
+
+function supportMetadataText(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  if (typeof value === "string") return supportDetailValue(value);
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "Not provided";
 }
 
 function formatHealthNumber(value?: number | null, digits = 1, suffix = "") {
@@ -2705,6 +2739,61 @@ function SupportStatusPill({ status }: { status?: string | null }) {
   );
 }
 
+type SupportSelectedDetail = {
+  title: string;
+  subtitle: string;
+  messageLabel: string;
+  message: string;
+  replyHref: string;
+  rows: Array<{ label: string; value: string }>;
+};
+
+function SalesSupportDetailDrawer({
+  detail,
+  onClose,
+}: {
+  detail: SupportSelectedDetail | null;
+  onClose: () => void;
+}) {
+  if (!detail) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="health-detail-scrim"
+        aria-label="Close selected sales support detail"
+        onClick={onClose}
+      />
+      <aside className="health-selected-detail support-selected-detail" aria-label="Sales support detail">
+        <header>
+          <div>
+            <p>{detail.subtitle}</p>
+            <h2>{detail.title}</h2>
+          </div>
+          <button type="button" onClick={onClose}>Close</button>
+        </header>
+        <div className="health-selected-detail-rows">
+          {detail.rows.map((row, index) => (
+            <div className="health-selected-detail-row" key={`${row.label}-${index}`}>
+              <span>{row.label}</span>
+              <strong>{row.value}</strong>
+            </div>
+          ))}
+        </div>
+        <section className="support-detail-message">
+          <h3>{detail.messageLabel}</h3>
+          <p>{detail.message}</p>
+        </section>
+        <a className="settings-primary-button support-detail-reply" href={detail.replyHref}>
+          <Mail size={15} />
+          Reply
+        </a>
+      </aside>
+    </>
+  );
+}
+
 function SalesSupportView({
   data,
   loading,
@@ -2716,7 +2805,18 @@ function SalesSupportView({
   error: string | null;
   onRefresh: () => void;
 }) {
+  const [selectedDetail, setSelectedDetail] = useState<SupportSelectedDetail | null>(null);
   const supportThreads = data.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
+  const messagesByThread = useMemo(() => {
+    const messages = new Map<string, SupportMessageRow>();
+    data.messages
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .forEach((message) => {
+        if (!messages.has(message.thread_id)) messages.set(message.thread_id, message);
+      });
+    return messages;
+  }, [data.messages]);
   const openQuotes = data.quotes.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost");
   const openThreads = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost");
   const newItems = [
@@ -2730,8 +2830,64 @@ function SalesSupportView({
     .filter(Boolean)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 
+  function selectQuote(quote: QuoteRequestRow) {
+    setSelectedDetail({
+      title: quote.application,
+      subtitle: "Quote Request",
+      messageLabel: "Project Details",
+      message: supportDetailValue(quote.message),
+      replyHref: mailtoUrl(quote.email, `exactH2O quote: ${quote.application}`),
+      rows: [
+        { label: "Customer", value: supportDetailValue(quote.name) },
+        { label: "Email", value: supportDetailValue(quote.email) },
+        { label: "Phone", value: supportDetailValue(quote.phone) },
+        { label: "Organization", value: supportDetailValue(quote.organization) },
+        { label: "Application", value: supportDetailValue(quote.application) },
+        { label: "Timeline", value: supportDetailValue(quote.timeline) },
+        { label: "Submitted", value: formatSettingsTimestamp(quote.created_at) },
+        { label: "Updated", value: formatSettingsTimestamp(quote.updated_at) },
+        { label: "Status", value: supportStatusLabel(quote.status ?? "new") },
+        { label: "Priority", value: supportStatusLabel(quote.priority ?? "normal") },
+        { label: "Notify email", value: supportDetailValue(quote.notification_email) },
+        { label: "Notify status", value: supportStatusLabel(quote.notification_status ?? "pending") },
+        { label: "Notify error", value: supportDetailValue(quote.notification_error) },
+        { label: "Source URL", value: supportDetailValue(quote.source_url) },
+        { label: "Referrer", value: supportDetailValue(quote.referrer) },
+        { label: "Request ID", value: quote.id },
+      ],
+    });
+  }
+
+  function selectThread(thread: SupportThreadRow) {
+    const message = messagesByThread.get(thread.id);
+    setSelectedDetail({
+      title: thread.subject,
+      subtitle: "Support Request",
+      messageLabel: "Message",
+      message: supportDetailValue(message?.body_text ?? thread.last_message_preview),
+      replyHref: mailtoUrl(thread.customer_email, thread.subject),
+      rows: [
+        { label: "Customer", value: supportDetailValue(thread.customer_name) },
+        { label: "Email", value: supportDetailValue(thread.customer_email) },
+        { label: "Phone", value: supportDetailValue(thread.customer_phone) },
+        { label: "Organization", value: supportDetailValue(thread.customer_organization) },
+        { label: "Type", value: supportRequestTypeLabel(thread.request_type) },
+        { label: "Source", value: supportStatusLabel(thread.source) },
+        { label: "Status", value: supportStatusLabel(thread.status) },
+        { label: "Priority", value: supportStatusLabel(thread.priority) },
+        { label: "Created", value: formatSettingsTimestamp(thread.created_at) },
+        { label: "Last message", value: formatSettingsTimestamp(thread.last_message_at) },
+        { label: "Source URL", value: supportMetadataText(thread.metadata, "source_url") },
+        { label: "Last from", value: supportDetailValue(thread.last_message_from_email ?? message?.from_email) },
+        { label: "Message subject", value: supportDetailValue(message?.subject ?? thread.last_message_subject) },
+        { label: "Thread ID", value: thread.id },
+      ],
+    });
+  }
+
   return (
     <section className="sales-support-main" aria-label="Sales and support queue">
+      <SalesSupportDetailDrawer detail={selectedDetail} onClose={() => setSelectedDetail(null)} />
       <header className="support-hero">
         <div>
           <p>Sales &amp; Support</p>
@@ -2770,7 +2926,18 @@ function SalesSupportView({
           <div className="support-list">
             {data.quotes.length ? data.quotes.map((quote) => (
               <article className="support-item" key={quote.id}>
-                <div className="support-item-main">
+                <div
+                  className="support-item-main support-item-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectQuote(quote)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectQuote(quote);
+                    }
+                  }}
+                >
                   <div className="support-item-title">
                     <strong>{quote.application}</strong>
                     <SupportStatusPill status={quote.status ?? "new"} />
@@ -2791,10 +2958,16 @@ function SalesSupportView({
                     </div>
                   </dl>
                 </div>
-                <a className="settings-secondary-button" href={mailtoUrl(quote.email, `exactH2O quote: ${quote.application}`)}>
-                  <Mail size={14} />
-                  Reply
-                </a>
+                <div className="support-item-actions">
+                  <button type="button" className="settings-secondary-button" onClick={() => selectQuote(quote)}>
+                    <Search size={14} />
+                    Details
+                  </button>
+                  <a className="settings-secondary-button" href={mailtoUrl(quote.email, `exactH2O quote: ${quote.application}`)}>
+                    <Mail size={14} />
+                    Reply
+                  </a>
+                </div>
               </article>
             )) : (
               <div className="support-empty">No quote requests yet.</div>
@@ -2813,7 +2986,18 @@ function SalesSupportView({
           <div className="support-list">
             {supportThreads.length ? supportThreads.map((thread) => (
               <article className="support-item" key={thread.id}>
-                <div className="support-item-main">
+                <div
+                  className="support-item-main support-item-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectThread(thread)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectThread(thread);
+                    }
+                  }}
+                >
                   <div className="support-item-title">
                     <strong>{thread.subject}</strong>
                     <SupportStatusPill status={thread.status} />
@@ -2838,10 +3022,16 @@ function SalesSupportView({
                     </div>
                   </dl>
                 </div>
-                <a className="settings-secondary-button" href={mailtoUrl(thread.customer_email, thread.subject)}>
-                  <MessageSquare size={14} />
-                  Reply
-                </a>
+                <div className="support-item-actions">
+                  <button type="button" className="settings-secondary-button" onClick={() => selectThread(thread)}>
+                    <Search size={14} />
+                    Details
+                  </button>
+                  <a className="settings-secondary-button" href={mailtoUrl(thread.customer_email, thread.subject)}>
+                    <MessageSquare size={14} />
+                    Reply
+                  </a>
+                </div>
               </article>
             )) : (
               <div className="support-empty">No support emails captured yet.</div>
@@ -4001,10 +4191,10 @@ export default function App() {
     }
 
     try {
-      const [quotesResponse, threadsResponse] = await Promise.all([
+      const [quotesResponse, threadsResponse, messagesResponse] = await Promise.all([
         supabase
           .from("quote_requests")
-          .select("id, project_id, created_at, updated_at, name, email, phone, organization, application, timeline, message, source_url, notification_status, status, priority")
+          .select("id, project_id, created_at, updated_at, name, email, phone, organization, application, timeline, message, source_url, referrer, notification_email, notification_status, notification_error, status, priority")
           .eq("project_id", mattProjectId)
           .order("created_at", { ascending: false })
           .limit(40),
@@ -4014,14 +4204,22 @@ export default function App() {
           .eq("project_id", mattProjectId)
           .order("last_message_at", { ascending: false })
           .limit(40),
+        supabase
+          .from("support_messages")
+          .select("id, thread_id, project_id, created_at, direction, channel, from_email, from_name, to_emails, subject, body_text, body_html, metadata")
+          .eq("project_id", mattProjectId)
+          .order("created_at", { ascending: false })
+          .limit(80),
       ]);
 
       if (quotesResponse.error) throw quotesResponse.error;
       if (threadsResponse.error) throw threadsResponse.error;
+      if (messagesResponse.error) throw messagesResponse.error;
 
       setSalesSupportData({
         quotes: (quotesResponse.data ?? []) as QuoteRequestRow[],
         threads: (threadsResponse.data ?? []) as SupportThreadRow[],
+        messages: (messagesResponse.data ?? []) as SupportMessageRow[],
       });
     } catch (err) {
       if (!silent) setSalesSupportError(errorMessage(err));
