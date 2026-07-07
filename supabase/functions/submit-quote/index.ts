@@ -13,6 +13,8 @@ type QuotePayload = {
   honey?: string;
 };
 
+const mattProjectId = "22222222-2222-4222-8222-222222222222";
+
 const allowedOrigins = new Set([
   "https://exacth2o.com",
   "https://www.exacth2o.com",
@@ -165,6 +167,7 @@ serve(async (request) => {
   const { data: quote, error: insertError } = await supabase
     .from("quote_requests")
     .insert({
+      project_id: mattProjectId,
       name: submission.name,
       email: submission.email,
       phone: submission.phone || null,
@@ -178,12 +181,67 @@ serve(async (request) => {
       user_agent: clean(request.headers.get("User-Agent"), 500) || null,
       notification_email: emailTo,
       notification_status: "pending",
+      status: "new",
+      priority: "normal",
     })
     .select("id")
     .single();
 
   if (insertError || !quote) {
     return jsonResponse({ error: "Could not save quote request" }, 500, origin);
+  }
+
+  const { data: supportThread, error: supportThreadError } = await supabase
+    .from("support_threads")
+    .insert({
+      project_id: mattProjectId,
+      source: "quote",
+      status: "new",
+      priority: "normal",
+      request_type: "quote",
+      subject: `Quote request: ${submission.application}`,
+      customer_name: submission.name,
+      customer_email: submission.email,
+      customer_phone: submission.phone || null,
+      customer_organization: submission.organization || null,
+      quote_request_id: quote.id,
+      metadata: {
+        timeline: submission.timeline || null,
+        source_url: submission.sourceUrl || null,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (!supportThreadError && supportThread) {
+    await supabase
+      .from("support_messages")
+      .insert({
+        thread_id: supportThread.id,
+        project_id: mattProjectId,
+        direction: "inbound",
+        channel: "form",
+        from_email: submission.email,
+        from_name: submission.name,
+        to_emails: ["support@exacth2o.com"],
+        subject: `Quote request: ${submission.application}`,
+        body_text: buildEmailText(submission),
+        body_html: buildEmailHtml(submission),
+        metadata: {
+          quote_request_id: quote.id,
+          application: submission.application,
+          timeline: submission.timeline || null,
+        },
+      });
+  } else if (supportThreadError) {
+    await supabase
+      .from("quote_requests")
+      .update({
+        metadata: {
+          support_queue_error: supportThreadError.message,
+        },
+      })
+      .eq("id", quote.id);
   }
 
   if (!resendApiKey) {

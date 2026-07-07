@@ -24,7 +24,9 @@ import {
   Loader2,
   Lock,
   LogOut,
+  Mail,
   Maximize2,
+  MessageSquare,
   Minimize2,
   RefreshCw,
   Search,
@@ -46,6 +48,7 @@ const maxExportRowsPerSource = 100_000;
 const autoRefreshMs = 15_000;
 const healthSnapshotPollMs = 15_000;
 const healthAutoSyncMs = 60_000;
+const supportPollMs = 30_000;
 const healthChartWindowHours = 8;
 const staleAfterMs = 15 * 60 * 1000;
 const maxPointsPerSeries = graphReadLimit;
@@ -127,7 +130,7 @@ type PlantGroup = "maize" | "sorghum" | "unknown";
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
 type PortalRole = "admin" | "researcher";
-type PortalView = "home" | "experiment" | "health";
+type PortalView = "home" | "experiment" | "health" | "support";
 
 type PortalAccess = {
   role: PortalRole;
@@ -291,6 +294,53 @@ type DeviceHealthSnapshot = {
   created_at: string;
 };
 
+type SupportStatus = "new" | "open" | "waiting_on_customer" | "quoted" | "won" | "lost" | "closed";
+
+type QuoteRequestRow = {
+  id: string;
+  project_id: string;
+  created_at: string;
+  updated_at: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  organization: string | null;
+  application: string;
+  timeline: string | null;
+  message: string;
+  source_url: string | null;
+  notification_status: string | null;
+  status: SupportStatus | null;
+  priority: string | null;
+};
+
+type SupportThreadRow = {
+  id: string;
+  project_id: string;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  source: "email" | "form" | "quote" | "portal" | "other";
+  status: SupportStatus;
+  priority: "low" | "normal" | "high" | "urgent";
+  request_type: "support" | "quote" | "demo" | "docs" | "training" | "billing" | "install" | "other";
+  subject: string;
+  customer_name: string | null;
+  customer_email: string;
+  customer_phone: string | null;
+  customer_organization: string | null;
+  quote_request_id: string | null;
+  last_message_preview: string | null;
+  last_message_from_email: string | null;
+  last_message_subject: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type SalesSupportData = {
+  quotes: QuoteRequestRow[];
+  threads: SupportThreadRow[];
+};
+
 type TimeBounds = {
   startMs: number;
   endMs: number;
@@ -314,7 +364,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-health-detail-drawer";
+const portalVersion = "20260707-sales-support";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -403,6 +453,11 @@ const initialLoadState: LoadState = {
   lastCheckedAt: null,
   lastNewDataAt: null,
   effectiveMode: "snapshot",
+};
+
+const initialSalesSupportData: SalesSupportData = {
+  quotes: [],
+  threads: [],
 };
 
 function portalUrl() {
@@ -626,6 +681,40 @@ function formatSettingsTimestamp(value?: string | number | null) {
   if (!value) return "Not synced";
   const formatted = formatDateTime(value);
   return formatted === "none" ? "Not synced" : formatted;
+}
+
+function supportStatusLabel(status?: string | null) {
+  if (!status) return "New";
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function supportStatusTone(status?: string | null): "ok" | "warning" | "bad" | "unknown" {
+  if (status === "won" || status === "closed") return "ok";
+  if (status === "lost") return "bad";
+  if (status === "waiting_on_customer" || status === "quoted") return "warning";
+  return "unknown";
+}
+
+function supportRequestTypeLabel(value?: string | null) {
+  if (!value) return "Support";
+  if (value === "docs") return "Documentation";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function supportExcerpt(value?: string | null, maxLength = 160) {
+  if (!value) return "No message preview.";
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 1).trim()}...`;
+}
+
+function mailtoUrl(email: string, subject?: string | null) {
+  const params = new URLSearchParams();
+  if (subject) params.set("subject", `Re: ${subject}`);
+  return `mailto:${email}${params.size ? `?${params.toString()}` : ""}`;
 }
 
 function formatHealthNumber(value?: number | null, digits = 1, suffix = "") {
@@ -2525,17 +2614,32 @@ function PortalAdminHome({
   data,
   healthSnapshot,
   healthLoading,
+  salesSupportData,
+  salesSupportLoading,
   onOpenExperiment,
   onOpenHealth,
+  onOpenSupport,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
   healthLoading: boolean;
+  salesSupportData: SalesSupportData;
+  salesSupportLoading: boolean;
   onOpenExperiment: () => void;
   onOpenHealth: () => void;
+  onOpenSupport: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
+  const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
+  const openSupportCount = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
+  const newSupportCount = supportThreads.filter((item) => item.status === "new").length;
+  const quoteCount = salesSupportData.quotes.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
+  const supportUpdated = supportThreads
+    .map((item) => item.last_message_at ?? item.updated_at ?? item.created_at)
+    .concat(salesSupportData.quotes.map((item) => item.updated_at ?? item.created_at))
+    .filter(Boolean)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
   const sensorLine = healthSnapshot
     ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors`
     : "No health snapshot";
@@ -2566,6 +2670,176 @@ function PortalAdminHome({
           </span>
           <span className="portal-status-pill is-ok">OPEN</span>
         </button>
+
+        <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
+          <span className="portal-launch-icon">
+            <Mail size={28} />
+          </span>
+          <span className="portal-launch-copy">
+            <span>Sales &amp; Support</span>
+            <strong>{salesSupportLoading ? "Loading..." : `${newSupportCount} new · ${openSupportCount + quoteCount} open`}</strong>
+            <em>Updated {formatSettingsTimestamp(supportUpdated)}</em>
+          </span>
+          <span className={`portal-status-pill ${newSupportCount ? "is-warning" : "is-ok"}`}>
+            {newSupportCount ? "NEW" : "READY"}
+          </span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SupportStatusPill({ status }: { status?: string | null }) {
+  return (
+    <span className={`portal-status-pill is-${supportStatusTone(status)}`}>
+      {supportStatusLabel(status)}
+    </span>
+  );
+}
+
+function SalesSupportView({
+  data,
+  loading,
+  error,
+  onRefresh,
+}: {
+  data: SalesSupportData;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}) {
+  const supportThreads = data.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
+  const openQuotes = data.quotes.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost");
+  const openThreads = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost");
+  const newItems = [
+    ...data.quotes.filter((item) => (item.status ?? "new") === "new"),
+    ...supportThreads.filter((item) => item.status === "new"),
+  ];
+  const latestUpdated = [
+    ...data.quotes.map((item) => item.updated_at ?? item.created_at),
+    ...supportThreads.map((item) => item.last_message_at ?? item.updated_at ?? item.created_at),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
+
+  return (
+    <section className="sales-support-main" aria-label="Sales and support queue">
+      <header className="support-hero">
+        <div>
+          <p>Sales &amp; Support</p>
+          <h1>{newItems.length} new</h1>
+          <span>Quote requests and inbound support email for the admin team.</span>
+        </div>
+        <button type="button" className="settings-secondary-button" onClick={onRefresh} disabled={loading}>
+          <RefreshCw size={15} className={loading ? "spin" : undefined} />
+          Refresh
+        </button>
+      </header>
+
+      {error ? (
+        <div className="banner error">
+          <AlertTriangle size={18} />
+          {error}
+        </div>
+      ) : null}
+
+      <div className="support-summary-grid">
+        <HealthMiniFact label="Open quotes" value={String(openQuotes.length)} />
+        <HealthMiniFact label="Open support" value={String(openThreads.length)} />
+        <HealthMiniFact label="New items" value={String(newItems.length)} />
+        <HealthMiniFact label="Last update" value={formatSettingsTimestamp(latestUpdated)} />
+      </div>
+
+      <div className="support-queue-grid">
+        <section className="support-panel">
+          <header>
+            <div>
+              <p>Sales</p>
+              <h2>Quote Requests</h2>
+            </div>
+            <span>{data.quotes.length}</span>
+          </header>
+          <div className="support-list">
+            {data.quotes.length ? data.quotes.map((quote) => (
+              <article className="support-item" key={quote.id}>
+                <div className="support-item-main">
+                  <div className="support-item-title">
+                    <strong>{quote.application}</strong>
+                    <SupportStatusPill status={quote.status ?? "new"} />
+                  </div>
+                  <p>{supportExcerpt(quote.message)}</p>
+                  <dl>
+                    <div>
+                      <dt>Customer</dt>
+                      <dd>{quote.name} · {quote.email}</dd>
+                    </div>
+                    <div>
+                      <dt>Organization</dt>
+                      <dd>{quote.organization || "Not provided"}</dd>
+                    </div>
+                    <div>
+                      <dt>Submitted</dt>
+                      <dd>{formatSettingsTimestamp(quote.created_at)}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <a className="settings-secondary-button" href={mailtoUrl(quote.email, `exactH2O quote: ${quote.application}`)}>
+                  <Mail size={14} />
+                  Reply
+                </a>
+              </article>
+            )) : (
+              <div className="support-empty">No quote requests yet.</div>
+            )}
+          </div>
+        </section>
+
+        <section className="support-panel">
+          <header>
+            <div>
+              <p>Inbox</p>
+              <h2>Support Emails</h2>
+            </div>
+            <span>{supportThreads.length}</span>
+          </header>
+          <div className="support-list">
+            {supportThreads.length ? supportThreads.map((thread) => (
+              <article className="support-item" key={thread.id}>
+                <div className="support-item-main">
+                  <div className="support-item-title">
+                    <strong>{thread.subject}</strong>
+                    <SupportStatusPill status={thread.status} />
+                  </div>
+                  <p>
+                    {thread.last_message_preview
+                      ? supportExcerpt(thread.last_message_preview)
+                      : `${supportRequestTypeLabel(thread.request_type)} · ${thread.source === "email" ? "Email" : "Website"}`}
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Customer</dt>
+                      <dd>{thread.customer_name ? `${thread.customer_name} · ` : ""}{thread.customer_email}</dd>
+                    </div>
+                    <div>
+                      <dt>Organization</dt>
+                      <dd>{thread.customer_organization || "Not provided"}</dd>
+                    </div>
+                    <div>
+                      <dt>Last message</dt>
+                      <dd>{formatSettingsTimestamp(thread.last_message_at)}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <a className="settings-secondary-button" href={mailtoUrl(thread.customer_email, thread.subject)}>
+                  <MessageSquare size={14} />
+                  Reply
+                </a>
+              </article>
+            )) : (
+              <div className="support-empty">No support emails captured yet.</div>
+            )}
+          </div>
+        </section>
       </div>
     </section>
   );
@@ -3564,6 +3838,9 @@ export default function App() {
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
+  const [salesSupportData, setSalesSupportData] = useState<SalesSupportData>(initialSalesSupportData);
+  const [salesSupportLoading, setSalesSupportLoading] = useState(false);
+  const [salesSupportError, setSalesSupportError] = useState<string | null>(null);
 
   const dataRef = useRef(data);
   const loadTokenRef = useRef(0);
@@ -3701,6 +3978,48 @@ export default function App() {
       if (!silent) setHealthLoading(false);
     }
   }, [isAdmin, loadHealthSnapshot]);
+
+  const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!isAdmin) {
+      setSalesSupportData(initialSalesSupportData);
+      return;
+    }
+
+    const silent = options.silent === true;
+    if (!silent) {
+      setSalesSupportLoading(true);
+      setSalesSupportError(null);
+    }
+
+    try {
+      const [quotesResponse, threadsResponse] = await Promise.all([
+        supabase
+          .from("quote_requests")
+          .select("id, project_id, created_at, updated_at, name, email, phone, organization, application, timeline, message, source_url, notification_status, status, priority")
+          .eq("project_id", mattProjectId)
+          .order("created_at", { ascending: false })
+          .limit(40),
+        supabase
+          .from("support_threads")
+          .select("id, project_id, created_at, updated_at, last_message_at, source, status, priority, request_type, subject, customer_name, customer_email, customer_phone, customer_organization, quote_request_id, last_message_preview, last_message_from_email, last_message_subject, metadata")
+          .eq("project_id", mattProjectId)
+          .order("last_message_at", { ascending: false })
+          .limit(40),
+      ]);
+
+      if (quotesResponse.error) throw quotesResponse.error;
+      if (threadsResponse.error) throw threadsResponse.error;
+
+      setSalesSupportData({
+        quotes: (quotesResponse.data ?? []) as QuoteRequestRow[],
+        threads: (threadsResponse.data ?? []) as SupportThreadRow[],
+      });
+    } catch (err) {
+      if (!silent) setSalesSupportError(errorMessage(err));
+    } finally {
+      if (!silent) setSalesSupportLoading(false);
+    }
+  }, [isAdmin]);
 
   const refresh = useCallback(
     async ({ incremental }: { incremental: boolean }) => {
@@ -3979,6 +4298,9 @@ export default function App() {
     setHealthSnapshot(null);
     setHealthLoading(false);
     setHealthError(null);
+    setSalesSupportData(initialSalesSupportData);
+    setSalesSupportLoading(false);
+    setSalesSupportError(null);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
   }
@@ -4243,6 +4565,7 @@ export default function App() {
       setPortalAccess(null);
       setPortalView("experiment");
       setHealthSnapshot(null);
+      setSalesSupportData(initialSalesSupportData);
       return;
     }
     void loadPortalAccess();
@@ -4253,6 +4576,11 @@ export default function App() {
     void loadHealthSnapshot();
     void syncHealthSnapshot({ silent: true });
   }, [isAdmin, loadHealthSnapshot, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return;
+    void loadSalesSupport();
+  }, [isAdmin, loadSalesSupport, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -4267,6 +4595,14 @@ export default function App() {
       window.clearInterval(syncId);
     };
   }, [isAdmin, loadHealthSnapshot, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return undefined;
+    const pollId = window.setInterval(() => {
+      void loadSalesSupport({ silent: true });
+    }, supportPollMs);
+    return () => window.clearInterval(pollId);
+  }, [isAdmin, loadSalesSupport, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady) return undefined;
@@ -4347,6 +4683,42 @@ export default function App() {
       void supabase.removeChannel(channel);
     };
   }, [isAdmin, loadHealthSnapshot, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return undefined;
+
+    const channel = supabase
+      .channel("exacth2o-sales-support-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "support_threads",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
+        () => {
+          void loadSalesSupport({ silent: true });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "quote_requests",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
+        () => {
+          void loadSalesSupport({ silent: true });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin, loadSalesSupport, sessionReady]);
 
   if (!sessionReady) {
     const isInviteAccept = authMode === "accept-invite";
@@ -4531,6 +4903,12 @@ export default function App() {
           Health
         </button>
       ) : null}
+      {isAdmin && portalView !== "support" ? (
+        <button className="header-action" type="button" onClick={() => setPortalView("support")}>
+          <Mail size={15} />
+          Support
+        </button>
+      ) : null}
       {isAdmin ? (
         <button
           className="header-action"
@@ -4570,8 +4948,11 @@ export default function App() {
           data={data}
           healthSnapshot={healthSnapshot}
           healthLoading={healthLoading}
+          salesSupportData={salesSupportData}
+          salesSupportLoading={salesSupportLoading}
           onOpenExperiment={() => setPortalView("experiment")}
           onOpenHealth={() => setPortalView("health")}
+          onOpenSupport={() => setPortalView("support")}
         />
       </main>
     );
@@ -4587,6 +4968,21 @@ export default function App() {
           loading={healthLoading}
           error={healthError}
           onRefresh={() => void syncHealthSnapshot()}
+        />
+      </main>
+    );
+  }
+
+  if (isAdmin && portalView === "support") {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        {portalActions}
+        <SalesSupportView
+          data={salesSupportData}
+          loading={salesSupportLoading}
+          error={salesSupportError}
+          onRefresh={() => void loadSalesSupport()}
         />
       </main>
     );
