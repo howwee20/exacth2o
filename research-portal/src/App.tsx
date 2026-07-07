@@ -18,7 +18,6 @@ import {
   CircleAlert,
   Database,
   Download,
-  ExternalLink,
   FileArchive,
   Gauge,
   Loader2,
@@ -384,7 +383,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-support-detail-clean";
+const portalVersion = "20260707-admin-home-polish";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2688,42 +2687,61 @@ function PortalAdminHome({
 
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
+      <header className="portal-admin-heading">
+        <p>Admin Console</p>
+        <h1>Project overview</h1>
+      </header>
       <div className="portal-launch-grid">
         <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
-          <span className="portal-launch-icon">
-            <Server size={28} />
+          <span className="portal-launch-top">
+            <span className="portal-launch-icon">
+              <Server size={20} />
+            </span>
+            <PortalStatusPill snapshot={healthSnapshot} />
           </span>
           <span className="portal-launch-copy">
-            <span>System Health</span>
+            <span className="portal-launch-title">System Health</span>
             <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
             <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
           </span>
-          <PortalStatusPill snapshot={healthSnapshot} />
+          <span className="portal-launch-action">
+            Open <ArrowRight size={14} />
+          </span>
         </button>
 
         <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
-          <span className="portal-launch-icon">
-            <Activity size={28} />
+          <span className="portal-launch-top">
+            <span className="portal-launch-icon">
+              <Activity size={20} />
+            </span>
+            <span className="portal-status-pill is-ok">OPEN</span>
           </span>
           <span className="portal-launch-copy">
-            <span>Matt Experiment</span>
+            <span className="portal-launch-title">Matt Experiment</span>
             <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
             <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
           </span>
-          <span className="portal-status-pill is-ok">OPEN</span>
+          <span className="portal-launch-action">
+            Open <ArrowRight size={14} />
+          </span>
         </button>
 
         <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
-          <span className="portal-launch-icon">
-            <Mail size={28} />
+          <span className="portal-launch-top">
+            <span className="portal-launch-icon">
+              <Mail size={20} />
+            </span>
+            <span className={`portal-status-pill ${newSupportCount ? "is-warning" : "is-ok"}`}>
+              {newSupportCount ? "NEW" : "READY"}
+            </span>
           </span>
           <span className="portal-launch-copy">
-            <span>Sales &amp; Support</span>
+            <span className="portal-launch-title">Sales &amp; Support</span>
             <strong>{salesSupportLoading ? "Loading..." : `${newSupportCount} new · ${openSupportCount + quoteCount} open`}</strong>
             <em>Updated {formatSettingsTimestamp(supportUpdated)}</em>
           </span>
-          <span className={`portal-status-pill ${newSupportCount ? "is-warning" : "is-ok"}`}>
-            {newSupportCount ? "NEW" : "READY"}
+          <span className="portal-launch-action">
+            Open <ArrowRight size={14} />
           </span>
         </button>
       </div>
@@ -5069,34 +5087,43 @@ export default function App() {
     </button>
   );
 
+  const showPortalBack = isAdmin && portalView !== "home";
+  const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
+
   const portalHeader = (
     <header className="dashboard-header">
       <a className="dashboard-logo" href="/" aria-label="exactH2O home">
-        exactH2O
+        exact<span>H</span>2<span>O</span>
       </a>
-      <div className="header-actions">
-        {isAdmin && portalView !== "home" ? (
-          <button className="header-action" type="button" onClick={() => setPortalView("home")}>
-            <ArrowLeft size={15} />
-            Home
-          </button>
+      <div className="portal-header-right">
+        <nav className="portal-site-nav" aria-label="Site navigation">
+          <a href="/">Home</a>
+          <a href="/applications">Applications</a>
+          <a href="/about">About Us</a>
+          <a href="/support">Support</a>
+        </nav>
+        {showPortalBack || showSettingsControl ? (
+          <div className="header-actions">
+            {showPortalBack ? (
+              <button className="header-action" type="button" onClick={() => setPortalView("home")}>
+                <ArrowLeft size={14} />
+                Portal Home
+              </button>
+            ) : null}
+            {showSettingsControl ? (
+              <button
+                className="header-action"
+                type="button"
+                aria-label="Portal settings"
+                title="Settings"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <SettingsIcon size={14} />
+                Settings
+              </button>
+            ) : null}
+          </div>
         ) : null}
-        {canUseExperimentSettings && portalView === "experiment" ? (
-          <button
-            className="header-action"
-            type="button"
-            aria-label="Portal settings"
-            title="Settings"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <SettingsIcon size={15} />
-            Settings
-          </button>
-        ) : null}
-        <a className="header-action site-link" href="/" aria-label="Website" title="Website">
-          <ExternalLink size={15} />
-          Site
-        </a>
       </div>
     </header>
   );
