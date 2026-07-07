@@ -550,6 +550,68 @@
     line-height: 1.6;
   }
 
+  /* ── CONNECT ── */
+  .connect-section {
+    background: var(--bg-dark);
+    color: #f4f1eb;
+    padding: 0 4rem 6rem;
+    position: relative;
+    z-index: 2;
+  }
+  .connect-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-top: 4rem;
+    border-top: 1px solid rgba(244,241,235,0.1);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3rem;
+    align-items: end;
+  }
+  .connect-section .section-label { color: var(--accent); }
+  .connect-section .section-label::before { background: var(--accent); }
+  .connect-section .section-title {
+    color: #f4f1eb;
+    margin-bottom: 0;
+  }
+  .connect-copy {
+    max-width: 58ch;
+    margin-top: 1rem;
+    color: rgba(244,241,235,0.58);
+    line-height: 1.75;
+  }
+  .connect-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  .connect-button {
+    min-width: 10rem;
+    padding: 0.85rem 1.4rem;
+    border: 1px solid rgba(124,191,158,0.45);
+    color: var(--accent);
+    text-decoration: none;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .connect-button.primary {
+    background: var(--water);
+    border-color: var(--water);
+    color: var(--bg);
+  }
+  .connect-button:hover {
+    background: rgba(124,191,158,0.12);
+    border-color: var(--accent);
+  }
+  .connect-button.primary:hover {
+    background: var(--water-light);
+    border-color: var(--water-light);
+  }
+
   /* ── FOOTER ── */
   footer {
     background: var(--bg-dark);
@@ -590,9 +652,12 @@
     .hero-right { display: none; }
     .hero-left { padding: 8rem 2rem 4rem; }
     section, .applications, .why-section { padding: 4rem 2rem; }
+    .connect-section { padding: 0 2rem 4rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
     .app-cards { grid-template-columns: 1fr; }
     .why-inner { grid-template-columns: 1fr; gap: 3rem; }
+    .connect-inner { grid-template-columns: 1fr; gap: 2rem; align-items: start; }
+    .connect-actions { flex-direction: column; align-items: stretch; }
     footer { flex-direction: column; gap: 1rem; text-align: center; }
   }
 </style>
@@ -739,14 +804,14 @@
   <div class="app-intro-grid reveal">
     <div>
       <div class="section-label">Application Areas</div>
-      <h2 class="section-title">Four domains,<br>one system</h2>
+      <h2 class="section-title">Three domains,<br>one system</h2>
     </div>
     <p style="font-size:1.05rem; line-height:1.8; opacity:0.65; padding-top: 0.5rem;">
       ExactH2O was engineered for greenhouse research where precise water control matters most—from controlled drought experiments to high-throughput phenotyping. Each deployment can be tailored for sensor configuration, irrigation setpoints, sampling frequency, and data integration, while the ExactH2O platform delivers a unified stream of real-time measurements and irrigation control.
     </p>
   </div>
 
-  <!-- 4 Application Cards -->
+  <!-- Application Cards -->
   <div class="app-cards reveal">
 
     <!-- 1: Plant Stress -->
@@ -797,7 +862,7 @@
 
      <!-- 2: Plant Phenotyping -->
     <div class="app-card">
-      <div class="app-card-num">04 —</div>
+      <div class="app-card-num">03 —</div>
       <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="24" cy="24" r="18"/>
         <circle cx="24" cy="24" r="8"/>
@@ -889,64 +954,6 @@
       </div>
     </div>
 
-    <!-- 4: Precision Agriculture -->
-    <div class="app-card">
-      <div class="app-card-num">03 —</div>
-      <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="4" y="4" width="18" height="18" rx="2"/>
-        <rect x="26" y="4" width="18" height="18" rx="2"/>
-        <rect x="4" y="26" width="18" height="18" rx="2"/>
-        <rect x="26" y="26" width="18" height="18" rx="2"/>
-        <circle cx="24" cy="24" r="4"/>
-      </svg>
-      <h3 class="app-card-title">Precision<br>Agriculture</h3>
-      <p class="app-card-desc">
-        ExactH2O brings precision agriculture to the greenhouse through continuous root-zone monitoring, automated irrigation decisions, and actionable time-series data. By improving irrigation scheduling and supporting soil-specific calibration, the platform makes each watering decision more precise and data-driven.
-      </p>
-      <div class="app-card-image">
-        <svg class="scene" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="320" height="160" fill="#e8e3d8"/>
-          <!-- Field grid -->
-          <line x1="0" y1="53" x2="320" y2="53" stroke="#c8b89a" stroke-width="0.8"/>
-          <line x1="0" y1="106" x2="320" y2="106" stroke="#c8b89a" stroke-width="0.8"/>
-          <line x1="64" y1="0" x2="64" y2="160" stroke="#c8b89a" stroke-width="0.8"/>
-          <line x1="128" y1="0" x2="128" y2="160" stroke="#c8b89a" stroke-width="0.8"/>
-          <line x1="192" y1="0" x2="192" y2="160" stroke="#c8b89a" stroke-width="0.8"/>
-          <line x1="256" y1="0" x2="256" y2="160" stroke="#c8b89a" stroke-width="0.8"/>
-          <!-- Moisture color blocks -->
-          <rect x="0" y="0" width="64" height="53" fill="#2e9e6e" opacity="0.3"/>
-          <rect x="64" y="0" width="64" height="53" fill="#2e9e6e" opacity="0.15"/>
-          <rect x="128" y="0" width="64" height="53" fill="#c8853a" opacity="0.2"/>
-          <rect x="192" y="0" width="64" height="53" fill="#1a6b4a" opacity="0.35"/>
-          <rect x="256" y="0" width="64" height="53" fill="#2e9e6e" opacity="0.22"/>
-          <rect x="0" y="53" width="64" height="53" fill="#2e9e6e" opacity="0.18"/>
-          <rect x="64" y="53" width="64" height="53" fill="#c8853a" opacity="0.25"/>
-          <rect x="128" y="53" width="64" height="53" fill="#2e9e6e" opacity="0.3"/>
-          <rect x="192" y="53" width="64" height="53" fill="#2e9e6e" opacity="0.12"/>
-          <rect x="256" y="53" width="64" height="53" fill="#1a6b4a" opacity="0.3"/>
-          <!-- Sensor nodes -->
-          <circle cx="32" cy="26" r="4" fill="#1a6b4a"/>
-          <circle cx="96" cy="26" r="4" fill="#1a6b4a"/>
-          <circle cx="160" cy="26" r="4" fill="#c8853a"/>
-          <circle cx="224" cy="26" r="4" fill="#1a6b4a"/>
-          <circle cx="288" cy="26" r="4" fill="#1a6b4a"/>
-          <circle cx="32" cy="79" r="4" fill="#1a6b4a"/>
-          <circle cx="96" cy="79" r="4" fill="#c8853a"/>
-          <circle cx="160" cy="79" r="4" fill="#1a6b4a"/>
-          <circle cx="224" cy="79" r="4" fill="#1a6b4a"/>
-          <circle cx="288" cy="79" r="4" fill="#1a6b4a"/>
-          <!-- Legend -->
-          <rect x="20" y="118" width="12" height="8" fill="#1a6b4a" opacity="0.7" rx="1"/>
-          <text x="36" y="127" font-family="monospace" font-size="8" fill="#555">High VWC</text>
-          <rect x="110" y="118" width="12" height="8" fill="#c8853a" opacity="0.7" rx="1"/>
-          <text x="126" y="127" font-family="monospace" font-size="8" fill="#555">Low VWC</text>
-          <circle cx="208" cy="122" r="3.5" fill="#1a6b4a"/>
-          <text x="216" y="127" font-family="monospace" font-size="8" fill="#555">Sensor node</text>
-        </svg>
-        <span class="app-card-image-label">Field-scale VWC Spatial Map</span>
-      </div>
-    </div>
-
   </div>
 </div>
 
@@ -1006,6 +1013,21 @@
     </ul>
   </div>
 </div>
+
+<!-- CONNECT -->
+<section class="connect-section">
+  <div class="connect-inner reveal">
+    <div>
+      <div class="section-label">Connect with us</div>
+      <h2 class="section-title">Plan the right setup<br>for your experiment</h2>
+      <p class="connect-copy">Tell us your crop, pot count, greenhouse layout, and treatment plan. We will help scope the hardware, deployment path, and next questions.</p>
+    </div>
+    <div class="connect-actions">
+      <a class="connect-button primary" href="/quote">Request quote</a>
+      <a class="connect-button" href="mailto:support@exacth2o.com">Email us</a>
+    </div>
+  </div>
+</section>
 
 <!-- FOOTER -->
 <footer>
