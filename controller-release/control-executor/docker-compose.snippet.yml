@@ -1,0 +1,15 @@
+services:
+  control_executor:
+    build: ./control-executor
+    restart: unless-stopped
+    depends_on:
+      - api_svc
+    environment:
+      EXACTH2O_LOCAL_API_BASE: "http://api_svc:8888/v1"
+      EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "1"
+      EXACTH2O_CONTROL_EXECUTOR_POLL_MS: "5000"
+      EXACTH2O_MANUAL_WATER_MAX_SECONDS: "60"
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY}"
+      EXACTH2O_DEVICE_TOKEN: "${EXACTH2O_DEVICE_TOKEN}"
+
