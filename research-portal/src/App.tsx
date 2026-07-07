@@ -18,6 +18,7 @@ import {
   CircleAlert,
   Database,
   Download,
+  ExternalLink,
   FileArchive,
   Gauge,
   Loader2,
@@ -383,7 +384,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-admin-home-polish";
+const portalVersion = "20260707-admin-site-only";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -5096,34 +5097,30 @@ export default function App() {
         exact<span>H</span>2<span>O</span>
       </a>
       <div className="portal-header-right">
-        <nav className="portal-site-nav" aria-label="Site navigation">
-          <a href="/">Home</a>
-          <a href="/applications">Applications</a>
-          <a href="/about">About Us</a>
-          <a href="/support">Support</a>
-        </nav>
-        {showPortalBack || showSettingsControl ? (
-          <div className="header-actions">
-            {showPortalBack ? (
-              <button className="header-action" type="button" onClick={() => setPortalView("home")}>
-                <ArrowLeft size={14} />
-                Portal Home
-              </button>
-            ) : null}
-            {showSettingsControl ? (
-              <button
-                className="header-action"
-                type="button"
-                aria-label="Portal settings"
-                title="Settings"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <SettingsIcon size={14} />
-                Settings
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="header-actions">
+          {showPortalBack ? (
+            <button className="header-action" type="button" onClick={() => setPortalView("home")}>
+              <ArrowLeft size={14} />
+              Portal Home
+            </button>
+          ) : null}
+          {showSettingsControl ? (
+            <button
+              className="header-action"
+              type="button"
+              aria-label="Portal settings"
+              title="Settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <SettingsIcon size={14} />
+              Settings
+            </button>
+          ) : null}
+          <a className="header-action site-link" href="/" aria-label="Website" title="Website">
+            <ExternalLink size={14} />
+            Site
+          </a>
+        </div>
       </div>
     </header>
   );
