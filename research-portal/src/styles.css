@@ -524,35 +524,6 @@ select {
   font-weight: 700;
 }
 
-.portal-launch-actions {
-  display: grid;
-  justify-items: end;
-  gap: 12px;
-}
-
-.portal-tile-settings-button {
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 12px;
-  border: 1px solid #dfe5ee;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #334155;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 850;
-}
-
-.portal-tile-settings-button:hover,
-.portal-tile-settings-button:focus-visible {
-  border-color: #b7c5d8;
-  background: #f8fafc;
-  outline: none;
-}
-
 .portal-status-pill {
   min-height: 30px;
   display: inline-flex;

@@ -364,7 +364,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-no-bottom-bar";
+const portalVersion = "20260707-role-nav-fix";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2627,7 +2627,6 @@ function PortalAdminHome({
   onOpenExperiment,
   onOpenHealth,
   onOpenSupport,
-  onOpenSettings,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
@@ -2637,7 +2636,6 @@ function PortalAdminHome({
   onOpenExperiment: () => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
-  onOpenSettings: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
@@ -2669,18 +2667,7 @@ function PortalAdminHome({
           <PortalStatusPill snapshot={healthSnapshot} />
         </button>
 
-        <article
-          className="portal-launch-card is-experiment"
-          role="button"
-          tabIndex={0}
-          onClick={onOpenExperiment}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onOpenExperiment();
-            }
-          }}
-        >
+        <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
           <span className="portal-launch-icon">
             <Activity size={28} />
           </span>
@@ -2689,21 +2676,8 @@ function PortalAdminHome({
             <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
             <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
           </span>
-          <span className="portal-launch-actions">
-            <span className="portal-status-pill is-ok">OPEN</span>
-            <button
-              type="button"
-              className="portal-tile-settings-button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenSettings();
-              }}
-            >
-              <SettingsIcon size={15} />
-              Settings
-            </button>
-          </span>
-        </article>
+          <span className="portal-status-pill is-ok">OPEN</span>
+        </button>
 
         <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
           <span className="portal-launch-icon">
@@ -4909,6 +4883,24 @@ export default function App() {
         exactH2O
       </a>
       <div className="header-actions">
+        {isAdmin && portalView !== "home" ? (
+          <button className="header-action" type="button" onClick={() => setPortalView("home")}>
+            <ArrowLeft size={15} />
+            Home
+          </button>
+        ) : null}
+        {isAdmin && portalView === "experiment" ? (
+          <button
+            className="header-action"
+            type="button"
+            aria-label="Portal settings"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SettingsIcon size={15} />
+            Settings
+          </button>
+        ) : null}
         <a className="header-action site-link" href="/" aria-label="Website" title="Website">
           <ExternalLink size={15} />
           Site
@@ -4941,7 +4933,6 @@ export default function App() {
           onOpenExperiment={() => setPortalView("experiment")}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
-          onOpenSettings={() => setSettingsOpen(true)}
         />
         <PortalSettingsPanel
           open={settingsOpen}
