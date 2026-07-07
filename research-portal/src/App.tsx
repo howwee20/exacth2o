@@ -384,7 +384,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-admin-site-only";
+const portalVersion = "20260707-admin-health-link";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2688,28 +2688,7 @@ function PortalAdminHome({
 
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
-      <header className="portal-admin-heading">
-        <p>Admin Console</p>
-        <h1>Project overview</h1>
-      </header>
       <div className="portal-launch-grid">
-        <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
-          <span className="portal-launch-top">
-            <span className="portal-launch-icon">
-              <Server size={20} />
-            </span>
-            <PortalStatusPill snapshot={healthSnapshot} />
-          </span>
-          <span className="portal-launch-copy">
-            <span className="portal-launch-title">System Health</span>
-            <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
-            <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
-          </span>
-          <span className="portal-launch-action">
-            Open <ArrowRight size={14} />
-          </span>
-        </button>
-
         <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
           <span className="portal-launch-top">
             <span className="portal-launch-icon">
@@ -2721,6 +2700,25 @@ function PortalAdminHome({
             <span className="portal-launch-title">Matt Experiment</span>
             <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
             <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
+          </span>
+          <span className="portal-launch-action">
+            Open <ArrowRight size={14} />
+          </span>
+        </button>
+
+        <span className="portal-health-link" aria-hidden="true" />
+
+        <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
+          <span className="portal-launch-top">
+            <span className="portal-launch-icon">
+              <Server size={20} />
+            </span>
+            <PortalStatusPill snapshot={healthSnapshot} />
+          </span>
+          <span className="portal-launch-copy">
+            <span className="portal-launch-title">System Health</span>
+            <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
+            <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
           </span>
           <span className="portal-launch-action">
             Open <ArrowRight size={14} />
@@ -4963,7 +4961,7 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="/" className="portal-logo">
+          <a href="/portal" className="portal-logo">
             exact<span>H</span>2<span>O</span>
           </a>
           <div className="portal-top-links">
@@ -5093,7 +5091,15 @@ export default function App() {
 
   const portalHeader = (
     <header className="dashboard-header">
-      <a className="dashboard-logo" href="/" aria-label="exactH2O home">
+      <a
+        className="dashboard-logo"
+        href="/portal"
+        aria-label="Portal home"
+        onClick={(event) => {
+          event.preventDefault();
+          setPortalView(isAdmin ? "home" : "experiment");
+        }}
+      >
         exact<span>H</span>2<span>O</span>
       </a>
       <div className="portal-header-right">
