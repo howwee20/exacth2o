@@ -408,18 +408,23 @@
   .app-cards {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 2px;
-    background: var(--rule);
-    border: 1px solid var(--rule);
+    gap: 0;
   }
 
   .app-card {
     background: var(--bg);
+    border: 1px solid var(--rule);
+    margin: -1px 0 0 -1px;
     padding: 2.5rem;
     position: relative;
     overflow: hidden;
     transition: background 0.3s;
     cursor: default;
+  }
+  .app-card:nth-child(3) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 50%;
   }
   .app-card > * {
     position: relative;
@@ -655,6 +660,7 @@
     .connect-section { padding: 0 2rem 4rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
     .app-cards { grid-template-columns: 1fr; }
+    .app-card:nth-child(3) { width: 100%; }
     .why-inner { grid-template-columns: 1fr; gap: 3rem; }
     .connect-inner { grid-template-columns: 1fr; gap: 2rem; align-items: start; }
     .connect-actions { flex-direction: column; align-items: stretch; }
@@ -1020,7 +1026,6 @@
     <div>
       <div class="section-label">Connect with us</div>
       <h2 class="section-title">Plan the right setup<br>for your experiment</h2>
-      <p class="connect-copy">Tell us your crop, pot count, greenhouse layout, and treatment plan. We will help scope the hardware, deployment path, and next questions.</p>
     </div>
     <div class="connect-actions">
       <a class="connect-button primary" href="/quote">Request quote</a>
