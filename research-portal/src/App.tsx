@@ -18,6 +18,7 @@ import {
   ExternalLink,
   FileArchive,
   Gauge,
+  Loader2,
   Lock,
   LogOut,
   Maximize2,
@@ -32,7 +33,7 @@ import {
 import { supabase } from "./supabase";
 import type { LatestState, PairingRow, SensorReading } from "./types";
 
-const graphReadLimit = 5000;
+const graphReadLimit = 12_000;
 const pageSize = 1000;
 const maxExportRowsPerSource = 100_000;
 const autoRefreshMs = 15_000;
@@ -254,7 +255,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260706-controls-menu-cleanup";
+const portalVersion = "20260706-loading-4day-graph";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -1095,12 +1096,14 @@ function SensorCanvasChart({
   selectedName,
   viewMode,
   onSelectSeries,
+  loading,
 }: {
   series: ChartSeries[];
   visibleNames: Set<string>;
   selectedName: string | null;
   viewMode: ViewMode;
   onSelectSeries: (name: string) => void;
+  loading: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -1247,12 +1250,6 @@ function SensorCanvasChart({
 
       context.restore();
 
-      if (visibleSeries.length === 0) {
-        context.fillStyle = "#64748b";
-        context.font = "15px Inter, Arial, sans-serif";
-        context.textAlign = "center";
-        context.fillText("No readings for the selected pots and data mode.", width / 2, height / 2);
-      }
     };
 
     const scheduleDraw = () => {
@@ -1395,6 +1392,11 @@ function SensorCanvasChart({
         }}
         aria-label="Soil moisture chart"
       />
+      {loading && visibleSeries.length === 0 ? (
+        <div className="chart-loading-overlay" aria-label="Loading readings" aria-live="polite">
+          <Loader2 className="chart-loading-spinner" size={34} aria-hidden="true" />
+        </div>
+      ) : null}
       {tooltip ? (
         <>
           {tooltip.locked ? (
@@ -3282,6 +3284,7 @@ export default function App() {
               selectedName={selectedSeriesName}
               viewMode="traces"
               onSelectSeries={selectPot}
+              loading={loading}
             />
           </section>
           <div className="chart-bottom-controls">

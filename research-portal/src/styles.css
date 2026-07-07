@@ -1135,6 +1135,26 @@ select {
   cursor: crosshair;
 }
 
+.chart-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: #2563eb;
+}
+
+.chart-loading-spinner {
+  animation: chart-loading-spin 0.85s linear infinite;
+  filter: drop-shadow(0 12px 24px rgba(37, 99, 235, 0.18));
+}
+
+@keyframes chart-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .time-range-control {
   position: relative;
   z-index: 2;
