@@ -308,7 +308,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-admin-health";
+const portalVersion = "20260707-admin-health-user-scope";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2812,10 +2812,20 @@ export default function App() {
   const loadPortalAccess = useCallback(async () => {
     setAccessLoading(true);
     try {
+      const userResponse = await supabase.auth.getUser();
+      const userId = userResponse.data.user?.id;
+
+      if (userResponse.error || !userId) {
+        setPortalAccess({ role: "researcher", email: null });
+        setPortalView("experiment");
+        return;
+      }
+
       const response = await supabase
         .from("portal_access")
         .select("role, email")
         .eq("project_id", mattProjectId)
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (response.error) {
