@@ -106,14 +106,14 @@
   .hero {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
     position: relative;
     overflow: hidden;
     z-index: 2;
   }
 
   .hero-left {
-    padding: 10rem 4rem 5rem 4rem;
+    padding: 10rem 3rem 5rem 4rem;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -196,16 +196,16 @@
     inset: 0;
     background: transparent;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    padding: clamp(1rem, 3vw, 2rem);
+    padding: 9rem 4rem 7rem 2rem;
   }
   .experiment-visual {
     position: relative;
-    width: min(82%, 620px);
+    width: min(96%, 820px);
     aspect-ratio: 760 / 560;
     height: auto;
-    max-height: min(58vh, 456px);
+    max-height: min(66vh, 604px);
     min-height: 0;
     color: #172033;
   }
