@@ -5,6 +5,8 @@ type InvitePayload = {
   token?: string;
   email?: string;
   password?: string;
+  termsAccepted?: boolean;
+  termsVersion?: string;
   honey?: string;
 };
 
@@ -28,6 +30,7 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:8123",
   "http://localhost:8123",
 ]);
+const currentTermsVersion = "2026-07-07";
 
 function corsHeaders(origin: string | null) {
   const allowedOrigin = origin && allowedOrigins.has(origin) ? origin : "https://exacth2o.com";
@@ -99,6 +102,7 @@ serve(async (request) => {
   const token = clean(payload.token, 256);
   const email = clean(payload.email, 200).toLowerCase();
   const password = typeof payload.password === "string" ? payload.password : "";
+  const termsVersion = clean(payload.termsVersion, 64);
 
   if (token.length < 32 || token.length > 256) {
     return jsonResponse({ error: "Invalid invite link" }, 400, origin);
@@ -110,6 +114,10 @@ serve(async (request) => {
 
   if (password.length < 8) {
     return jsonResponse({ error: "Use at least 8 characters" }, 400, origin);
+  }
+
+  if (payload.termsAccepted !== true || termsVersion !== currentTermsVersion) {
+    return jsonResponse({ error: "Review and accept the current Software Access Terms" }, 400, origin);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -206,6 +214,30 @@ serve(async (request) => {
     }
   }
 
+  const acceptedAt = new Date().toISOString();
+  const ipAddress =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim().slice(0, 120) ||
+    request.headers.get("cf-connecting-ip")?.slice(0, 120) ||
+    null;
+  const userAgent = request.headers.get("user-agent")?.slice(0, 500) ?? null;
+
+  const termsAcceptance = await admin
+    .from("software_terms_acceptances")
+    .insert({
+      user_id: userId,
+      project_id: invite.project_id,
+      invite_id: invite.id,
+      email,
+      terms_version: termsVersion,
+      accepted_at: acceptedAt,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+    });
+
+  if (termsAcceptance.error && termsAcceptance.error.code !== "23505") {
+    return jsonResponse({ error: "Could not record terms acceptance" }, 500, origin);
+  }
+
   const membership = await admin
     .from("project_members")
     .upsert({
@@ -223,7 +255,7 @@ serve(async (request) => {
   const accepted = await admin
     .from("project_invites")
     .update({
-      accepted_at: new Date().toISOString(),
+      accepted_at: acceptedAt,
       accepted_by: userId,
     })
     .eq("id", invite.id)

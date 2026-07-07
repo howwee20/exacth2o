@@ -40,6 +40,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { supabase } from "./supabase";
+import {
+  softwareTermsCompany,
+  softwareTermsEffectiveDate,
+  softwareTermsIntro,
+  softwareTermsSections,
+  softwareTermsVersion,
+  supportEmail,
+} from "./softwareTerms";
 import type { LatestState, PairingRow, SensorReading } from "./types";
 
 const graphReadLimit = 12_000;
@@ -384,7 +392,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-admin-health-link";
+const portalVersion = "20260707-terms-clickthrough";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -4011,6 +4019,115 @@ function SystemHealthView({
   );
 }
 
+function SoftwareTermsModal({
+  open,
+  accepted,
+  onAgree,
+  onClose,
+}: {
+  open: boolean;
+  accepted: boolean;
+  onAgree: () => void;
+  onClose: () => void;
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [canAgree, setCanAgree] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setCanAgree(accepted);
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+      if (scroller.scrollHeight <= scroller.clientHeight + 12) {
+        setCanAgree(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [accepted, open]);
+
+  if (!open) return null;
+
+  function handleScroll() {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const remaining = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    if (remaining <= 16) {
+      setCanAgree(true);
+    }
+  }
+
+  return (
+    <div className="portal-terms-backdrop" role="presentation">
+      <section
+        className="portal-terms-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="portalTermsTitle"
+        aria-describedby="portalTermsNote"
+      >
+        <header className="portal-terms-header">
+          <div>
+            <span>Exact H2O LLC</span>
+            <h3 id="portalTermsTitle">Software Access Terms</h3>
+            <p id="portalTermsNote">Effective {softwareTermsEffectiveDate}. Version {softwareTermsVersion}.</p>
+          </div>
+          <button type="button" className="portal-terms-close" aria-label="Close terms" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="portal-terms-scroll" ref={scrollerRef} onScroll={handleScroll} tabIndex={0}>
+          {softwareTermsIntro.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          {softwareTermsSections.map((section) => (
+            <section key={section.title} className="portal-terms-section">
+              <h4>{section.title}</h4>
+              {section.paragraphs.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              {section.items?.length ? (
+                <ul>
+                  {section.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ))}
+          <section className="portal-terms-section">
+            <h4>Contact</h4>
+            {softwareTermsCompany.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </section>
+        </div>
+
+        <footer className="portal-terms-actions">
+          <p>{canAgree ? "Ready for acceptance." : "Scroll through the terms to enable agreement."}</p>
+          <div>
+            <button type="button" className="portal-terms-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="portal-terms-primary"
+              disabled={!canAgree}
+              onClick={() => {
+                onAgree();
+                onClose();
+              }}
+            >
+              I agree
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 export default function App() {
   const [email, setEmail] = useState(() => initialEmail());
   const [password, setPassword] = useState("");
@@ -4018,6 +4135,8 @@ export default function App() {
   const [inviteToken] = useState(() => inviteTokenFromUrl());
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [rememberDevice, setRememberDevice] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -4420,12 +4539,20 @@ export default function App() {
       return;
     }
 
+    if (!termsAccepted) {
+      setLoading(false);
+      setLoginError("Review and accept the Software Access Terms to continue.");
+      return;
+    }
+
     const { data: inviteData, error: inviteError } =
       await supabase.functions.invoke<InviteAcceptResponse>("accept-invite", {
         body: {
           token: inviteToken,
           email,
           password,
+          termsAccepted: true,
+          termsVersion: softwareTermsVersion,
         },
       });
 
@@ -4940,6 +5067,8 @@ export default function App() {
   if (!sessionReady) {
     const isInviteAccept = authMode === "accept-invite";
     const isPasswordSetup = authMode === "set-password";
+    const showTermsAgreement = !isPasswordSetup;
+    const termsRequired = isInviteAccept;
     const authTitle = isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign In";
     const authNote = isPasswordSetup
       ? "Choose a password for this exactH2O account."
@@ -5027,10 +5156,44 @@ export default function App() {
                   <span />
                 )}
               </div>
+              {showTermsAgreement ? (
+                <div className="portal-terms-prompt">
+                  <label className="portal-check portal-terms-check">
+                    <input
+                      type="checkbox"
+                      name="terms"
+                      checked={termsAccepted}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setTermsOpen(true);
+                          return;
+                        }
+                        setTermsAccepted(false);
+                      }}
+                    />
+                    <span>
+                      I agree to the{" "}
+                      <button
+                        type="button"
+                        className="portal-inline-action"
+                        onClick={() => setTermsOpen(true)}
+                      >
+                        Software Access Terms
+                      </button>
+                      .
+                    </span>
+                  </label>
+                  <p>
+                    {termsRequired
+                      ? "Required before accepting this invite."
+                      : "Invite users will review and accept these terms before access."}
+                  </p>
+                </div>
+              ) : null}
               <button
                 className="portal-submit-btn"
                 type="submit"
-                disabled={loading || (!isPasswordSetup && !email) || !password}
+                disabled={loading || (!isPasswordSetup && !email) || !password || (termsRequired && !termsAccepted)}
               >
                 {authSubmitText}
               </button>
@@ -5040,10 +5203,16 @@ export default function App() {
 
             <div className="portal-support-line">
               Need access? Ask for an invite or contact{" "}
-              <a href="mailto:bslbinod@gmail.com">bslbinod@gmail.com</a>.
+              <a href={`mailto:${supportEmail}`}>{supportEmail}</a>.
             </div>
           </div>
         </section>
+        <SoftwareTermsModal
+          open={termsOpen}
+          accepted={termsAccepted}
+          onAgree={() => setTermsAccepted(true)}
+          onClose={() => setTermsOpen(false)}
+        />
       </main>
     );
   }
