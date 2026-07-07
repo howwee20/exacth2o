@@ -387,22 +387,6 @@ select {
   backdrop-filter: blur(10px);
 }
 
-.portal-corner-actions {
-  position: fixed;
-  right: 28px;
-  bottom: 24px;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px;
-  border: 1px solid #dfe5ee;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(10px);
-}
-
 .control-heading span {
   color: #64748b;
   font-size: 12px;
@@ -490,6 +474,11 @@ select {
   transform: translateY(-1px);
 }
 
+.portal-launch-card:focus-visible {
+  border-color: #2563eb;
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+}
+
 .portal-launch-icon {
   width: 52px;
   height: 52px;
@@ -533,6 +522,35 @@ select {
   font-size: 0.9rem;
   font-style: normal;
   font-weight: 700;
+}
+
+.portal-launch-actions {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
+.portal-tile-settings-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #dfe5ee;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.portal-tile-settings-button:hover,
+.portal-tile-settings-button:focus-visible {
+  border-color: #b7c5d8;
+  background: #f8fafc;
+  outline: none;
 }
 
 .portal-status-pill {
@@ -1411,6 +1429,8 @@ select {
   min-width: 0;
   min-height: 100vh;
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   overflow: auto;
   padding: 58px 10px 24px;
   border-right: 1px solid rgba(24, 37, 55, 0.08);
@@ -1464,6 +1484,36 @@ select {
 .settings-sidebar nav {
   display: grid;
   gap: 18px;
+}
+
+.settings-account-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+  padding: 22px 9px 0;
+  border-top: 1px solid rgba(24, 37, 55, 0.08);
+}
+
+.settings-sign-out-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 1px solid #f0caca;
+  border-radius: 10px;
+  background: #fff8f8;
+  color: #b42318;
+  cursor: pointer;
+  padding: 0 11px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.settings-sign-out-button:hover,
+.settings-sign-out-button:focus-visible {
+  background: #fff0f0;
+  outline: none;
 }
 
 .settings-sidebar-group {
@@ -2960,13 +3010,6 @@ select {
 
   .header-actions {
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  }
-
-  .portal-corner-actions {
-    right: 12px;
-    bottom: 12px;
-    max-width: calc(100vw - 24px);
-    overflow-x: auto;
   }
 
   .portal-launch-card {

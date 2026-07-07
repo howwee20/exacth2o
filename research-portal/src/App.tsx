@@ -364,7 +364,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-sales-support";
+const portalVersion = "20260707-no-bottom-bar";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -1714,6 +1714,7 @@ type PortalSettingsPanelProps = {
   onDownloadPairingsCsv: () => void;
   onRefreshCommands: () => void;
   onQueueCommand: QueueControlCommand;
+  onSignOut: () => void;
 };
 
 function PortalSettingsPanel({
@@ -1734,6 +1735,7 @@ function PortalSettingsPanel({
   onDownloadPairingsCsv,
   onRefreshCommands,
   onQueueCommand,
+  onSignOut,
 }: PortalSettingsPanelProps) {
   const activeItem = settingsNavItems.find((item) => item.id === activeSection) ?? settingsNavItems[0];
   const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
@@ -2583,6 +2585,12 @@ function PortalSettingsPanel({
               </div>
             ))}
           </nav>
+          <div className="settings-account-actions">
+            <button type="button" className="settings-sign-out-button" onClick={onSignOut}>
+              <LogOut size={16} />
+              Sign out
+            </button>
+          </div>
         </aside>
         <section className="settings-content">
           <header className="settings-content-header">
@@ -2619,6 +2627,7 @@ function PortalAdminHome({
   onOpenExperiment,
   onOpenHealth,
   onOpenSupport,
+  onOpenSettings,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
@@ -2628,6 +2637,7 @@ function PortalAdminHome({
   onOpenExperiment: () => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
+  onOpenSettings: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
@@ -2659,7 +2669,18 @@ function PortalAdminHome({
           <PortalStatusPill snapshot={healthSnapshot} />
         </button>
 
-        <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
+        <article
+          className="portal-launch-card is-experiment"
+          role="button"
+          tabIndex={0}
+          onClick={onOpenExperiment}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpenExperiment();
+            }
+          }}
+        >
           <span className="portal-launch-icon">
             <Activity size={28} />
           </span>
@@ -2668,8 +2689,21 @@ function PortalAdminHome({
             <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
             <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
           </span>
-          <span className="portal-status-pill is-ok">OPEN</span>
-        </button>
+          <span className="portal-launch-actions">
+            <span className="portal-status-pill is-ok">OPEN</span>
+            <button
+              type="button"
+              className="portal-tile-settings-button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenSettings();
+              }}
+            >
+              <SettingsIcon size={15} />
+              Settings
+            </button>
+          </span>
+        </article>
 
         <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
           <span className="portal-launch-icon">
@@ -4883,55 +4917,10 @@ export default function App() {
     </header>
   );
 
-  const portalActions = (
-    <div className="portal-corner-actions" aria-label="Portal account actions">
-      {isAdmin && portalView !== "home" ? (
-        <button className="header-action" type="button" onClick={() => setPortalView("home")}>
-          <ArrowLeft size={15} />
-          Home
-        </button>
-      ) : null}
-      {isAdmin && portalView !== "experiment" ? (
-        <button className="header-action" type="button" onClick={() => setPortalView("experiment")}>
-          <Activity size={15} />
-          Experiment
-        </button>
-      ) : null}
-      {isAdmin && portalView !== "health" ? (
-        <button className="header-action" type="button" onClick={() => setPortalView("health")}>
-          <Server size={15} />
-          Health
-        </button>
-      ) : null}
-      {isAdmin && portalView !== "support" ? (
-        <button className="header-action" type="button" onClick={() => setPortalView("support")}>
-          <Mail size={15} />
-          Support
-        </button>
-      ) : null}
-      {isAdmin ? (
-        <button
-          className="header-action"
-          type="button"
-          aria-label="Portal settings"
-          title="Settings"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <SettingsIcon size={15} />
-          Settings
-        </button>
-      ) : null}
-      <button className="header-action icon-only" type="button" aria-label="Sign out" title="Sign out" onClick={signOut}>
-        <LogOut size={17} />
-      </button>
-    </div>
-  );
-
   if (accessLoading && !portalAccess) {
     return (
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
-        {portalActions}
         <section className="portal-loading-screen">
           <Loader2 className="chart-loading-spinner" size={32} aria-hidden="true" />
         </section>
@@ -4943,7 +4932,6 @@ export default function App() {
     return (
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
-        {portalActions}
         <PortalAdminHome
           data={data}
           healthSnapshot={healthSnapshot}
@@ -4953,6 +4941,27 @@ export default function App() {
           onOpenExperiment={() => setPortalView("experiment")}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        <PortalSettingsPanel
+          open={settingsOpen}
+          activeSection={settingsSection}
+          data={data}
+          pairings={sortedPairings}
+          visiblePotCount={visiblePotCount}
+          csvDownload={csvDownload}
+          exportingCsv={exportingCsv}
+          controlBusy={controlBusy}
+          controlNotice={controlNotice}
+          controlError={controlError}
+          recentCommands={recentCommands}
+          onClose={() => setSettingsOpen(false)}
+          onSectionChange={setSettingsSection}
+          onPrepareCsvDownload={prepareCsvDownload}
+          onDownloadPairingsCsv={downloadPairingsCsv}
+          onRefreshCommands={loadRecentCommands}
+          onQueueCommand={queueControlCommand}
+          onSignOut={signOut}
         />
       </main>
     );
@@ -4962,7 +4971,6 @@ export default function App() {
     return (
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
-        {portalActions}
         <SystemHealthView
           snapshot={healthSnapshot}
           loading={healthLoading}
@@ -4977,7 +4985,6 @@ export default function App() {
     return (
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
-        {portalActions}
         <SalesSupportView
           data={salesSupportData}
           loading={salesSupportLoading}
@@ -4991,7 +4998,6 @@ export default function App() {
   return (
     <main className="dashboard-shell">
       {portalHeader}
-      {portalActions}
 
       {isAdmin ? (
         <PortalSettingsPanel
@@ -5012,6 +5018,7 @@ export default function App() {
           onDownloadPairingsCsv={downloadPairingsCsv}
           onRefreshCommands={loadRecentCommands}
           onQueueCommand={queueControlCommand}
+          onSignOut={signOut}
         />
       ) : null}
 
