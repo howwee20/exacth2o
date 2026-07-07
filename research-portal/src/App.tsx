@@ -384,7 +384,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-support-detail-fix";
+const portalVersion = "20260707-support-detail-clean";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2848,12 +2848,6 @@ function SalesSupportView({
         { label: "Updated", value: formatSettingsTimestamp(quote.updated_at) },
         { label: "Status", value: supportStatusLabel(quote.status ?? "new") },
         { label: "Priority", value: supportStatusLabel(quote.priority ?? "normal") },
-        { label: "Notify email", value: supportDetailValue(quote.notification_email) },
-        { label: "Notify status", value: supportStatusLabel(quote.notification_status ?? "pending") },
-        { label: "Notify error", value: supportDetailValue(quote.notification_error) },
-        { label: "Source URL", value: supportDetailValue(quote.source_url) },
-        { label: "Referrer", value: supportDetailValue(quote.referrer) },
-        { label: "Request ID", value: quote.id },
       ],
     });
   }
@@ -2877,7 +2871,6 @@ function SalesSupportView({
         { label: "Priority", value: supportStatusLabel(thread.priority) },
         { label: "Created", value: formatSettingsTimestamp(thread.created_at) },
         { label: "Last message", value: formatSettingsTimestamp(thread.last_message_at) },
-        { label: "Source URL", value: supportMetadataText(thread.metadata, "source_url") },
         { label: "Last from", value: supportDetailValue(thread.last_message_from_email ?? message?.from_email) },
         { label: "Message subject", value: supportDetailValue(message?.subject ?? thread.last_message_subject) },
         { label: "Thread ID", value: thread.id },
