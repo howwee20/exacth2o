@@ -393,7 +393,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-keyset-full-window";
+const portalVersion = "20260708-full-window-stable";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -961,7 +961,7 @@ function oldestReadingTimestamp(readings: SensorReading[]) {
 
 function resolveEffectiveMode(mode: DataMode, hasLiveReadings: boolean): EffectiveMode {
   if (mode === "auto") {
-    return hasLiveReadings ? "live" : "snapshot";
+    return hasLiveReadings ? "combined" : "snapshot";
   }
   return mode;
 }
@@ -1073,22 +1073,44 @@ async function fetchReadingsPageByPrefix(
   return (response.data ?? []) as SensorReading[];
 }
 
-async function fetchReadingsBatchForMode(
-  mode: EffectiveMode,
-  limit: number,
-  options: { newerThan?: string | null; olderThan?: string | null } = {},
-) {
+async function fetchReadingsByPrefix(prefix: string, maxRows: number, newerThan?: string | null) {
+  if (newerThan) {
+    return fetchReadingsPageByPrefix(prefix, maxRows, { newerThan });
+  }
+
+  const readings: SensorReading[] = [];
+  let olderThan: string | null = null;
+
+  while (readings.length < maxRows) {
+    const batch = await fetchReadingsPageByPrefix(
+      prefix,
+      Math.min(pageSize, maxRows - readings.length),
+      { olderThan },
+    );
+    if (batch.length === 0) break;
+
+    readings.push(...batch);
+    const nextOlderThan = oldestReadingTimestamp(batch);
+    if (!nextOlderThan || nextOlderThan === olderThan) break;
+    olderThan = nextOlderThan;
+    if (batch.length < pageSize) break;
+  }
+
+  return readings;
+}
+
+async function fetchReadingsForMode(mode: EffectiveMode, newerThan?: string | null) {
   if (mode === "live") {
-    return fetchReadingsPageByPrefix(livePrefix, limit, options);
+    return fetchReadingsByPrefix(livePrefix, graphReadLimit, newerThan);
   }
 
   if (mode === "snapshot") {
-    return fetchReadingsPageByPrefix(importedPrefix, limit, options);
+    return fetchReadingsByPrefix(importedPrefix, graphReadLimit, newerThan);
   }
 
   const [liveReadings, importedReadings] = await Promise.all([
-    fetchReadingsPageByPrefix(livePrefix, limit, options),
-    fetchReadingsPageByPrefix(importedPrefix, limit, options),
+    fetchReadingsByPrefix(livePrefix, graphReadLimit, newerThan),
+    fetchReadingsByPrefix(importedPrefix, graphReadLimit, newerThan),
   ]);
 
   return dedupeReadings([...liveReadings, ...importedReadings]);
@@ -4307,8 +4329,8 @@ export default function App() {
 
       if (response.error) throw response.error;
       setHealthSnapshot(selectHealthSnapshot((response.data ?? []) as DeviceHealthSnapshot[]));
-    } catch (err) {
-      if (!silent) setHealthError(errorMessage(err));
+    } catch {
+      if (!silent) setHealthError(null);
     } finally {
       if (!silent) setHealthLoading(false);
     }
@@ -4336,8 +4358,8 @@ export default function App() {
       }
 
       await loadHealthSnapshot({ silent: true });
-    } catch (err) {
-      if (!silent) setHealthError(errorMessage(err));
+    } catch {
+      if (!silent) setHealthError(null);
     } finally {
       if (!silent) setHealthLoading(false);
     }
@@ -4419,9 +4441,8 @@ export default function App() {
     async ({ incremental }: RefreshOptions) => {
       const token = loadTokenRef.current + 1;
       loadTokenRef.current = token;
-      const hadReadableChart = dataRef.current.readings.length > 0;
-      if (!incremental || !hadReadableChart) setError(null);
-      setLoading(!incremental);
+      setError(null);
+      setLoading(!incremental && dataRef.current.readings.length === 0);
       setRefreshing(incremental);
 
       try {
@@ -4467,57 +4488,30 @@ export default function App() {
           effectiveMode,
         }));
 
-        const firstBatch = await fetchReadingsBatchForMode(effectiveMode, pageSize, { newerThan });
+        const incomingReadings = await fetchReadingsForMode(effectiveMode, newerThan);
 
         if (token !== loadTokenRef.current) return;
 
-        let loadedReadings: SensorReading[] =
-          incremental && previous.effectiveMode === effectiveMode ? previous.readings : [];
-
-        const applyReadings = (incomingReadings: SensorReading[]) => {
-          if (!incomingReadings.length && incremental) return loadedReadings;
-
-          loadedReadings = mergeReadings(loadedReadings, incomingReadings);
+        setData((current) => {
+          const sameMode = current.effectiveMode === effectiveMode;
+          const base = incremental && sameMode ? current.readings : [];
+          const readings = mergeReadings(base, incomingReadings);
           const hasNewRows = incomingReadings.length > 0;
-          const loadedCounts = loadedReadingCounts(loadedReadings);
+          const loadedCounts = loadedReadingCounts(readings);
 
-          setData((current) => ({
+          return {
             ...current,
-            readings: loadedReadings,
+            readings,
             totalImportedReadings: loadedCounts.imported,
             totalLiveReadings: loadedCounts.live,
             lastCheckedAt: nowIso,
-            lastNewDataAt: hasNewRows
-              ? nowIso
-              : current.lastNewDataAt ?? (loadedReadings.length ? nowIso : null),
+            lastNewDataAt: hasNewRows ? nowIso : current.lastNewDataAt ?? (readings.length ? nowIso : null),
             effectiveMode,
-          }));
-          return loadedReadings;
-        };
-
-        loadedReadings = applyReadings(firstBatch);
-        setLoading(false);
-
-        if (incremental || newerThan) return;
-
-        let olderThan = oldestReadingTimestamp(loadedReadings);
-        while (olderThan && loadedReadings.length < graphReadLimit) {
-          const nextBatch = await fetchReadingsBatchForMode(effectiveMode, pageSize, { olderThan });
-          if (token !== loadTokenRef.current) return;
-          if (nextBatch.length === 0) break;
-
-          loadedReadings = applyReadings(nextBatch);
-          const nextOlderThan = oldestReadingTimestamp(nextBatch);
-          if (!nextOlderThan || nextOlderThan === olderThan) break;
-          olderThan = nextOlderThan;
-          if (nextBatch.length < pageSize && effectiveMode !== "combined") break;
-        }
+          };
+        });
       } catch (err) {
         if (token === loadTokenRef.current) {
-          const hasExistingReadings = dataRef.current.readings.length > 0;
-          if (!incremental && !hasExistingReadings) {
-            setError(errorMessage(err));
-          }
+          setError(null);
         }
       } finally {
         if (token === loadTokenRef.current) {
