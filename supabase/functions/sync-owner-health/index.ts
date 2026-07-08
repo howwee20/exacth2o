@@ -2,8 +2,14 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
+const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 const ownerHealthBaseUrl = `https://${mattDeviceId}.balena-devices.com/owner-health`;
+const ignoredDiagnosticPairingNames = new Set(["cwd-lowercaset", "720-1539"]);
+const ignoredDiagnosticSensorKeys = new Set(["t", "d30gqn2d:t"]);
+const ignoredDiagnosticValveKeys = new Set(["1539", "0x20:3", "d30gqn2d:0x20:3"]);
+const ignoredDiagnosticSensorIds = new Set([720]);
+const ignoredDiagnosticValveIds = new Set([1539]);
 
 const allowedOrigins = new Set([
   "https://exacth2o.com",
@@ -27,12 +33,19 @@ type FetchResult = {
 
 type ValveEventInsert = {
   event_id: string;
+  source_valve_id: number | null;
   pairing_name: string;
   valve_key: string;
   action: "open" | "close";
   duration_ms: number | null;
   device_recorded_at: string;
   server_received_at: string;
+};
+
+type ValveEventWriteRow = ValveEventInsert & {
+  organization_id: string;
+  project_id: string;
+  device_id: string;
 };
 
 function corsHeaders(origin: string | null) {
@@ -174,6 +187,72 @@ function asRecord(value: unknown) {
     : {};
 }
 
+function normalizedDiagnosticText(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function isIgnoredDiagnosticPairingName(value: unknown) {
+  return ignoredDiagnosticPairingNames.has(normalizedDiagnosticText(value));
+}
+
+function isIgnoredDiagnosticSensorKey(value: unknown) {
+  return ignoredDiagnosticSensorKeys.has(normalizedDiagnosticText(value));
+}
+
+function isIgnoredDiagnosticValveKey(value: unknown) {
+  return ignoredDiagnosticValveKeys.has(normalizedDiagnosticText(value));
+}
+
+function isIgnoredDiagnosticNumber(value: unknown, ignored: Set<number>) {
+  if (typeof value === "number") return ignored.has(value);
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+    return ignored.has(Number(value));
+  }
+  return false;
+}
+
+function diagnosticIssueText(value: unknown) {
+  if (typeof value === "string") return value.toLowerCase();
+  try {
+    return JSON.stringify(value).toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isIgnoredDiagnosticIssue(value: unknown) {
+  const text = diagnosticIssueText(value);
+  return [
+    "cwd-lowercaset",
+    "720-1539",
+    "sensor data: 720-1539",
+    "d30gqn2d",
+    "0x20:3",
+  ].some((needle) => text.includes(needle));
+}
+
+function isIgnoredDiagnosticSensorItem(value: unknown) {
+  const record = asRecord(value);
+  return (
+    isIgnoredDiagnosticSensorKey(value) ||
+    isIgnoredDiagnosticPairingName(value) ||
+    isIgnoredDiagnosticSensorKey(firstString(record, ["sensor", "sensor_key", "sensorKey", "address", "id", "name"])) ||
+    isIgnoredDiagnosticPairingName(firstString(record, ["pairing", "pairing_name", "pairingName", "name"])) ||
+    isIgnoredDiagnosticNumber(record.source_sensor_id, ignoredDiagnosticSensorIds) ||
+    isIgnoredDiagnosticNumber(record.sourceSensorId, ignoredDiagnosticSensorIds) ||
+    isIgnoredDiagnosticNumber(record.sensor_id, ignoredDiagnosticSensorIds) ||
+    isIgnoredDiagnosticNumber(record.sensorId, ignoredDiagnosticSensorIds)
+  );
+}
+
+function filterIgnoredDiagnosticItems(values: unknown[]) {
+  return values.filter((value) => !isIgnoredDiagnosticSensorItem(value) && !isIgnoredDiagnosticIssue(value));
+}
+
+function adjustedHealthCount(value: number | null, removedCount: number) {
+  return value == null ? null : Math.max(0, value - removedCount);
+}
+
 function nestedRecord(value: unknown, key: string) {
   return asRecord(asRecord(value)[key]);
 }
@@ -182,6 +261,14 @@ function firstString(record: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = asString(record[key]);
     if (value) return value;
+  }
+  return null;
+}
+
+function firstInteger(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = asInteger(record[key]);
+    if (value != null) return value;
   }
   return null;
 }
@@ -207,6 +294,7 @@ function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert |
 
   const pairingName = firstString(record, ["pairing", "pairing_name", "pairingName", "name"]);
   const valveKey = firstString(record, ["valve", "valve_key", "valveKey", "valve_id", "valveId"]);
+  const sourceValveId = firstInteger(record, ["source_valve_id", "sourceValveId", "sourceValveID"]);
   const action = eventAction(record);
   const duration = asInteger(record.valveOpenTimeMs) ??
     asInteger(record.valve_open_time_ms) ??
@@ -224,6 +312,7 @@ function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert |
 
   return {
     event_id: eventId,
+    source_valve_id: sourceValveId,
     pairing_name: pairingName ?? valveKey ?? "unknown",
     valve_key: valveKey ?? pairingName ?? "unknown",
     action,
@@ -233,9 +322,139 @@ function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert |
   };
 }
 
+function nestedFirstString(value: unknown, path: string[]) {
+  let current: unknown = value;
+  for (const key of path) {
+    current = asRecord(current)[key];
+  }
+  return asString(current);
+}
+
+function nestedFirstInteger(value: unknown, path: string[]) {
+  let current: unknown = value;
+  for (const key of path) {
+    current = asRecord(current)[key];
+  }
+  return asInteger(current);
+}
+
+function scalarWateringEvent(
+  value: unknown,
+  nowIso: string,
+): ValveEventInsert | null {
+  const record = asRecord(value);
+  const deviceRecordedAt = asTimestamp(
+    firstString(record, [
+      "watering_last_event_at",
+      "wateringLastEventAt",
+      "watering_last_at",
+      "wateringLastAt",
+      "last_watering_event_at",
+      "lastWateringEventAt",
+      "last_event_at",
+      "lastEventAt",
+    ]) ??
+      nestedFirstString(record, ["watering", "last_event_at"]) ??
+      nestedFirstString(record, ["watering", "lastEventAt"]) ??
+      nestedFirstString(record, ["watering", "lastAt"]) ??
+      nestedFirstString(record, ["lastEvent", "t"]),
+  );
+  if (!deviceRecordedAt) return null;
+
+  const pairingName =
+    firstString(record, [
+      "watering_last_event",
+      "wateringLastEvent",
+      "last_watering_event",
+      "lastWateringEvent",
+      "wateringLastPairing",
+      "watering_last_pairing",
+    ]) ??
+    nestedFirstString(record, ["watering", "last_event"]) ??
+    nestedFirstString(record, ["watering", "lastEvent"]) ??
+    nestedFirstString(record, ["lastEvent", "pairing"]) ??
+    nestedFirstString(record, ["lastEvent", "pairId"]) ??
+    "unknown";
+  const duration =
+    firstInteger(record, ["watering_last_duration_ms", "wateringLastDurationMs"]) ??
+    nestedFirstInteger(record, ["watering", "last_duration_ms"]) ??
+    nestedFirstInteger(record, ["watering", "lastDurationMs"]);
+  return {
+    event_id: [
+      "owner-health-scalar",
+      deviceRecordedAt,
+      pairingName,
+    ].join(":"),
+    source_valve_id: null,
+    pairing_name: pairingName,
+    valve_key: pairingName,
+    action: "open",
+    duration_ms: duration,
+    device_recorded_at: deviceRecordedAt,
+    server_received_at: nowIso,
+  };
+}
+
+function collectNestedScalarWateringEvents(
+  value: unknown,
+  nowIso: string,
+): ValveEventInsert[] {
+  const directEvent = scalarWateringEvent(value, nowIso);
+
+  if (Array.isArray(value)) {
+    return [
+      ...(directEvent ? [directEvent] : []),
+      ...value.flatMap((item) => collectNestedScalarWateringEvents(item, nowIso)),
+    ];
+  }
+
+  const record = asRecord(value);
+  if (!Object.keys(record).length) return directEvent ? [directEvent] : [];
+
+  return [
+    ...(directEvent ? [directEvent] : []),
+    ...Object.values(record).flatMap((child) => collectNestedScalarWateringEvents(child, nowIso)),
+  ];
+}
+
+function pathHintsValveEvents(path: string[]) {
+  const text = path.join(".").toLowerCase();
+  return (
+    text.includes("watering") ||
+    text.includes("valve") ||
+    text.includes("irrigation")
+  ) && text.includes("event");
+}
+
+function collectNestedValveEventCandidates(
+  value: unknown,
+  nowIso: string,
+  path: string[] = [],
+): ValveEventInsert[] {
+  if (Array.isArray(value)) {
+    const directEvents = pathHintsValveEvents(path)
+      ? value
+          .map((event) => normalizeValveEvent(event, nowIso))
+          .filter((event): event is ValveEventInsert => event != null)
+      : [];
+    const nestedEvents = value.flatMap((item, index) =>
+      collectNestedValveEventCandidates(item, nowIso, [...path, String(index)])
+    );
+    return [...directEvents, ...nestedEvents];
+  }
+
+  const record = asRecord(value);
+  if (!Object.keys(record).length) return [];
+  const directEvent = pathHintsValveEvents(path) ? normalizeValveEvent(value, nowIso) : null;
+  return Object.entries(record).flatMap(([key, child]) =>
+    collectNestedValveEventCandidates(child, nowIso, [...path, key])
+  ).concat(directEvent ? [directEvent] : []);
+}
+
 function collectValveEvents(
   status: Record<string, unknown>,
   health: Record<string, unknown>,
+  history: Record<string, unknown>,
   nowIso: string,
 ) {
   const sources = [
@@ -244,13 +463,17 @@ function collectValveEvents(
     nestedRecord(status, "watering").events,
     nestedRecord(nestedRecord(health, "api"), "valves").events,
   ];
-  const events = sources
+  const directEvents = sources
     .flatMap((source) => Array.isArray(source) ? source : [])
     .map((event) => normalizeValveEvent(event, nowIso))
     .filter((event): event is ValveEventInsert => event != null);
+  const scalarEvents = collectNestedScalarWateringEvents({ status, health, history }, nowIso);
+  const nestedEvents = collectNestedValveEventCandidates(history, nowIso, ["history"]);
+  const events = [...directEvents, ...scalarEvents, ...nestedEvents];
 
   const deduped = new Map<string, ValveEventInsert>();
   for (const event of events) {
+    if (isIgnoredDiagnosticValveEvent(event)) continue;
     if (!deduped.has(event.event_id)) {
       deduped.set(event.event_id, event);
     }
@@ -258,37 +481,185 @@ function collectValveEvents(
   return [...deduped.values()];
 }
 
+function isIgnoredDiagnosticValveEvent(event: ValveEventInsert) {
+  return (
+    isIgnoredDiagnosticPairingName(event.pairing_name) ||
+    isIgnoredDiagnosticValveKey(event.valve_key) ||
+    isIgnoredDiagnosticNumber(event.source_valve_id, ignoredDiagnosticValveIds)
+  );
+}
+
+function valveEventWriteRow(event: ValveEventInsert): ValveEventWriteRow {
+  return {
+    ...event,
+    organization_id: mattOrganizationId,
+    project_id: mattProjectId,
+    device_id: mattDeviceId,
+  };
+}
+
+function compactError(error: unknown) {
+  try {
+    return JSON.stringify(error, (_key, value) => {
+      if (typeof value === "string" && value.length > 500) {
+        return `${value.slice(0, 500)}...`;
+      }
+      return value;
+    });
+  } catch {
+    return null;
+  }
+}
+
+function compactValveEvent(row: ValveEventWriteRow) {
+  return {
+    event_id: row.event_id,
+    source_valve_id: row.source_valve_id,
+    pairing_name: row.pairing_name,
+    valve_key: row.valve_key,
+    action: row.action,
+    duration_ms: row.duration_ms,
+    device_recorded_at: row.device_recorded_at,
+  };
+}
+
+async function insertValveEventRows(
+  admin: ReturnType<typeof createClient>,
+  rows: ValveEventWriteRow[],
+) {
+  let inserted = 0;
+  let fallbackRows = 0;
+  const batchSize = 50;
+
+  for (let index = 0; index < rows.length; index += batchSize) {
+    const batch = rows.slice(index, index + batchSize);
+    const { error: batchError } = await admin
+      .from("valve_events")
+      .insert(batch);
+
+    if (!batchError) {
+      inserted += batch.length;
+      continue;
+    }
+
+    for (const row of batch) {
+      const { error: rowError } = await admin
+        .from("valve_events")
+        .upsert(row, { onConflict: "event_id", ignoreDuplicates: true });
+
+      if (rowError) {
+        return {
+          inserted,
+          fallbackRows,
+          error: rowError.message,
+          code: rowError.code ?? null,
+          details: rowError.details ?? null,
+          hint: rowError.hint ?? null,
+          raw: compactError(rowError),
+          rejected: compactValveEvent(row),
+        };
+      }
+
+      inserted += 1;
+      fallbackRows += 1;
+    }
+  }
+
+  return {
+    inserted,
+    fallbackRows,
+    error: null as string | null,
+    code: null as string | null,
+    details: null as string | null,
+    hint: null as string | null,
+    raw: null as string | null,
+    rejected: null as ReturnType<typeof compactValveEvent> | null,
+  };
+}
+
+async function selectExistingValveEventIds(
+  admin: ReturnType<typeof createClient>,
+  eventIds: string[],
+) {
+  const existingIds = new Set<string>();
+  const batchSize = 50;
+
+  for (let index = 0; index < eventIds.length; index += batchSize) {
+    const batch = eventIds.slice(index, index + batchSize);
+    const { data: existing, error } = await admin
+      .from("valve_events")
+      .select("event_id")
+      .in("event_id", batch);
+
+    if (error) {
+      return {
+        existingIds,
+        error,
+      };
+    }
+
+    for (const row of existing ?? []) {
+      const eventId = asString((row as { event_id?: unknown }).event_id);
+      if (eventId) existingIds.add(eventId);
+    }
+  }
+
+  return {
+    existingIds,
+    error: null,
+  };
+}
+
 async function insertMissingValveEvents(
   admin: ReturnType<typeof createClient>,
   events: ValveEventInsert[],
 ) {
-  if (!events.length) return { inserted: 0, error: null as string | null };
-
-  const eventIds = events.map((event) => event.event_id);
-  const { data: existing, error: selectError } = await admin
-    .from("valve_events")
-    .select("event_id")
-    .in("event_id", eventIds);
-
-  if (selectError) {
-    return { inserted: 0, error: selectError.message };
+  if (!events.length) {
+    return {
+      inserted: 0,
+      error: null as string | null,
+      code: null as string | null,
+      details: null as string | null,
+      hint: null as string | null,
+      raw: null as string | null,
+      rejected: null as ReturnType<typeof compactValveEvent> | null,
+      fallbackRows: 0,
+    };
   }
 
-  const existingIds = new Set((existing ?? [])
-    .map((row: { event_id?: unknown }) => asString(row.event_id))
-    .filter((eventId): eventId is string => eventId != null));
-  const missingEvents = events.filter((event) => !existingIds.has(event.event_id));
+  const eventIds = events.map((event) => event.event_id);
+  const existingResult = await selectExistingValveEventIds(admin, eventIds);
+  const selectError = existingResult.error;
 
-  if (!missingEvents.length) return { inserted: 0, error: null };
+  if (selectError) {
+    return {
+      inserted: 0,
+      error: selectError.message,
+      code: selectError.code ?? null,
+      details: selectError.details ?? null,
+      hint: selectError.hint ?? null,
+      raw: compactError(selectError),
+      rejected: null,
+      fallbackRows: 0,
+    };
+  }
 
-  const { error: insertError } = await admin
-    .from("valve_events")
-    .insert(missingEvents);
+  const missingEvents = events.filter((event) => !existingResult.existingIds.has(event.event_id));
 
-  return {
-    inserted: insertError ? 0 : missingEvents.length,
-    error: insertError?.message ?? null,
-  };
+  if (!missingEvents.length) {
+    return {
+      inserted: 0,
+      error: null,
+      code: null,
+      details: null,
+      hint: null,
+      raw: null,
+      rejected: null,
+      fallbackRows: 0,
+    };
+  }
+
+  return insertValveEventRows(admin, missingEvents.map(valveEventWriteRow));
 }
 
 serve(async (request) => {
@@ -337,8 +708,23 @@ serve(async (request) => {
   const status = statusResponse.ok ? statusResponse.data : {};
   const history = historyResponse.ok ? historyResponse.data : {};
   const historyRecords = Array.isArray(history.records) ? history.records : [];
+  const rawMissingSensors = asArray(status.missing_sensors);
+  const rawStaleSensors = asArray(status.stale_sensors);
+  const missingSensors = filterIgnoredDiagnosticItems(rawMissingSensors);
+  const staleSensors = filterIgnoredDiagnosticItems(rawStaleSensors);
+  const ignoredMissingCount = rawMissingSensors.length - missingSensors.length;
+  const ignoredStaleCount = rawStaleSensors.length - staleSensors.length;
+  const ignoredSensorCount = new Set([
+    ...rawMissingSensors.filter(isIgnoredDiagnosticSensorItem).map(diagnosticIssueText),
+    ...rawStaleSensors.filter(isIgnoredDiagnosticSensorItem).map(diagnosticIssueText),
+  ]).size;
   const nowIso = new Date().toISOString();
-  const valveEvents = collectValveEvents(status, healthResponse.ok ? healthResponse.data : {}, nowIso);
+  const valveEvents = collectValveEvents(
+    status,
+    healthResponse.ok ? healthResponse.data : {},
+    history,
+    nowIso,
+  );
 
   const snapshot = {
     project_id: mattProjectId,
@@ -362,19 +748,19 @@ serve(async (request) => {
     undervoltage: asBoolean(status.undervoltage),
     cpu_temp_c: asNumber(status.cpu_temp_c),
     uptime_seconds: asNumber(status.uptime_seconds),
-    sensors_expected: asInteger(status.sensors_expected),
+    sensors_expected: adjustedHealthCount(asInteger(status.sensors_expected), ignoredSensorCount),
     sensors_current: asInteger(status.sensors_current),
-    sensors_stale: asInteger(status.sensors_stale),
-    sensors_missing: asInteger(status.sensors_missing),
-    missing_sensors: asArray(status.missing_sensors),
-    stale_sensors: asArray(status.stale_sensors),
+    sensors_stale: adjustedHealthCount(asInteger(status.sensors_stale), ignoredStaleCount),
+    sensors_missing: adjustedHealthCount(asInteger(status.sensors_missing), ignoredMissingCount),
+    missing_sensors: missingSensors,
+    stale_sensors: staleSensors,
     last_sensor_reading_at: asTimestamp(status.last_sensor_reading_at),
     watering_last_event: asString(status.watering_last_event),
     watering_last_event_at: asTimestamp(status.watering_last_event_at),
     watering_events_last_24h: asInteger(status.watering_events_last_24h),
     scheduler_jobs_loaded: asInteger(status.scheduler_jobs_loaded),
-    active_alerts: asArray(status.active_alerts),
-    known_issues: asArray(status.known_issues),
+    active_alerts: asArray(status.active_alerts).filter((issue) => !isIgnoredDiagnosticIssue(issue)),
+    known_issues: asArray(status.known_issues).filter((issue) => !isIgnoredDiagnosticIssue(issue)),
     raw_status: statusResponse.data,
     raw_health: healthResponse.data,
     raw_history: historyResponse.data,
@@ -402,6 +788,12 @@ serve(async (request) => {
       found: valveEvents.length,
       inserted: valveEventWrite.inserted,
       error: valveEventWrite.error,
+      code: valveEventWrite.code,
+      details: valveEventWrite.details,
+      hint: valveEventWrite.hint,
+      fallbackRows: valveEventWrite.fallbackRows,
+      rejected: valveEventWrite.rejected,
+      raw: valveEventWrite.raw,
     },
     source: {
       statusEndpointOk: statusResponse.ok,

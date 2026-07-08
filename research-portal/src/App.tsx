@@ -67,6 +67,11 @@ const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
 const controlPots = new Set([41, 43, 45, 47, 49, 91, 93, 95, 97, 99]);
 const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
+const ignoredDiagnosticPairingNames = new Set(["cwd-lowercaset", "720-1539"]);
+const ignoredDiagnosticSensorKeys = new Set(["t", "d30gqn2d:t"]);
+const ignoredDiagnosticValveKeys = new Set(["1539", "0x20:3", "d30gqn2d:0x20:3"]);
+const ignoredDiagnosticSensorIds = new Set([720]);
+const ignoredDiagnosticValveIds = new Set([1539]);
 
 const zone2Palette = [
   "#2563eb",
@@ -393,7 +398,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-realtime-latest";
+const portalVersion = "20260708-watering-events-history";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -509,6 +514,67 @@ function orderedPairings(pairings: PairingRow[]) {
     if (a.pot_number !== b.pot_number) return a.pot_number - b.pot_number;
     return a.name.localeCompare(b.name);
   });
+}
+
+function normalizedDiagnosticText(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function isIgnoredDiagnosticPairingName(value: unknown) {
+  return ignoredDiagnosticPairingNames.has(normalizedDiagnosticText(value));
+}
+
+function isIgnoredDiagnosticSensorKey(value: unknown) {
+  return ignoredDiagnosticSensorKeys.has(normalizedDiagnosticText(value));
+}
+
+function isIgnoredDiagnosticValveKey(value: unknown) {
+  return ignoredDiagnosticValveKeys.has(normalizedDiagnosticText(value));
+}
+
+function isIgnoredDiagnosticNumber(value: unknown, ignored: Set<number>) {
+  if (typeof value === "number") return ignored.has(value);
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+    return ignored.has(Number(value));
+  }
+  return false;
+}
+
+function isIgnoredDiagnosticPairing(pairing: Partial<PairingRow>) {
+  return (
+    isIgnoredDiagnosticPairingName(pairing.name) ||
+    isIgnoredDiagnosticSensorKey(pairing.sensor_key) ||
+    isIgnoredDiagnosticValveKey(pairing.valve_key) ||
+    isIgnoredDiagnosticNumber(pairing.source_sensor_id, ignoredDiagnosticSensorIds) ||
+    isIgnoredDiagnosticNumber(pairing.source_valve_id, ignoredDiagnosticValveIds)
+  );
+}
+
+function visibleExperimentPairings(pairings: PairingRow[]) {
+  return pairings.filter((pairing) => !isIgnoredDiagnosticPairing(pairing));
+}
+
+function isIgnoredDiagnosticReading(reading: Partial<SensorReading>) {
+  return (
+    isIgnoredDiagnosticPairingName(reading.pairing_name) ||
+    isIgnoredDiagnosticSensorKey(reading.sensor_key)
+  );
+}
+
+function isIgnoredDiagnosticValveEvent(event: {
+  pairing_name?: unknown;
+  pairing?: unknown;
+  valve_key?: unknown;
+  valve?: unknown;
+  source_valve_id?: unknown;
+}) {
+  return (
+    isIgnoredDiagnosticPairingName(event.pairing_name) ||
+    isIgnoredDiagnosticPairingName(event.pairing) ||
+    isIgnoredDiagnosticValveKey(event.valve_key) ||
+    isIgnoredDiagnosticValveKey(event.valve) ||
+    isIgnoredDiagnosticNumber(event.source_valve_id, ignoredDiagnosticValveIds)
+  );
 }
 
 function colorForPairing(pairing: PairingRow) {
@@ -994,6 +1060,7 @@ async function functionErrorMessage(error: unknown) {
 function dedupeReadings(readings: SensorReading[]) {
   const byKey = new Map<string, SensorReading>();
   for (const reading of readings) {
+    if (isIgnoredDiagnosticReading(reading)) continue;
     byKey.set(reading.event_id || String(reading.id), reading);
   }
 
@@ -1070,7 +1137,7 @@ async function fetchReadingsPageByPrefix(
 
   const response = await query;
   if (response.error) throw response.error;
-  return (response.data ?? []) as SensorReading[];
+  return ((response.data ?? []) as SensorReading[]).filter((reading) => !isIgnoredDiagnosticReading(reading));
 }
 
 async function fetchReadingsByPrefix(
@@ -3358,7 +3425,21 @@ function healthWateringEvents(snapshot: DeviceHealthSnapshot | null): HealthWate
   const events = sources.flatMap((source) => Array.isArray(source) ? source : []);
   return dedupeWateringEvents(events
     .map(normalizeHealthWateringEvent)
-    .filter((event): event is HealthWateringEvent => event != null));
+    .filter((event): event is HealthWateringEvent => event != null)
+    .filter((event) => !isIgnoredDiagnosticValveEvent(event)));
+}
+
+function snapshotLatestWateringEvent(snapshot: DeviceHealthSnapshot | null): HealthWateringEvent | null {
+  const timestamp = healthString(snapshot?.watering_last_event_at);
+  if (!timestamp || healthTimestampMs(timestamp) == null) return null;
+  const pairing = healthString(snapshot?.watering_last_event) ?? "Latest fire";
+  if (isIgnoredDiagnosticPairingName(pairing)) return null;
+  return {
+    id: `owner-health-latest:${timestamp}:${pairing}`,
+    t: timestamp,
+    pairing,
+    valveOpenTimeMs: undefined,
+  };
 }
 
 function pairingLabel(pairing: PairingRow) {
@@ -3371,6 +3452,7 @@ function valveEventsToHealthWateringEvents(events: ValveEvent[], pairings: Pairi
 
   return dedupeWateringEvents(events
     .filter((event) => event.action === "open")
+    .filter((event) => !isIgnoredDiagnosticValveEvent(event))
     .map((event) => {
       const pairing = pairingByNameLocal.get(event.pairing_name) ?? pairingByValve.get(event.valve_key);
       return {
@@ -3831,13 +3913,14 @@ function SystemHealthView({
   onBackHome: () => void;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
-  const wateringEvents = useMemo(
-    () => dedupeWateringEvents([
+  const wateringEvents = useMemo(() => {
+    const latestSnapshotWatering = snapshotLatestWateringEvent(snapshot);
+    return dedupeWateringEvents([
       ...healthWateringEvents(snapshot),
+      ...(latestSnapshotWatering ? [latestSnapshotWatering] : []),
       ...valveEventsToHealthWateringEvents(valveEvents, pairings),
-    ]),
-    [pairings, snapshot, valveEvents],
-  );
+    ]);
+  }, [pairings, snapshot, valveEvents]);
   const records = healthHistoryRecords(snapshot);
   const evidenceRecords = healthRecentRecords(records, 8);
   const restarts = restartEvents(evidenceRecords);
@@ -4248,7 +4331,7 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [settingsOpen]);
 
-  const sortedPairings = useMemo(() => orderedPairings(data.pairings), [data.pairings]);
+  const sortedPairings = useMemo(() => orderedPairings(visibleExperimentPairings(data.pairings)), [data.pairings]);
   const pairingByName = useMemo(
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
@@ -4396,7 +4479,7 @@ export default function App() {
         .limit(500);
 
       if (response.error) throw response.error;
-      setValveEvents((response.data ?? []) as ValveEvent[]);
+      setValveEvents(((response.data ?? []) as ValveEvent[]).filter((event) => !isIgnoredDiagnosticValveEvent(event)));
     } catch {
       setValveEvents([]);
     }
@@ -4486,9 +4569,11 @@ export default function App() {
 
         if (token !== loadTokenRef.current) return;
 
+        const pairingsData = visibleExperimentPairings((pairings.data ?? []) as PairingRow[]);
+
         setData((current) => ({
           ...current,
-          pairings: pairings.data ?? [],
+          pairings: pairingsData,
           latestState: latestState.data ?? null,
           latestIngestTime,
           lastCheckedAt: nowIso,
@@ -5160,7 +5245,9 @@ export default function App() {
       }, 750);
     };
 
-    const shouldRefreshForEvent = (eventId: unknown) => {
+    const shouldRefreshForReading = (reading: Partial<SensorReading> | null | undefined) => {
+      if (!reading || isIgnoredDiagnosticReading(reading)) return false;
+      const eventId = reading.event_id;
       if (typeof eventId !== "string") return false;
       if (selectedMode === "combined" || selectedMode === "auto") return true;
       if (selectedMode === "live") return eventId.startsWith("live-device:");
@@ -5173,7 +5260,7 @@ export default function App() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "sensor_readings" },
         (payload) => {
-          if (shouldRefreshForEvent(payload.new?.event_id)) {
+          if (shouldRefreshForReading(payload.new as Partial<SensorReading>)) {
             scheduleRefresh();
           }
         },
