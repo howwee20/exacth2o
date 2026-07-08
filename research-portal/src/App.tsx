@@ -376,6 +376,10 @@ type TimeWindow = {
   end: number;
 };
 
+type RefreshOptions = {
+  incremental: boolean;
+};
+
 const defaultExpandedPanelSize: PanelSize = {
   width: 300,
   height: 430,
@@ -389,7 +393,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-safe-loaded-csv";
+const portalVersion = "20260708-progressive-data-load";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -943,9 +947,9 @@ function newestReadingTimestamp(readings: SensorReading[]) {
   return newest?.device_recorded_at ?? null;
 }
 
-function resolveEffectiveMode(mode: DataMode, totalLiveReadings: number): EffectiveMode {
+function resolveEffectiveMode(mode: DataMode, hasLiveReadings: boolean): EffectiveMode {
   if (mode === "auto") {
-    return totalLiveReadings > 0 ? "live" : "snapshot";
+    return hasLiveReadings ? "live" : "snapshot";
   }
   return mode;
 }
@@ -1033,7 +1037,12 @@ function dedupeReadingsForExport(readings: SensorReading[]) {
   );
 }
 
-async function fetchReadingsByPrefix(prefix: string, maxRows: number, newerThan?: string | null) {
+async function fetchReadingsPageByPrefix(
+  prefix: string,
+  offset: number,
+  limit: number,
+  newerThan?: string | null,
+) {
   if (newerThan) {
     const response = await supabase
       .from("sensor_readings")
@@ -1041,55 +1050,54 @@ async function fetchReadingsByPrefix(prefix: string, maxRows: number, newerThan?
       .like("event_id", prefix)
       .gt("device_recorded_at", newerThan)
       .order("device_recorded_at", { ascending: false })
-      .limit(Math.min(pageSize, maxRows));
+      .limit(Math.min(limit, pageSize));
 
     if (response.error) throw response.error;
     return (response.data ?? []) as SensorReading[];
   }
 
-  const pageCount = Math.ceil(maxRows / pageSize);
-  const responses = await Promise.all(
-    Array.from({ length: pageCount }, (_, page) =>
-      supabase
-        .from("sensor_readings")
-        .select(readingSelectColumns)
-        .like("event_id", prefix)
-        .order("device_recorded_at", { ascending: false })
-        .range(page * pageSize, Math.min(maxRows, (page + 1) * pageSize) - 1),
-    ),
-  );
+  const response = await supabase
+    .from("sensor_readings")
+    .select(readingSelectColumns)
+    .like("event_id", prefix)
+    .order("device_recorded_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
-  for (const response of responses) {
-    if (response.error) throw response.error;
-  }
-
-  return responses.flatMap((response) => response.data ?? []) as SensorReading[];
+  if (response.error) throw response.error;
+  return (response.data ?? []) as SensorReading[];
 }
 
-async function fetchReadingsForMode(mode: EffectiveMode, newerThan?: string | null) {
+async function fetchReadingsBatchForMode(
+  mode: EffectiveMode,
+  offset: number,
+  limit: number,
+  newerThan?: string | null,
+) {
   if (mode === "live") {
-    return fetchReadingsByPrefix(livePrefix, graphReadLimit, newerThan);
+    return fetchReadingsPageByPrefix(livePrefix, offset, limit, newerThan);
   }
 
   if (mode === "snapshot") {
-    return fetchReadingsByPrefix(importedPrefix, graphReadLimit, newerThan);
+    return fetchReadingsPageByPrefix(importedPrefix, offset, limit, newerThan);
   }
 
   const [liveReadings, importedReadings] = await Promise.all([
-    fetchReadingsByPrefix(livePrefix, graphReadLimit, newerThan),
-    fetchReadingsByPrefix(importedPrefix, graphReadLimit, newerThan),
+    fetchReadingsPageByPrefix(livePrefix, offset, limit, newerThan),
+    fetchReadingsPageByPrefix(importedPrefix, offset, limit, newerThan),
   ]);
 
   return dedupeReadings([...liveReadings, ...importedReadings]);
 }
 
-async function countReadings(prefix: string) {
-  const response = await supabase
-    .from("sensor_readings")
-    .select("id", { count: "exact", head: true })
-    .like("event_id", prefix);
-  if (response.error) throw response.error;
-  return response.count ?? 0;
+function loadedReadingCounts(readings: SensorReading[]) {
+  return readings.reduce(
+    (counts, reading) => {
+      if (reading.event_id.startsWith("live-device:")) counts.live += 1;
+      if (reading.event_id.startsWith("balena-export-v2:")) counts.imported += 1;
+      return counts;
+    },
+    { imported: 0, live: 0 },
+  );
 }
 
 function sourceLabelForReading(reading: SensorReading) {
@@ -2041,11 +2049,11 @@ function PortalSettingsPanel({
                   <strong>{visiblePotCount}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Live rows</span>
+                  <span>Loaded live rows</span>
                   <strong>{data.totalLiveReadings.toLocaleString()}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Snapshot rows</span>
+                  <span>Loaded snapshot rows</span>
                   <strong>{data.totalImportedReadings.toLocaleString()}</strong>
                 </div>
               </div>
@@ -4181,6 +4189,8 @@ export default function App() {
 
   const dataRef = useRef(data);
   const loadTokenRef = useRef(0);
+  const refreshInFlightRef = useRef(false);
+  const pendingRefreshRef = useRef<RefreshOptions | null>(null);
   const dashboardMainRef = useRef<HTMLElement | null>(null);
   const controlPanelRef = useRef<HTMLElement | null>(null);
   const panelDragOffsetRef = useRef<PanelPosition | null>(null);
@@ -4402,11 +4412,12 @@ export default function App() {
     }
   }, [isAdmin]);
 
-  const refresh = useCallback(
-    async ({ incremental }: { incremental: boolean }) => {
+  const runPortalRefresh = useCallback(
+    async ({ incremental }: RefreshOptions) => {
       const token = loadTokenRef.current + 1;
       loadTokenRef.current = token;
-      setError(null);
+      const hadReadableChart = dataRef.current.readings.length > 0;
+      if (!incremental || !hadReadableChart) setError(null);
       setLoading(!incremental);
       setRefreshing(incremental);
 
@@ -4414,14 +4425,10 @@ export default function App() {
         const [
           pairings,
           latestState,
-          totalImportedReadings,
-          totalLiveReadings,
           latestLiveReadings,
         ] = await Promise.all([
           supabase.from("pairings").select("*").limit(1000),
           supabase.from("latest_device_state").select("*").limit(1).maybeSingle(),
-          countReadings(importedPrefix),
-          countReadings(livePrefix),
           supabase
             .from("sensor_readings")
             .select(readingSelectColumns)
@@ -4435,11 +4442,11 @@ export default function App() {
         }
 
         const previous = dataRef.current;
-        const effectiveMode = resolveEffectiveMode(selectedMode, totalLiveReadings);
+        const latestLiveReading = latestLiveReadings.data?.[0] ?? null;
+        const effectiveMode = resolveEffectiveMode(selectedMode, latestLiveReading != null);
         const canIncrement = incremental && previous.effectiveMode === effectiveMode;
         const newerThan = canIncrement ? newestReadingTimestamp(previous.readings) : null;
         const nowIso = new Date().toISOString();
-        const latestLiveReading = latestLiveReadings.data?.[0] ?? null;
         const latestIngestTime =
           latestLiveReading?.server_received_at ??
           latestState.data?.updated_at ??
@@ -4451,35 +4458,73 @@ export default function App() {
           ...current,
           pairings: pairings.data ?? [],
           latestState: latestState.data ?? null,
-          totalImportedReadings,
-          totalLiveReadings,
           latestLiveReading,
           latestIngestTime,
           lastCheckedAt: nowIso,
           effectiveMode,
         }));
 
-        const incomingReadings = await fetchReadingsForMode(effectiveMode, newerThan);
+        const firstBatch = await fetchReadingsBatchForMode(effectiveMode, 0, pageSize, newerThan);
 
         if (token !== loadTokenRef.current) return;
 
-        setData((current) => {
-          const sameMode = current.effectiveMode === effectiveMode;
-          const base = incremental && sameMode ? current.readings : [];
-          const readings = mergeReadings(base, incomingReadings);
-          const hasNewRows = incomingReadings.length > 0;
+        const applyReadings = (incomingReadings: SensorReading[]) => {
+          if (!incomingReadings.length && incremental) return;
 
-          return {
-            ...current,
-            readings,
-            lastCheckedAt: nowIso,
-            lastNewDataAt: hasNewRows ? nowIso : current.lastNewDataAt ?? (readings.length ? nowIso : null),
-            effectiveMode,
-          };
-        });
+          setData((current) => {
+            const sameMode = current.effectiveMode === effectiveMode;
+            const base = incremental && sameMode ? current.readings : [];
+            const readings = mergeReadings(base, incomingReadings);
+            const hasNewRows = incomingReadings.length > 0;
+            const loadedCounts = loadedReadingCounts(readings);
+
+            return {
+              ...current,
+              readings,
+              totalImportedReadings: loadedCounts.imported,
+              totalLiveReadings: loadedCounts.live,
+              lastCheckedAt: nowIso,
+              lastNewDataAt: hasNewRows ? nowIso : current.lastNewDataAt ?? (readings.length ? nowIso : null),
+              effectiveMode,
+            };
+          });
+        };
+
+        applyReadings(firstBatch);
+        setLoading(false);
+
+        if (incremental || newerThan) return;
+
+        for (let offset = pageSize; offset < graphReadLimit; offset += pageSize) {
+          const nextBatch = await fetchReadingsBatchForMode(effectiveMode, offset, pageSize);
+          if (token !== loadTokenRef.current) return;
+          if (nextBatch.length === 0) break;
+
+          setData((current) => {
+            const sameMode = current.effectiveMode === effectiveMode;
+            const base = sameMode ? current.readings : [];
+            const readings = mergeReadings(base, nextBatch);
+            const loadedCounts = loadedReadingCounts(readings);
+
+            return {
+              ...current,
+              readings,
+              totalImportedReadings: loadedCounts.imported,
+              totalLiveReadings: loadedCounts.live,
+              lastCheckedAt: nowIso,
+              lastNewDataAt: current.lastNewDataAt ?? (readings.length ? nowIso : null),
+              effectiveMode,
+            };
+          });
+
+          if (nextBatch.length < pageSize && effectiveMode !== "combined") break;
+        }
       } catch (err) {
         if (token === loadTokenRef.current) {
-          setError(errorMessage(err));
+          const hasExistingReadings = dataRef.current.readings.length > 0;
+          if (!incremental && !hasExistingReadings) {
+            setError(errorMessage(err));
+          }
         }
       } finally {
         if (token === loadTokenRef.current) {
@@ -4489,6 +4534,34 @@ export default function App() {
       }
     },
     [selectedMode],
+  );
+
+  const refresh = useCallback(
+    async (options: RefreshOptions) => {
+      if (refreshInFlightRef.current) {
+        const pending = pendingRefreshRef.current;
+        pendingRefreshRef.current = {
+          incremental: pending ? pending.incremental && options.incremental : options.incremental,
+        };
+        return;
+      }
+
+      refreshInFlightRef.current = true;
+      let nextOptions: RefreshOptions | null = options;
+
+      try {
+        while (nextOptions) {
+          const currentOptions = nextOptions;
+          nextOptions = null;
+          await runPortalRefresh(currentOptions);
+          nextOptions = pendingRefreshRef.current;
+          pendingRefreshRef.current = null;
+        }
+      } finally {
+        refreshInFlightRef.current = false;
+      }
+    },
+    [runPortalRefresh],
   );
 
   const loadRecentCommands = useCallback(async () => {
