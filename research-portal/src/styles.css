@@ -702,7 +702,22 @@ select {
 }
 
 .portal-admin-main {
+  min-height: calc(100vh - 68px);
+  display: flex;
+  flex-direction: column;
   padding-top: 112px;
+}
+
+.portal-admin-bottom-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: auto;
+  padding-top: 42px;
+}
+
+.portal-admin-sign-out {
+  background: #0e1a14;
+  box-shadow: 0 14px 32px rgba(14, 26, 20, 0.12);
 }
 
 .support-back-button {

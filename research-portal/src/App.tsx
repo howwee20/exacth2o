@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  CircleAlert,
   Database,
   Download,
   FileArchive,
@@ -389,7 +388,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-remove-logs-tab";
+const portalVersion = "20260708-admin-home-sign-out";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -397,49 +396,49 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: "overview",
     label: "Overview",
-    description: "Live device and project state",
+    description: "Live state",
     group: "Live System",
     icon: Gauge,
   },
   {
     id: "pairings",
     label: "Pairings",
-    description: "Pots, sensors, valves, and targets",
+    description: "Pots and targets",
     group: "Controls",
     icon: SlidersHorizontal,
   },
   {
     id: "calibrations",
     label: "Calibrations",
-    description: "Sensor correction workspace",
+    description: "Sensor calibration",
     group: "Controls",
     icon: Activity,
   },
   {
     id: "water",
     label: "Water Control",
-    description: "Targets and manual watering",
+    description: "Watering",
     group: "Controls",
     icon: ShieldCheck,
   },
   {
     id: "groups",
     label: "Groups",
-    description: "Treatments and plant groups",
+    description: "Plant groups",
     group: "Controls",
     icon: Database,
   },
   {
     id: "hardware",
     label: "Hardware",
-    description: "Boards, sensors, and system actions",
+    description: "Boards and sensors",
     group: "Controls",
     icon: Lock,
   },
   {
     id: "exports",
     label: "Exports",
-    description: "CSV and project files",
+    description: "Files",
     group: "Data",
     icon: FileArchive,
   },
@@ -690,9 +689,9 @@ function formatDateTime(value?: string | number | null) {
 }
 
 function formatSettingsTimestamp(value?: string | number | null) {
-  if (!value) return "Not synced";
+  if (!value) return "--";
   const formatted = formatDateTime(value);
-  return formatted === "none" ? "Not synced" : formatted;
+  return formatted === "none" ? "--" : formatted;
 }
 
 function supportStatusLabel(status?: string | null) {
@@ -1707,13 +1706,13 @@ function commandPayloadSummary(command: ControlCommand) {
   }
   if (command.command_type === "update_system_state") return String(payload.state ?? "System state");
   if (command.command_type === "export_data") return String(payload.data_type ?? "Export");
-  return "Queued request";
+  return "Request";
 }
 
 function commandStatusText(command: ControlCommand) {
   if (command.error) return command.error;
-  if (command.status === "queued") return `Queued ${formatSettingsTimestamp(command.requested_at)}`;
-  if (command.status === "accepted") return "Accepted by device bridge";
+  if (command.status === "queued") return `Pending ${formatSettingsTimestamp(command.requested_at)}`;
+  if (command.status === "accepted") return "Accepted";
   if (command.status === "running") return "Running on device";
   if (command.status === "succeeded") return "Applied";
   if (command.status === "failed") return "Failed";
@@ -1963,7 +1962,6 @@ function PortalSettingsPanel({
           <CheckCircle2 size={18} />
           <div>
             <strong>{controlNotice}</strong>
-            <p>The request is queued. Device execution is handled by the protected backend bridge.</p>
           </div>
         </div>
       ) : null}
@@ -1971,7 +1969,7 @@ function PortalSettingsPanel({
         <div className="settings-callout is-error">
           <AlertTriangle size={18} />
           <div>
-            <strong>Control request was not queued.</strong>
+            <strong>Request failed.</strong>
             <p>{controlError}</p>
           </div>
         </div>
@@ -1989,11 +1987,11 @@ function PortalSettingsPanel({
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>Device status</span>
-                  <strong>{data.latestState?.health_status ?? "Not synced"}</strong>
+                  <strong>{data.latestState?.health_status ?? "--"}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Device ID</span>
-                  <strong>{data.latestState?.device_id ?? "Not synced"}</strong>
+                  <strong>{data.latestState?.device_id ?? "--"}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Last device state</span>
@@ -2026,13 +2024,6 @@ function PortalSettingsPanel({
                 </div>
               </div>
             </section>
-          </div>
-          <div className="settings-callout">
-            <ShieldCheck size={18} />
-            <div>
-              <strong>Controls are queued before they touch the device.</strong>
-              <p>Portal requests are authenticated, validated, and audited before a device-side executor can apply them to the live controller.</p>
-            </div>
           </div>
           {commandStatusPanel}
         </>
@@ -2072,7 +2063,7 @@ function PortalSettingsPanel({
                   </label>
                 </div>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy || !selectedPairing}>
-                  Queue pairing update
+                  Set pairing
                 </button>
               </form>
             </section>
@@ -2104,7 +2095,7 @@ function PortalSettingsPanel({
                   </label>
                 </div>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy || pairingsForGroup(bulkGroup).length === 0}>
-                  Queue bulk update
+                  Set group targets
                 </button>
               </form>
             </section>
@@ -2136,7 +2127,7 @@ function PortalSettingsPanel({
                   <input type="number" min="0" max="80" step="0.1" value={newPairingTarget} onChange={(event) => setNewPairingTarget(event.target.value)} required />
                 </label>
                 <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
-                  Queue pairing
+                  Create pairing
                 </button>
               </form>
             </section>
@@ -2193,11 +2184,11 @@ function PortalSettingsPanel({
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>Calibrations visible to portal</span>
-                  <strong>{syncedCalibrations.length || "Not synced"}</strong>
+                  <strong>{syncedCalibrations.length || "--"}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Applied pairings</span>
-                  <strong>{syncedCalibrations.length ? pairings.length : "Not synced"}</strong>
+                  <strong>{syncedCalibrations.length ? pairings.length : "--"}</strong>
                 </div>
               </div>
             </section>
@@ -2221,7 +2212,7 @@ function PortalSettingsPanel({
                   <input value={calibrationFunction} onChange={(event) => setCalibrationFunction(event.target.value)} required />
                 </label>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy}>
-                  Queue calibration
+                  Create calibration
                 </button>
               </form>
             </section>
@@ -2244,12 +2235,12 @@ function PortalSettingsPanel({
                 </select>
               </label>
               <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
-                Queue apply
+                Apply calibration
               </button>
             </form>
           </section>
           <div className="settings-list">
-            {(syncedCalibrations.length ? syncedCalibrations : ["Calibration details are not synced into Supabase yet."]).map((label) => (
+            {(syncedCalibrations.length ? syncedCalibrations : ["No calibration data"]).map((label) => (
               <div className="settings-list-row" key={label}>
                 <span>{label}</span>
                 {syncedCalibrations.length ? (
@@ -2257,7 +2248,7 @@ function PortalSettingsPanel({
                     Delete
                   </button>
                 ) : (
-                  <em>Backend bridge needed</em>
+                  <em>--</em>
                 )}
               </div>
             ))}
@@ -2303,17 +2294,10 @@ function PortalSettingsPanel({
                   <input type="number" min="1" max="60" step="1" value={manualSeconds} onChange={(event) => setManualSeconds(event.target.value)} required />
                 </label>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy || pairingsForGroup(manualGroup).length === 0}>
-                  Queue manual water
+                  Water group
                 </button>
               </form>
             </section>
-          </div>
-          <div className="settings-callout is-warning">
-            <CircleAlert size={18} />
-            <div>
-              <strong>Manual watering is treated as a live-control command.</strong>
-              <p>The portal queues the request with your user ID; the device bridge must apply it and write the result back.</p>
-            </div>
           </div>
         </>
       );
@@ -2332,7 +2316,7 @@ function PortalSettingsPanel({
                   <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Matt drought rows" required />
                 </label>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy}>
-                  Queue group
+                  Create group
                 </button>
               </form>
             </section>
@@ -2349,7 +2333,7 @@ function PortalSettingsPanel({
                   </select>
                 </label>
                 <button type="submit" className="settings-danger-button" disabled={controlBusy || (!removeGroupName && !groupName)}>
-                  Queue remove
+                  Remove group
                 </button>
               </form>
             </section>
@@ -2385,41 +2369,41 @@ function PortalSettingsPanel({
           {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>Hardware Snapshot</h3>
+              <h3>Hardware</h3>
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>Sensors</span>
-                  <strong>{uniqueSensors.size || "Not synced"}</strong>
+                  <strong>{uniqueSensors.size || "--"}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Valves</span>
-                  <strong>{uniqueValves.size || "Not synced"}</strong>
+                  <strong>{uniqueValves.size || "--"}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Boards</span>
-                  <strong>{boardConfigs.length || "Not synced"}</strong>
+                  <strong>{boardConfigs.length || "--"}</strong>
                 </div>
               </div>
             </section>
             <section className="settings-card">
-              <h3>Protected System Actions</h3>
+              <h3>System</h3>
               <label className="settings-check">
                 <input
                   type="checkbox"
                   checked={destructiveConfirm}
                   onChange={(event) => setDestructiveConfirm(event.target.checked)}
                 />
-                <span>I understand this is a live system command.</span>
+                <span>Live command</span>
               </label>
               <div className="settings-action-stack">
                 <button type="button" onClick={() => void queueSystemState("running")} disabled={controlBusy}>
-                  <CheckCircle2 size={14} /> Queue start system
+                  <CheckCircle2 size={14} /> Start system
                 </button>
                 <button type="button" onClick={() => void queueInitializeSensors()} disabled={controlBusy || !destructiveConfirm}>
-                  <AlertTriangle size={14} /> Queue initialize sensors
+                  <AlertTriangle size={14} /> Initialize sensors
                 </button>
                 <button type="button" onClick={() => void queueSystemState("stopped")} disabled={controlBusy || !destructiveConfirm}>
-                  <AlertTriangle size={14} /> Queue stop system
+                  <AlertTriangle size={14} /> Stop system
                 </button>
               </div>
             </section>
@@ -2436,12 +2420,12 @@ function PortalSettingsPanel({
                 <input type="number" min="0" max="40" step="1" value={boardResetPin} onChange={(event) => setBoardResetPin(event.target.value)} required />
               </label>
               <button type="submit" className="settings-danger-button" disabled={controlBusy || !destructiveConfirm}>
-                Queue board update
+                Update board
               </button>
             </form>
           </section>
           <div className="settings-list">
-            {(boardConfigs.length ? boardConfigs : [{ address: "Not synced", resetPin: "Not synced" }]).map((config, index) => (
+            {(boardConfigs.length ? boardConfigs : [{ address: "--", resetPin: "--" }]).map((config, index) => (
               <div className="settings-list-row" key={`${config.address}-${index}`}>
                 <span>Board {index + 1}</span>
                 <em>Address {config.address} · Reset pin {config.resetPin}</em>
@@ -2472,7 +2456,7 @@ function PortalSettingsPanel({
             </section>
             <section className="settings-card">
               <h3>Configuration Export</h3>
-              <p className="settings-muted">Pairings export is available now. Device-side exports can be queued for the controller bridge.</p>
+              <p className="settings-muted">Download pairings or export device data.</p>
               <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
                 <Download size={14} />
                 Download pairings CSV
@@ -2494,7 +2478,7 @@ function PortalSettingsPanel({
                   </select>
                 </label>
                 <button type="button" className="settings-secondary-button" onClick={() => void queueExportData()} disabled={controlBusy}>
-                  Queue export
+                  Export data
                 </button>
               </div>
             </section>
@@ -2581,6 +2565,7 @@ function PortalAdminHome({
   onOpenExperiment,
   onOpenHealth,
   onOpenSupport,
+  onSignOut,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
@@ -2590,6 +2575,7 @@ function PortalAdminHome({
   onOpenExperiment: () => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
+  onSignOut: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
@@ -2664,6 +2650,11 @@ function PortalAdminHome({
           <span className="portal-launch-action">
             Open <ArrowRight size={14} />
           </span>
+        </button>
+      </div>
+      <div className="portal-admin-bottom-actions">
+        <button type="button" className="header-action portal-admin-sign-out" onClick={onSignOut}>
+          Sign out
         </button>
       </div>
     </section>
@@ -2818,7 +2809,7 @@ function SalesSupportView({
   }
 
   return (
-    <section className="sales-support-main" aria-label="Sales and support queue">
+    <section className="sales-support-main" aria-label="Sales and support">
       <SalesSupportDetailDrawer detail={selectedDetail} onClose={() => setSelectedDetail(null)} />
       <button type="button" className="support-back-button" onClick={onBackHome}>
         <ArrowLeft size={15} />
@@ -4514,7 +4505,7 @@ export default function App() {
           throw new Error(await functionErrorMessage(response.error));
         }
 
-        setControlNotice(`${controlCommandLabel(commandType)} queued`);
+        setControlNotice(`${controlCommandLabel(commandType)} sent`);
         await loadRecentCommands();
       } catch (err) {
         setControlError(errorMessage(err));
@@ -5405,6 +5396,7 @@ export default function App() {
           onOpenExperiment={() => setPortalView("experiment")}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
+          onSignOut={signOut}
         />
         <PortalSettingsPanel
           open={settingsOpen}
