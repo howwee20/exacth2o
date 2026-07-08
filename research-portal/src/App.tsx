@@ -203,8 +203,7 @@ type SettingsSection =
   | "groups"
   | "hardware"
   | "exports"
-  | "logs"
-  | "access";
+  | "logs";
 
 type SettingsNavItem = {
   id: SettingsSection;
@@ -391,7 +390,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-experiment-home-corner";
+const portalVersion = "20260707-support-access-cleanup";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -451,13 +450,6 @@ const settingsNavItems: SettingsNavItem[] = [
     description: "Errors, commands, and traceability",
     group: "Data",
     icon: CircleAlert,
-  },
-  {
-    id: "access",
-    label: "Access",
-    description: "Invite-only project membership",
-    group: "Admin",
-    icon: CheckCircle2,
   },
 ];
 
@@ -2569,28 +2561,7 @@ function PortalSettingsPanel({
       );
     }
 
-    return (
-      <div className="settings-grid">
-        <section className="settings-card">
-          <h3>Invite-only Access</h3>
-          <p className="settings-muted">Portal data remains protected by project membership and Supabase RLS. Public signup should not grant experiment access.</p>
-          <div className="settings-rows">
-            <div className="settings-row">
-              <span>Project access</span>
-              <strong>Membership required</strong>
-            </div>
-            <div className="settings-row">
-              <span>Control access</span>
-              <strong>Admin or researcher role needed</strong>
-            </div>
-          </div>
-        </section>
-        <section className="settings-card">
-          <h3>Control Permissions</h3>
-          <p className="settings-muted">Admin and researcher accounts can use experiment settings, pairings, calibrations, hardware, exports, and command history. System Health and Sales &amp; Support stay admin-only.</p>
-        </section>
-      </div>
-    );
+    return null;
   };
 
   return (
@@ -2915,7 +2886,6 @@ function SalesSupportView({
         <div>
           <p>Sales &amp; Support</p>
           <h1>{newItems.length} new</h1>
-          <span>Quote requests and inbound support email for the admin team.</span>
         </div>
       </header>
 
