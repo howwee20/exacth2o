@@ -18,7 +18,6 @@ import {
   CircleAlert,
   Database,
   Download,
-  ExternalLink,
   FileArchive,
   Gauge,
   Loader2,
@@ -392,7 +391,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-health-under-experiment";
+const portalVersion = "20260707-health-compact-watering";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3514,11 +3513,11 @@ function HealthTrendChart({
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
-  const height = 270;
-  const padLeft = 62;
-  const padRight = 18;
-  const padTop = 34;
-  const padBottom = 48;
+  const height = 210;
+  const padLeft = 56;
+  const padRight = 16;
+  const padTop = 26;
+  const padBottom = 36;
   const allTimes = series.flatMap((item) => item.points.map((point) => point.t));
   const windowInfo = useMemo(
     () => healthChartWindow(allTimes, windowOffset),
@@ -3573,7 +3572,7 @@ function HealthTrendChart({
         <text x={padLeft - 9} y={padTop + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(computedMax)}</text>
         <text x={padLeft - 9} y={padTop + plotHeight / 2 + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(midValue)}</text>
         <text x={padLeft - 9} y={height - padBottom + 4} textAnchor="end" className="health-chart-axis-text">{axisValue(yMin)}</text>
-        <text x={padLeft} y={17} className="health-chart-axis-title">{yTitle}</text>
+        <text x={padLeft} y={16} className="health-chart-axis-title">{yTitle}</text>
         {visibleSeries.map((item) => (
           <polyline key={item.label} points={linePath(item.points)} className={`health-chart-line is-${item.tone}`} />
         ))}
@@ -3595,7 +3594,7 @@ function HealthTrendChart({
                 key={`${item.label}-${point.iso}`}
                 cx={Math.max(padLeft, Math.min(width - padRight, xFor(point.t)))}
                 cy={Math.max(padTop, Math.min(height - padBottom, yFor(point.value as number)))}
-                r={3.5}
+                r={3}
                 className={`health-chart-dot is-${item.tone}`}
                 role="button"
                 tabIndex={0}
@@ -3629,11 +3628,11 @@ function HealthWateringChart({
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
-  const height = 270;
-  const padLeft = 66;
-  const padRight = 20;
-  const padTop = 34;
-  const padBottom = 48;
+  const height = 210;
+  const padLeft = 60;
+  const padRight = 16;
+  const padTop = 26;
+  const padBottom = 36;
   const times = events.map((event) => healthTimestampMs(event.t)).filter((value): value is number => value != null);
   const windowInfo = useMemo(
     () => healthChartWindow(times, windowOffset),
@@ -3665,14 +3664,7 @@ function HealthWateringChart({
     }
   }, [windowInfo.maxOffset, windowOffset]);
 
-  if (!times.length) {
-    return (
-      <HealthTrendChart
-        yTitle="Valve opens per hour"
-        series={[{ label: "Valve open event", tone: "primary", points: [] }]}
-      />
-    );
-  }
+  if (!times.length) return null;
 
   return (
     <div className="portal-health-chart">
@@ -3694,7 +3686,7 @@ function HealthWateringChart({
         ))}
         <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="health-chart-axis" />
         <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} className="health-chart-axis" />
-        <text x={padLeft} y={17} className="health-chart-axis-title">Watering events by sensor/pot</text>
+        <text x={padLeft} y={16} className="health-chart-axis-title">Watering events</text>
         {visibleEvents.map((event) => {
           const time = healthTimestampMs(event.t) ?? minTime;
           const label = wateringEventLabel(event);
@@ -3722,7 +3714,7 @@ function HealthWateringChart({
               key={`${event.id ?? event.t}-${label}`}
               cx={xFor(time)}
               cy={yFor(label)}
-              r={5.5}
+              r={4.8}
               className="watering-event-dot"
               role="button"
               tabIndex={0}
@@ -3743,6 +3735,32 @@ function HealthWateringChart({
         <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
         <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
       </svg>
+    </div>
+  );
+}
+
+function HealthWateringEmpty({
+  openCount,
+  hasSnapshot,
+}: {
+  openCount: number | null | undefined;
+  hasSnapshot: boolean;
+}) {
+  const count = openCount ?? 0;
+  const title = count > 0 ? "Summary only" : "No valve opens";
+  const detail = hasSnapshot
+    ? count > 0
+      ? `${formatHealthInteger(count)} opens counted; per-valve events are not in this snapshot.`
+      : "Snapshot reports 0 opens in the last 24h."
+    : "Waiting for a health snapshot.";
+
+  return (
+    <div className="health-compact-empty">
+      <ShieldCheck size={18} />
+      <div>
+        <strong>{title}</strong>
+        <span>{detail}</span>
+      </div>
     </div>
   );
 }
@@ -3776,11 +3794,19 @@ function SystemHealthView({
   const undervoltageOccurred = healthBoolean(healthOwnerValue(snapshot, "undervoltage_occurred"));
   const throttleFlags = healthString(healthOwnerValue(snapshot, "throttled_flags"));
   const disabledWatering = healthArray(healthOwnerValue(snapshot, "watering_disabled")).map(String);
+  const wateringOpenCount = snapshot?.watering_events_last_24h;
+  const wateringEnabled = !disabledWatering.length;
+  const latestWateringAt = latestWatering?.t ?? snapshot?.watering_last_event_at ?? null;
+  const latestWateringLabel = healthString(latestWatering?.pairing) ?? healthString(snapshot?.watering_last_event) ?? "none";
+  const latestWateringDuration = healthNumber(latestWatering?.valveOpenTimeMs);
+  const latestWateringTime = latestWateringAt ? formatSettingsTimestamp(latestWateringAt) : "none";
+  const wateringDetail = `${formatHealthInteger(wateringOpenCount)} opens / 24h · latest ${latestWateringTime}`;
+  const wateringDisabledText = disabledWatering.length ? disabledWatering.join(", ") : "none";
   const currentSensors = snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
   const expectedSensors = snapshot?.sensors_expected ?? healthNumber(latestRecord?.sensorRows);
   const staleMissing = (snapshot?.sensors_stale ?? 0) + (snapshot?.sensors_missing ?? 0);
   const nodeHalf = expectedSensors ? Math.round(expectedSensors / 2) : null;
-  const ownerDetail = "Controller power, ethernet, sensors, and watering scheduler are reporting normally.";
+  const ownerDetail = `Live snapshot · refresh ${Math.round(healthSnapshotPollMs / 1000)}s`;
   const checkedAt = formatSettingsTimestamp(snapshot?.owner_checked_at ?? snapshot?.captured_at ?? snapshot?.created_at);
 
   return (
@@ -3827,11 +3853,11 @@ function SystemHealthView({
           tone={snapshot?.ethernet_link ? "ok" : snapshot?.ethernet_link === false ? "bad" : "unknown"}
         />
         <HealthMetricCard
-          icon={Thermometer}
-          label="Power"
-          value={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")}
-          detail={`Power alarm ${formatHealthBoolean(snapshot?.undervoltage, "on", "off")}; ${healthDurationText(currentUptime)}`}
-          tone={snapshot?.undervoltage ? "warning" : snapshot?.undervoltage === false ? "ok" : "unknown"}
+          icon={ShieldCheck}
+          label="Watering"
+          value={wateringEnabled ? "Enabled" : "Disabled"}
+          detail={wateringDetail}
+          tone={wateringEnabled ? snapshot ? "ok" : "unknown" : "warning"}
         />
         <HealthMetricCard
           icon={Activity}
@@ -3844,7 +3870,7 @@ function SystemHealthView({
 
       <HealthPanel
         title="Restart / Outage Evidence"
-        detail={restarts.length || gaps.length ? "Restart or outage evidence was detected in the sample window." : "Uptime should climb; no reset or outage window detected."}
+        detail={restarts.length || gaps.length ? "Restart or gap detected." : "No reset or outage in the window."}
         badge={restarts.length || gaps.length ? "Review" : "Stable"}
         badgeTone={restarts.length || gaps.length ? "warning" : "ok"}
       >
@@ -3967,15 +3993,21 @@ function SystemHealthView({
 
       <HealthPanel
         title="Watering Safety"
-        detail={`Watering enabled. ${formatHealthInteger(snapshot?.watering_events_last_24h)} opens in 24h.`}
-        badge={`${formatHealthInteger(snapshot?.watering_events_last_24h)} / 24h`}
-        badgeTone="ok"
+        detail={`${wateringEnabled ? "Enabled" : "Disabled"}. ${formatHealthInteger(wateringOpenCount)} opens in 24h.`}
+        badge={`${formatHealthInteger(wateringOpenCount)} / 24h`}
+        badgeTone={wateringEnabled ? "ok" : "warning"}
       >
         <div className="health-mini-grid">
-          <HealthMiniFact label="24h opens" value={formatHealthInteger(snapshot?.watering_events_last_24h)} />
-          <HealthMiniFact label="Watering disabled" value={disabledWatering.length ? disabledWatering.join(", ") : "none"} />
+          <HealthMiniFact label="24h opens" value={formatHealthInteger(wateringOpenCount)} />
+          <HealthMiniFact label="Latest event" value={latestWateringTime} />
+          <HealthMiniFact label="Disabled" value={wateringDisabledText} />
+          <HealthMiniFact label="Event rows" value={wateringEvents.length ? String(wateringEvents.length) : "summary only"} />
         </div>
-        <HealthWateringChart events={wateringEvents} onSelectDetail={setSelectedDetail} />
+        {wateringEvents.length ? (
+          <HealthWateringChart events={wateringEvents} onSelectDetail={setSelectedDetail} />
+        ) : (
+          <HealthWateringEmpty openCount={wateringOpenCount} hasSnapshot={Boolean(snapshot)} />
+        )}
         <div className="health-event-list">
           {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => (
             <div className="health-event-row" key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}`}>
@@ -3984,11 +4016,11 @@ function SystemHealthView({
               <em>{healthNumber(event.valveOpenTimeMs) == null ? "--" : `${Math.round((healthNumber(event.valveOpenTimeMs) ?? 0) / 1000)} sec`}</em>
             </div>
           ))}
-          {!shownWateringEvents.length && latestWatering ? (
+          {!shownWateringEvents.length && latestWateringAt ? (
             <div className="health-event-row">
-              <strong>{healthString(latestWatering.pairing) ?? wateringEventLabel(latestWatering)}</strong>
-              <span>{formatSettingsTimestamp(latestWatering.t)}</span>
-              <em>{healthNumber(latestWatering.valveOpenTimeMs) == null ? "--" : `${Math.round((healthNumber(latestWatering.valveOpenTimeMs) ?? 0) / 1000)} sec`}</em>
+              <strong>{latestWateringLabel}</strong>
+              <span>{formatSettingsTimestamp(latestWateringAt)}</span>
+              <em>{latestWateringDuration == null ? "--" : `${Math.round(latestWateringDuration / 1000)} sec`}</em>
             </div>
           ) : null}
         </div>
@@ -5294,7 +5326,6 @@ export default function App() {
             </button>
           ) : null}
           <a className="header-action site-link" href="/" aria-label="Website" title="Website">
-            <ExternalLink size={14} />
             Site
           </a>
         </div>
