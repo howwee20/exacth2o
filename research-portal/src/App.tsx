@@ -391,7 +391,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-valve-fire-timeline";
+const portalVersion = "20260707-auth-home-reset";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -4331,6 +4331,18 @@ export default function App() {
   const isAdmin = portalAccess?.role === "admin";
   const canUseExperimentSettings = portalAccess?.role === "admin" || portalAccess?.role === "researcher";
 
+  const resetPortalSessionUi = useCallback((nextView: PortalView = "experiment") => {
+    setSettingsOpen(false);
+    setSettingsSection("overview");
+    setControlBusy(false);
+    setControlNotice(null);
+    setControlError(null);
+    setRecentCommands([]);
+    setTermsOpen(false);
+    setTermsAccepted(false);
+    setPortalView(nextView);
+  }, []);
+
   const loadPortalAccess = useCallback(async () => {
     setAccessLoading(true);
     try {
@@ -4652,6 +4664,8 @@ export default function App() {
     } else {
       window.localStorage.removeItem(rememberEmailKey);
     }
+    resetPortalSessionUi();
+    setPassword("");
     setSessionReady(true);
   }
 
@@ -4723,6 +4737,7 @@ export default function App() {
     }
 
     window.history.replaceState(null, "", portalUrl());
+    resetPortalSessionUi();
     setPassword("");
     setSessionReady(true);
   }
@@ -4749,6 +4764,7 @@ export default function App() {
     }
 
     window.history.replaceState(null, "", portalUrl());
+    resetPortalSessionUi();
     setPassword("");
     setSessionReady(true);
   }
@@ -4773,7 +4789,7 @@ export default function App() {
     setSessionReady(false);
     setPortalAccess(null);
     setAccessLoading(false);
-    setPortalView("experiment");
+    resetPortalSessionUi();
     setHealthSnapshot(null);
     setHealthLoading(false);
     setHealthError(null);
@@ -5042,6 +5058,8 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady) {
       setPortalAccess(null);
+      setSettingsOpen(false);
+      setSettingsSection("overview");
       setPortalView("experiment");
       setHealthSnapshot(null);
       setValveEvents([]);
