@@ -1315,113 +1315,6 @@ select {
   font-weight: 650;
 }
 
-.health-summary-box {
-  display: grid;
-  grid-template-columns: minmax(170px, 230px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: stretch;
-  margin-bottom: 12px;
-  padding: 14px;
-  border: 1px solid #dfe5ee;
-  border-left: 4px solid #94a3b8;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.055);
-}
-
-.health-summary-box.is-ok {
-  border-left-color: #059669;
-}
-
-.health-summary-box.is-warning {
-  border-left-color: #d97706;
-}
-
-.health-summary-box.is-bad {
-  border-left-color: #dc2626;
-}
-
-.health-summary-main {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-}
-
-.health-summary-main p,
-.health-summary-main h1,
-.health-summary-main span,
-.health-summary-item span,
-.health-summary-item strong,
-.health-summary-item em {
-  margin: 0;
-}
-
-.health-summary-main p,
-.health-summary-item span {
-  color: var(--portal-water);
-  font-family: var(--portal-mono);
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.09em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.health-summary-main h1 {
-  color: #0f172a;
-  font-family: var(--portal-mono);
-  font-size: 1.38rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.05;
-  text-transform: uppercase;
-}
-
-.health-summary-main span {
-  color: #64748b;
-  font-size: 0.76rem;
-  font-weight: 650;
-}
-
-.health-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.health-summary-item {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid #dfe5ee;
-  border-radius: 6px;
-  background: #f8fafc;
-}
-
-.health-summary-item strong,
-.health-summary-item em {
-  display: block;
-  min-width: 0;
-}
-
-.health-summary-item strong {
-  margin-top: 5px;
-  color: #0f172a;
-  font-size: 0.86rem;
-  line-height: 1.2;
-}
-
-.health-summary-item em {
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-  color: #64748b;
-  font-size: 0.68rem;
-  font-style: normal;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
 .health-metric-grid,
 .health-detail-grid {
   display: grid;
@@ -3479,13 +3372,8 @@ select {
 
   .health-mini-grid,
   .health-mini-grid.is-five,
-  .health-summary-grid,
   .support-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .health-summary-box {
-    grid-template-columns: 1fr;
   }
 
   .portal-admin-main,
@@ -3642,16 +3530,10 @@ select {
     height: 36px;
   }
 
-  .health-condition,
-  .health-summary-box {
+  .health-condition {
     align-items: flex-start;
     flex-direction: column;
     padding: 20px;
-  }
-
-  .health-summary-grid {
-    grid-template-columns: 1fr;
-    width: 100%;
   }
 
   .support-hero {

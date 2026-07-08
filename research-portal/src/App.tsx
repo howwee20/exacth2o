@@ -390,7 +390,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-support-access-cleanup";
+const portalVersion = "20260707-health-summary-remove";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3839,7 +3839,6 @@ function SystemHealthView({
     ]),
     [pairings, snapshot, valveEvents],
   );
-  const tone = healthTone(snapshot);
   const records = healthHistoryRecords(snapshot);
   const evidenceRecords = healthRecentRecords(records, 8);
   const restarts = restartEvents(evidenceRecords);
@@ -3865,13 +3864,11 @@ function SystemHealthView({
   const latestWateringLabel = healthString(latestWatering?.pairing) ?? healthString(snapshot?.watering_last_event) ?? "none";
   const latestWateringDuration = healthNumber(latestWatering?.valveOpenTimeMs);
   const latestWateringTime = latestWateringAt ? formatSettingsTimestamp(latestWateringAt) : "none";
-  const wateringDetail = `${formatHealthInteger(wateringOpenCount)} opens / 24h · latest ${latestWateringTime}`;
   const wateringDisabledText = disabledWatering.length ? disabledWatering.join(", ") : "none";
   const currentSensors = snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
   const expectedSensors = snapshot?.sensors_expected ?? healthNumber(latestRecord?.sensorRows);
   const staleMissing = (snapshot?.sensors_stale ?? 0) + (snapshot?.sensors_missing ?? 0);
   const nodeHalf = expectedSensors ? Math.round(expectedSensors / 2) : null;
-  const checkedAt = formatSettingsTimestamp(snapshot?.owner_checked_at ?? snapshot?.captured_at ?? snapshot?.created_at);
 
   return (
     <section className="system-health-main" aria-label="System health">
@@ -3883,35 +3880,6 @@ function SystemHealthView({
         <ArrowLeft size={15} />
         Home
       </button>
-      <header className={`health-summary-box is-${tone}`}>
-        <div className="health-summary-main">
-          <p>Current condition</p>
-          <h1>{healthStatusText(snapshot)}</h1>
-          <span>Updated {formatSettingsTimestamp(snapshot?.captured_at ?? snapshot?.created_at)}</span>
-        </div>
-        <div className="health-summary-grid" aria-label="Current system summary">
-          <div className="health-summary-item">
-            <span>Controller</span>
-            <strong>{snapshot?.api_status ?? "Not synced"}</strong>
-            <em>{formatHealthInteger(snapshot?.scheduler_jobs_loaded)} jobs · {checkedAt}</em>
-          </div>
-          <div className="health-summary-item">
-            <span>Ethernet</span>
-            <strong>{formatHealthBoolean(snapshot?.ethernet_link, "Online", "Offline")}</strong>
-            <em>{snapshot?.ethernet_ip ?? "No IP"} · {formatHealthNumber(snapshot?.gateway_ping_ms, 3, " ms")}</em>
-          </div>
-          <div className="health-summary-item">
-            <span>Watering</span>
-            <strong>{wateringEnabled ? "Enabled" : "Disabled"}</strong>
-            <em>{wateringDetail}</em>
-          </div>
-          <div className="health-summary-item">
-            <span>Sensors</span>
-            <strong>{`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)}`}</strong>
-            <em>{staleMissing ? `${formatHealthInteger(snapshot?.sensors_stale)} stale · ${formatHealthInteger(snapshot?.sensors_missing)} missing` : "All current"}</em>
-          </div>
-        </div>
-      </header>
 
       {error ? (
         <div className="banner error">
