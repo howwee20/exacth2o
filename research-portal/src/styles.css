@@ -2125,6 +2125,14 @@ select {
   line-height: 1.45;
 }
 
+.settings-error-line {
+  margin: 0;
+  color: #b42318;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
 .settings-rows,
 .settings-list {
   display: grid;

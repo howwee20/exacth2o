@@ -49,10 +49,12 @@ import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types
 
 const graphReadLimit = 12_000;
 const pageSize = 1000;
-const maxExportRowsPerSource = 100_000;
+const readingSelectColumns =
+  "id,event_id,pairing_name,sensor_key,raw_value,calibrated_value,temperature,electrical_conductivity,device_recorded_at,server_received_at";
 const autoRefreshMs = 15_000;
 const healthSnapshotPollMs = 15_000;
 const healthAutoSyncMs = 60_000;
+const healthSnapshotFallbackWindowMs = 5 * 60 * 1000;
 const supportPollMs = 30_000;
 const healthChartWindowHours = 8;
 const staleAfterMs = 15 * 60 * 1000;
@@ -387,7 +389,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-clean-csv-export";
+const portalVersion = "20260708-safe-loaded-csv";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -782,6 +784,32 @@ function healthTone(snapshot?: DeviceHealthSnapshot | null): "ok" | "warning" | 
   return "ok";
 }
 
+function healthSnapshotTimestamp(snapshot: DeviceHealthSnapshot) {
+  const timestamp = snapshot.captured_at ?? snapshot.created_at;
+  const value = new Date(timestamp).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function healthSnapshotHasSensorCounts(snapshot: DeviceHealthSnapshot) {
+  return (snapshot.sensors_expected ?? 0) > 0 && (snapshot.sensors_current ?? 0) > 0;
+}
+
+function selectHealthSnapshot(snapshots: DeviceHealthSnapshot[]) {
+  const sorted = snapshots
+    .filter(Boolean)
+    .sort((a, b) => healthSnapshotTimestamp(b) - healthSnapshotTimestamp(a));
+  const latest = sorted[0] ?? null;
+  if (!latest) return null;
+
+  const latestTimestamp = healthSnapshotTimestamp(latest);
+  const completeSnapshot = sorted.find((snapshot) => {
+    if (!healthSnapshotHasSensorCounts(snapshot)) return false;
+    return latestTimestamp - healthSnapshotTimestamp(snapshot) <= healthSnapshotFallbackWindowMs;
+  });
+
+  return completeSnapshot ?? latest;
+}
+
 function healthStatusText(snapshot?: DeviceHealthSnapshot | null) {
   const label = healthStatusLabel(snapshot);
   return label.toUpperCase() === "OK" ? "OK" : label;
@@ -1005,41 +1033,11 @@ function dedupeReadingsForExport(readings: SensorReading[]) {
   );
 }
 
-async function fetchAllReadingsByPrefix(prefix: string) {
-  const readings: SensorReading[] = [];
-
-  for (let from = 0; from < maxExportRowsPerSource; from += pageSize) {
-    const response = await supabase
-      .from("sensor_readings")
-      .select("*")
-      .like("event_id", prefix)
-      .order("device_recorded_at", { ascending: true })
-      .range(from, from + pageSize - 1);
-
-    if (response.error) throw response.error;
-
-    const page = (response.data ?? []) as SensorReading[];
-    readings.push(...page);
-    if (page.length < pageSize) break;
-  }
-
-  return readings;
-}
-
-async function fetchAllExportReadings() {
-  const [importedReadings, liveReadings] = await Promise.all([
-    fetchAllReadingsByPrefix(importedPrefix),
-    fetchAllReadingsByPrefix(livePrefix),
-  ]);
-
-  return dedupeReadingsForExport([...importedReadings, ...liveReadings]);
-}
-
 async function fetchReadingsByPrefix(prefix: string, maxRows: number, newerThan?: string | null) {
   if (newerThan) {
     const response = await supabase
       .from("sensor_readings")
-      .select("*")
+      .select(readingSelectColumns)
       .like("event_id", prefix)
       .gt("device_recorded_at", newerThan)
       .order("device_recorded_at", { ascending: false })
@@ -1054,7 +1052,7 @@ async function fetchReadingsByPrefix(prefix: string, maxRows: number, newerThan?
     Array.from({ length: pageCount }, (_, page) =>
       supabase
         .from("sensor_readings")
-        .select("*")
+        .select(readingSelectColumns)
         .like("event_id", prefix)
         .order("device_recorded_at", { ascending: false })
         .range(page * pageSize, Math.min(maxRows, (page + 1) * pageSize) - 1),
@@ -1752,6 +1750,7 @@ type PortalSettingsPanelProps = {
   pairings: PairingRow[];
   visiblePotCount: number;
   csvDownload: CsvDownload | null;
+  csvError: string | null;
   exportingCsv: boolean;
   controlBusy: boolean;
   controlNotice: string | null;
@@ -1773,6 +1772,7 @@ function PortalSettingsPanel({
   pairings,
   visiblePotCount,
   csvDownload,
+  csvError,
   exportingCsv,
   controlBusy,
   controlNotice,
@@ -1841,6 +1841,7 @@ function PortalSettingsPanel({
   const [destructiveConfirm, setDestructiveConfirm] = useState(false);
   const [exportDataType, setExportDataType] = useState("readings");
   const selectedPairing = pairings.find((pairing) => pairing.name === singlePairingName) ?? pairings[0] ?? null;
+  const csvReady = data.readings.length > 0;
 
   useEffect(() => {
     if (!open || pairings.length === 0) return;
@@ -2468,11 +2469,12 @@ function PortalSettingsPanel({
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Readings Export</h3>
-              <p className="settings-muted">Downloads all project readings currently accessible to your account.</p>
-              <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv}>
+              <p className="settings-muted">Downloads the clean readings currently loaded in the portal.</p>
+              <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv || !csvReady}>
                 <Download size={14} />
                 {exportingCsv ? "Preparing..." : "Prepare readings CSV"}
               </button>
+              {csvError ? <p className="settings-error-line">{csvError}</p> : null}
               {csvDownload ? (
                 <a className="settings-download-link" href={csvDownload.url} download={csvDownload.filename}>
                   Download {csvDownload.rowCount.toLocaleString()} rows
@@ -4148,6 +4150,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<DataMode>("auto");
@@ -4232,6 +4235,8 @@ export default function App() {
     setControlNotice(null);
     setControlError(null);
     setRecentCommands([]);
+    setCsvDownload(null);
+    setCsvError(null);
     setTermsOpen(false);
     setTermsAccepted(false);
     setPortalView(nextView);
@@ -4285,11 +4290,10 @@ export default function App() {
         .eq("project_id", mattProjectId)
         .eq("device_id", mattDeviceId)
         .order("captured_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(12);
 
       if (response.error) throw response.error;
-      setHealthSnapshot((response.data ?? null) as DeviceHealthSnapshot | null);
+      setHealthSnapshot(selectHealthSnapshot((response.data ?? []) as DeviceHealthSnapshot[]));
     } catch (err) {
       if (!silent) setHealthError(errorMessage(err));
     } finally {
@@ -4420,7 +4424,7 @@ export default function App() {
           countReadings(livePrefix),
           supabase
             .from("sensor_readings")
-            .select("*")
+            .select(readingSelectColumns)
             .like("event_id", livePrefix)
             .order("device_recorded_at", { ascending: false })
             .limit(1),
@@ -4434,8 +4438,28 @@ export default function App() {
         const effectiveMode = resolveEffectiveMode(selectedMode, totalLiveReadings);
         const canIncrement = incremental && previous.effectiveMode === effectiveMode;
         const newerThan = canIncrement ? newestReadingTimestamp(previous.readings) : null;
-        const incomingReadings = await fetchReadingsForMode(effectiveMode, newerThan);
         const nowIso = new Date().toISOString();
+        const latestLiveReading = latestLiveReadings.data?.[0] ?? null;
+        const latestIngestTime =
+          latestLiveReading?.server_received_at ??
+          latestState.data?.updated_at ??
+          null;
+
+        if (token !== loadTokenRef.current) return;
+
+        setData((current) => ({
+          ...current,
+          pairings: pairings.data ?? [],
+          latestState: latestState.data ?? null,
+          totalImportedReadings,
+          totalLiveReadings,
+          latestLiveReading,
+          latestIngestTime,
+          lastCheckedAt: nowIso,
+          effectiveMode,
+        }));
+
+        const incomingReadings = await fetchReadingsForMode(effectiveMode, newerThan);
 
         if (token !== loadTokenRef.current) return;
 
@@ -4446,16 +4470,8 @@ export default function App() {
           const hasNewRows = incomingReadings.length > 0;
 
           return {
-            pairings: pairings.data ?? [],
-            latestState: latestState.data ?? null,
+            ...current,
             readings,
-            totalImportedReadings,
-            totalLiveReadings,
-            latestLiveReading: latestLiveReadings.data?.[0] ?? null,
-            latestIngestTime:
-              latestLiveReadings.data?.[0]?.server_received_at ??
-              latestState.data?.updated_at ??
-              null,
             lastCheckedAt: nowIso,
             lastNewDataAt: hasNewRows ? nowIso : current.lastNewDataAt ?? (readings.length ? nowIso : null),
             effectiveMode,
@@ -4833,10 +4849,13 @@ export default function App() {
   async function prepareCsvDownload() {
     setExportingCsv(true);
     setCsvDownload(null);
-    setError(null);
+    setCsvError(null);
 
     try {
-      const readings = await fetchAllExportReadings();
+      const readings = dedupeReadingsForExport(data.readings);
+      if (readings.length === 0) {
+        throw new Error("Readings are still loading. Try again after the chart appears.");
+      }
       const headers = [
         "source",
         "event_id",
@@ -4877,11 +4896,11 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       setCsvDownload({
         url,
-        filename: `exacth2o-readings-all-${new Date().toISOString().slice(0, 10)}.csv`,
+        filename: `exacth2o-readings-loaded-${new Date().toISOString().slice(0, 10)}.csv`,
         rowCount: readings.length,
       });
     } catch (err) {
-      setError(errorMessage(err));
+      setCsvError(errorMessage(err));
     } finally {
       setExportingCsv(false);
     }
@@ -5065,7 +5084,10 @@ export default function App() {
         (payload) => {
           const row = payload.new as Partial<DeviceHealthSnapshot>;
           if (row.device_id === mattDeviceId) {
-            setHealthSnapshot(row as DeviceHealthSnapshot);
+            setHealthSnapshot((current) => selectHealthSnapshot([
+              row as DeviceHealthSnapshot,
+              ...(current ? [current] : []),
+            ]));
             return;
           }
           void loadHealthSnapshot({ silent: true });
@@ -5307,6 +5329,7 @@ export default function App() {
           : {}),
       }
     : undefined;
+  const dashboardCsvReady = data.readings.length > 0;
   const csvControl = csvDownload ? (
     <a
       className="csv-button is-ready"
@@ -5323,9 +5346,9 @@ export default function App() {
     <button
       className="csv-button"
       type="button"
-      title="Prepare clean CSV"
+      title={dashboardCsvReady ? "Prepare clean CSV" : "Readings are still loading"}
       onClick={prepareCsvDownload}
-      disabled={exportingCsv}
+      disabled={exportingCsv || !dashboardCsvReady}
     >
       <Download size={14} />
       {exportingCsv ? "..." : "CSV"}
@@ -5426,6 +5449,7 @@ export default function App() {
           pairings={sortedPairings}
           visiblePotCount={visiblePotCount}
           csvDownload={csvDownload}
+          csvError={csvError}
           exportingCsv={exportingCsv}
           controlBusy={controlBusy}
           controlNotice={controlNotice}
@@ -5483,6 +5507,7 @@ export default function App() {
           pairings={sortedPairings}
           visiblePotCount={visiblePotCount}
           csvDownload={csvDownload}
+          csvError={csvError}
           exportingCsv={exportingCsv}
           controlBusy={controlBusy}
           controlNotice={controlNotice}
