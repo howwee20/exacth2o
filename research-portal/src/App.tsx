@@ -391,7 +391,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-auth-home-reset";
+const portalVersion = "20260707-admin-home-actions";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3853,11 +3853,13 @@ function SystemHealthView({
   pairings,
   valveEvents,
   error,
+  onBackHome,
 }: {
   snapshot: DeviceHealthSnapshot | null;
   pairings: PairingRow[];
   valveEvents: ValveEvent[];
   error: string | null;
+  onBackHome: () => void;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
   const wateringEvents = useMemo(
@@ -3907,6 +3909,10 @@ function SystemHealthView({
         detail={selectedDetail}
         onClose={() => setSelectedDetail(null)}
       />
+      <button type="button" className="support-back-button" onClick={onBackHome}>
+        <ArrowLeft size={15} />
+        Home
+      </button>
       <header className={`health-summary-box is-${tone}`}>
         <div className="health-summary-main">
           <p>Current condition</p>
@@ -5438,16 +5444,15 @@ export default function App() {
     </button>
   );
 
-  const showPortalBack = isAdmin && portalView !== "home";
   const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
+  const showSiteControl = isAdmin && portalView === "home";
 
   const portalActions = (
     <div className="header-actions">
-      {showPortalBack ? (
-        <button className="header-action" type="button" onClick={() => setPortalView("home")}>
-          <ArrowLeft size={14} />
-          Portal Home
-        </button>
+      {showSiteControl ? (
+        <a className="header-action" href="/">
+          Site
+        </a>
       ) : null}
       {showSettingsControl ? (
         <button
@@ -5464,7 +5469,7 @@ export default function App() {
     </div>
   );
 
-  const experimentCornerActions = showPortalBack || showSettingsControl ? (
+  const experimentCornerActions = showSettingsControl ? (
     <div className="experiment-corner-actions" aria-label="Experiment actions">
       {portalActions}
     </div>
@@ -5547,6 +5552,7 @@ export default function App() {
           pairings={sortedPairings}
           valveEvents={valveEvents}
           error={healthError}
+          onBackHome={() => setPortalView("home")}
         />
       </main>
     );
@@ -5568,6 +5574,12 @@ export default function App() {
   return (
     <main className="dashboard-shell experiment-shell">
       {experimentCornerActions}
+      {isAdmin ? (
+        <button type="button" className="support-back-button experiment-home-button" onClick={() => setPortalView("home")}>
+          <ArrowLeft size={15} />
+          Home
+        </button>
+      ) : null}
 
       {canUseExperimentSettings ? (
         <PortalSettingsPanel
