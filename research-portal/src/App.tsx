@@ -393,7 +393,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-live-history-progress";
+const portalVersion = "20260708-realtime-latest";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -4230,6 +4230,7 @@ export default function App() {
   const loadTokenRef = useRef(0);
   const refreshInFlightRef = useRef(false);
   const pendingRefreshRef = useRef<RefreshOptions | null>(null);
+  const realtimeRefreshInFlightRef = useRef(false);
   const dashboardMainRef = useRef<HTMLElement | null>(null);
   const controlPanelRef = useRef<HTMLElement | null>(null);
   const panelDragOffsetRef = useRef<PanelPosition | null>(null);
@@ -4534,9 +4535,60 @@ export default function App() {
     [selectedMode],
   );
 
+  const refreshLatestReadings = useCallback(async () => {
+    if (realtimeRefreshInFlightRef.current) return;
+    const currentData = dataRef.current;
+    const newerThan = newestReadingTimestamp(currentData.readings);
+    if (!newerThan) return;
+
+    realtimeRefreshInFlightRef.current = true;
+    try {
+      const effectiveMode = currentData.effectiveMode;
+      const incomingReadings = await fetchReadingsForMode(effectiveMode, newerThan);
+      const nowIso = new Date().toISOString();
+
+      setData((current) => {
+        if (!incomingReadings.length) {
+          return {
+            ...current,
+            lastCheckedAt: nowIso,
+          };
+        }
+
+        const readings = mergeReadings(current.readings, incomingReadings);
+        const loadedCounts = loadedReadingCounts(readings);
+        const latestLiveReading = newestByTime(
+          readings.filter((reading) => reading.event_id.startsWith("live-device:")),
+        );
+
+        return {
+          ...current,
+          readings,
+          totalImportedReadings: loadedCounts.imported,
+          totalLiveReadings: loadedCounts.live,
+          latestLiveReading: latestLiveReading ?? current.latestLiveReading,
+          latestIngestTime:
+            latestLiveReading?.server_received_at ??
+            current.latestState?.updated_at ??
+            current.latestIngestTime,
+          lastCheckedAt: nowIso,
+          lastNewDataAt: nowIso,
+        };
+      });
+    } catch {
+      // Keep the visible chart stable and retry on the next realtime/poll tick.
+    } finally {
+      realtimeRefreshInFlightRef.current = false;
+    }
+  }, []);
+
   const refresh = useCallback(
     async (options: RefreshOptions) => {
       if (refreshInFlightRef.current) {
+        if (options.incremental) {
+          void refreshLatestReadings();
+          return;
+        }
         const pending = pendingRefreshRef.current;
         pendingRefreshRef.current = {
           incremental: pending ? pending.incremental && options.incremental : options.incremental,
@@ -4559,7 +4611,7 @@ export default function App() {
         refreshInFlightRef.current = false;
       }
     },
-    [runPortalRefresh],
+    [refreshLatestReadings, runPortalRefresh],
   );
 
   const loadRecentCommands = useCallback(async () => {
