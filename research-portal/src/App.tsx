@@ -388,7 +388,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-admin-home-sign-out";
+const portalVersion = "20260708-admin-top-sign-out";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2565,7 +2565,6 @@ function PortalAdminHome({
   onOpenExperiment,
   onOpenHealth,
   onOpenSupport,
-  onSignOut,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
@@ -2575,7 +2574,6 @@ function PortalAdminHome({
   onOpenExperiment: () => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
-  onSignOut: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
@@ -2650,11 +2648,6 @@ function PortalAdminHome({
           <span className="portal-launch-action">
             Open <ArrowRight size={14} />
           </span>
-        </button>
-      </div>
-      <div className="portal-admin-bottom-actions">
-        <button type="button" className="header-action portal-admin-sign-out" onClick={onSignOut}>
-          Sign out
         </button>
       </div>
     </section>
@@ -5322,9 +5315,14 @@ export default function App() {
   const portalActions = (
     <div className="header-actions">
       {showSiteControl ? (
-        <a className="header-action" href="/">
-          Site
-        </a>
+        <>
+          <a className="header-action" href="/">
+            Site
+          </a>
+          <button className="header-action" type="button" onClick={signOut}>
+            Sign out
+          </button>
+        </>
       ) : null}
       {showExperimentHomeControl ? (
         <button className="header-action" type="button" onClick={() => setPortalView("home")}>
@@ -5396,7 +5394,6 @@ export default function App() {
           onOpenExperiment={() => setPortalView("experiment")}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
-          onSignOut={signOut}
         />
         <PortalSettingsPanel
           open={settingsOpen}
