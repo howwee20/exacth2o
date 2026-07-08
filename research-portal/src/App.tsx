@@ -40,7 +40,6 @@ import {
 import { supabase } from "./supabase";
 import {
   softwareTermsCompany,
-  softwareTermsEffectiveDate,
   softwareTermsIntro,
   softwareTermsSections,
   softwareTermsVersion,
@@ -388,7 +387,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-remove-live-rows";
+const portalVersion = "20260708-terms-version-only";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -4051,7 +4050,7 @@ function SoftwareTermsModal({
           <div>
             <span>Exact H2O LLC</span>
             <h3 id="portalTermsTitle">Software Access Terms</h3>
-            <p id="portalTermsNote">Effective {softwareTermsEffectiveDate}. Version {softwareTermsVersion}.</p>
+            <p id="portalTermsNote">Version {softwareTermsVersion}.</p>
           </div>
           <button type="button" className="portal-terms-close" aria-label="Close terms" onClick={onClose}>
             <X size={18} />

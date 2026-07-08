@@ -1,6 +1,5 @@
 export const supportEmail = "support@exacth2o.com";
 export const softwareTermsVersion = "2026-07-07";
-export const softwareTermsEffectiveDate = "July 7, 2026";
 
 export type SoftwareTermsSection = {
   title: string;
