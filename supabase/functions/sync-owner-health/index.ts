@@ -25,6 +25,16 @@ type FetchResult = {
   error: string | null;
 };
 
+type ValveEventInsert = {
+  event_id: string;
+  pairing_name: string;
+  valve_key: string;
+  action: "open" | "close";
+  duration_ms: number | null;
+  device_recorded_at: string;
+  server_received_at: string;
+};
+
 function corsHeaders(origin: string | null) {
   const allowedOrigin = origin && allowedOrigins.has(origin) ? origin : "https://exacth2o.com";
   return {
@@ -158,6 +168,129 @@ function asTimestamp(value: unknown) {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
+function asRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function nestedRecord(value: unknown, key: string) {
+  return asRecord(asRecord(value)[key]);
+}
+
+function firstString(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = asString(record[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function eventAction(record: Record<string, unknown>): "open" | "close" {
+  const text = firstString(record, ["action", "event", "state", "operation"])?.toLowerCase() ?? "";
+  return text.includes("close") || text.includes("closed") ? "close" : "open";
+}
+
+function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert | null {
+  const record = asRecord(value);
+  const deviceRecordedAt = asTimestamp(firstString(record, [
+    "t",
+    "time",
+    "timestamp",
+    "eventTime",
+    "event_time",
+    "device_recorded_at",
+    "server_received_at",
+    "created_at",
+  ]));
+  if (!deviceRecordedAt) return null;
+
+  const pairingName = firstString(record, ["pairing", "pairing_name", "pairingName", "name"]);
+  const valveKey = firstString(record, ["valve", "valve_key", "valveKey", "valve_id", "valveId"]);
+  const action = eventAction(record);
+  const duration = asInteger(record.valveOpenTimeMs) ??
+    asInteger(record.valve_open_time_ms) ??
+    asInteger(record.duration_ms) ??
+    asInteger(record.durationMs);
+  const eventId = firstString(record, ["event_id", "eventId", "id"]) ??
+    [
+      "owner-health",
+      deviceRecordedAt,
+      pairingName ?? "unknown-pairing",
+      valveKey ?? "unknown-valve",
+      action,
+      duration ?? "unknown-duration",
+    ].join(":");
+
+  return {
+    event_id: eventId,
+    pairing_name: pairingName ?? valveKey ?? "unknown",
+    valve_key: valveKey ?? pairingName ?? "unknown",
+    action,
+    duration_ms: duration,
+    device_recorded_at: deviceRecordedAt,
+    server_received_at: nowIso,
+  };
+}
+
+function collectValveEvents(
+  status: Record<string, unknown>,
+  health: Record<string, unknown>,
+  nowIso: string,
+) {
+  const sources = [
+    nestedRecord(nestedRecord(health, "api"), "watering").events,
+    nestedRecord(health, "watering").events,
+    nestedRecord(status, "watering").events,
+    nestedRecord(nestedRecord(health, "api"), "valves").events,
+  ];
+  const events = sources
+    .flatMap((source) => Array.isArray(source) ? source : [])
+    .map((event) => normalizeValveEvent(event, nowIso))
+    .filter((event): event is ValveEventInsert => event != null);
+
+  const deduped = new Map<string, ValveEventInsert>();
+  for (const event of events) {
+    if (!deduped.has(event.event_id)) {
+      deduped.set(event.event_id, event);
+    }
+  }
+  return [...deduped.values()];
+}
+
+async function insertMissingValveEvents(
+  admin: ReturnType<typeof createClient>,
+  events: ValveEventInsert[],
+) {
+  if (!events.length) return { inserted: 0, error: null as string | null };
+
+  const eventIds = events.map((event) => event.event_id);
+  const { data: existing, error: selectError } = await admin
+    .from("valve_events")
+    .select("event_id")
+    .in("event_id", eventIds);
+
+  if (selectError) {
+    return { inserted: 0, error: selectError.message };
+  }
+
+  const existingIds = new Set((existing ?? [])
+    .map((row: { event_id?: unknown }) => asString(row.event_id))
+    .filter((eventId): eventId is string => eventId != null));
+  const missingEvents = events.filter((event) => !existingIds.has(event.event_id));
+
+  if (!missingEvents.length) return { inserted: 0, error: null };
+
+  const { error: insertError } = await admin
+    .from("valve_events")
+    .insert(missingEvents);
+
+  return {
+    inserted: insertError ? 0 : missingEvents.length,
+    error: insertError?.message ?? null,
+  };
+}
+
 serve(async (request) => {
   const origin = request.headers.get("Origin");
 
@@ -205,6 +338,7 @@ serve(async (request) => {
   const history = historyResponse.ok ? historyResponse.data : {};
   const historyRecords = Array.isArray(history.records) ? history.records : [];
   const nowIso = new Date().toISOString();
+  const valveEvents = collectValveEvents(status, healthResponse.ok ? healthResponse.data : {}, nowIso);
 
   const snapshot = {
     project_id: mattProjectId,
@@ -256,9 +390,19 @@ serve(async (request) => {
     return jsonResponse({ error: "Could not write health snapshot" }, 500, origin);
   }
 
+  const valveEventWrite = await insertMissingValveEvents(admin, valveEvents);
+  if (valveEventWrite.error) {
+    console.error("Could not write valve events", valveEventWrite.error);
+  }
+
   return jsonResponse({
     ok: true,
     snapshot: data,
+    valveEvents: {
+      found: valveEvents.length,
+      inserted: valveEventWrite.inserted,
+      error: valveEventWrite.error,
+    },
     source: {
       statusEndpointOk: statusResponse.ok,
       healthEndpointOk: healthResponse.ok,
