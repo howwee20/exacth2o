@@ -202,8 +202,7 @@ type SettingsSection =
   | "water"
   | "groups"
   | "hardware"
-  | "exports"
-  | "logs";
+  | "exports";
 
 type SettingsNavItem = {
   id: SettingsSection;
@@ -390,7 +389,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-health-summary-remove";
+const portalVersion = "20260707-remove-logs-tab";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -443,13 +442,6 @@ const settingsNavItems: SettingsNavItem[] = [
     description: "CSV and project files",
     group: "Data",
     icon: FileArchive,
-  },
-  {
-    id: "logs",
-    label: "Logs & Audit",
-    description: "Errors, commands, and traceability",
-    group: "Data",
-    icon: CircleAlert,
   },
 ];
 
@@ -2507,56 +2499,6 @@ function PortalSettingsPanel({
               </div>
             </section>
           </div>
-        </>
-      );
-    }
-
-    if (activeSection === "logs") {
-      return (
-        <>
-          {commandStatusPanel}
-          <div className="settings-callout">
-            <Database size={18} />
-            <div>
-              <strong>Audit trail</strong>
-              <p>Calibration, pairing edit, valve command, export, and system-action requests are written to command and audit tables.</p>
-            </div>
-          </div>
-          <section className="settings-card">
-            <div className="settings-card-head">
-              <h3>Recent Commands</h3>
-              <button type="button" className="settings-secondary-button" onClick={onRefreshCommands}>
-                Refresh
-              </button>
-            </div>
-            <div className="settings-table-wrap">
-              <table className="settings-table">
-                <thead>
-                  <tr>
-                    <th>Action</th>
-                    <th>Status</th>
-                    <th>Scope</th>
-                    <th>Requested</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentCommands.length ? recentCommands.map((command) => (
-                    <tr key={command.id}>
-                      <td>{controlCommandLabel(command.command_type)}</td>
-                      <td>{command.status}</td>
-                      <td>{commandPayloadSummary(command)}</td>
-                      <td>{commandStatusText(command)}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={4}>No control commands synced yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-          <pre className="settings-json-preview">{shortJson(data.latestState?.latest_payload)}</pre>
         </>
       );
     }
