@@ -391,7 +391,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-health-compact-watering";
+const portalVersion = "20260707-health-auto-updates";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3767,14 +3767,10 @@ function HealthWateringEmpty({
 
 function SystemHealthView({
   snapshot,
-  loading,
   error,
-  onRefresh,
 }: {
   snapshot: DeviceHealthSnapshot | null;
-  loading: boolean;
   error: string | null;
-  onRefresh: () => void;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
   const tone = healthTone(snapshot);
@@ -3806,7 +3802,7 @@ function SystemHealthView({
   const expectedSensors = snapshot?.sensors_expected ?? healthNumber(latestRecord?.sensorRows);
   const staleMissing = (snapshot?.sensors_stale ?? 0) + (snapshot?.sensors_missing ?? 0);
   const nodeHalf = expectedSensors ? Math.round(expectedSensors / 2) : null;
-  const ownerDetail = `Live snapshot · refresh ${Math.round(healthSnapshotPollMs / 1000)}s`;
+  const ownerDetail = "Controller power, ethernet, sensors, and watering scheduler are reporting normally.";
   const checkedAt = formatSettingsTimestamp(snapshot?.owner_checked_at ?? snapshot?.captured_at ?? snapshot?.created_at);
 
   return (
@@ -3824,10 +3820,6 @@ function SystemHealthView({
             Updated {formatSettingsTimestamp(snapshot?.captured_at ?? snapshot?.created_at)}
           </span>
         </div>
-        <button type="button" className="health-refresh-button" onClick={onRefresh} disabled={loading}>
-          <RefreshCw size={15} />
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
       </header>
 
       {error ? (
@@ -5388,9 +5380,7 @@ export default function App() {
         {portalHeader}
         <SystemHealthView
           snapshot={healthSnapshot}
-          loading={healthLoading}
           error={healthError}
-          onRefresh={() => void syncHealthSnapshot()}
         />
       </main>
     );
