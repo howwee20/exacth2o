@@ -387,7 +387,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-terms-version-only";
+const portalVersion = "20260708-clean-csv-export";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -966,10 +966,36 @@ function mergeReadings(base: SensorReading[], incoming: SensorReading[]) {
   return dedupeReadings([...incoming, ...base]);
 }
 
+function readingExportKey(reading: SensorReading) {
+  if (!reading.pairing_name || !reading.sensor_key || !reading.device_recorded_at) {
+    return reading.event_id || String(reading.id);
+  }
+
+  return [
+    reading.pairing_name,
+    reading.sensor_key,
+    reading.device_recorded_at,
+    reading.calibrated_value ?? "",
+    reading.raw_value ?? "",
+    reading.temperature ?? "",
+    reading.electrical_conductivity ?? "",
+  ].join("\u001f");
+}
+
+function exportSourcePriority(reading: SensorReading) {
+  if (reading.event_id.startsWith("live-device:")) return 2;
+  if (reading.event_id.startsWith("balena-export-v2:")) return 1;
+  return 0;
+}
+
 function dedupeReadingsForExport(readings: SensorReading[]) {
   const byKey = new Map<string, SensorReading>();
   for (const reading of readings) {
-    byKey.set(reading.event_id || String(reading.id), reading);
+    const key = readingExportKey(reading) || reading.event_id || String(reading.id);
+    const existing = byKey.get(key);
+    if (!existing || exportSourcePriority(reading) > exportSourcePriority(existing)) {
+      byKey.set(key, reading);
+    }
   }
 
   return Array.from(byKey.values()).sort(
