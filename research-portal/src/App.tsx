@@ -392,7 +392,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-terms-clickthrough";
+const portalVersion = "20260707-health-under-experiment";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -2697,41 +2697,43 @@ function PortalAdminHome({
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
       <div className="portal-launch-grid">
-        <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
-          <span className="portal-launch-top">
-            <span className="portal-launch-icon">
-              <Activity size={20} />
+        <div className="portal-experiment-stack">
+          <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
+            <span className="portal-launch-top">
+              <span className="portal-launch-icon">
+                <Activity size={20} />
+              </span>
+              <span className="portal-status-pill is-ok">OPEN</span>
             </span>
-            <span className="portal-status-pill is-ok">OPEN</span>
-          </span>
-          <span className="portal-launch-copy">
-            <span className="portal-launch-title">Matt Experiment</span>
-            <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
-            <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
-          </span>
-          <span className="portal-launch-action">
-            Open <ArrowRight size={14} />
-          </span>
-        </button>
-
-        <span className="portal-health-link" aria-hidden="true" />
-
-        <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
-          <span className="portal-launch-top">
-            <span className="portal-launch-icon">
-              <Server size={20} />
+            <span className="portal-launch-copy">
+              <span className="portal-launch-title">Matt Experiment</span>
+              <strong>{data.totalLiveReadings.toLocaleString()} live rows</strong>
+              <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
             </span>
-            <PortalStatusPill snapshot={healthSnapshot} />
-          </span>
-          <span className="portal-launch-copy">
-            <span className="portal-launch-title">System Health</span>
-            <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
-            <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
-          </span>
-          <span className="portal-launch-action">
-            Open <ArrowRight size={14} />
-          </span>
-        </button>
+            <span className="portal-launch-action">
+              Open <ArrowRight size={14} />
+            </span>
+          </button>
+
+          <span className="portal-health-link" aria-hidden="true" />
+
+          <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
+            <span className="portal-launch-top">
+              <span className="portal-launch-icon">
+                <Server size={18} />
+              </span>
+              <PortalStatusPill snapshot={healthSnapshot} />
+            </span>
+            <span className="portal-launch-copy">
+              <span className="portal-launch-title">System Health</span>
+              <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
+              <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
+            </span>
+            <span className="portal-launch-action">
+              Open <ArrowRight size={14} />
+            </span>
+          </button>
+        </div>
 
         <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
           <span className="portal-launch-top">
