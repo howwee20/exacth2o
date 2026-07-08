@@ -391,7 +391,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260707-admin-home-actions";
+const portalVersion = "20260707-experiment-home-corner";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -5446,6 +5446,7 @@ export default function App() {
 
   const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
   const showSiteControl = isAdmin && portalView === "home";
+  const showExperimentHomeControl = isAdmin && portalView === "experiment";
 
   const portalActions = (
     <div className="header-actions">
@@ -5453,6 +5454,12 @@ export default function App() {
         <a className="header-action" href="/">
           Site
         </a>
+      ) : null}
+      {showExperimentHomeControl ? (
+        <button className="header-action" type="button" onClick={() => setPortalView("home")}>
+          <ArrowLeft size={14} />
+          Home
+        </button>
       ) : null}
       {showSettingsControl ? (
         <button
@@ -5469,7 +5476,7 @@ export default function App() {
     </div>
   );
 
-  const experimentCornerActions = showSettingsControl ? (
+  const experimentCornerActions = showExperimentHomeControl || showSettingsControl ? (
     <div className="experiment-corner-actions" aria-label="Experiment actions">
       {portalActions}
     </div>
@@ -5574,12 +5581,6 @@ export default function App() {
   return (
     <main className="dashboard-shell experiment-shell">
       {experimentCornerActions}
-      {isAdmin ? (
-        <button type="button" className="support-back-button experiment-home-button" onClick={() => setPortalView("home")}>
-          <ArrowLeft size={15} />
-          Home
-        </button>
-      ) : null}
 
       {canUseExperimentSettings ? (
         <PortalSettingsPanel

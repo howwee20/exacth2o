@@ -733,10 +733,6 @@ select {
   outline: none;
 }
 
-.experiment-home-button {
-  margin: 68px 0 -24px clamp(18px, 5vw, 56px);
-}
-
 .portal-launch-grid {
   --portal-card-gap: 42px;
   display: grid;
