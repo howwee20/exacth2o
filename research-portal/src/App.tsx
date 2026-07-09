@@ -398,7 +398,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-watering-events-history";
+const portalVersion = "20260708-watering-pot-labels";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3128,8 +3128,12 @@ type HealthHistoryRecord = Record<string, unknown> & {
 type HealthWateringEvent = Record<string, unknown> & {
   t?: string;
   pairing?: string;
+  pairingName?: string;
+  originalPairing?: string;
   physicalPot?: number;
   valveOpenTimeMs?: number;
+  sensor?: string;
+  valve?: string;
 };
 
 function healthRecord(value: unknown): Record<string, unknown> {
@@ -3444,6 +3448,189 @@ function snapshotLatestWateringEvent(snapshot: DeviceHealthSnapshot | null): Hea
 
 function pairingLabel(pairing: PairingRow) {
   return `Pot ${pairing.pot_number}`;
+}
+
+type WateringPairingIndex = {
+  byLabel: Map<string, PairingRow>;
+  bySourcePair: Map<string, PairingRow>;
+  bySensorId: Map<string, PairingRow>;
+  byValveId: Map<string, PairingRow>;
+  bySensorKey: Map<string, PairingRow>;
+  byValveKey: Map<string, PairingRow>;
+  byPot: Map<number, PairingRow>;
+};
+
+function normalizedWateringToken(value: unknown) {
+  const text = healthEventText(value);
+  return text ? text.trim().replace(/;+$/g, "").trim().toLowerCase() : "";
+}
+
+function sourcePairKey(sensorId: unknown, valveId: unknown) {
+  const sensorNumber = healthNumber(sensorId);
+  const valveNumber = healthNumber(valveId);
+  if (sensorNumber == null || valveNumber == null) return null;
+  return `${Math.trunc(sensorNumber)}-${Math.trunc(valveNumber)}`;
+}
+
+function sourcePairKeyFromText(value: unknown) {
+  const text = healthEventText(value);
+  if (!text) return null;
+  const match = text.match(/(?:^|[^\d])(\d+)\s*-\s*(\d+)\s*;?(?=$|[^\d])/);
+  if (!match) return null;
+  return sourcePairKey(match[1], match[2]);
+}
+
+function hardwareKeyVariants(value: unknown) {
+  const token = normalizedWateringToken(value);
+  if (!token) return [];
+  const variants = new Set([token]);
+  const parts = token.split(":");
+  if (parts.length >= 2) {
+    variants.add(parts.slice(-2).join(":"));
+  }
+  return Array.from(variants);
+}
+
+function addPairingLookup(map: Map<string, PairingRow>, key: unknown, pairing: PairingRow) {
+  const token = normalizedWateringToken(key);
+  if (token) map.set(token, pairing);
+}
+
+function addPairingHardwareLookup(map: Map<string, PairingRow>, key: unknown, pairing: PairingRow) {
+  for (const variant of hardwareKeyVariants(key)) {
+    map.set(variant, pairing);
+  }
+}
+
+function buildWateringPairingIndex(pairings: PairingRow[]): WateringPairingIndex {
+  const index: WateringPairingIndex = {
+    byLabel: new Map(),
+    bySourcePair: new Map(),
+    bySensorId: new Map(),
+    byValveId: new Map(),
+    bySensorKey: new Map(),
+    byValveKey: new Map(),
+    byPot: new Map(),
+  };
+
+  pairings.forEach((pairing) => {
+    addPairingLookup(index.byLabel, pairing.name, pairing);
+    addPairingLookup(index.byLabel, pairingLabel(pairing), pairing);
+    addPairingLookup(index.byLabel, String(pairing.pot_number), pairing);
+    addPairingHardwareLookup(index.bySensorKey, pairing.sensor_key, pairing);
+    addPairingHardwareLookup(index.byValveKey, pairing.valve_key, pairing);
+    index.byPot.set(pairing.pot_number, pairing);
+
+    const sensorId = healthNumber(pairing.source_sensor_id);
+    const valveId = healthNumber(pairing.source_valve_id);
+    const pairKey = sourcePairKey(sensorId, valveId);
+    if (pairKey) index.bySourcePair.set(pairKey, pairing);
+    if (sensorId != null) index.bySensorId.set(String(Math.trunc(sensorId)), pairing);
+    if (valveId != null) index.byValveId.set(String(Math.trunc(valveId)), pairing);
+  });
+
+  return index;
+}
+
+function resolveWateringEventPairing(event: HealthWateringEvent, index: WateringPairingIndex) {
+  const record = event as Record<string, unknown>;
+  const pot = healthNumber(event.physicalPot ?? record.physical_pot ?? record.pot_number ?? record.pot);
+  if (pot != null) {
+    const pairing = index.byPot.get(Math.trunc(pot));
+    if (pairing) return pairing;
+  }
+
+  const textCandidates = [
+    event.pairing,
+    event.pairingName,
+    record.pairing_name,
+    record.pairingName,
+    record.name,
+    record.label,
+    record.pot,
+    record.valve,
+    record.valve_key,
+    record.valveKey,
+    record.valve_id,
+    record.valveId,
+    record.sensor,
+    record.sensor_key,
+    record.sensorKey,
+    record.sensor_id,
+    record.sensorId,
+    record.id,
+    record.event_id,
+    record.eventId,
+  ];
+
+  for (const value of textCandidates) {
+    const sourcePair = sourcePairKeyFromText(value);
+    if (sourcePair && index.bySourcePair.has(sourcePair)) return index.bySourcePair.get(sourcePair);
+
+    const token = normalizedWateringToken(value);
+    if (token && index.byLabel.has(token)) return index.byLabel.get(token);
+  }
+
+  const sourceSensorId =
+    healthNumber(record.source_sensor_id) ??
+    healthNumber(record.sourceSensorId) ??
+    healthNumber(record.sensor_id) ??
+    healthNumber(record.sensorId);
+  const sourceValveId =
+    healthNumber(record.source_valve_id) ??
+    healthNumber(record.sourceValveId) ??
+    healthNumber(record.valve_id) ??
+    healthNumber(record.valveId);
+  const pairKey = sourcePairKey(sourceSensorId, sourceValveId);
+  if (pairKey && index.bySourcePair.has(pairKey)) return index.bySourcePair.get(pairKey);
+  if (sourceValveId != null) {
+    const pairing = index.byValveId.get(String(Math.trunc(sourceValveId)));
+    if (pairing) return pairing;
+  }
+  if (sourceSensorId != null) {
+    const pairing = index.bySensorId.get(String(Math.trunc(sourceSensorId)));
+    if (pairing) return pairing;
+  }
+
+  for (const value of [record.valve, record.valve_key, record.valveKey, event.valve]) {
+    for (const variant of hardwareKeyVariants(value)) {
+      const pairing = index.byValveKey.get(variant);
+      if (pairing) return pairing;
+    }
+  }
+  for (const value of [record.sensor, record.sensor_key, record.sensorKey, event.sensor]) {
+    for (const variant of hardwareKeyVariants(value)) {
+      const pairing = index.bySensorKey.get(variant);
+      if (pairing) return pairing;
+    }
+  }
+
+  return null;
+}
+
+function withResolvedWateringPairing(event: HealthWateringEvent, pairing: PairingRow): HealthWateringEvent {
+  return {
+    ...event,
+    originalPairing: event.originalPairing ?? event.pairing,
+    pairing: pairingLabel(pairing),
+    pairingName: pairing.name,
+    physicalPot: pairing.pot_number,
+    valveOpenTimeMs: event.valveOpenTimeMs ?? pairing.valve_open_time_ms,
+    sensor: pairing.sensor_key,
+    valve: pairing.valve_key,
+    source_sensor_id: pairing.source_sensor_id,
+    source_valve_id: pairing.source_valve_id,
+  };
+}
+
+function resolveHealthWateringEvents(events: HealthWateringEvent[], pairings: PairingRow[]) {
+  const index = buildWateringPairingIndex(pairings);
+  return dedupeWateringEvents(events
+    .map((event) => {
+      const pairing = resolveWateringEventPairing(event, index);
+      return pairing ? withResolvedWateringPairing(event, pairing) : null;
+    })
+    .filter((event): event is HealthWateringEvent => event != null));
 }
 
 function valveEventsToHealthWateringEvents(events: ValveEvent[], pairings: PairingRow[]) {
@@ -3778,17 +3965,8 @@ function HealthWateringChart({
   const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
   const rowLabels = useMemo(() => {
-    const baseLabels = pairings.map(pairingLabel);
-    const eventLabels = events.map(wateringEventLabel);
-    return Array.from(new Set([...baseLabels, ...eventLabels]))
-      .filter(Boolean)
-      .sort((a, b) => {
-        const aNumber = Number(a.replace(/\D/g, ""));
-        const bNumber = Number(b.replace(/\D/g, ""));
-        if (Number.isFinite(aNumber) && Number.isFinite(bNumber) && aNumber !== bNumber) return aNumber - bNumber;
-        return a.localeCompare(b);
-      });
-  }, [events, pairings]);
+    return pairings.map(pairingLabel);
+  }, [pairings]);
   const height = Math.max(240, Math.min(520, 76 + Math.max(rowLabels.length, 1) * 19));
   const padLeft = 70;
   const padRight = 16;
@@ -3799,17 +3977,15 @@ function HealthWateringChart({
     () => healthChartWindow(times, windowOffset),
     [times, windowOffset],
   );
-  const visibleEvents = useMemo(
-    () => events.filter((event) => {
-      const time = healthTimestampMs(event.t);
-      return time != null && time >= windowInfo.startMs && time <= windowInfo.endMs;
-    }),
-    [events, windowInfo.endMs, windowInfo.startMs],
-  );
   const minTime = windowInfo.startMs;
   const maxTime = windowInfo.endMs;
   const labels = rowLabels.length ? rowLabels : ["Valve"];
   const labelIndex = new Map(labels.map((label, index) => [label, index]));
+  const visibleEvents = events.filter((event) => {
+    const time = healthTimestampMs(event.t);
+    const label = wateringEventLabel(event);
+    return time != null && labelIndex.has(label) && time >= windowInfo.startMs && time <= windowInfo.endMs;
+  });
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
   const xFor = (time: number) => padLeft + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
@@ -3853,17 +4029,18 @@ function HealthWateringChart({
           const duration = healthNumber(event.valveOpenTimeMs);
           const eventRecord = event as Record<string, unknown>;
           const durationText = duration == null ? "--" : `${Math.round(duration / 1000)} sec`;
+          const pairingName = event.pairingName ?? healthString(event.pairing) ?? label;
           const openDetail = () => {
             onSelectDetail?.({
-              title: healthString(event.pairing) ?? label,
+              title: label,
               rows: [
                 { label: "Event", value: "Valve opened" },
                 { label: "Time", value: formatSettingsTimestamp(event.t) },
                 { label: "Age", value: healthAgeText(event.t) },
                 { label: "Pot", value: label },
-                { label: "Pairing", value: healthString(event.pairing) ?? label },
-                { label: "Sensor", value: healthFirstText(eventRecord, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
-                { label: "Valve", value: healthFirstText(eventRecord, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
+                { label: "Pairing", value: pairingName },
+                { label: "Sensor", value: event.sensor ?? healthFirstText(eventRecord, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
+                { label: "Valve", value: event.valve ?? healthFirstText(eventRecord, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
                 { label: "Duration", value: durationText },
                 { label: "Event ID", value: healthFirstText(eventRecord, ["id", "eventId", "event_id"]) },
               ],
@@ -3886,7 +4063,7 @@ function HealthWateringChart({
                 }
               }}
             >
-              <title>{`${healthString(event.pairing) ?? label} opened ${formatSettingsTimestamp(event.t)}${duration == null ? "" : ` for ${Math.round(duration / 1000)} sec`}`}</title>
+              <title>{`${label} opened ${formatSettingsTimestamp(event.t)}${duration == null ? "" : ` for ${Math.round(duration / 1000)} sec`}`}</title>
             </circle>
           );
         })}
@@ -3915,11 +4092,11 @@ function SystemHealthView({
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
   const wateringEvents = useMemo(() => {
     const latestSnapshotWatering = snapshotLatestWateringEvent(snapshot);
-    return dedupeWateringEvents([
+    return resolveHealthWateringEvents([
       ...healthWateringEvents(snapshot),
       ...(latestSnapshotWatering ? [latestSnapshotWatering] : []),
       ...valveEventsToHealthWateringEvents(valveEvents, pairings),
-    ]);
+    ], pairings);
   }, [pairings, snapshot, valveEvents]);
   const records = healthHistoryRecords(snapshot);
   const evidenceRecords = healthRecentRecords(records, 8);
@@ -3942,8 +4119,10 @@ function SystemHealthView({
     ? wateringEvents24h.length
     : Math.max(snapshotWateringOpenCount, wateringEvents24h.length);
   const wateringEnabled = !disabledWatering.length;
-  const latestWateringAt = latestWatering?.t ?? snapshot?.watering_last_event_at ?? null;
-  const latestWateringLabel = healthString(latestWatering?.pairing) ?? healthString(snapshot?.watering_last_event) ?? "none";
+  const latestWateringAt = [latestWatering?.t, snapshot?.watering_last_event_at]
+    .filter((value): value is string => healthTimestampMs(value) != null)
+    .sort((a, b) => (healthTimestampMs(b) ?? 0) - (healthTimestampMs(a) ?? 0))[0] ?? null;
+  const latestWateringLabel = latestWatering ? wateringEventLabel(latestWatering) : healthString(snapshot?.watering_last_event) ?? "none";
   const latestWateringDuration = healthNumber(latestWatering?.valveOpenTimeMs);
   const latestWateringTime = latestWateringAt ? formatSettingsTimestamp(latestWateringAt) : "none";
   const wateringDisabledText = disabledWatering.length ? disabledWatering.join(", ") : "none";
@@ -4114,7 +4293,7 @@ function SystemHealthView({
           <div className="health-event-list">
             {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => (
               <div className="health-event-row" key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}`}>
-                <strong>{healthString(event.pairing) ?? wateringEventLabel(event)}</strong>
+                <strong>{wateringEventLabel(event)}</strong>
                 <span>{formatSettingsTimestamp(event.t)}</span>
                 <em>{healthNumber(event.valveOpenTimeMs) == null ? "--" : `${Math.round((healthNumber(event.valveOpenTimeMs) ?? 0) / 1000)} sec`}</em>
               </div>
