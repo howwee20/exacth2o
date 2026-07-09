@@ -466,7 +466,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260709-research-watering-view";
+const portalVersion = "20260709-admin-watering-view";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3563,47 +3563,6 @@ function monitoringGaps(records: HealthHistoryRecord[], sampleIntervalSeconds = 
   return gaps;
 }
 
-function normalizeHealthWateringEvent(value: unknown): HealthWateringEvent | null {
-  const record = healthRecord(value);
-  const timestamp = healthFirstEventText(record, [
-    "t",
-    "time",
-    "timestamp",
-    "eventTime",
-    "event_time",
-    "device_recorded_at",
-    "server_received_at",
-    "created_at",
-  ]);
-  if (!timestamp || healthTimestampMs(timestamp) == null) return null;
-
-  const duration =
-    healthNumber(record.valveOpenTimeMs) ??
-    healthNumber(record.valve_open_time_ms) ??
-    healthNumber(record.duration_ms) ??
-    healthNumber(record.durationMs);
-  const pot =
-    healthNumber(record.physicalPot) ??
-    healthNumber(record.physical_pot) ??
-    healthNumber(record.pot_number) ??
-    healthNumber(record.pot);
-  const pairing = healthFirstEventText(record, ["pairing", "pairing_name", "pairingName", "name"]);
-  const valve = healthFirstEventText(record, ["valve", "valve_key", "valveKey", "valve_id", "valveId"]);
-  const sensor = healthFirstEventText(record, ["sensor", "sensor_key", "sensorKey", "sensor_id", "sensorId"]);
-  const eventId = healthFirstEventText(record, ["event_id", "eventId", "id"]);
-
-  return {
-    ...record,
-    id: eventId ?? record.id,
-    t: timestamp,
-    pairing: pairing ?? undefined,
-    physicalPot: pot ?? undefined,
-    valveOpenTimeMs: duration ?? undefined,
-    valve: valve ?? undefined,
-    sensor: sensor ?? undefined,
-  };
-}
-
 function wateringEventPhysicalKey(event: HealthWateringEvent) {
   const timeMs = healthTimestampMs(event.t);
   if (timeMs == null) return null;
@@ -3672,33 +3631,6 @@ function dedupeWateringEvents(events: HealthWateringEvent[]) {
       return true;
     })
     .sort((a, b) => (healthTimestampMs(a.t) ?? 0) - (healthTimestampMs(b.t) ?? 0));
-}
-
-function healthWateringEvents(snapshot: DeviceHealthSnapshot | null): HealthWateringEvent[] {
-  const sources = [
-    healthNestedRecord(healthNestedRecord(snapshot?.raw_health, "api"), "watering").events,
-    healthNestedRecord(snapshot?.raw_health, "watering").events,
-    healthNestedRecord(snapshot?.raw_status, "watering").events,
-    healthNestedRecord(healthNestedRecord(snapshot?.raw_health, "api"), "valves").events,
-  ];
-  const events = sources.flatMap((source) => Array.isArray(source) ? source : []);
-  return dedupeWateringEvents(events
-    .map(normalizeHealthWateringEvent)
-    .filter((event): event is HealthWateringEvent => event != null)
-    .filter((event) => !isIgnoredDiagnosticValveEvent(event)));
-}
-
-function snapshotLatestWateringEvent(snapshot: DeviceHealthSnapshot | null): HealthWateringEvent | null {
-  const timestamp = healthString(snapshot?.watering_last_event_at);
-  if (!timestamp || healthTimestampMs(timestamp) == null) return null;
-  const pairing = healthString(snapshot?.watering_last_event) ?? "Latest fire";
-  if (isIgnoredDiagnosticPairingName(pairing)) return null;
-  return {
-    id: `owner-health-latest:${timestamp}:${pairing}`,
-    t: timestamp,
-    pairing,
-    valveOpenTimeMs: undefined,
-  };
 }
 
 function pairingLabel(pairing: PairingRow) {
@@ -4317,7 +4249,6 @@ function HealthWateringChart({
                 { label: "Sensor", value: event.sensor ?? healthFirstText(eventRecord, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
                 { label: "Valve", value: event.valve ?? healthFirstText(eventRecord, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
                 { label: "Duration", value: durationText },
-                { label: "Event ID", value: healthFirstText(eventRecord, ["id", "eventId", "event_id"]) },
               ],
             });
           };
@@ -4410,54 +4341,26 @@ function ResearchWateringActivity({
 
 function SystemHealthView({
   snapshot,
-  pairings,
-  valveEvents,
   error,
   onBackHome,
 }: {
   snapshot: DeviceHealthSnapshot | null;
-  pairings: PairingRow[];
-  valveEvents: ValveEvent[];
   error: string | null;
   onBackHome: () => void;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
-  const wateringEvents = useMemo(() => {
-    const latestSnapshotWatering = snapshotLatestWateringEvent(snapshot);
-    return resolveHealthWateringEvents([
-      ...healthWateringEvents(snapshot),
-      ...(latestSnapshotWatering ? [latestSnapshotWatering] : []),
-      ...valveEventsToHealthWateringEvents(valveEvents, pairings),
-    ], pairings);
-  }, [pairings, snapshot, valveEvents]);
   const records = healthHistoryRecords(snapshot);
   const evidenceRecords = healthRecentRecords(records, 8);
   const restarts = restartEvents(evidenceRecords);
   const allRestarts = restartEvents(records);
   const gaps = monitoringGaps(evidenceRecords, healthNumber(snapshot?.raw_history?.sampleIntervalSeconds) ?? 300);
-  const shownWateringEvents = recentWateringEvents(wateringEvents, 8);
-  const wateringEvents24h = wateringEventsLastDay(wateringEvents);
   const currentUptime = currentUptimeSeconds(snapshot, records);
   const lastRestart = restarts[restarts.length - 1] ?? null;
   const lastGap = gaps[gaps.length - 1] ?? null;
-  const latestWatering = wateringEvents[wateringEvents.length - 1] ?? null;
   const latestRecord = records[records.length - 1] ?? null;
   const undervoltageCurrent = healthBoolean(healthOwnerValue(snapshot, "undervoltage_current")) ?? snapshot?.undervoltage ?? null;
   const undervoltageOccurred = healthBoolean(healthOwnerValue(snapshot, "undervoltage_occurred"));
   const throttleFlags = healthString(healthOwnerValue(snapshot, "throttled_flags"));
-  const disabledWatering = healthArray(healthOwnerValue(snapshot, "watering_disabled")).map(String);
-  const snapshotWateringOpenCount = snapshot?.watering_events_last_24h;
-  const wateringOpenCount = snapshotWateringOpenCount == null
-    ? wateringEvents24h.length
-    : Math.max(snapshotWateringOpenCount, wateringEvents24h.length);
-  const wateringEnabled = !disabledWatering.length;
-  const latestWateringAt = [latestWatering?.t, snapshot?.watering_last_event_at]
-    .filter((value): value is string => healthTimestampMs(value) != null)
-    .sort((a, b) => (healthTimestampMs(b) ?? 0) - (healthTimestampMs(a) ?? 0))[0] ?? null;
-  const latestWateringLabel = latestWatering ? wateringEventLabel(latestWatering) : healthString(snapshot?.watering_last_event) ?? "none";
-  const latestWateringDuration = healthNumber(latestWatering?.valveOpenTimeMs);
-  const latestWateringTime = latestWateringAt ? formatSettingsTimestamp(latestWateringAt) : "none";
-  const wateringDisabledText = disabledWatering.length ? disabledWatering.join(", ") : "none";
   const currentSensors = snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
   const expectedSensors = snapshot?.sensors_expected ?? healthNumber(latestRecord?.sensorRows);
   const staleMissing = (snapshot?.sensors_stale ?? 0) + (snapshot?.sensors_missing ?? 0);
@@ -4603,43 +4506,6 @@ function SystemHealthView({
           />
         </HealthPanel>
       </div>
-
-      <HealthPanel
-        title="Watering Timeline"
-        detail={`${wateringEnabled ? "Enabled" : "Disabled"} · ${formatHealthInteger(wateringOpenCount)} valve fires in 24h · latest ${latestWateringTime}.`}
-        badge={`${formatHealthInteger(wateringOpenCount)} / 24h`}
-        badgeTone={wateringEnabled ? "ok" : "warning"}
-      >
-        <div className="health-mini-grid">
-          <HealthMiniFact label="24h fires" value={formatHealthInteger(wateringOpenCount)} />
-          <HealthMiniFact label="Latest fire" value={latestWateringTime} />
-          <HealthMiniFact label="Disabled" value={wateringDisabledText} />
-          <HealthMiniFact label="Event rows" value={String(wateringEvents.length)} />
-        </div>
-        <HealthWateringChart
-          events={wateringEvents}
-          pairings={pairings}
-          onSelectDetail={setSelectedDetail}
-        />
-        {shownWateringEvents.length || latestWateringAt ? (
-          <div className="health-event-list">
-            {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => (
-              <div className="health-event-row" key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}`}>
-                <strong>{wateringEventLabel(event)}</strong>
-                <span>{formatSettingsTimestamp(event.t)}</span>
-                <em>{healthNumber(event.valveOpenTimeMs) == null ? "--" : `${Math.round((healthNumber(event.valveOpenTimeMs) ?? 0) / 1000)} sec`}</em>
-              </div>
-            ))}
-            {!shownWateringEvents.length && latestWateringAt ? (
-              <div className="health-event-row">
-                <strong>{latestWateringLabel}</strong>
-                <span>{formatSettingsTimestamp(latestWateringAt)}</span>
-                <em>{latestWateringDuration == null ? "--" : `${Math.round(latestWateringDuration / 1000)} sec`}</em>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </HealthPanel>
 
       <HealthPanel
         title="Sensor Freshness"
@@ -6227,32 +6093,6 @@ export default function App() {
           : {}),
       }
     : undefined;
-  const dashboardCsvReady = data.readings.length > 0;
-  const csvControl = csvDownload ? (
-    <a
-      className="csv-button is-ready"
-      href={csvDownload.url}
-      download={csvDownload.filename}
-      target="_blank"
-      rel="noreferrer"
-      title={`${csvDownload.rowCount.toLocaleString()} rows ready`}
-    >
-      <Download size={14} />
-      CSV
-    </a>
-  ) : (
-    <button
-      className="csv-button"
-      type="button"
-      title={dashboardCsvReady ? "Prepare clean CSV" : "Readings are still loading"}
-      onClick={prepareCsvDownload}
-      disabled={exportingCsv || !dashboardCsvReady}
-    >
-      <Download size={14} />
-      {exportingCsv ? "..." : "CSV"}
-    </button>
-  );
-
   const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
   const showSiteControl = isAdmin && portalView === "home";
   const showExperimentHomeControl = isAdmin && portalView === "experiment";
@@ -6373,8 +6213,6 @@ export default function App() {
         {portalHeader}
         <SystemHealthView
           snapshot={healthSnapshot}
-          pairings={sortedPairings}
-          valveEvents={valveEvents}
           error={healthError}
           onBackHome={() => setPortalView("home")}
         />
@@ -6442,27 +6280,25 @@ export default function App() {
       >
         <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
           <div className="chart-tools">
-            {!isAdmin ? (
-              <div className="chart-view-toggle" aria-label="Graph view">
-                <button
-                  type="button"
-                  className={experimentGraphMode === "vwc" ? "is-selected" : ""}
-                  onClick={() => {
-                    setSelectedWateringDetail(null);
-                    setExperimentGraphMode("vwc");
-                  }}
-                >
-                  VWC
-                </button>
-                <button
-                  type="button"
-                  className={experimentGraphMode === "watering" ? "is-selected" : ""}
-                  onClick={() => setExperimentGraphMode("watering")}
-                >
-                  Watering
-                </button>
-              </div>
-            ) : null}
+            <div className="chart-view-toggle" aria-label="Graph view">
+              <button
+                type="button"
+                className={experimentGraphMode === "vwc" ? "is-selected" : ""}
+                onClick={() => {
+                  setSelectedWateringDetail(null);
+                  setExperimentGraphMode("vwc");
+                }}
+              >
+                VWC
+              </button>
+              <button
+                type="button"
+                className={experimentGraphMode === "watering" ? "is-selected" : ""}
+                onClick={() => setExperimentGraphMode("watering")}
+              >
+                Watering
+              </button>
+            </div>
             <button
               className="expand-button"
               type="button"
@@ -6497,7 +6333,6 @@ export default function App() {
           </section>
           {experimentGraphMode === "vwc" ? (
             <div className="chart-bottom-controls">
-              <div className="chart-export-control">{csvControl}</div>
               <TimeRangeControl
                 bounds={timeBounds}
                 value={timeWindow}
