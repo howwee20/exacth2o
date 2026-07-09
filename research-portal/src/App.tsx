@@ -52,8 +52,10 @@ const pageSize = 1000;
 const readingSelectColumns =
   "id,event_id,pairing_name,sensor_key,raw_value,calibrated_value,temperature,electrical_conductivity,device_recorded_at,server_received_at";
 const autoRefreshMs = 15_000;
-const healthSnapshotPollMs = 15_000;
-const healthAutoSyncMs = 60_000;
+const healthSnapshotPollMs = 30_000;
+const healthAutoSyncMs = 5 * 60_000;
+const supabaseQueryTimeoutMs = 12_000;
+const portalAccessTimeoutMs = 8_000;
 const healthSnapshotFallbackWindowMs = 5 * 60 * 1000;
 const supportPollMs = 30_000;
 const healthChartWindowHours = 8;
@@ -65,6 +67,7 @@ const dayMs = 24 * 60 * 60 * 1000;
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
+const portalAccessCacheKey = "exacth2o.portal.access";
 const controlPots = new Set([41, 43, 45, 47, 49, 91, 93, 95, 97, 99]);
 const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
 const ignoredDiagnosticPairingNames = new Set(["cwd-lowercaset", "720-1539"]);
@@ -148,6 +151,12 @@ type PortalAccess = {
   role: PortalRole;
   email: string | null;
 } | null;
+
+type CachedPortalAccess = {
+  userId: string;
+  role: PortalRole;
+  email: string | null;
+};
 
 type InviteAcceptResponse = {
   ok?: boolean;
@@ -398,7 +407,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-watering-pot-labels";
+const portalVersion = "20260708-load-guards-pot-labels";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -1057,6 +1066,55 @@ async function functionErrorMessage(error: unknown) {
   return errorMessage(error);
 }
 
+async function withSupabaseTimeout<T>(
+  request: PromiseLike<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timeoutId: number | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(request),
+      new Promise<T>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          reject(new Error(`${label} timed out`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId != null) window.clearTimeout(timeoutId);
+  }
+}
+
+function cachedPortalAccessForUser(userId: string): PortalAccess {
+  try {
+    const raw = window.localStorage.getItem(portalAccessCacheKey);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as Partial<CachedPortalAccess>;
+    if (cached.userId !== userId) return null;
+    if (cached.role !== "admin" && cached.role !== "researcher") return null;
+    return {
+      role: cached.role,
+      email: typeof cached.email === "string" ? cached.email : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberPortalAccess(userId: string, access: Exclude<PortalAccess, null>) {
+  try {
+    const cached: CachedPortalAccess = {
+      userId,
+      role: access.role,
+      email: access.email,
+    };
+    window.localStorage.setItem(portalAccessCacheKey, JSON.stringify(cached));
+  } catch {
+    // Local storage is only a speed cache.
+  }
+}
+
 function dedupeReadings(readings: SensorReading[]) {
   const byKey = new Map<string, SensorReading>();
   for (const reading of readings) {
@@ -1135,7 +1193,7 @@ async function fetchReadingsPageByPrefix(
     query = query.lt("device_recorded_at", olderThan);
   }
 
-  const response = await query;
+  const response = await withSupabaseTimeout(query, supabaseQueryTimeoutMs, "Sensor readings");
   if (response.error) throw response.error;
   return ((response.data ?? []) as SensorReading[]).filter((reading) => !isIgnoredDiagnosticReading(reading));
 }
@@ -4556,9 +4614,14 @@ export default function App() {
 
   const loadPortalAccess = useCallback(async () => {
     setAccessLoading(true);
+    let userId: string | null = null;
     try {
-      const userResponse = await supabase.auth.getUser();
-      const userId = userResponse.data.user?.id;
+      const userResponse = await withSupabaseTimeout(
+        supabase.auth.getUser(),
+        portalAccessTimeoutMs,
+        "Portal session",
+      );
+      userId = userResponse.data.user?.id ?? null;
 
       if (userResponse.error || !userId) {
         setPortalAccess({ role: "researcher", email: null });
@@ -4566,22 +4629,36 @@ export default function App() {
         return;
       }
 
-      const response = await supabase
-        .from("portal_access")
-        .select("role, email")
-        .eq("project_id", mattProjectId)
-        .eq("user_id", userId)
-        .maybeSingle();
+      const response = await withSupabaseTimeout(
+        supabase
+          .from("portal_access")
+          .select("role, email")
+          .eq("project_id", mattProjectId)
+          .eq("user_id", userId)
+          .maybeSingle(),
+        portalAccessTimeoutMs,
+        "Portal access",
+      );
 
       if (response.error) {
-        setPortalAccess({ role: "researcher", email: null });
-        setPortalView("experiment");
+        const cachedAccess = cachedPortalAccessForUser(userId);
+        setPortalAccess(cachedAccess ?? { role: "researcher", email: null });
+        setPortalView(cachedAccess?.role === "admin" ? "home" : "experiment");
         return;
       }
 
       const role = response.data?.role === "admin" ? "admin" : "researcher";
-      setPortalAccess({ role, email: response.data?.email ?? null });
+      const access: Exclude<PortalAccess, null> = {
+        role,
+        email: response.data?.email ?? null,
+      };
+      rememberPortalAccess(userId, access);
+      setPortalAccess(access);
       setPortalView(role === "admin" ? "home" : "experiment");
+    } catch {
+      const cachedAccess = userId ? cachedPortalAccessForUser(userId) : null;
+      setPortalAccess(cachedAccess ?? { role: "researcher", email: null });
+      setPortalView(cachedAccess?.role === "admin" ? "home" : "experiment");
     } finally {
       setAccessLoading(false);
     }
@@ -4596,13 +4673,17 @@ export default function App() {
     }
 
     try {
-      const response = await supabase
-        .from("device_health_snapshots")
-        .select("*")
-        .eq("project_id", mattProjectId)
-        .eq("device_id", mattDeviceId)
-        .order("captured_at", { ascending: false })
-        .limit(12);
+      const response = await withSupabaseTimeout(
+        supabase
+          .from("device_health_snapshots")
+          .select("*")
+          .eq("project_id", mattProjectId)
+          .eq("device_id", mattDeviceId)
+          .order("captured_at", { ascending: false })
+          .limit(12),
+        supabaseQueryTimeoutMs,
+        "Health snapshot",
+      );
 
       if (response.error) throw response.error;
       setHealthSnapshot(selectHealthSnapshot((response.data ?? []) as DeviceHealthSnapshot[]));
@@ -4622,13 +4703,17 @@ export default function App() {
     }
 
     try {
-      const response = await supabase.functions.invoke("sync-owner-health", {
-        body: {
-          project_id: mattProjectId,
-          device_id: mattDeviceId,
-          source: "portal",
-        },
-      });
+      const response = await withSupabaseTimeout(
+        supabase.functions.invoke("sync-owner-health", {
+          body: {
+            project_id: mattProjectId,
+            device_id: mattDeviceId,
+            source: "portal",
+          },
+        }),
+        supabaseQueryTimeoutMs,
+        "Health sync",
+      );
 
       if (response.error) {
         throw new Error(await functionErrorMessage(response.error));
@@ -4650,17 +4735,21 @@ export default function App() {
 
     try {
       const sinceIso = new Date(Date.now() - dayMs).toISOString();
-      const response = await supabase
-        .from("valve_events")
-        .select("*")
-        .gte("device_recorded_at", sinceIso)
-        .order("device_recorded_at", { ascending: false })
-        .limit(500);
+      const response = await withSupabaseTimeout(
+        supabase
+          .from("valve_events")
+          .select("*")
+          .gte("device_recorded_at", sinceIso)
+          .order("device_recorded_at", { ascending: false })
+          .limit(500),
+        supabaseQueryTimeoutMs,
+        "Valve events",
+      );
 
       if (response.error) throw response.error;
       setValveEvents(((response.data ?? []) as ValveEvent[]).filter((event) => !isIgnoredDiagnosticValveEvent(event)));
     } catch {
-      setValveEvents([]);
+      // Keep the last good watering timeline visible until Supabase recovers.
     }
   }, [isAdmin]);
 
@@ -4728,8 +4817,16 @@ export default function App() {
           pairings,
           latestState,
         ] = await Promise.all([
-          supabase.from("pairings").select("*").limit(1000),
-          supabase.from("latest_device_state").select("*").limit(1).maybeSingle(),
+          withSupabaseTimeout(
+            supabase.from("pairings").select("*").limit(1000),
+            supabaseQueryTimeoutMs,
+            "Pairings",
+          ),
+          withSupabaseTimeout(
+            supabase.from("latest_device_state").select("*").limit(1).maybeSingle(),
+            supabaseQueryTimeoutMs,
+            "Latest device state",
+          ),
         ]);
 
         for (const result of [pairings, latestState]) {
@@ -5373,8 +5470,7 @@ export default function App() {
     if (!sessionReady || !isAdmin) return;
     void loadHealthSnapshot();
     void loadValveEvents();
-    void syncHealthSnapshot({ silent: true });
-  }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady, syncHealthSnapshot]);
+  }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return;
