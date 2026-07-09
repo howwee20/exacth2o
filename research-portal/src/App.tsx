@@ -63,6 +63,7 @@ const staleAfterMs = 15 * 60 * 1000;
 const maxPointsPerSeries = graphReadLimit;
 const tenMinutesMs = 10 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
+const wateringEventDedupeBucketMs = 60 * 1000;
 
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
@@ -407,7 +408,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-load-guards-pot-labels";
+const portalVersion = "20260708-watering-event-dedupe";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3462,13 +3463,68 @@ function normalizeHealthWateringEvent(value: unknown): HealthWateringEvent | nul
   };
 }
 
+function wateringEventPhysicalKey(event: HealthWateringEvent) {
+  const timeMs = healthTimestampMs(event.t);
+  if (timeMs == null) return null;
+
+  const record = event as Record<string, unknown>;
+  const sourceSensorId =
+    healthNumber(record.source_sensor_id) ??
+    healthNumber(record.sourceSensorId) ??
+    healthNumber(record.sensor_id) ??
+    healthNumber(record.sensorId);
+  const sourceValveId =
+    healthNumber(record.source_valve_id) ??
+    healthNumber(record.sourceValveId) ??
+    healthNumber(record.valve_id) ??
+    healthNumber(record.valveId);
+  const sourcePair = sourcePairKey(sourceSensorId, sourceValveId);
+  const pot =
+    healthNumber(event.physicalPot) ??
+    healthNumber(record.physical_pot) ??
+    healthNumber(record.pot_number) ??
+    healthNumber(record.pot);
+  const valve =
+    normalizedWateringToken(event.valve) ||
+    normalizedWateringToken(record.valve_key) ||
+    normalizedWateringToken(record.valveKey) ||
+    normalizedWateringToken(record.valve_id) ||
+    normalizedWateringToken(record.valveId);
+  const pairing =
+    normalizedWateringToken(event.pairing) ||
+    normalizedWateringToken(event.pairingName) ||
+    normalizedWateringToken(record.pairing_name) ||
+    normalizedWateringToken(record.pairingName) ||
+    normalizedWateringToken(record.name);
+  const identity =
+    pot != null ? `pot:${Math.trunc(pot)}` :
+    sourcePair ? `pair:${sourcePair}` :
+    sourceValveId != null ? `source-valve:${Math.trunc(sourceValveId)}` :
+    valve ? `valve:${valve}` :
+    pairing ? `pairing:${pairing}` :
+    null;
+  if (!identity) return null;
+
+  const duration =
+    healthNumber(event.valveOpenTimeMs) ??
+    healthNumber(record.valve_open_time_ms) ??
+    healthNumber(record.duration_ms) ??
+    healthNumber(record.durationMs);
+  const action = normalizedWateringToken(record.action) || "open";
+  const timeBucket = Math.floor(timeMs / wateringEventDedupeBucketMs);
+  const durationBucket = duration == null ? "unknown-duration" : String(Math.round(duration / 1000));
+
+  return `${timeBucket}:${identity}:${action}:${durationBucket}`;
+}
+
 function dedupeWateringEvents(events: HealthWateringEvent[]) {
   const seen = new Set<string>();
   return events
     .filter((event) => healthTimestampMs(event.t) != null)
     .filter((event) => {
       const record = event as Record<string, unknown>;
-      const key = healthFirstEventText(record, ["event_id", "eventId", "id"]) ??
+      const key = wateringEventPhysicalKey(event) ??
+        healthFirstEventText(record, ["event_id", "eventId", "id"]) ??
         `${event.t}-${healthString(event.pairing) ?? wateringEventLabel(event)}-${healthFirstEventText(record, ["valve", "valve_key", "valveKey"]) ?? ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
