@@ -1569,6 +1569,14 @@ select {
   background: #0f766e;
 }
 
+.health-chart-legend i.control {
+  background: #2563eb;
+}
+
+.health-chart-legend i.drought {
+  background: #f97316;
+}
+
 .health-chart-legend i.warning {
   background: #b45309;
 }
@@ -1722,6 +1730,18 @@ select {
   fill: #ffffff;
   stroke: #2563eb;
   cursor: pointer;
+}
+
+.watering-event-dot.is-control {
+  stroke: #2563eb;
+}
+
+.watering-event-dot.is-drought {
+  stroke: #f97316;
+}
+
+.watering-event-dot.is-unknown {
+  stroke: #64748b;
 }
 
 .health-chart-empty {
@@ -2459,6 +2479,10 @@ select {
   background: #ffffff;
 }
 
+.chart-card.is-watering {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .chart-tools {
   position: absolute;
   top: 12px;
@@ -2474,6 +2498,42 @@ select {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(8px);
+}
+
+.chart-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: #f8fafc;
+}
+
+.chart-view-toggle button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chart-view-toggle button.is-selected {
+  background: #ffffff;
+  color: #172033;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.chart-view-toggle button:hover,
+.chart-view-toggle button:focus-visible {
+  color: #1d4ed8;
+  outline: none;
 }
 
 .chart-bottom-controls {
@@ -2493,6 +2553,31 @@ select {
 
 .chart-panel-main {
   min-width: 0;
+}
+
+.research-watering-activity {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: calc(100vh - 96px);
+  padding: 76px 22px 18px;
+  background: #ffffff;
+}
+
+.research-watering-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.research-watering-activity .portal-health-chart {
+  min-height: 0;
+}
+
+.research-watering-activity .portal-health-chart > svg {
+  min-height: 420px;
+}
+
+.research-watering-list {
+  margin-top: 0;
 }
 
 .chart-panel-main .canvas-chart {
@@ -2536,6 +2621,15 @@ select {
 
 .dashboard-main.is-expanded .chart-panel-main .canvas-chart {
   min-height: calc(100vh - 116px);
+}
+
+.dashboard-main.is-expanded .research-watering-activity {
+  min-height: calc(100vh - 54px);
+  padding-top: 64px;
+}
+
+.dashboard-main.is-expanded .research-watering-activity .portal-health-chart > svg {
+  min-height: calc(100vh - 238px);
 }
 
 .dashboard-main.is-expanded .chart-tools {

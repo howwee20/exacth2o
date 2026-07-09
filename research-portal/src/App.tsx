@@ -106,6 +106,7 @@ const zone4Palette = [
 type DataMode = "auto" | "live" | "snapshot" | "combined";
 type EffectiveMode = Exclude<DataMode, "auto">;
 type ViewMode = "group" | "traces" | "individual" | "qc";
+type ExperimentGraphMode = "vwc" | "watering";
 
 type LoadState = {
   pairings: PairingRow[];
@@ -465,7 +466,7 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const portalVersion = "20260708-watering-event-dedupe";
+const portalVersion = "20260709-research-watering-view";
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
 
@@ -3704,6 +3705,15 @@ function pairingLabel(pairing: PairingRow) {
   return `Pot ${pairing.pot_number}`;
 }
 
+function wateringAxisLabel(pairing: PairingRow) {
+  const treatment = treatmentForPairing(pairing);
+  const shortTreatment =
+    treatment === "control" ? "C" :
+    treatment === "drought" ? "D" :
+    "";
+  return shortTreatment ? `${pairingLabel(pairing)} ${shortTreatment}` : pairingLabel(pairing);
+}
+
 type WateringPairingIndex = {
   byLabel: Map<string, PairingRow>;
   bySourcePair: Map<string, PairingRow>;
@@ -4218,11 +4228,15 @@ function HealthWateringChart({
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
   const width = 760;
+  const pairingIndex = useMemo(() => buildWateringPairingIndex(pairings), [pairings]);
   const rowLabels = useMemo(() => {
-    return pairings.map(pairingLabel);
+    return pairings.map((pairing) => ({
+      key: pairingLabel(pairing),
+      label: wateringAxisLabel(pairing),
+    }));
   }, [pairings]);
   const height = Math.max(240, Math.min(520, 76 + Math.max(rowLabels.length, 1) * 19));
-  const padLeft = 70;
+  const padLeft = 84;
   const padRight = 16;
   const padTop = 26;
   const padBottom = 36;
@@ -4233,8 +4247,8 @@ function HealthWateringChart({
   );
   const minTime = windowInfo.startMs;
   const maxTime = windowInfo.endMs;
-  const labels = rowLabels.length ? rowLabels : ["Valve"];
-  const labelIndex = new Map(labels.map((label, index) => [label, index]));
+  const labels = rowLabels.length ? rowLabels : [{ key: "Valve", label: "Valve" }];
+  const labelIndex = new Map(labels.map((row, index) => [row.key, index]));
   const visibleEvents = events.filter((event) => {
     const time = healthTimestampMs(event.t);
     const label = wateringEventLabel(event);
@@ -4246,7 +4260,7 @@ function HealthWateringChart({
   const yFor = (label: string) => labels.length === 1
     ? padTop + plotHeight / 2
     : padTop + ((labelIndex.get(label) ?? 0) / Math.max(labels.length - 1, 1)) * plotHeight;
-  const tickLabels = labels.length <= 24
+  const tickRows = labels.length <= 24
     ? labels
     : Array.from(new Set([labels[0], labels[Math.floor(labels.length / 2)], labels[labels.length - 1]].filter(Boolean)));
 
@@ -4265,13 +4279,15 @@ function HealthWateringChart({
       />
       <div className="health-chart-legend">
         <span><i className="primary" />Valve fire</span>
+        <span><i className="control" />Control</span>
+        <span><i className="drought" />Drought</span>
         <span><i className="secondary" />{visibleEvents.length} shown</span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by sensor or pot">
-        {tickLabels.map((label) => (
-          <g key={label}>
-            <line x1={padLeft} y1={yFor(label)} x2={width - padRight} y2={yFor(label)} className="health-chart-grid" />
-            <text x={padLeft - 8} y={yFor(label) + 4} textAnchor="end" className="health-chart-axis-text">{label}</text>
+        {tickRows.map((row) => (
+          <g key={row.key}>
+            <line x1={padLeft} y1={yFor(row.key)} x2={width - padRight} y2={yFor(row.key)} className="health-chart-grid" />
+            <text x={padLeft - 8} y={yFor(row.key) + 4} textAnchor="end" className="health-chart-axis-text">{row.label}</text>
           </g>
         ))}
         <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="health-chart-axis" />
@@ -4284,6 +4300,9 @@ function HealthWateringChart({
           const eventRecord = event as Record<string, unknown>;
           const durationText = duration == null ? "--" : `${Math.round(duration / 1000)} sec`;
           const pairingName = event.pairingName ?? healthString(event.pairing) ?? label;
+          const pairing = resolveWateringEventPairing(event, pairingIndex);
+          const treatment = pairing ? treatmentForPairing(pairing) : "unknown";
+          const plantGroup = pairing ? plantGroupForPairing(pairing) : "unknown";
           const openDetail = () => {
             onSelectDetail?.({
               title: label,
@@ -4292,6 +4311,8 @@ function HealthWateringChart({
                 { label: "Time", value: formatSettingsTimestamp(event.t) },
                 { label: "Age", value: healthAgeText(event.t) },
                 { label: "Pot", value: label },
+                { label: "Plant", value: plantGroupLabel(plantGroup) },
+                { label: "Treatment", value: treatmentLabel(treatment) },
                 { label: "Pairing", value: pairingName },
                 { label: "Sensor", value: event.sensor ?? healthFirstText(eventRecord, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
                 { label: "Valve", value: event.valve ?? healthFirstText(eventRecord, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
@@ -4302,11 +4323,11 @@ function HealthWateringChart({
           };
           return (
             <circle
-              key={`${event.id ?? event.t}-${label}`}
+              key={`${event.id ?? event.t}-${label}-${event.t}`}
               cx={xFor(time)}
               cy={yFor(label)}
               r={4.8}
-              className="watering-event-dot"
+              className={`watering-event-dot is-${treatment}`}
               role="button"
               tabIndex={0}
               onClick={openDetail}
@@ -4327,6 +4348,63 @@ function HealthWateringChart({
         <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
       </svg>
     </div>
+  );
+}
+
+function wateringEventMatchesPairings(event: HealthWateringEvent, pairings: PairingRow[]) {
+  const visibleLabels = new Set(pairings.map(pairingLabel));
+  return visibleLabels.has(wateringEventLabel(event));
+}
+
+function ResearchWateringActivity({
+  events,
+  pairings,
+  onSelectDetail,
+}: {
+  events: HealthWateringEvent[];
+  pairings: PairingRow[];
+  onSelectDetail: (detail: HealthSelectedDetail) => void;
+}) {
+  const visibleEvents = useMemo(
+    () => events.filter((event) => wateringEventMatchesPairings(event, pairings)),
+    [events, pairings],
+  );
+  const visibleEvents24h = wateringEventsLastDay(visibleEvents);
+  const latestWatering = visibleEvents[visibleEvents.length - 1] ?? null;
+  const latestWateringTime = latestWatering ? formatSettingsTimestamp(latestWatering.t) : "none";
+  const shownWateringEvents = recentWateringEvents(visibleEvents, 8);
+
+  return (
+    <section className="research-watering-activity" aria-label="Watering activity">
+      <div className="health-mini-grid research-watering-summary">
+        <HealthMiniFact label="24h fires" value={formatHealthInteger(visibleEvents24h.length)} />
+        <HealthMiniFact label="Latest fire" value={latestWateringTime} />
+        <HealthMiniFact label="Visible pots" value={String(pairings.length)} />
+        <HealthMiniFact label="Event rows" value={String(visibleEvents.length)} />
+      </div>
+      <HealthWateringChart
+        events={visibleEvents}
+        pairings={pairings}
+        onSelectDetail={onSelectDetail}
+      />
+      {shownWateringEvents.length ? (
+        <div className="health-event-list research-watering-list">
+          {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => {
+            const duration = healthNumber(event.valveOpenTimeMs);
+            return (
+              <div
+                className="health-event-row"
+                key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}-${event.t}`}
+              >
+                <strong>{wateringEventLabel(event)}</strong>
+                <span>{formatSettingsTimestamp(event.t)}</span>
+                <em>{duration == null ? "--" : `${Math.round(duration / 1000)} sec`}</em>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -4717,9 +4795,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<DataMode>("auto");
+  const [experimentGraphMode, setExperimentGraphMode] = useState<ExperimentGraphMode>("vwc");
   const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
   const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
+  const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
@@ -4789,6 +4869,14 @@ export default function App() {
     () => new Set(series.filter((item) => !hiddenPots.has(item.name)).map((item) => item.name)),
     [series, hiddenPots],
   );
+  const visibleWateringPairings = useMemo(
+    () => sortedPairings.filter((pairing) => !hiddenPots.has(pairing.name)),
+    [hiddenPots, sortedPairings],
+  );
+  const experimentWateringEvents = useMemo(
+    () => resolveHealthWateringEvents(valveEventsToHealthWateringEvents(valveEvents, sortedPairings), sortedPairings),
+    [sortedPairings, valveEvents],
+  );
 
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
@@ -4807,6 +4895,8 @@ export default function App() {
     setCsvError(null);
     setTermsOpen(false);
     setTermsAccepted(false);
+    setExperimentGraphMode("vwc");
+    setSelectedWateringDetail(null);
     setPortalView(nextView);
   }, []);
 
@@ -4969,7 +5059,7 @@ export default function App() {
   }, [isAdmin, loadDeviceSyncState, loadHealthSnapshot]);
 
   const loadValveEvents = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canUseExperimentSettings) {
       setValveEvents([]);
       return;
     }
@@ -4980,9 +5070,11 @@ export default function App() {
         supabase
           .from("valve_events")
           .select("*")
+          .eq("project_id", mattProjectId)
+          .eq("device_id", mattDeviceId)
           .gte("device_recorded_at", sinceIso)
           .order("device_recorded_at", { ascending: false })
-          .limit(500),
+          .limit(1000),
         supabaseQueryTimeoutMs,
         "Valve events",
       );
@@ -4992,7 +5084,7 @@ export default function App() {
     } catch {
       // Keep the last good watering timeline visible until Supabase recovers.
     }
-  }, [isAdmin]);
+  }, [canUseExperimentSettings]);
 
   const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!isAdmin) {
@@ -5714,9 +5806,13 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady || !isAdmin) return;
     void loadHealthSnapshot();
-    void loadValveEvents();
     void syncHealthSnapshot({ silent: true });
-  }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady, syncHealthSnapshot]);
+  }, [isAdmin, loadHealthSnapshot, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return;
+    void loadValveEvents();
+  }, [canUseExperimentSettings, loadValveEvents, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings) return;
@@ -5732,7 +5828,6 @@ export default function App() {
     if (!sessionReady || !isAdmin) return undefined;
     const pollId = window.setInterval(() => {
       void loadHealthSnapshot({ silent: true });
-      void loadValveEvents();
     }, healthSnapshotPollMs);
     const syncId = window.setInterval(() => {
       void syncHealthSnapshot({ silent: true });
@@ -5741,7 +5836,15 @@ export default function App() {
       window.clearInterval(pollId);
       window.clearInterval(syncId);
     };
-  }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady, syncHealthSnapshot]);
+  }, [isAdmin, loadHealthSnapshot, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return undefined;
+    const pollId = window.setInterval(() => {
+      void loadValveEvents();
+    }, healthSnapshotPollMs);
+    return () => window.clearInterval(pollId);
+  }, [canUseExperimentSettings, loadValveEvents, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings) return undefined;
@@ -5891,7 +5994,7 @@ export default function App() {
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady || !isAdmin) return undefined;
+    if (!sessionReady || !canUseExperimentSettings) return undefined;
 
     let refreshTimer: number | null = null;
     const scheduleValveEventRefresh = () => {
@@ -5906,7 +6009,12 @@ export default function App() {
       .channel("exacth2o-valve-events-live")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "valve_events" },
+        {
+          event: "*",
+          schema: "public",
+          table: "valve_events",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
         scheduleValveEventRefresh,
       )
       .subscribe();
@@ -5915,7 +6023,7 @@ export default function App() {
       if (refreshTimer != null) window.clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-  }, [isAdmin, loadValveEvents, sessionReady]);
+  }, [canUseExperimentSettings, loadValveEvents, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -6290,6 +6398,10 @@ export default function App() {
   return (
     <main className="dashboard-shell experiment-shell">
       {experimentCornerActions}
+      <HealthSelectedDetailDrawer
+        detail={selectedWateringDetail}
+        onClose={() => setSelectedWateringDetail(null)}
+      />
 
       {canUseExperimentSettings ? (
         <PortalSettingsPanel
@@ -6328,8 +6440,29 @@ export default function App() {
         ref={dashboardMainRef}
         className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}
       >
-        <section className="chart-card">
+        <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
           <div className="chart-tools">
+            {!isAdmin ? (
+              <div className="chart-view-toggle" aria-label="Graph view">
+                <button
+                  type="button"
+                  className={experimentGraphMode === "vwc" ? "is-selected" : ""}
+                  onClick={() => {
+                    setSelectedWateringDetail(null);
+                    setExperimentGraphMode("vwc");
+                  }}
+                >
+                  VWC
+                </button>
+                <button
+                  type="button"
+                  className={experimentGraphMode === "watering" ? "is-selected" : ""}
+                  onClick={() => setExperimentGraphMode("watering")}
+                >
+                  Watering
+                </button>
+              </div>
+            ) : null}
             <button
               className="expand-button"
               type="button"
@@ -6341,24 +6474,37 @@ export default function App() {
             </button>
           </div>
 
-          <section className="chart-panel-main" aria-label="All plants chart">
-            <SensorCanvasChart
-              series={timeFilteredSeries}
-              visibleNames={visibleNames}
-              selectedName={selectedSeriesName}
-              viewMode="traces"
-              onSelectSeries={selectPot}
-              loading={loading}
-            />
+          <section
+            className="chart-panel-main"
+            aria-label={experimentGraphMode === "watering" ? "Watering activity chart" : "All plants chart"}
+          >
+            {experimentGraphMode === "watering" ? (
+              <ResearchWateringActivity
+                events={experimentWateringEvents}
+                pairings={visibleWateringPairings}
+                onSelectDetail={setSelectedWateringDetail}
+              />
+            ) : (
+              <SensorCanvasChart
+                series={timeFilteredSeries}
+                visibleNames={visibleNames}
+                selectedName={selectedSeriesName}
+                viewMode="traces"
+                onSelectSeries={selectPot}
+                loading={loading}
+              />
+            )}
           </section>
-          <div className="chart-bottom-controls">
-            <div className="chart-export-control">{csvControl}</div>
-            <TimeRangeControl
-              bounds={timeBounds}
-              value={timeWindow}
-              onChange={setTimeWindow}
-            />
-          </div>
+          {experimentGraphMode === "vwc" ? (
+            <div className="chart-bottom-controls">
+              <div className="chart-export-control">{csvControl}</div>
+              <TimeRangeControl
+                bounds={timeBounds}
+                value={timeWindow}
+                onChange={setTimeWindow}
+              />
+            </div>
+          ) : null}
         </section>
 
         <aside

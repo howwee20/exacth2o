@@ -42,7 +42,11 @@ export type SensorReading = {
 
 export type ValveEvent = {
   id: number;
+  organization_id: string;
+  project_id: string;
+  device_id: string;
   event_id: string;
+  source_valve_id: number | null;
   pairing_name: string;
   valve_key: string;
   action: "open" | "close";
