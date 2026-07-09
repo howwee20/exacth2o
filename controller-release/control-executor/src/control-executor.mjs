@@ -18,13 +18,25 @@ function numberEnv(value, defaultValue, min, max) {
 
 function getConfig(env = process.env) {
   return {
-    localApiBase: stripTrailingSlash(env.EXACTH2O_LOCAL_API_BASE || "http://api_svc:8888/v1"),
+    localApiBase: stripTrailingSlash(env.EXACTH2O_LOCAL_API_BASE || env.CONTROL_BRIDGE_API_BASE || "http://api_svc:8888/v1"),
     supabaseUrl: stripTrailingSlash(env.SUPABASE_URL || env.VITE_SUPABASE_URL || ""),
     supabaseAnonKey: env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "",
     deviceToken: env.EXACTH2O_DEVICE_TOKEN || "",
-    pollMs: numberEnv(env.EXACTH2O_CONTROL_EXECUTOR_POLL_MS, 5000, 1000, 60000),
+    projectId: env.EXACTH2O_PROJECT_ID || env.CONTROL_BRIDGE_PROJECT_ID || "",
+    deviceId: env.EXACTH2O_DEVICE_ID || env.CONTROL_BRIDGE_DEVICE_ID || "",
+    syncOwnerHealthUrl: stripTrailingSlash(
+      env.EXACTH2O_SYNC_OWNER_HEALTH_URL ||
+        (env.SUPABASE_URL ? `${stripTrailingSlash(env.SUPABASE_URL)}/functions/v1/sync-owner-health` : ""),
+    ),
+    syncOwnerHealthSecret: env.SYNC_OWNER_HEALTH_SECRET || env.EXACTH2O_SYNC_OWNER_HEALTH_SECRET || "",
+    pollMs: numberEnv(env.EXACTH2O_CONTROL_EXECUTOR_POLL_MS || env.CONTROL_BRIDGE_POLL_INTERVAL_MS, 5000, 1000, 60000),
     dryRun: boolEnv(env.EXACTH2O_CONTROL_EXECUTOR_DRY_RUN, true),
-    manualWaterMaxSeconds: numberEnv(env.EXACTH2O_MANUAL_WATER_MAX_SECONDS, 60, 1, 300),
+    manualWaterMaxSeconds: numberEnv(
+      env.EXACTH2O_MANUAL_WATER_MAX_SECONDS || env.CONTROL_BRIDGE_MANUAL_WATER_MAX_SECONDS,
+      60,
+      1,
+      300,
+    ),
     runOnce: boolEnv(env.EXACTH2O_RUN_ONCE, false),
   };
 }
@@ -175,6 +187,16 @@ function valveKeys(valve) {
   ].map(normalizeKey).filter(Boolean);
 }
 
+function itemId(item) {
+  return firstDefined(item?.id, item?.Id);
+}
+
+function sameId(a, b) {
+  const left = firstDefined(a);
+  const right = firstDefined(b);
+  return left !== undefined && right !== undefined && String(left) === String(right);
+}
+
 function findByName(items, wanted, label, nameFn = (item) => firstDefined(item?.name, item?.Name, item?.id)) {
   const target = normalizeKey(wanted);
   const match = items.find((item) => normalizeKey(nameFn(item)) === target);
@@ -198,6 +220,16 @@ function resolveValve(index, key) {
   const match = index.valves.find((valve) => valveKeys(valve).includes(target));
   if (!match) throw new Error(`Valve not found: ${key}`);
   return match;
+}
+
+function resolvePairingValve(index, pairing) {
+  const nestedValve = pairing?.valve || pairing?.Valve;
+  if (nestedValve && firstDefined(nestedValve.address, nestedValve.Address) !== undefined) return nestedValve;
+
+  const valveId = firstDefined(pairing?.valveId, pairing?.ValveId, nestedValve?.id, nestedValve?.Id);
+  const valve = index.valves.find((candidate) => sameId(itemId(candidate), valveId));
+  if (!valve) throw new Error(`Valve not found for pairing: ${pairName(pairing) || "unknown"}`);
+  return valve;
 }
 
 function resolveGroup(index, name) {
@@ -235,6 +267,31 @@ function valveOperationBody(valve, operation) {
     throw new Error(`Valve is missing address/relayAddress: ${firstDefined(valve.name, valve.id, "unknown")}`);
   }
   return { address, relayAddress, operation };
+}
+
+function valveIdentity(valve) {
+  const body = valveOperationBody(valve, "IDENTITY");
+  return `${body.relayAddress}:${body.address}`;
+}
+
+function resolveManualWaterValves(index, payload) {
+  const valves = [];
+  for (const name of asArray(payload.pairing_names)) {
+    valves.push(resolvePairingValve(index, resolvePairing(index, name)));
+  }
+  for (const key of asArray(payload.valve_keys || payload.valves)) {
+    valves.push(resolveValve(index, key));
+  }
+
+  const deduped = [];
+  const seen = new Set();
+  for (const valve of valves) {
+    const identity = valveIdentity(valve);
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    deduped.push(valve);
+  }
+  return deduped;
 }
 
 async function operateValve(api, valve, operation, dryRun) {
@@ -327,6 +384,7 @@ export async function executeCommand(command, options) {
   }
 
   if (command.command_type === "create_group") {
+    await requireStopped(api, "create_group");
     const body = { name: payload.group_name };
     if (dryRun) return { dryRun, action: "create_group", body };
     return api.post("/groups", body);
@@ -342,6 +400,7 @@ export async function executeCommand(command, options) {
   }
 
   if (command.command_type === "create_calibration") {
+    await requireStopped(api, "create_calibration");
     const body = calibrationPayload(payload);
     if (dryRun) return { dryRun, action: "create_calibration", body };
     return api.post("/calibrations", body);
@@ -383,9 +442,8 @@ export async function executeCommand(command, options) {
     }
 
     const index = await loadControllerIndex(api);
-    const keys = payload.valve_keys || payload.valves || [];
-    const valves = keys.map((key) => resolveValve(index, key));
-    if (valves.length === 0) throw new Error("manual_water requires at least one valve");
+    const valves = resolveManualWaterValves(index, payload);
+    if (valves.length === 0) throw new Error("manual_water requires at least one pairing_name or valve");
 
     const opened = [];
     try {
@@ -410,11 +468,12 @@ export async function executeCommand(command, options) {
   if (command.command_type === "update_board_config") {
     await requireStopped(api, "update_board_config");
     const boards = Array.isArray(payload.boards) ? payload.boards : [];
-    const body = boards.map((board) => ({
+    const boardConfigs = boards.map((board) => ({
       ...board,
       address: boardAddress(board.address),
     }));
-    if (body.length === 0) throw new Error("update_board_config requires boards");
+    if (boardConfigs.length === 0) throw new Error("update_board_config requires boards");
+    const body = { boardConfigs, updateHardwareService: true };
     if (dryRun) return { dryRun, action: "update_board_config", body };
     return api.post("/system/board-configs", body);
   }
@@ -439,6 +498,73 @@ export async function executeCommand(command, options) {
   throw new Error(`Unsupported command_type: ${command.command_type}`);
 }
 
+const syncAfterCommandTypes = new Set([
+  "update_pairing",
+  "bulk_update_pairings",
+  "create_pairing",
+  "create_group",
+  "remove_group",
+  "create_calibration",
+  "delete_calibration",
+  "apply_calibration",
+  "manual_water",
+  "update_board_config",
+  "initialize_sensors",
+  "update_system_state",
+]);
+
+async function refreshOwnerHealthMirror(command, config, fetchImpl = globalThis.fetch) {
+  if (config.dryRun) return { skipped: true, reason: "dry_run" };
+  if (!syncAfterCommandTypes.has(command.command_type)) return { skipped: true, reason: "command_type" };
+  if (!config.syncOwnerHealthUrl || !config.syncOwnerHealthSecret) {
+    return { skipped: true, reason: "missing_sync_owner_health_config" };
+  }
+
+  const projectId = command.project_id || config.projectId;
+  const deviceId = command.device_id || config.deviceId;
+  if (!projectId || !deviceId) return { skipped: true, reason: "missing_project_or_device_id" };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetchImpl(config.syncOwnerHealthUrl, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.syncOwnerHealthSecret}`,
+        "x-sync-owner-health-secret": config.syncOwnerHealthSecret,
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        device_id: deviceId,
+        source: "control_executor",
+      }),
+    });
+    const text = await response.text();
+    let body = null;
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text.slice(0, 500);
+      }
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      body,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error.message,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function tick({ rpc, api, config }) {
   const command = await rpc.claim();
   if (!command) return false;
@@ -449,7 +575,8 @@ async function tick({ rpc, api, config }) {
       dryRun: config.dryRun,
       manualWaterMaxSeconds: config.manualWaterMaxSeconds,
     });
-    await rpc.complete(command.id, "succeeded", { ...result, executor_version: VERSION }, null);
+    const postCommandSync = await refreshOwnerHealthMirror(command, config);
+    await rpc.complete(command.id, "succeeded", { ...result, post_command_sync: postCommandSync, executor_version: VERSION }, null);
     console.log("Completed command", { id: command.id, type: command.command_type, dryRun: config.dryRun });
   } catch (error) {
     await rpc.complete(command.id, "failed", { executor_version: VERSION, dryRun: config.dryRun }, error.message);

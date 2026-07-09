@@ -103,6 +103,23 @@ test("manual_water opens then closes valves", async () => {
   );
 });
 
+test("manual_water accepts portal pairing_names and resolves their valves", async () => {
+  const fixture = apiFixture();
+  const result = await executeCommand(
+    { command_type: "manual_water", payload: { pairing_names: ["Pot 41"], duration_seconds: 0.001 } },
+    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+  );
+
+  assert.equal(result.valveCount, 1);
+  assert.deepEqual(
+    fixture.calls.filter((call) => call[0] === "POST" && call[1] === "/valves/operate"),
+    [
+      ["POST", "/valves/operate", { address: 7, relayAddress: 3, operation: "OPEN" }],
+      ["POST", "/valves/operate", { address: 7, relayAddress: 3, operation: "CLOSE" }],
+    ],
+  );
+});
+
 test("manual_water rejects excessive duration", async () => {
   const fixture = apiFixture();
   await assert.rejects(
@@ -113,6 +130,48 @@ test("manual_water rejects excessive duration", async () => {
       ),
     /exceeds max/,
   );
+});
+
+test("create_group refuses to edit config while controller is running", async () => {
+  const fixture = apiFixture({ state: "RUNNING" });
+  await assert.rejects(
+    () =>
+      executeCommand(
+        { command_type: "create_group", payload: { group_name: "New group" } },
+        { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+      ),
+    /requires controller state STOPPED/,
+  );
+});
+
+test("create_calibration refuses to edit config while controller is running", async () => {
+  const fixture = apiFixture({ state: "RUNNING" });
+  await assert.rejects(
+    () =>
+      executeCommand(
+        { command_type: "create_calibration", payload: { name: "New calibration", points: [] } },
+        { api: fixture.api, dryRun: true, manualWaterMaxSeconds: 60 },
+      ),
+    /requires controller state STOPPED/,
+  );
+});
+
+test("update_board_config uses the controller API payload shape", async () => {
+  const fixture = apiFixture();
+  const result = await executeCommand(
+    { command_type: "update_board_config", payload: { boards: [{ address: "0x20", resetPin: 17 }] } },
+    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+  );
+
+  assert.deepEqual(result.body, {
+    boardConfigs: [{ address: 32, resetPin: 17 }],
+    updateHardwareService: true,
+  });
+  assert.deepEqual(fixture.calls.at(-1), [
+    "POST",
+    "/system/board-configs",
+    { boardConfigs: [{ address: 32, resetPin: 17 }], updateHardwareService: true },
+  ]);
 });
 
 test("initialize_sensors is blocked without explicit executor flag", async () => {
@@ -126,4 +185,3 @@ test("initialize_sensors is blocked without explicit executor flag", async () =>
     /initialize_sensors blocked/,
   );
 });
-

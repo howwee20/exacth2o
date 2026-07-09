@@ -79,35 +79,36 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+#variable_conflict use_column
 declare
   authorized_device public.device_control_tokens%rowtype;
   claimed_id uuid;
 begin
   select *
   into authorized_device
-  from public.device_control_tokens
-  where token_hash = encode(digest(coalesce(device_token, ''), 'sha256'), 'hex')
-    and enabled = true
-    and revoked_at is null
+  from public.device_control_tokens dct
+  where dct.token_hash = encode(digest(coalesce(device_token, ''), 'sha256'), 'hex')
+    and dct.enabled = true
+    and dct.revoked_at is null
   limit 1;
 
   if authorized_device.project_id is null then
     raise exception 'Invalid device token';
   end if;
 
-  update public.device_control_tokens
+  update public.device_control_tokens dct
   set last_used_at = now()
-  where id = authorized_device.id;
+  where dct.id = authorized_device.id;
 
-  update public.project_control_commands
+  update public.project_control_commands pcc
   set
     status = 'expired',
     completed_at = now(),
     error = 'Command expired before device executor claimed it'
-  where project_id = authorized_device.project_id
-    and device_id = authorized_device.device_id
-    and status in ('queued', 'accepted')
-    and expires_at <= now();
+  where pcc.project_id = authorized_device.project_id
+    and pcc.device_id = authorized_device.device_id
+    and pcc.status in ('queued', 'accepted')
+    and pcc.expires_at <= now();
 
   select pcc.id
   into claimed_id
@@ -182,6 +183,7 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+#variable_conflict use_column
 declare
   authorized_device public.device_control_tokens%rowtype;
   updated_count integer;
@@ -192,19 +194,19 @@ begin
 
   select *
   into authorized_device
-  from public.device_control_tokens
-  where token_hash = encode(digest(coalesce(device_token, ''), 'sha256'), 'hex')
-    and enabled = true
-    and revoked_at is null
+  from public.device_control_tokens dct
+  where dct.token_hash = encode(digest(coalesce(device_token, ''), 'sha256'), 'hex')
+    and dct.enabled = true
+    and dct.revoked_at is null
   limit 1;
 
   if authorized_device.project_id is null then
     raise exception 'Invalid device token';
   end if;
 
-  update public.device_control_tokens
+  update public.device_control_tokens dct
   set last_used_at = now()
-  where id = authorized_device.id;
+  where dct.id = authorized_device.id;
 
   update public.project_control_commands pcc
   set

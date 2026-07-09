@@ -15,8 +15,9 @@ The claim RPC only claims commands whose `device_id` exactly matches the token's
 
 - Dry-run is enabled by default with `EXACTH2O_CONTROL_EXECUTOR_DRY_RUN=1`.
 - Manual water is bounded by `EXACTH2O_MANUAL_WATER_MAX_SECONDS` and closes valves in a `finally` path.
-- Pairing edits, calibration apply/delete, group removal, board config, and sensor initialization require the controller state to be `STOPPED`.
+- Pairing edits, calibration create/apply/delete, group create/removal, board config, and sensor initialization require the controller state to be `STOPPED`.
 - `initialize_sensors` is blocked unless the command payload includes `allow_initialize_sensors: true`; this should remain admin-only and should require a backup.
+- Successful runtime/config commands can trigger `sync-owner-health` so the portal mirror catches up immediately after the Pi applies the change.
 - The Pi stores only `EXACTH2O_DEVICE_TOKEN`, never the Supabase service-role key.
 
 ## Required environment
@@ -28,6 +29,10 @@ The claim RPC only claims commands whose `device_id` exactly matches the token's
 - `EXACTH2O_CONTROL_EXECUTOR_DRY_RUN`, default `1`
 - `EXACTH2O_CONTROL_EXECUTOR_POLL_MS`, default `5000`
 - `EXACTH2O_MANUAL_WATER_MAX_SECONDS`, default `60`
+- `EXACTH2O_PROJECT_ID`, recommended fallback for post-command sync
+- `EXACTH2O_DEVICE_ID`, recommended fallback for post-command sync
+- `EXACTH2O_SYNC_OWNER_HEALTH_URL`, default `${SUPABASE_URL}/functions/v1/sync-owner-health`
+- `SYNC_OWNER_HEALTH_SECRET` or `EXACTH2O_SYNC_OWNER_HEALTH_SECRET`, optional; without it post-command mirror refresh is skipped
 
 ## Token creation
 
