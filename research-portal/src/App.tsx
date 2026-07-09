@@ -314,6 +314,63 @@ type DeviceHealthSnapshot = {
   created_at: string;
 };
 
+type DeviceRuntimeState = {
+  project_id: string;
+  device_id: string;
+  device_name: string;
+  source: string;
+  controller_state: string;
+  controller_state_raw: string | null;
+  controller_state_updated_at: string | null;
+  state_observed_at: string;
+  state_fresh_until: string | null;
+  owner_checked_at: string | null;
+  overall_status: string | null;
+  api_status: string | null;
+  pi_online: boolean | null;
+  public_url_reachable: boolean | null;
+  watering_enabled: boolean | null;
+  watering_disabled: unknown[] | null;
+  watering_last_event: string | null;
+  watering_last_event_at: string | null;
+  watering_events_last_24h: number | null;
+  scheduler_jobs_loaded: number | null;
+  sensors_expected: number | null;
+  sensors_current: number | null;
+  sensors_stale: number | null;
+  sensors_missing: number | null;
+  last_sensor_reading_at: string | null;
+  config_hash: string | null;
+  raw_status: Record<string, unknown> | null;
+  raw_health: Record<string, unknown> | null;
+  raw_system: Record<string, unknown> | null;
+  updated_at: string;
+};
+
+type DeviceConfigState = {
+  project_id: string;
+  device_id: string;
+  device_name: string;
+  source: string;
+  observed_at: string;
+  pairings: unknown[] | null;
+  calibrations: unknown[] | null;
+  board_config: unknown[] | null;
+  sensors: unknown[] | null;
+  valves: unknown[] | null;
+  groups: unknown[] | null;
+  pairing_count: number | null;
+  calibration_count: number | null;
+  board_count: number | null;
+  sensor_count: number | null;
+  valve_count: number | null;
+  group_count: number | null;
+  config_hash: string | null;
+  endpoint_status: Record<string, unknown> | null;
+  raw_config: Record<string, unknown> | null;
+  updated_at: string;
+};
+
 type SupportStatus = "new" | "open" | "waiting_on_customer" | "quoted" | "won" | "lost" | "closed";
 
 type QuoteRequestRow = {
@@ -893,6 +950,20 @@ function selectHealthSnapshot(snapshots: DeviceHealthSnapshot[]) {
 function healthStatusText(snapshot?: DeviceHealthSnapshot | null) {
   const label = healthStatusLabel(snapshot);
   return label.toUpperCase() === "OK" ? "OK" : label;
+}
+
+function controllerStateLabel(runtimeState?: DeviceRuntimeState | null) {
+  const state = runtimeState?.controller_state?.trim();
+  return state ? state.toUpperCase() : "Not synced";
+}
+
+function configHashLabel(configState?: DeviceConfigState | null) {
+  const hash = configState?.config_hash?.trim();
+  return hash ? hash.slice(0, 10) : "Not synced";
+}
+
+function syncedCount(value?: number | null) {
+  return value == null || !Number.isFinite(value) ? "Not synced" : Math.trunc(value).toLocaleString();
 }
 
 function formatTargetVwc(value: number | null | undefined) {
@@ -1920,6 +1991,8 @@ type PortalSettingsPanelProps = {
   open: boolean;
   activeSection: SettingsSection;
   data: LoadState;
+  runtimeState: DeviceRuntimeState | null;
+  configState: DeviceConfigState | null;
   pairings: PairingRow[];
   visiblePotCount: number;
   csvDownload: CsvDownload | null;
@@ -1942,6 +2015,8 @@ function PortalSettingsPanel({
   open,
   activeSection,
   data,
+  runtimeState,
+  configState,
   pairings,
   visiblePotCount,
   csvDownload,
@@ -1961,6 +2036,7 @@ function PortalSettingsPanel({
 }: PortalSettingsPanelProps) {
   const activeItem = settingsNavItems.find((item) => item.id === activeSection) ?? settingsNavItems[0];
   const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
+  const mirroredBoardCount = configState?.board_count ?? boardConfigs.length;
   const uniqueSensors = new Set(pairings.map((pairing) => pairing.sensor_key).filter(Boolean));
   const uniqueValves = new Set(pairings.map((pairing) => pairing.valve_key).filter(Boolean));
   const syncedCalibrations = Array.from(new Set(pairings.map(pairingCalibrationName)))
@@ -2189,12 +2265,16 @@ function PortalSettingsPanel({
                   <strong>{data.latestState?.health_status ?? "--"}</strong>
                 </div>
                 <div className="settings-row">
+                  <span>Controller state</span>
+                  <strong>{controllerStateLabel(runtimeState)}</strong>
+                </div>
+                <div className="settings-row">
                   <span>Device ID</span>
                   <strong>{data.latestState?.device_id ?? "--"}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Last device state</span>
-                  <strong>{formatSettingsTimestamp(data.latestState?.updated_at)}</strong>
+                  <span>State observed</span>
+                  <strong>{formatSettingsTimestamp(runtimeState?.state_observed_at ?? data.latestState?.updated_at)}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Latest ingest</span>
@@ -2220,6 +2300,27 @@ function PortalSettingsPanel({
                 <div className="settings-row">
                   <span>Snapshot rows</span>
                   <strong>{data.totalImportedReadings.toLocaleString()}</strong>
+                </div>
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>Controller Mirror</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Public URL</span>
+                  <strong>{formatHealthBoolean(runtimeState?.public_url_reachable, "Reachable", "Down")}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Watering</span>
+                  <strong>{formatHealthBoolean(runtimeState?.watering_enabled, "Enabled", "Disabled")}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Jobs loaded</span>
+                  <strong>{syncedCount(runtimeState?.scheduler_jobs_loaded)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Runtime sync</span>
+                  <strong>{formatSettingsTimestamp(runtimeState?.updated_at)}</strong>
                 </div>
               </div>
             </section>
@@ -2580,12 +2681,51 @@ function PortalSettingsPanel({
                 </div>
                 <div className="settings-row">
                   <span>Boards</span>
-                  <strong>{boardConfigs.length || "--"}</strong>
+                  <strong>{mirroredBoardCount || "--"}</strong>
+                </div>
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>Config Sync</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Pairings</span>
+                  <strong>{syncedCount(configState?.pairing_count ?? pairings.length)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Calibrations</span>
+                  <strong>{syncedCount(configState?.calibration_count)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Sensors / valves</span>
+                  <strong>{syncedCount(configState?.sensor_count)} / {syncedCount(configState?.valve_count)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Groups</span>
+                  <strong>{syncedCount(configState?.group_count)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Config hash</span>
+                  <strong>{configHashLabel(configState)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Config observed</span>
+                  <strong>{formatSettingsTimestamp(configState?.observed_at)}</strong>
                 </div>
               </div>
             </section>
             <section className="settings-card">
               <h3>System</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Controller state</span>
+                  <strong>{controllerStateLabel(runtimeState)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Last observed</span>
+                  <strong>{formatSettingsTimestamp(runtimeState?.state_observed_at)}</strong>
+                </div>
+              </div>
               <label className="settings-check">
                 <input
                   type="checkbox"
@@ -4595,6 +4735,8 @@ export default function App() {
   const [accessLoading, setAccessLoading] = useState(false);
   const [portalView, setPortalView] = useState<PortalView>("experiment");
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
+  const [runtimeState, setRuntimeState] = useState<DeviceRuntimeState | null>(null);
+  const [configState, setConfigState] = useState<DeviceConfigState | null>(null);
   const [valveEvents, setValveEvents] = useState<ValveEvent[]>([]);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -4750,6 +4892,48 @@ export default function App() {
     }
   }, [isAdmin]);
 
+  const loadDeviceSyncState = useCallback(async () => {
+    if (!canUseExperimentSettings) {
+      setRuntimeState(null);
+      setConfigState(null);
+      return;
+    }
+
+    try {
+      const [runtimeResponse, configResponse] = await Promise.all([
+        withSupabaseTimeout(
+          supabase
+            .from("device_runtime_state")
+            .select("*")
+            .eq("project_id", mattProjectId)
+            .eq("device_id", mattDeviceId)
+            .maybeSingle(),
+          supabaseQueryTimeoutMs,
+          "Runtime state",
+        ),
+        withSupabaseTimeout(
+          supabase
+            .from("device_config_state")
+            .select("*")
+            .eq("project_id", mattProjectId)
+            .eq("device_id", mattDeviceId)
+            .maybeSingle(),
+          supabaseQueryTimeoutMs,
+          "Config state",
+        ),
+      ]);
+
+      if (!runtimeResponse.error) {
+        setRuntimeState((runtimeResponse.data ?? null) as DeviceRuntimeState | null);
+      }
+      if (!configResponse.error) {
+        setConfigState((configResponse.data ?? null) as DeviceConfigState | null);
+      }
+    } catch {
+      // Keep the last mirrored controller state visible while Supabase catches up.
+    }
+  }, [canUseExperimentSettings]);
+
   const syncHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!isAdmin) return;
     const silent = options.silent === true;
@@ -4776,12 +4960,13 @@ export default function App() {
       }
 
       await loadHealthSnapshot({ silent: true });
+      await loadDeviceSyncState();
     } catch {
       if (!silent) setHealthError(null);
     } finally {
       if (!silent) setHealthLoading(false);
     }
-  }, [isAdmin, loadHealthSnapshot]);
+  }, [isAdmin, loadDeviceSyncState, loadHealthSnapshot]);
 
   const loadValveEvents = useCallback(async () => {
     if (!isAdmin) {
@@ -5241,6 +5426,8 @@ export default function App() {
     setAccessLoading(false);
     resetPortalSessionUi();
     setHealthSnapshot(null);
+    setRuntimeState(null);
+    setConfigState(null);
     setHealthLoading(false);
     setHealthError(null);
     setSalesSupportData(initialSalesSupportData);
@@ -5515,6 +5702,8 @@ export default function App() {
       setSettingsSection("overview");
       setPortalView("experiment");
       setHealthSnapshot(null);
+      setRuntimeState(null);
+      setConfigState(null);
       setValveEvents([]);
       setSalesSupportData(initialSalesSupportData);
       return;
@@ -5526,7 +5715,13 @@ export default function App() {
     if (!sessionReady || !isAdmin) return;
     void loadHealthSnapshot();
     void loadValveEvents();
-  }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady]);
+    void syncHealthSnapshot({ silent: true });
+  }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return;
+    void loadDeviceSyncState();
+  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return;
@@ -5547,6 +5742,14 @@ export default function App() {
       window.clearInterval(syncId);
     };
   }, [isAdmin, loadHealthSnapshot, loadValveEvents, sessionReady, syncHealthSnapshot]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return undefined;
+    const pollId = window.setInterval(() => {
+      void loadDeviceSyncState();
+    }, healthSnapshotPollMs);
+    return () => window.clearInterval(pollId);
+  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -5640,6 +5843,52 @@ export default function App() {
       void supabase.removeChannel(channel);
     };
   }, [isAdmin, loadHealthSnapshot, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return undefined;
+
+    const channel = supabase
+      .channel("exacth2o-device-sync-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "device_runtime_state",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
+        (payload) => {
+          const row = payload.new as Partial<DeviceRuntimeState>;
+          if (row.device_id === mattDeviceId) {
+            setRuntimeState(row as DeviceRuntimeState);
+            return;
+          }
+          void loadDeviceSyncState();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "device_config_state",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
+        (payload) => {
+          const row = payload.new as Partial<DeviceConfigState>;
+          if (row.device_id === mattDeviceId) {
+            setConfigState(row as DeviceConfigState);
+            return;
+          }
+          void loadDeviceSyncState();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -5987,6 +6236,8 @@ export default function App() {
           open={settingsOpen}
           activeSection={settingsSection}
           data={data}
+          runtimeState={runtimeState}
+          configState={configState}
           pairings={sortedPairings}
           visiblePotCount={visiblePotCount}
           csvDownload={csvDownload}
@@ -6045,6 +6296,8 @@ export default function App() {
           open={settingsOpen}
           activeSection={settingsSection}
           data={data}
+          runtimeState={runtimeState}
+          configState={configState}
           pairings={sortedPairings}
           visiblePotCount={visiblePotCount}
           csvDownload={csvDownload}

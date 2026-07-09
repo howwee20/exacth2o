@@ -31,6 +31,63 @@ type FetchResult = {
   error: string | null;
 };
 
+type DeviceRuntimeStateWrite = {
+  project_id: string;
+  device_id: string;
+  device_name: string;
+  source: string;
+  controller_state: string;
+  controller_state_raw: string | null;
+  controller_state_updated_at: string | null;
+  state_observed_at: string;
+  state_fresh_until: string;
+  owner_checked_at: string | null;
+  overall_status: string | null;
+  api_status: string | null;
+  pi_online: boolean | null;
+  public_url_reachable: boolean | null;
+  watering_enabled: boolean | null;
+  watering_disabled: unknown[];
+  watering_last_event: string | null;
+  watering_last_event_at: string | null;
+  watering_events_last_24h: number | null;
+  scheduler_jobs_loaded: number | null;
+  sensors_expected: number | null;
+  sensors_current: number | null;
+  sensors_stale: number | null;
+  sensors_missing: number | null;
+  last_sensor_reading_at: string | null;
+  config_hash: string | null;
+  raw_status: Record<string, unknown>;
+  raw_health: Record<string, unknown>;
+  raw_system: Record<string, unknown>;
+  updated_at: string;
+};
+
+type DeviceConfigStateWrite = {
+  project_id: string;
+  device_id: string;
+  device_name: string;
+  source: string;
+  observed_at: string;
+  pairings: unknown[];
+  calibrations: unknown[];
+  board_config: unknown[];
+  sensors: unknown[];
+  valves: unknown[];
+  groups: unknown[];
+  pairing_count: number;
+  calibration_count: number;
+  board_count: number;
+  sensor_count: number;
+  valve_count: number;
+  group_count: number;
+  config_hash: string;
+  endpoint_status: Record<string, unknown>;
+  raw_config: Record<string, unknown>;
+  updated_at: string;
+};
+
 type ValveEventInsert = {
   event_id: string;
   source_valve_id: number | null;
@@ -108,10 +165,10 @@ function basicAuthHeader(username: string, password: string) {
   return `Basic ${btoa(`${username}:${password}`)}`;
 }
 
-async function fetchJson(url: string, authHeader: string): Promise<FetchResult> {
+async function fetchJson(url: string, authHeader: string, timeoutMs = 25_000): Promise<FetchResult> {
   const started = Date.now();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25_000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -125,9 +182,13 @@ async function fetchJson(url: string, authHeader: string): Promise<FetchResult> 
     const text = await response.text();
     let data: Record<string, unknown> = {};
     if (text) {
-      const parsed = JSON.parse(text);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        data = parsed as Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          data = parsed as Record<string, unknown>;
+        }
+      } catch {
+        data = {};
       }
     }
 
@@ -662,6 +723,291 @@ async function insertMissingValveEvents(
   return insertValveEventRows(admin, missingEvents.map(valveEventWriteRow));
 }
 
+function hasUsableValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value as Record<string, unknown>).length > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return true;
+}
+
+function valueAtPath(source: unknown, path: string[]) {
+  let current: unknown = source;
+  for (const key of path) {
+    current = asRecord(current)[key];
+  }
+  return current;
+}
+
+function firstValueAtPaths(sources: unknown[], paths: string[][]) {
+  for (const source of sources) {
+    for (const path of paths) {
+      const value = valueAtPath(source, path);
+      if (hasUsableValue(value)) return value;
+    }
+  }
+  return null;
+}
+
+function firstNestedValue(value: unknown, keys: string[], maxDepth = 5): unknown {
+  if (maxDepth < 0) return null;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = firstNestedValue(item, keys, maxDepth - 1);
+      if (hasUsableValue(nested)) return nested;
+    }
+    return null;
+  }
+
+  const record = asRecord(value);
+  if (!Object.keys(record).length) return null;
+
+  for (const key of keys) {
+    const valueForKey = record[key];
+    if (hasUsableValue(valueForKey)) return valueForKey;
+  }
+
+  for (const child of Object.values(record)) {
+    const nested = firstNestedValue(child, keys, maxDepth - 1);
+    if (hasUsableValue(nested)) return nested;
+  }
+
+  return null;
+}
+
+function firstNestedFromSources(sources: unknown[], keys: string[]) {
+  for (const source of sources) {
+    const value = firstNestedValue(source, keys);
+    if (hasUsableValue(value)) return value;
+  }
+  return null;
+}
+
+function normalizeControllerState(value: unknown) {
+  const text = asString(value);
+  if (!text) return "UNKNOWN";
+  const normalized = text.toLowerCase();
+  if (normalized.includes("running") || normalized === "run") return "RUNNING";
+  if (
+    normalized.includes("stopped") ||
+    normalized.includes("disabled") ||
+    normalized.includes("paused") ||
+    normalized === "stop"
+  ) {
+    return "STOPPED";
+  }
+  if (
+    normalized.includes("startup") ||
+    normalized.includes("starting") ||
+    normalized.includes("boot") ||
+    normalized.includes("initializing")
+  ) {
+    return "STARTUP";
+  }
+  return text.toUpperCase();
+}
+
+function controllerStateFromSources(sources: unknown[]) {
+  const systemSource = sources[2] ?? {};
+  const raw = firstValueAtPaths(sources, [
+    ["controller_state"],
+    ["system_state"],
+    ["systemState"],
+    ["current_state"],
+    ["currentState"],
+    ["api", "system", "state"],
+    ["api", "controller", "state"],
+    ["system", "state"],
+    ["controller", "state"],
+    ["runtime", "state"],
+  ]) ?? firstValueAtPaths([systemSource], [
+    ["state"],
+    ["status"],
+  ]) ?? firstNestedFromSources(sources, [
+    "controller_state",
+    "system_state",
+    "systemState",
+    "current_state",
+    "currentState",
+  ]);
+
+  return {
+    raw: asString(raw),
+    normalized: normalizeControllerState(raw),
+  };
+}
+
+function stateUpdatedAtFromSources(sources: unknown[], fallback: string) {
+  const value = firstValueAtPaths(sources, [
+    ["controller_state_updated_at"],
+    ["state_updated_at"],
+    ["stateUpdatedAt"],
+    ["updated_at"],
+    ["updatedAt"],
+    ["api", "system", "updated_at"],
+    ["system", "updated_at"],
+    ["controller", "updated_at"],
+  ]) ?? firstNestedFromSources(sources, [
+    "controller_state_updated_at",
+    "state_updated_at",
+    "stateUpdatedAt",
+  ]);
+
+  return asTimestamp(value) ?? fallback;
+}
+
+function firstBooleanFromSources(sources: unknown[], paths: string[][], nestedKeys: string[]) {
+  const pathValue = firstValueAtPaths(sources, paths);
+  const pathBoolean = asBoolean(pathValue);
+  if (pathBoolean != null) return pathBoolean;
+
+  const nestedValue = firstNestedFromSources(sources, nestedKeys);
+  return asBoolean(nestedValue);
+}
+
+function wateringDisabledFromSources(sources: unknown[]) {
+  const value = firstValueAtPaths(sources, [
+    ["watering_disabled"],
+    ["wateringDisabled"],
+    ["watering", "disabled"],
+    ["watering", "disabled_pairings"],
+    ["watering", "disabledPairings"],
+    ["api", "watering", "disabled"],
+  ]) ?? firstNestedFromSources(sources, [
+    "watering_disabled",
+    "wateringDisabled",
+    "disabled_pairings",
+    "disabledPairings",
+  ]);
+
+  return filterIgnoredDiagnosticItems(asArray(value));
+}
+
+function extractConfigSection(sources: unknown[], keys: string[]) {
+  for (const source of sources) {
+    const record = asRecord(source);
+    for (const key of keys) {
+      const value = record[key];
+      if (hasUsableValue(value)) return value;
+    }
+  }
+
+  return firstNestedFromSources(sources, keys);
+}
+
+function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations" | "board_config" | "sensors" | "valves" | "groups") {
+  if (!hasUsableValue(value)) return [];
+
+  let items: unknown[] = [];
+  if (Array.isArray(value)) {
+    items = value;
+  } else {
+    const record = asRecord(value);
+    const nestedArray = asArray(record.items).length
+      ? asArray(record.items)
+      : asArray(record.records).length
+        ? asArray(record.records)
+        : asArray(record.data);
+    if (nestedArray.length) {
+      items = nestedArray;
+    } else {
+      const values = Object.values(record);
+      items = values.length && values.every((item) => typeof item === "object" && item !== null)
+        ? values
+        : [record];
+    }
+  }
+
+  if (kind === "pairings" || kind === "sensors") {
+    return filterIgnoredDiagnosticItems(items);
+  }
+
+  if (kind === "valves") {
+    return items.filter((item) => {
+      const record = asRecord(item);
+      return !(
+        isIgnoredDiagnosticValveKey(item) ||
+        isIgnoredDiagnosticValveKey(firstString(record, ["valve", "valve_key", "valveKey", "address", "id", "name"])) ||
+        isIgnoredDiagnosticNumber(record.source_valve_id, ignoredDiagnosticValveIds) ||
+        isIgnoredDiagnosticNumber(record.sourceValveId, ignoredDiagnosticValveIds) ||
+        isIgnoredDiagnosticNumber(record.valve_id, ignoredDiagnosticValveIds) ||
+        isIgnoredDiagnosticNumber(record.valveId, ignoredDiagnosticValveIds)
+      );
+    });
+  }
+
+  return items;
+}
+
+function sortedJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortedJsonValue);
+  if (!value || typeof value !== "object") return value;
+
+  const record = value as Record<string, unknown>;
+  return Object.keys(record)
+    .sort()
+    .reduce<Record<string, unknown>>((sorted, key) => {
+      sorted[key] = sortedJsonValue(record[key]);
+      return sorted;
+    }, {});
+}
+
+function stableJson(value: unknown) {
+  return JSON.stringify(sortedJsonValue(value));
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function upsertDeviceRuntimeState(
+  admin: ReturnType<typeof createClient>,
+  row: DeviceRuntimeStateWrite,
+) {
+  const { data, error } = await admin
+    .from("device_runtime_state")
+    .upsert(row, { onConflict: "project_id,device_id" })
+    .select("controller_state, state_observed_at, updated_at")
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      error: error.message,
+      code: error.code ?? null,
+      details: error.details ?? null,
+    };
+  }
+
+  return { ok: true, row: data ?? null, error: null, code: null, details: null };
+}
+
+async function upsertDeviceConfigState(
+  admin: ReturnType<typeof createClient>,
+  row: DeviceConfigStateWrite,
+) {
+  const { data, error } = await admin
+    .from("device_config_state")
+    .upsert(row, { onConflict: "project_id,device_id" })
+    .select("config_hash, observed_at, updated_at")
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      error: error.message,
+      code: error.code ?? null,
+      details: error.details ?? null,
+    };
+  }
+
+  return { ok: true, row: data ?? null, error: null, code: null, details: null };
+}
+
 serve(async (request) => {
   const origin = request.headers.get("Origin");
 
@@ -700,13 +1046,31 @@ serve(async (request) => {
   }
 
   const authHeader = basicAuthHeader(ownerUser, ownerPassword);
-  const [statusResponse, healthResponse, historyResponse] = await Promise.all([
+  const optionalEndpointTimeoutMs = 6_000;
+  const [
+    statusResponse,
+    healthResponse,
+    historyResponse,
+    systemResponse,
+    systemConfigResponse,
+    configResponse,
+    pairingsResponse,
+  ] = await Promise.all([
     fetchJson(`${ownerHealthBaseUrl}/api/status`, authHeader),
     fetchJson(`${ownerHealthBaseUrl}/api/health`, authHeader),
     fetchJson(`${ownerHealthBaseUrl}/api/history?days=2`, authHeader),
+    fetchJson(`${ownerHealthBaseUrl}/api/system`, authHeader, optionalEndpointTimeoutMs),
+    fetchJson(`${ownerHealthBaseUrl}/api/system-config`, authHeader, optionalEndpointTimeoutMs),
+    fetchJson(`${ownerHealthBaseUrl}/api/config`, authHeader, optionalEndpointTimeoutMs),
+    fetchJson(`${ownerHealthBaseUrl}/api/pairings`, authHeader, optionalEndpointTimeoutMs),
   ]);
   const status = statusResponse.ok ? statusResponse.data : {};
+  const health = healthResponse.ok ? healthResponse.data : {};
   const history = historyResponse.ok ? historyResponse.data : {};
+  const system = systemResponse.ok ? systemResponse.data : {};
+  const systemConfig = systemConfigResponse.ok ? systemConfigResponse.data : {};
+  const config = configResponse.ok ? configResponse.data : {};
+  const pairingsConfig = pairingsResponse.ok ? pairingsResponse.data : {};
   const historyRecords = Array.isArray(history.records) ? history.records : [];
   const rawMissingSensors = asArray(status.missing_sensors);
   const rawStaleSensors = asArray(status.stale_sensors);
@@ -721,10 +1085,72 @@ serve(async (request) => {
   const nowIso = new Date().toISOString();
   const valveEvents = collectValveEvents(
     status,
-    healthResponse.ok ? healthResponse.data : {},
+    health,
     history,
     nowIso,
   );
+  const runtimeSources = [status, health, system];
+  const configSources = [systemConfig, config, pairingsConfig, system, health, status];
+  const controllerState = controllerStateFromSources(runtimeSources);
+  const wateringDisabled = wateringDisabledFromSources(runtimeSources);
+  const wateringEnabled = firstBooleanFromSources(runtimeSources, [
+    ["watering_enabled"],
+    ["wateringEnabled"],
+    ["watering", "enabled"],
+    ["api", "watering", "enabled"],
+  ], ["watering_enabled", "wateringEnabled"]) ?? (wateringDisabled.length ? false : null);
+  const pairings = normalizeConfigSection(extractConfigSection(configSources, [
+    "pairings",
+    "Pairings",
+    "watering_pairings",
+    "wateringPairings",
+  ]), "pairings");
+  const calibrations = normalizeConfigSection(extractConfigSection(configSources, [
+    "calibrations",
+    "Calibrations",
+    "calibration",
+    "Calibration",
+  ]), "calibrations");
+  const boardConfig = normalizeConfigSection(extractConfigSection(configSources, [
+    "board_config",
+    "boardConfig",
+    "board_configurations",
+    "boardConfigurations",
+    "board_configs",
+    "boardConfigs",
+    "boards",
+  ]), "board_config");
+  const sensors = normalizeConfigSection(extractConfigSection(configSources, [
+    "sensors",
+    "Sensors",
+  ]), "sensors");
+  const valves = normalizeConfigSection(extractConfigSection(configSources, [
+    "valves",
+    "Valves",
+  ]), "valves");
+  const groups = normalizeConfigSection(extractConfigSection(configSources, [
+    "groups",
+    "Groups",
+  ]), "groups");
+  const hasConfigEndpointData =
+    systemConfigResponse.ok ||
+    configResponse.ok ||
+    pairingsResponse.ok ||
+    pairings.length > 0 ||
+    calibrations.length > 0 ||
+    boardConfig.length > 0 ||
+    sensors.length > 0 ||
+    valves.length > 0 ||
+    groups.length > 0;
+  const configPayload = {
+    pairings,
+    calibrations,
+    board_config: boardConfig,
+    sensors,
+    valves,
+    groups,
+  };
+  const configHash = hasConfigEndpointData ? await sha256Hex(stableJson(configPayload)) : null;
 
   const snapshot = {
     project_id: mattProjectId,
@@ -781,9 +1207,132 @@ serve(async (request) => {
     console.error("Could not write valve events", valveEventWrite.error);
   }
 
+  const runtimeRow: DeviceRuntimeStateWrite = {
+    project_id: mattProjectId,
+    device_id: mattDeviceId,
+    device_name: "plain-feather",
+    source: "owner-health",
+    controller_state: controllerState.normalized,
+    controller_state_raw: controllerState.raw,
+    controller_state_updated_at: stateUpdatedAtFromSources(runtimeSources, snapshot.captured_at),
+    state_observed_at: snapshot.captured_at,
+    state_fresh_until: new Date(Date.parse(nowIso) + 10 * 60 * 1000).toISOString(),
+    owner_checked_at: snapshot.owner_checked_at,
+    overall_status: snapshot.overall_status,
+    api_status: snapshot.api_status,
+    pi_online: snapshot.pi_online,
+    public_url_reachable: snapshot.public_url_reachable,
+    watering_enabled: wateringEnabled,
+    watering_disabled: wateringDisabled,
+    watering_last_event: snapshot.watering_last_event,
+    watering_last_event_at: snapshot.watering_last_event_at,
+    watering_events_last_24h: snapshot.watering_events_last_24h,
+    scheduler_jobs_loaded: snapshot.scheduler_jobs_loaded,
+    sensors_expected: snapshot.sensors_expected,
+    sensors_current: snapshot.sensors_current,
+    sensors_stale: snapshot.sensors_stale,
+    sensors_missing: snapshot.sensors_missing,
+    last_sensor_reading_at: snapshot.last_sensor_reading_at,
+    config_hash: configHash,
+    raw_status: statusResponse.data,
+    raw_health: healthResponse.data,
+    raw_system: system,
+    updated_at: nowIso,
+  };
+  const runtimeWrite = await upsertDeviceRuntimeState(admin, runtimeRow);
+  if (!runtimeWrite.ok) {
+    console.error("Could not write runtime state", runtimeWrite.error);
+  }
+
+  const endpointStatus = {
+    system: {
+      ok: systemResponse.ok,
+      status: systemResponse.status,
+      elapsedMs: systemResponse.elapsedMs,
+      error: systemResponse.error,
+    },
+    systemConfig: {
+      ok: systemConfigResponse.ok,
+      status: systemConfigResponse.status,
+      elapsedMs: systemConfigResponse.elapsedMs,
+      error: systemConfigResponse.error,
+    },
+    config: {
+      ok: configResponse.ok,
+      status: configResponse.status,
+      elapsedMs: configResponse.elapsedMs,
+      error: configResponse.error,
+    },
+    pairings: {
+      ok: pairingsResponse.ok,
+      status: pairingsResponse.status,
+      elapsedMs: pairingsResponse.elapsedMs,
+      error: pairingsResponse.error,
+    },
+  };
+
+  const configWrite = hasConfigEndpointData && configHash
+    ? await upsertDeviceConfigState(admin, {
+      project_id: mattProjectId,
+      device_id: mattDeviceId,
+      device_name: "plain-feather",
+      source: "owner-health",
+      observed_at: nowIso,
+      pairings,
+      calibrations,
+      board_config: boardConfig,
+      sensors,
+      valves,
+      groups,
+      pairing_count: pairings.length,
+      calibration_count: calibrations.length,
+      board_count: boardConfig.length,
+      sensor_count: sensors.length,
+      valve_count: valves.length,
+      group_count: groups.length,
+      config_hash: configHash,
+      endpoint_status: endpointStatus,
+      raw_config: {
+        system,
+        systemConfig,
+        config,
+        pairings: pairingsConfig,
+      },
+      updated_at: nowIso,
+    })
+    : {
+      ok: false,
+      error: "No config endpoint data available",
+      code: null,
+      details: null,
+      row: null,
+    };
+  if (!configWrite.ok && hasConfigEndpointData) {
+    console.error("Could not write config state", configWrite.error);
+  }
+
   return jsonResponse({
     ok: true,
     snapshot: data,
+    runtimeState: {
+      ok: runtimeWrite.ok,
+      controllerState: runtimeRow.controller_state,
+      observedAt: runtimeRow.state_observed_at,
+      error: runtimeWrite.error,
+    },
+    configState: {
+      ok: configWrite.ok,
+      configHash,
+      counts: {
+        pairings: pairings.length,
+        calibrations: calibrations.length,
+        boards: boardConfig.length,
+        sensors: sensors.length,
+        valves: valves.length,
+        groups: groups.length,
+      },
+      error: configWrite.error,
+    },
     valveEvents: {
       found: valveEvents.length,
       inserted: valveEventWrite.inserted,
@@ -799,6 +1348,10 @@ serve(async (request) => {
       statusEndpointOk: statusResponse.ok,
       healthEndpointOk: healthResponse.ok,
       historyEndpointOk: historyResponse.ok,
+      systemEndpointOk: systemResponse.ok,
+      systemConfigEndpointOk: systemConfigResponse.ok,
+      configEndpointOk: configResponse.ok,
+      pairingsEndpointOk: pairingsResponse.ok,
       historySamples: historyRecords.length,
     },
   }, 200, origin);
