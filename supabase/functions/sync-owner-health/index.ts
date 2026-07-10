@@ -824,6 +824,7 @@ function controllerStateFromSources(sources: unknown[]) {
     ["current_state"],
     ["currentState"],
     ["api", "system", "state"],
+    ["api", "system", "data", "state"],
     ["api", "controller", "state"],
     ["system", "state"],
     ["controller", "state"],
@@ -1281,7 +1282,12 @@ serve(async (request) => {
     nowIso,
   );
   const runtimeSources = [status, health, system];
-  const configSources = [systemConfig, config, pairingsConfig, system, health, status];
+  // When config was not requested, aggregate health objects may contain fields
+  // named like configuration sections (for example a compact pairing count).
+  // They are diagnostics, not controller config; use the last verified mirror.
+  const configSources = includeConfig
+    ? [systemConfig, config, pairingsConfig, system, health, status]
+    : [];
   const controllerState = controllerStateFromSources(runtimeSources);
   const wateringDisabled = wateringDisabledFromSources(runtimeSources);
   let wateringEnabled = firstBooleanFromSources(runtimeSources, [
