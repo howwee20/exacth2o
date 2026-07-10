@@ -1,6 +1,8 @@
 -- This migration is intentionally additive. It does not alter controller configuration,
 -- pairings, calibrations, targets, or valve state.
 
+begin;
+
 -- The migration runner must keep this lock and the following preflight check in
 -- one transaction. It fences command inserts/claims during the schema cutover.
 lock table public.project_control_commands in access exclusive mode;
@@ -1484,3 +1486,5 @@ comment on function public.device_renew_control_command_lease(text, uuid)
 
 comment on table public.device_ingest_leases
   is 'Short service-role leases that debounce concurrent health ingestion authorities.';
+
+commit;

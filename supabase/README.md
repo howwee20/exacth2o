@@ -7,12 +7,14 @@ For the July 2026 hardening migrations:
 1. Capture and verify a restorable roles/schema/data backup.
 2. Restore that backup into an isolated staging Supabase project.
 3. Disable portal command intake, stop every control executor, and verify there are zero `queued`, `accepted`, or `running` commands. The control migration takes an exclusive command-table lock and refuses to start otherwise; the migration runner must execute the file as one transaction.
-4. Apply `20260709190000_optimize_control_and_portal_data.sql`, `20260709191500_add_public_submission_guards.sql`, and `20260709193000_schedule_owner_health_ingestion.sql` in order.
-5. Deploy the matching Edge Functions, set their secrets, re-check that the command queue is still empty, and only then deploy the matching executor in dry-run mode.
-6. Verify Auth, portal access/RLS, Realtime, health ingestion, CSV export, command claim/lease/completion, command quarantine/reconciliation, and public form submission. Include concurrent executor and retry tests.
-7. Confirm no pairing, calibration, board, sensor, valve, group, target, or live watering configuration changed.
-8. Implement and bench-test the controller-owned `/valves/pulse` watchdog before enabling manual watering. The endpoint is not part of this repository, so live manual watering remains blocked until that external controller contract is proven.
-9. Re-enable command intake only after the matching database functions, Edge Function, and dry-run executor have passed the checklist. Use a maintenance window and a written rollback checklist before production cutover. Keep the managed project read-only and available for rollback until the new path is verified.
+4. Apply `20260709190000_optimize_control_and_portal_data.sql` and `20260709191500_add_public_submission_guards.sql` only.
+5. Deploy the matching Edge Functions and their secrets, then re-check that the command queue is still empty.
+6. Apply `20260709193000_schedule_owner_health_ingestion.sql`. Verify both successful Cron job runs and the corresponding `pg_net` HTTP responses before any portal deployment; a successful Cron run alone only proves that the HTTP request was queued.
+7. Verify Auth, portal access/RLS, Realtime, three consecutive scheduled health-ingestion cycles, CSV export, command claim/lease/completion, command quarantine/reconciliation, and public form submission. Include concurrent executor and retry tests.
+8. Confirm no pairing, calibration, board, sensor, valve, group, target, or live watering configuration changed.
+9. Implement and bench-test the controller-owned `/valves/pulse` watchdog before enabling manual watering. The endpoint is not part of this repository, so live manual watering remains blocked until that external controller contract is proven.
+10. Deploy the matching executor in dry-run mode only in a separate controller release after the backend and controller watchdog contract pass bench verification.
+11. Re-enable command intake only after the matching database functions, Edge Function, and dry-run executor have passed the checklist. Use a maintenance window and a written rollback checklist before production cutover. Keep the managed project read-only and available for rollback until the new path is verified.
 
 Required function secrets include:
 
