@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { acceptedInviteRoles } from "./invite-role-policy.mjs";
 
 type InvitePayload = {
   token?: string;
@@ -155,6 +156,11 @@ serve(async (request) => {
     return jsonResponse({ error: "This invite is for a different email address" }, 403, origin);
   }
 
+  const acceptedRoles = acceptedInviteRoles(invite.role);
+  if (!acceptedRoles) {
+    return jsonResponse({ error: "Invite has an unsupported access role" }, 500, origin);
+  }
+
   let userId = "";
   let session: unknown = null;
   const created = await admin.auth.admin.createUser({
@@ -243,7 +249,7 @@ serve(async (request) => {
     .upsert({
       project_id: invite.project_id,
       user_id: userId,
-      role: invite.role,
+      role: acceptedRoles.projectMemberRole,
     }, {
       onConflict: "project_id,user_id",
     });

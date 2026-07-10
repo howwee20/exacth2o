@@ -4,19 +4,73 @@ on:
   push:
     branches:
       - ej-supabase-research-portal
+  pull_request:
+    branches:
+      - ej-supabase-research-portal
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
+  validate:
+    concurrency:
+      group: validate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            research-portal/package-lock.json
+            controller-release/control-executor/package-lock.json
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.2
+
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix research-portal
+          npm ci --prefix controller-release/control-executor
+
+      - name: Test control authorization and executor safety
+        run: |
+          node --test supabase/functions/create-control-command/command-policy.test.mjs
+          node --test supabase/functions/_shared/abuse-prevention.test.mjs
+          npm test --prefix controller-release/control-executor
+          npm audit --omit=dev --prefix controller-release/control-executor
+          deno check supabase/functions/create-control-command/index.ts
+          deno check supabase/functions/sync-owner-health/index.ts
+          deno check supabase/functions/submit-quote/index.ts
+          deno check supabase/functions/submit-support-request/index.ts
+
+      - name: Build and verify the portal
+        run: |
+          npm run check --prefix research-portal
+          generated_changes="$(git status --porcelain --untracked-files=all -- portal-app portal.html)"
+          if [ -n "$generated_changes" ]; then
+            printf '%s\n' "$generated_changes"
+            exit 1
+          fi
+
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/ej-supabase-research-portal'
+    needs: validate
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages-production
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -36,12 +90,12 @@ jobs:
 
           cp CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
-          cp product1.jpg product2.jpg product3.jpg product4.jpg product5.jpg product6.jpg site-dist/
+          cp product1.jpg product2.jpg product3.jpg product4.jpg site-dist/
           cp scheduling.jpg dashboard.jpg sensor.jpg scaling.jpg site-dist/
+          cp product1.avif product2.avif product3.avif product4.avif site-dist/
+          cp scheduling.avif dashboard.avif sensor.avif scaling.avif site-dist/
 
-          cp portal-app/assets/portal.js portal-app/assets/portal.css site-dist/portal-app/assets/
-          cp portal-app/product1.jpg portal-app/product2.jpg portal-app/product3.jpg site-dist/portal-app/
-          cp portal-app/scheduling.jpg portal-app/dashboard.jpg portal-app/sensor.jpg site-dist/portal-app/
+          cp portal-app/assets/* site-dist/portal-app/assets/
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3

@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executeCommand, stripTrailingSlash } from "../src/control-executor.mjs";
+import {
+  createApiClient,
+  createSupabaseRpcClient,
+  executeCommand,
+  fetchJsonWithTimeout,
+  getConfig,
+  IndeterminateMutationError,
+  assertRuntimeConfig,
+  stripTrailingSlash,
+  tick,
+} from "../src/control-executor.mjs";
+
+const commandId = "11111111-1111-4111-8111-111111111111";
 
 function apiFixture(overrides = {}) {
   const calls = [];
@@ -47,6 +59,34 @@ test("stripTrailingSlash removes only trailing slashes", () => {
   assert.equal(stripTrailingSlash("https://example.test///"), "https://example.test");
 });
 
+test("live startup requires state-sync identity and credentials", () => {
+  const baseEnv = {
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_ANON_KEY: "anon-key",
+    EXACTH2O_DEVICE_TOKEN: "device-token",
+  };
+  const dryRunConfig = getConfig(baseEnv);
+  assert.equal(dryRunConfig.dryRun, true);
+  assert.equal(dryRunConfig.manualWaterEnabled, false);
+  assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "flase" }).manualWaterEnabled, false);
+  assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "off" }).manualWaterEnabled, false);
+  assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "1" }).manualWaterEnabled, true);
+  assert.doesNotThrow(() => assertRuntimeConfig(dryRunConfig));
+
+  const liveConfig = getConfig({ ...baseEnv, EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "0" });
+  assert.throws(
+    () => assertRuntimeConfig(liveConfig),
+    /EXACTH2O_PROJECT_ID, EXACTH2O_DEVICE_ID, SYNC_OWNER_HEALTH_SECRET/,
+  );
+  assert.doesNotThrow(() => assertRuntimeConfig(getConfig({
+    ...baseEnv,
+    EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "0",
+    EXACTH2O_PROJECT_ID: "project-id",
+    EXACTH2O_DEVICE_ID: "device-id",
+    SYNC_OWNER_HEALTH_SECRET: "sync-secret",
+  })));
+});
+
 test("update_pairing maps portal payload to local controller fields", async () => {
   const fixture = apiFixture();
   const result = await executeCommand(
@@ -86,38 +126,48 @@ test("update_pairing refuses to edit while controller is running", async () => {
   );
 });
 
-test("manual_water opens then closes valves", async () => {
+test("manual_water uses a controller-owned timed pulse by default", async () => {
   const fixture = apiFixture();
   const result = await executeCommand(
-    { command_type: "manual_water", payload: { valve_keys: ["valve 41"], duration_seconds: 0.001 } },
-    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+    { id: commandId, command_type: "manual_water", payload: { valve_keys: ["valve 41"], duration_seconds: 0.001 } },
+    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60, manualWaterEnabled: true },
   );
 
   assert.equal(result.valveCount, 1);
-  assert.deepEqual(
-    fixture.calls.filter((call) => call[0] === "POST" && call[1] === "/valves/operate"),
-    [
-      ["POST", "/valves/operate", { address: 7, relayAddress: 3, operation: "OPEN" }],
-      ["POST", "/valves/operate", { address: 7, relayAddress: 3, operation: "CLOSE" }],
-    ],
-  );
+  assert.equal(result.failSafe, "controller_timed_pulse");
+  assert.deepEqual(fixture.calls.at(-1), [
+    "POST",
+    "/valves/pulse",
+    {
+      address: 7,
+      relayAddress: 3,
+      durationMilliseconds: 1,
+      commandId,
+      pulseId: `${commandId}:3:7`,
+    },
+  ]);
+  assert.equal(fixture.calls.some((call) => call[1] === "/valves/operate"), false);
 });
 
 test("manual_water accepts portal pairing_names and resolves their valves", async () => {
   const fixture = apiFixture();
   const result = await executeCommand(
-    { command_type: "manual_water", payload: { pairing_names: ["Pot 41"], duration_seconds: 0.001 } },
-    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+    { id: commandId, command_type: "manual_water", payload: { pairing_names: ["Pot 41"], duration_seconds: 0.001 } },
+    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60, manualWaterEnabled: true },
   );
 
   assert.equal(result.valveCount, 1);
-  assert.deepEqual(
-    fixture.calls.filter((call) => call[0] === "POST" && call[1] === "/valves/operate"),
-    [
-      ["POST", "/valves/operate", { address: 7, relayAddress: 3, operation: "OPEN" }],
-      ["POST", "/valves/operate", { address: 7, relayAddress: 3, operation: "CLOSE" }],
-    ],
-  );
+  assert.deepEqual(fixture.calls.at(-1), [
+    "POST",
+    "/valves/pulse",
+    {
+      address: 7,
+      relayAddress: 3,
+      durationMilliseconds: 1,
+      commandId,
+      pulseId: `${commandId}:3:7`,
+    },
+  ]);
 });
 
 test("manual_water rejects excessive duration", async () => {
@@ -129,6 +179,51 @@ test("manual_water rejects excessive duration", async () => {
         { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
       ),
     /exceeds max/,
+  );
+});
+
+test("manual_water stays disabled independently of the global dry-run switch", async () => {
+  const fixture = apiFixture();
+  await assert.rejects(
+    () => executeCommand(
+      { id: commandId, command_type: "manual_water", payload: { pairing_names: ["Pot 41"], duration_seconds: 1 } },
+      { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60, manualWaterEnabled: false },
+    ),
+    /disabled until the controller timed-pulse bench protocol is approved/,
+  );
+  assert.equal(fixture.calls.length, 0);
+});
+
+test("manual_water rejects an excessive aggregate valve-seconds budget", async () => {
+  const fixture = apiFixture({
+    data: {
+      pairings: [
+        { name: "Pot 41", sensorId: 41, valveId: 141 },
+        { name: "Pot 42", sensorId: 42, valveId: 142 },
+      ],
+      valves: [
+        { id: 141, name: "Valve 41", relayAddress: 3, address: 7 },
+        { id: 142, name: "Valve 42", relayAddress: 3, address: 8 },
+      ],
+    },
+  });
+
+  await assert.rejects(
+    () => executeCommand(
+      {
+        id: commandId,
+        command_type: "manual_water",
+        payload: { pairing_names: ["Pot 41", "Pot 42"], duration_seconds: 60 },
+      },
+      {
+        api: fixture.api,
+        dryRun: false,
+        manualWaterMaxSeconds: 60,
+        manualWaterMaxValveSeconds: 100,
+        manualWaterEnabled: true,
+      },
+    ),
+    /valve-seconds exceeds max/,
   );
 });
 
@@ -159,7 +254,7 @@ test("create_calibration refuses to edit config while controller is running", as
 test("update_board_config uses the controller API payload shape", async () => {
   const fixture = apiFixture();
   const result = await executeCommand(
-    { command_type: "update_board_config", payload: { boards: [{ address: "0x20", resetPin: 17 }] } },
+    { command_type: "update_board_config", payload: { boards: [{ address: "0x20", reset_pin: 17 }] } },
     { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
   );
 
@@ -174,7 +269,7 @@ test("update_board_config uses the controller API payload shape", async () => {
   ]);
 });
 
-test("initialize_sensors is blocked without explicit executor flag", async () => {
+test("initialize_sensors is hard-blocked in the production executor", async () => {
   const fixture = apiFixture();
   await assert.rejects(
     () =>
@@ -182,6 +277,204 @@ test("initialize_sensors is blocked without explicit executor flag", async () =>
         { command_type: "initialize_sensors", payload: {} },
         { api: fixture.api, dryRun: true, manualWaterMaxSeconds: 60 },
       ),
-    /initialize_sensors blocked/,
+    /disabled in the production executor/,
   );
+});
+
+test("local controller requests abort instead of hanging indefinitely", async () => {
+  const fetchImpl = (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+  });
+  const api = createApiClient("http://controller.test/v1", fetchImpl, 5);
+
+  await assert.rejects(() => api.get("/system"), /GET \/system timed out after 5ms/);
+});
+
+test("the timeout remains active while a response body is being read", async () => {
+  const fetchImpl = async (_url, options) => ({
+    ok: true,
+    async text() {
+      return new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => reject(new Error("body aborted")), { once: true });
+      });
+    },
+  });
+
+  await assert.rejects(
+    () => fetchJsonWithTimeout(fetchImpl, "https://controller.test", {}, 5, "body read"),
+    /body read timed out after 5ms/,
+  );
+});
+
+test("a timed-out controller mutation is classified as an unknown outcome", async () => {
+  const fetchImpl = (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+  });
+  const api = createApiClient("http://controller.test/v1", fetchImpl, 5);
+
+  await assert.rejects(
+    () => api.post("/system/state", { state: "STOPPED" }),
+    (error) => error instanceof IndeterminateMutationError && /outcome is unknown/.test(error.message),
+  );
+});
+
+test("server and transport errors after a mutation are quarantined but definite 4xx rejections are not", async () => {
+  const serverErrorApi = createApiClient(
+    "http://controller.test/v1",
+    async () => new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+    1000,
+  );
+  await assert.rejects(
+    () => serverErrorApi.post("/system/state", { state: "STOPPED" }),
+    IndeterminateMutationError,
+  );
+
+  const transportErrorApi = createApiClient(
+    "http://controller.test/v1",
+    async () => { throw new TypeError("connection reset"); },
+    1000,
+  );
+  await assert.rejects(
+    () => transportErrorApi.put("/pairings/1/2", {}),
+    IndeterminateMutationError,
+  );
+
+  const rejectedApi = createApiClient(
+    "http://controller.test/v1",
+    async () => new Response(JSON.stringify({ error: "invalid state" }), { status: 400 }),
+    1000,
+  );
+  await assert.rejects(
+    () => rejectedApi.post("/system/state", { state: "INVALID" }),
+    (error) => !(error instanceof IndeterminateMutationError) && /400 invalid state/.test(error.message),
+  );
+});
+
+test("tick quarantines an indeterminate mutation without recording a normal failure", async () => {
+  const calls = [];
+  const rpc = {
+    async claim() {
+      return { id: commandId, command_type: "update_system_state", payload: { state: "stopped" } };
+    },
+    async renew() { return true; },
+    async complete(...args) { calls.push(["complete", ...args]); },
+    async quarantine(...args) { calls.push(["quarantine", ...args]); },
+  };
+  const api = {
+    async post() { throw new IndeterminateMutationError("mutation timed out; outcome is unknown"); },
+  };
+
+  await tick({
+    rpc,
+    api,
+    config: {
+      dryRun: false,
+      commandLeaseRenewMs: 60_000,
+      manualWaterMaxSeconds: 60,
+      manualWaterMaxValveSeconds: 120,
+      manualWaterPulsePath: "/valves/pulse",
+    },
+  });
+
+  assert.deepEqual(calls, [["quarantine", commandId, "mutation timed out; outcome is unknown"]]);
+});
+
+test("tick quarantines a multi-step command after any earlier mutation succeeds", async () => {
+  const fixture = apiFixture({
+    data: {
+      pairings: [
+        { name: "Pot 41", sensorId: 41, valveId: 141 },
+        { name: "Pot 42", sensorId: 42, valveId: 142 },
+      ],
+    },
+  });
+  let putCount = 0;
+  fixture.api.put = async (path, body) => {
+    fixture.calls.push(["PUT", path, body]);
+    putCount += 1;
+    if (putCount === 2) throw new Error("second pairing was rejected");
+    return { ok: true, path, body };
+  };
+
+  const calls = [];
+  const rpc = {
+    async claim() {
+      return {
+        id: commandId,
+        command_type: "bulk_update_pairings",
+        payload: { pairing_names: ["Pot 41", "Pot 42"], target_vwc: 25 },
+      };
+    },
+    async renew() { return true; },
+    async complete(...args) { calls.push(["complete", ...args]); },
+    async quarantine(...args) { calls.push(["quarantine", ...args]); },
+  };
+
+  await tick({
+    rpc,
+    api: fixture.api,
+    config: {
+      dryRun: false,
+      commandLeaseRenewMs: 60_000,
+      manualWaterMaxSeconds: 60,
+      manualWaterMaxValveSeconds: 120,
+      manualWaterPulsePath: "/valves/pulse",
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "quarantine");
+  assert.match(calls[0][2], /1 earlier controller mutation/);
+});
+
+test("a final-status RPC error is not converted into a contradictory failed completion", async () => {
+  const completions = [];
+  const rpc = {
+    async claim() { return { id: commandId, command_type: "export_data", payload: {} }; },
+    async renew() { return true; },
+    async quarantine() { throw new Error("unexpected quarantine"); },
+    async complete(...args) {
+      completions.push(args);
+      throw new Error("status response timed out");
+    },
+  };
+
+  await tick({
+    rpc,
+    api: {},
+    config: {
+      dryRun: true,
+      commandLeaseRenewMs: 60_000,
+      manualWaterMaxSeconds: 60,
+      manualWaterMaxValveSeconds: 120,
+      manualWaterPulsePath: "/valves/pulse",
+    },
+  });
+
+  assert.equal(completions.length, 1);
+  assert.equal(completions[0][1], "succeeded");
+});
+
+test("command lease renewal is authenticated with the device token", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ url, options });
+    return new Response("true", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const rpc = createSupabaseRpcClient({
+    supabaseUrl: "https://example.supabase.co",
+    supabaseAnonKey: "anon-key",
+    deviceToken: "device-token",
+    supabaseRpcTimeoutMs: 1000,
+  }, fetchImpl);
+
+  assert.equal(await rpc.renew("11111111-1111-4111-8111-111111111111"), true);
+  assert.equal(requests[0].url.endsWith("/rpc/device_renew_control_command_lease"), true);
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    device_token: "device-token",
+    command_id: "11111111-1111-4111-8111-111111111111",
+  });
 });

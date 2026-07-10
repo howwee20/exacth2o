@@ -1,5 +1,19 @@
-const VERSION = "exacth2o-control-executor/0.1.0";
+const VERSION = "exacth2o-control-executor/0.3.0";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export class IndeterminateMutationError extends Error {
+  constructor(message, options = {}) {
+    super(message, options);
+    this.name = "IndeterminateMutationError";
+  }
+}
+
+class LeaseLostError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "LeaseLostError";
+  }
+}
 
 export function stripTrailingSlash(value) {
   return String(value || "").replace(/\/+$/, "");
@@ -10,13 +24,17 @@ function boolEnv(value, defaultValue) {
   return !["0", "false", "no"].includes(String(value).trim().toLowerCase());
 }
 
+function explicitlyEnabledEnv(value) {
+  return ["1", "true", "yes"].includes(String(value || "").trim().toLowerCase());
+}
+
 function numberEnv(value, defaultValue, min, max) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return defaultValue;
   return Math.min(max, Math.max(min, parsed));
 }
 
-function getConfig(env = process.env) {
+export function getConfig(env = process.env) {
   return {
     localApiBase: stripTrailingSlash(env.EXACTH2O_LOCAL_API_BASE || env.CONTROL_BRIDGE_API_BASE || "http://api_svc:8888/v1"),
     supabaseUrl: stripTrailingSlash(env.SUPABASE_URL || env.VITE_SUPABASE_URL || ""),
@@ -30,22 +48,36 @@ function getConfig(env = process.env) {
     ),
     syncOwnerHealthSecret: env.SYNC_OWNER_HEALTH_SECRET || env.EXACTH2O_SYNC_OWNER_HEALTH_SECRET || "",
     pollMs: numberEnv(env.EXACTH2O_CONTROL_EXECUTOR_POLL_MS || env.CONTROL_BRIDGE_POLL_INTERVAL_MS, 5000, 1000, 60000),
+    localApiTimeoutMs: numberEnv(env.EXACTH2O_LOCAL_API_TIMEOUT_MS, 10_000, 1000, 60_000),
+    supabaseRpcTimeoutMs: numberEnv(env.EXACTH2O_SUPABASE_RPC_TIMEOUT_MS, 15_000, 1000, 60_000),
+    commandLeaseRenewMs: numberEnv(env.EXACTH2O_COMMAND_LEASE_RENEW_MS, 30_000, 10_000, 60_000),
     dryRun: boolEnv(env.EXACTH2O_CONTROL_EXECUTOR_DRY_RUN, true),
+    manualWaterEnabled: explicitlyEnabledEnv(env.EXACTH2O_MANUAL_WATER_ENABLED),
     manualWaterMaxSeconds: numberEnv(
       env.EXACTH2O_MANUAL_WATER_MAX_SECONDS || env.CONTROL_BRIDGE_MANUAL_WATER_MAX_SECONDS,
       60,
       1,
-      300,
+      60,
     ),
+    manualWaterMaxValveSeconds: numberEnv(env.EXACTH2O_MANUAL_WATER_MAX_VALVE_SECONDS, 120, 1, 120),
+    manualWaterPulsePath: env.EXACTH2O_MANUAL_WATER_PULSE_PATH || "/valves/pulse",
+    stateSyncMs: numberEnv(env.EXACTH2O_STATE_SYNC_MS, 120_000, 60_000, 15 * 60_000),
+    stateSyncTimeoutMs: numberEnv(env.EXACTH2O_STATE_SYNC_TIMEOUT_MS, 30_000, 5000, 60_000),
     runOnce: boolEnv(env.EXACTH2O_RUN_ONCE, false),
   };
 }
 
-function assertRuntimeConfig(config) {
+export function assertRuntimeConfig(config) {
   const missing = [];
   if (!config.supabaseUrl) missing.push("SUPABASE_URL");
   if (!config.supabaseAnonKey) missing.push("SUPABASE_ANON_KEY");
   if (!config.deviceToken) missing.push("EXACTH2O_DEVICE_TOKEN");
+  if (!config.dryRun) {
+    if (!config.projectId) missing.push("EXACTH2O_PROJECT_ID");
+    if (!config.deviceId) missing.push("EXACTH2O_DEVICE_ID");
+    if (!config.syncOwnerHealthUrl) missing.push("EXACTH2O_SYNC_OWNER_HEALTH_URL");
+    if (!config.syncOwnerHealthSecret) missing.push("SYNC_OWNER_HEALTH_SECRET");
+  }
   if (missing.length > 0) {
     throw new Error(`Missing required env: ${missing.join(", ")}`);
   }
@@ -74,22 +106,75 @@ function ensureObject(value, label) {
 
 async function readJson(response, context) {
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  let body = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch (error) {
+      if (response.ok) throw error;
+      body = text;
+    }
+  }
   if (!response.ok) {
     const message = body?.message || body?.error || text || response.statusText;
-    throw new Error(`${context} failed: ${response.status} ${message}`);
+    const responseError = new Error(`${context} failed: ${response.status} ${message}`);
+    responseError.code = "HTTP_ERROR";
+    responseError.status = response.status;
+    throw responseError;
   }
   return body;
 }
 
-export function createApiClient(localApiBase, fetchImpl = globalThis.fetch) {
-  async function request(method, path, body) {
-    const response = await fetchImpl(`${localApiBase}${path}`, {
-      method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
+export async function fetchJsonWithTimeout(fetchImpl, url, options, timeoutMs, context) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(url, {
+      ...options,
+      signal: controller.signal,
     });
-    return readJson(response, `${method} ${path}`);
+    return await readJson(response, context);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error(`${context} timed out after ${timeoutMs}ms`);
+      timeoutError.code = "REQUEST_TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function createApiClient(localApiBase, fetchImpl = globalThis.fetch, timeoutMs = 10_000) {
+  async function request(method, path, body) {
+    const context = `${method} ${path}`;
+    try {
+      return await fetchJsonWithTimeout(
+        fetchImpl,
+        `${localApiBase}${path}`,
+        {
+          method,
+          headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        },
+        timeoutMs,
+        context,
+      );
+    } catch (error) {
+      const indeterminateMutation = method !== "GET" && (
+        error?.code === "REQUEST_TIMEOUT" ||
+        error?.code !== "HTTP_ERROR" ||
+        Number(error?.status) >= 500
+      );
+      if (indeterminateMutation) {
+        throw new IndeterminateMutationError(
+          `${context} did not return a definite rejection; controller outcome is unknown and must be reconciled`,
+          { cause: error },
+        );
+      }
+      throw error;
+    }
   }
 
   return {
@@ -100,18 +185,24 @@ export function createApiClient(localApiBase, fetchImpl = globalThis.fetch) {
   };
 }
 
-function createSupabaseRpcClient(config, fetchImpl = globalThis.fetch) {
+export function createSupabaseRpcClient(config, fetchImpl = globalThis.fetch) {
   async function rpc(name, body) {
-    const response = await fetchImpl(`${config.supabaseUrl}/rest/v1/rpc/${name}`, {
-      method: "POST",
-      headers: {
-        apikey: config.supabaseAnonKey,
-        authorization: `Bearer ${config.supabaseAnonKey}`,
-        "Content-Type": "application/json",
+    const context = `RPC ${name}`;
+    return fetchJsonWithTimeout(
+      fetchImpl,
+      `${config.supabaseUrl}/rest/v1/rpc/${name}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: config.supabaseAnonKey,
+          authorization: `Bearer ${config.supabaseAnonKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
-    return readJson(response, `RPC ${name}`);
+      config.supabaseRpcTimeoutMs,
+      context,
+    );
   }
 
   return {
@@ -129,6 +220,21 @@ function createSupabaseRpcClient(config, fetchImpl = globalThis.fetch) {
         final_status: finalStatus,
         command_result: result || {},
         command_error: error || null,
+      });
+    },
+    async renew(commandId) {
+      const renewed = await rpc("device_renew_control_command_lease", {
+        device_token: config.deviceToken,
+        command_id: commandId,
+      });
+      if (renewed !== true) throw new Error("Command lease is no longer renewable");
+      return true;
+    },
+    async quarantine(commandId, reason) {
+      return rpc("device_quarantine_control_command", {
+        device_token: config.deviceToken,
+        command_id: commandId,
+        quarantine_reason: reason,
       });
     },
   };
@@ -294,21 +400,17 @@ function resolveManualWaterValves(index, payload) {
   return deduped;
 }
 
-async function operateValve(api, valve, operation, dryRun) {
-  const body = valveOperationBody(valve, operation);
+async function pulseValve(api, valve, durationSeconds, pulsePath, dryRun, commandId) {
+  const identity = valveOperationBody(valve, "PULSE");
+  const body = {
+    address: identity.address,
+    relayAddress: identity.relayAddress,
+    durationMilliseconds: Math.round(durationSeconds * 1000),
+    commandId,
+    pulseId: `${commandId}:${identity.relayAddress}:${identity.address}`,
+  };
   if (dryRun) return { dryRun: true, body };
-  return api.post("/valves/operate", body);
-}
-
-async function closeValveQuietly(api, valve) {
-  try {
-    await operateValve(api, valve, "CLOSE", false);
-  } catch (error) {
-    console.error("Valve close failed", {
-      valve: firstDefined(valve?.name, valve?.id, valve?.address),
-      error: error.message,
-    });
-  }
+  return api.post(pulsePath, body);
 }
 
 function boardAddress(value) {
@@ -440,38 +542,50 @@ export async function executeCommand(command, options) {
     if (durationSeconds > manualWaterMaxSeconds) {
       throw new Error(`manual_water duration ${durationSeconds}s exceeds max ${manualWaterMaxSeconds}s`);
     }
+    if (!dryRun && options.manualWaterEnabled !== true) {
+      throw new Error("manual_water is disabled until the controller timed-pulse bench protocol is approved");
+    }
 
     const index = await loadControllerIndex(api);
     const valves = resolveManualWaterValves(index, payload);
     if (valves.length === 0) throw new Error("manual_water requires at least one pairing_name or valve");
-
-    const opened = [];
-    try {
-      for (const valve of valves) {
-        await operateValve(api, valve, "OPEN", dryRun);
-        opened.push(valve);
-      }
-      if (!dryRun) await sleep(durationSeconds * 1000);
-      return {
-        dryRun,
-        action: "manual_water",
-        durationSeconds,
-        valveCount: valves.length,
-      };
-    } finally {
-      if (!dryRun) {
-        await Promise.all(opened.map((valve) => closeValveQuietly(api, valve)));
-      }
+    const totalValveSeconds = durationSeconds * valves.length;
+    const maxValveSeconds = options.manualWaterMaxValveSeconds ?? 120;
+    if (totalValveSeconds > maxValveSeconds) {
+      throw new Error(`manual_water budget ${totalValveSeconds} valve-seconds exceeds max ${maxValveSeconds}`);
     }
+
+    const pulsePath = options.manualWaterPulsePath || "/valves/pulse";
+    const pulseCommandId = command.id || (dryRun ? "dry-run" : null);
+    if (!pulseCommandId) throw new Error("manual_water requires a command id for idempotent timed pulses");
+    const pulses = [];
+    for (const valve of valves) {
+      pulses.push(await pulseValve(api, valve, durationSeconds, pulsePath, dryRun, pulseCommandId));
+      if (!dryRun) await sleep(durationSeconds * 1000);
+    }
+    return {
+      dryRun,
+      action: "manual_water",
+      failSafe: "controller_timed_pulse",
+      durationSeconds,
+      totalValveSeconds,
+      valveCount: valves.length,
+      pulses,
+    };
   }
 
   if (command.command_type === "update_board_config") {
     await requireStopped(api, "update_board_config");
     const boards = Array.isArray(payload.boards) ? payload.boards : [];
-    const boardConfigs = boards.map((board) => ({
-      ...board,
-      address: boardAddress(board.address),
-    }));
+    const boardConfigs = boards.map((board) => {
+      const normalized = {
+        ...board,
+        address: boardAddress(board.address),
+        resetPin: firstDefined(board.resetPin, board.reset_pin),
+      };
+      delete normalized.reset_pin;
+      return normalized;
+    });
     if (boardConfigs.length === 0) throw new Error("update_board_config requires boards");
     const body = { boardConfigs, updateHardwareService: true };
     if (dryRun) return { dryRun, action: "update_board_config", body };
@@ -479,12 +593,7 @@ export async function executeCommand(command, options) {
   }
 
   if (command.command_type === "initialize_sensors") {
-    await requireStopped(api, "initialize_sensors");
-    if (payload.allow_initialize_sensors !== true) {
-      throw new Error("initialize_sensors blocked: payload.allow_initialize_sensors must be true after backup/admin approval");
-    }
-    if (dryRun) return { dryRun, action: "initialize_sensors" };
-    return api.post("/system/initialize-sensors", {});
+    throw new Error("initialize_sensors is disabled in the production executor");
   }
 
   if (command.command_type === "update_system_state") {
@@ -514,18 +623,18 @@ const syncAfterCommandTypes = new Set([
 ]);
 
 async function refreshOwnerHealthMirror(command, config, fetchImpl = globalThis.fetch) {
-  if (config.dryRun) return { skipped: true, reason: "dry_run" };
-  if (!syncAfterCommandTypes.has(command.command_type)) return { skipped: true, reason: "command_type" };
+  if (command && config.dryRun) return { skipped: true, reason: "dry_run" };
+  if (command && !syncAfterCommandTypes.has(command.command_type)) return { skipped: true, reason: "command_type" };
   if (!config.syncOwnerHealthUrl || !config.syncOwnerHealthSecret) {
     return { skipped: true, reason: "missing_sync_owner_health_config" };
   }
 
-  const projectId = command.project_id || config.projectId;
-  const deviceId = command.device_id || config.deviceId;
+  const projectId = command?.project_id || config.projectId;
+  const deviceId = command?.device_id || config.deviceId;
   if (!projectId || !deviceId) return { skipped: true, reason: "missing_project_or_device_id" };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), config.stateSyncTimeoutMs);
   try {
     const response = await fetchImpl(config.syncOwnerHealthUrl, {
       method: "POST",
@@ -538,7 +647,8 @@ async function refreshOwnerHealthMirror(command, config, fetchImpl = globalThis.
       body: JSON.stringify({
         project_id: projectId,
         device_id: deviceId,
-        source: "control_executor",
+        source: command ? "control_executor" : "control_executor_watchdog",
+        include_config: Boolean(command),
       }),
     });
     const text = await response.text();
@@ -565,22 +675,120 @@ async function refreshOwnerHealthMirror(command, config, fetchImpl = globalThis.
   }
 }
 
-async function tick({ rpc, api, config }) {
+export async function tick({ rpc, api, config }) {
   const command = await rpc.claim();
   if (!command) return false;
 
+  let leaseRenewalInFlight = false;
+  let leaseLost = false;
+  let successfulMutations = 0;
+  const assertLease = () => {
+    if (leaseLost) throw new LeaseLostError("Command lease renewal failed; stopping before the next controller operation");
+  };
+  const leasedApi = {
+    get: (...args) => {
+      assertLease();
+      return api.get(...args);
+    },
+    post: async (...args) => {
+      assertLease();
+      const result = await api.post(...args);
+      successfulMutations += 1;
+      return result;
+    },
+    put: async (...args) => {
+      assertLease();
+      const result = await api.put(...args);
+      successfulMutations += 1;
+      return result;
+    },
+    delete: async (...args) => {
+      assertLease();
+      const result = await api.delete(...args);
+      successfulMutations += 1;
+      return result;
+    },
+  };
+  const leaseTimer = setInterval(async () => {
+    if (leaseRenewalInFlight) return;
+    leaseRenewalInFlight = true;
+    try {
+      await rpc.renew(command.id);
+    } catch (error) {
+      leaseLost = true;
+      console.error("Command lease renewal failed", { id: command.id, error: error.message });
+    } finally {
+      leaseRenewalInFlight = false;
+    }
+  }, config.commandLeaseRenewMs);
+
+  let finalStatus = "succeeded";
+  let finalResult = {};
+  let finalError = null;
+  let quarantineReason = null;
+
   try {
     const result = await executeCommand(command, {
-      api,
+      api: leasedApi,
       dryRun: config.dryRun,
       manualWaterMaxSeconds: config.manualWaterMaxSeconds,
+      manualWaterMaxValveSeconds: config.manualWaterMaxValveSeconds,
+      manualWaterPulsePath: config.manualWaterPulsePath,
+      manualWaterEnabled: config.manualWaterEnabled,
     });
+    assertLease();
     const postCommandSync = await refreshOwnerHealthMirror(command, config);
-    await rpc.complete(command.id, "succeeded", { ...result, post_command_sync: postCommandSync, executor_version: VERSION }, null);
-    console.log("Completed command", { id: command.id, type: command.command_type, dryRun: config.dryRun });
+    finalResult = { ...result, post_command_sync: postCommandSync, executor_version: VERSION };
   } catch (error) {
-    await rpc.complete(command.id, "failed", { executor_version: VERSION, dryRun: config.dryRun }, error.message);
-    console.error("Failed command", { id: command.id, type: command.command_type, error: error.message });
+    finalStatus = "failed";
+    finalResult = { executor_version: VERSION, dryRun: config.dryRun };
+    finalError = error.message;
+    if (
+      error instanceof IndeterminateMutationError ||
+      error instanceof LeaseLostError ||
+      leaseLost ||
+      successfulMutations > 0
+    ) {
+      quarantineReason = successfulMutations > 0
+        ? `${error.message}; ${successfulMutations} earlier controller mutation(s) may already be applied`
+        : error.message;
+    }
+  } finally {
+    clearInterval(leaseTimer);
+  }
+
+  if (quarantineReason) {
+    try {
+      await rpc.quarantine(command.id, quarantineReason);
+    } catch (error) {
+      console.error("Could not record command quarantine; lease expiry remains the fail-closed backstop", {
+        id: command.id,
+        error: error.message,
+      });
+    }
+    console.error("Quarantined command after indeterminate controller outcome", {
+      id: command.id,
+      type: command.command_type,
+      error: quarantineReason,
+    });
+    return true;
+  }
+
+  try {
+    await rpc.complete(command.id, finalStatus, finalResult, finalError);
+  } catch (error) {
+    console.error("Could not record final command status; command lease remains the fail-closed backstop", {
+      id: command.id,
+      intendedStatus: finalStatus,
+      error: error.message,
+    });
+    return true;
+  }
+
+  if (finalStatus === "succeeded") {
+    console.log("Completed command", { id: command.id, type: command.command_type, dryRun: config.dryRun });
+  } else {
+    console.error("Failed command", { id: command.id, type: command.command_type, error: finalError });
   }
 
   return true;
@@ -590,13 +798,16 @@ async function main() {
   const config = getConfig();
   assertRuntimeConfig(config);
 
-  const api = createApiClient(config.localApiBase);
+  const api = createApiClient(config.localApiBase, globalThis.fetch, config.localApiTimeoutMs);
   const rpc = createSupabaseRpcClient(config);
   console.log("Starting ExactH2O control executor", {
     version: VERSION,
     localApiBase: config.localApiBase,
     pollMs: config.pollMs,
     dryRun: config.dryRun,
+    stateSyncMs: config.stateSyncMs,
+    manualWaterMode: "controller_timed_pulse_only",
+    manualWaterEnabled: config.manualWaterEnabled,
   });
 
   let stopping = false;
@@ -607,8 +818,15 @@ async function main() {
     stopping = true;
   });
 
+  let nextStateSyncAt = 0;
   do {
-    await tick({ rpc, api, config });
+    const processedCommand = await tick({ rpc, api, config });
+    if (processedCommand) nextStateSyncAt = Date.now() + config.stateSyncMs;
+    if (Date.now() >= nextStateSyncAt) {
+      const syncResult = await refreshOwnerHealthMirror(null, config);
+      if (syncResult?.ok === false) console.error("State mirror watchdog failed", syncResult);
+      nextStateSyncAt = Date.now() + config.stateSyncMs;
+    }
     if (!config.runOnce && !stopping) await sleep(config.pollMs);
   } while (!config.runOnce && !stopping);
 }
