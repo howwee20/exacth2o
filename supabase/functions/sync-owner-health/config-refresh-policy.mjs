@@ -1,30 +1,41 @@
+const defaultRefreshIntervalMs = 15 * 60 * 1000;
+
 /**
- * The owner-health aggregate can expose current config sections inside its
- * status/health payloads even when the optional dedicated config routes return
- * 404. Only accept sections observed in the current response, never values
- * carried forward from the previous mirror, and require every safety-critical
- * section to be non-empty.
- *
  * @param {{
- *   includeConfig: unknown,
- *   pairingsObserved: unknown,
- *   boardObserved: unknown,
- *   sensorsObserved: unknown,
- *   valvesObserved: unknown,
- *   pairingCount: number,
- *   boardCount: number,
- *   sensorCount: number,
- *   valveCount: number,
+ *   lastConfigUpdatedAtMs: number,
+ *   lastAttemptCompletedAtMs: number,
+ *   nowMs: number,
+ *   intervalMs?: number,
  * }} input
  */
-export function shouldWriteObservedConfig(input) {
-  return input.includeConfig === true &&
-    input.pairingsObserved === true &&
-    input.boardObserved === true &&
-    input.sensorsObserved === true &&
-    input.valvesObserved === true &&
-    input.pairingCount > 0 &&
-    input.boardCount > 0 &&
-    input.sensorCount > 0 &&
-    input.valveCount > 0;
+export function configRefreshDue(input) {
+  const latestCheckpoint = Math.max(
+    Number.isFinite(input.lastConfigUpdatedAtMs) ? input.lastConfigUpdatedAtMs : Number.NEGATIVE_INFINITY,
+    Number.isFinite(input.lastAttemptCompletedAtMs) ? input.lastAttemptCompletedAtMs : Number.NEGATIVE_INFINITY,
+  );
+  if (!Number.isFinite(latestCheckpoint)) return true;
+
+  const safeInterval = Number.isFinite(input.intervalMs)
+    ? Math.max(60_000, Number(input.intervalMs))
+    : defaultRefreshIntervalMs;
+  return input.nowMs - latestCheckpoint >= safeInterval;
+}
+
+/**
+ * Automatic watchdog refreshes preserve the last known config when optional
+ * controller config routes are unavailable. Explicit config requests still
+ * fail closed so an operator cannot mistake a stale mirror for a completed
+ * refresh.
+ *
+ * @param {{ includeConfig: unknown, required: unknown, writeOk: unknown, previousConfigAvailable: unknown }} input
+ * @returns {{ error: string | null, warning: string | null }}
+ */
+export function configRefreshOutcome(input) {
+  if (input.includeConfig !== true || input.writeOk === true) {
+    return { error: null, warning: null };
+  }
+  if (input.required === true || input.previousConfigAvailable !== true) {
+    return { error: "config_state", warning: null };
+  }
+  return { error: null, warning: "config_state_preserved" };
 }

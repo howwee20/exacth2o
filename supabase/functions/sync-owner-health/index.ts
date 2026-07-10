@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { shouldWriteObservedConfig } from "./config-refresh-policy.mjs";
+import { configRefreshDue, configRefreshOutcome } from "./config-refresh-policy.mjs";
 
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
@@ -1206,18 +1206,35 @@ serve(async (request) => {
     }
   }
 
-  const { data: lastConfigState } = await admin
-    .from("device_config_state")
-    .select("updated_at, config_hash, pairings, calibrations, board_config, sensors, valves, groups")
-    .eq("project_id", mattProjectId)
-    .eq("device_id", mattDeviceId)
-    .maybeSingle();
+  const [lastConfigStateResult, configAttemptResult] = await Promise.all([
+    admin
+      .from("device_config_state")
+      .select("updated_at, config_hash, pairings, calibrations, board_config, sensors, valves, groups")
+      .eq("project_id", mattProjectId)
+      .eq("device_id", mattDeviceId)
+      .maybeSingle(),
+    admin
+      .from("device_maintenance_state")
+      .select("last_completed_at")
+      .eq("task_name", "owner_health_config_refresh_attempt")
+      .maybeSingle(),
+  ]);
+  if (lastConfigStateResult.error) {
+    console.error("Could not read previous config state", lastConfigStateResult.error);
+  }
+  if (configAttemptResult.error) {
+    console.error("Could not read config refresh checkpoint", configAttemptResult.error);
+  }
+  const lastConfigState = lastConfigStateResult.data;
   const lastConfigAt = Date.parse(String(lastConfigState?.updated_at ?? ""));
-  const configIsStale = !Number.isFinite(lastConfigAt) || Date.now() - lastConfigAt >= 15 * 60 * 1000;
-  const includeConfig =
-    syncRequest.include_config === true ||
-    source === "control_executor" ||
-    configIsStale;
+  const lastConfigAttemptAt = Date.parse(String(configAttemptResult.data?.last_completed_at ?? ""));
+  const configIsStale = configRefreshDue({
+    lastConfigUpdatedAtMs: lastConfigAt,
+    lastAttemptCompletedAtMs: lastConfigAttemptAt,
+    nowMs: Date.now(),
+  });
+  const configRefreshRequired = syncRequest.include_config === true || source === "control_executor";
+  const includeConfig = configRefreshRequired || configIsStale;
 
   const authHeader = basicAuthHeader(ownerUser, ownerPassword);
   const optionalEndpointTimeoutMs = 6_000;
@@ -1325,17 +1342,23 @@ serve(async (request) => {
   const sensors = resolvedConfigSection(currentSensors, lastConfigState?.sensors, "sensors");
   const valves = resolvedConfigSection(currentValves, lastConfigState?.valves, "valves");
   const groups = resolvedConfigSection(currentGroups, lastConfigState?.groups, "groups");
-  const shouldWriteConfig = shouldWriteObservedConfig({
-    includeConfig,
-    pairingsObserved: currentPairings.found,
-    boardObserved: currentBoardConfig.found,
-    sensorsObserved: currentSensors.found,
-    valvesObserved: currentValves.found,
-    pairingCount: pairings.length,
-    boardCount: boardConfig.length,
-    sensorCount: sensors.length,
-    valveCount: valves.length,
-  });
+  const configSectionObserved = [
+    currentPairings,
+    currentCalibrations,
+    currentBoardConfig,
+    currentSensors,
+    currentValves,
+    currentGroups,
+  ].some((section) => section.found);
+  const configFetchSucceeded = includeConfig && (
+    configResponse.ok || (systemConfigResponse.ok && pairingsResponse.ok)
+  ) && configSectionObserved;
+  const configIsComplete =
+    pairings.length > 0 &&
+    boardConfig.length > 0 &&
+    sensors.length > 0 &&
+    valves.length > 0;
+  const shouldWriteConfig = configFetchSucceeded && configIsComplete;
   const configPayload = {
     pairings,
     calibrations,
@@ -1559,13 +1582,46 @@ serve(async (request) => {
     console.error("Could not write config state", configWrite.error);
   }
 
+  let configCheckpointError: string | null = null;
+  if (includeConfig) {
+    const { error: checkpointError } = await admin
+      .from("device_maintenance_state")
+      .upsert({
+        task_name: "owner_health_config_refresh_attempt",
+        last_started_at: nowIso,
+        last_completed_at: nowIso,
+        details: {
+          source,
+          required: configRefreshRequired,
+          config_write_ok: configWrite.ok,
+          previous_config_preserved: !configWrite.ok && lastConfigState != null,
+          endpoints: endpointStatus,
+        },
+      }, { onConflict: "task_name" });
+    if (checkpointError) {
+      configCheckpointError = checkpointError.message;
+      console.error("Could not record config refresh checkpoint", checkpointError);
+    }
+  }
+
+  const configOutcome = configRefreshOutcome({
+    includeConfig,
+    required: configRefreshRequired,
+    writeOk: configWrite.ok,
+    previousConfigAvailable: lastConfigState != null,
+  });
+
   const ingestionErrors = [
     !statusObservationFresh ? "stale_status_observation" : null,
     !healthResponse.ok ? "health_endpoint" : null,
     includeHistory && !historyResponse.ok ? "history_endpoint" : null,
     valveEventWrite.error ? "valve_events" : null,
     !runtimeWrite.ok ? "runtime_state" : null,
-    includeConfig && !configWrite.ok ? "config_state" : null,
+    configOutcome.error,
+  ].filter((value): value is string => value != null);
+  const ingestionWarnings = [
+    configOutcome.warning,
+    configCheckpointError ? "config_refresh_checkpoint" : null,
   ].filter((value): value is string => value != null);
 
   let historyCheckpointRecorded = false;
@@ -1613,6 +1669,9 @@ serve(async (request) => {
     },
     configState: {
       ok: configWrite.ok,
+      attempted: includeConfig,
+      required: configRefreshRequired,
+      preserved: includeConfig && !configWrite.ok && lastConfigState != null,
       configHash,
       counts: {
         pairings: pairings.length,
@@ -1653,6 +1712,7 @@ serve(async (request) => {
       snapshotInserted,
       ingestionComplete,
       ingestionErrors,
+      ingestionWarnings,
     },
   }, ingestionComplete ? 200 : 503, origin);
   } finally {

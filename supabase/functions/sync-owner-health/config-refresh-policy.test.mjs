@@ -1,45 +1,56 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { shouldWriteObservedConfig } from "./config-refresh-policy.mjs";
+import { configRefreshDue, configRefreshOutcome } from "./config-refresh-policy.mjs";
 
-const completeObservedConfig = {
-  includeConfig: true,
-  pairingsObserved: true,
-  boardObserved: true,
-  sensorsObserved: true,
-  valvesObserved: true,
-  pairingCount: 1,
-  boardCount: 1,
-  sensorCount: 20,
-  valveCount: 8,
-};
-
-test("accepts a complete config observed in the aggregate owner-health response", () => {
-  assert.equal(shouldWriteObservedConfig(completeObservedConfig), true);
+test("config refresh is due when no valid checkpoint exists", () => {
+  assert.equal(configRefreshDue({
+    lastConfigUpdatedAtMs: Number.NaN,
+    lastAttemptCompletedAtMs: Number.NaN,
+    nowMs: 1_000_000,
+  }), true);
 });
 
-test("rejects a partial current response padded by carried-forward config", () => {
-  for (const missingObservation of ["pairingsObserved", "boardObserved", "sensorsObserved", "valvesObserved"]) {
-    assert.equal(shouldWriteObservedConfig({
-      ...completeObservedConfig,
-      [missingObservation]: false,
-    }), false, missingObservation);
-  }
-});
-
-test("rejects config work that was not requested", () => {
-  assert.equal(shouldWriteObservedConfig({
-    ...completeObservedConfig,
-    includeConfig: false,
+test("a failed refresh attempt suppresses retries until the interval passes", () => {
+  assert.equal(configRefreshDue({
+    lastConfigUpdatedAtMs: 0,
+    lastAttemptCompletedAtMs: 900_000,
+    nowMs: 1_000_000,
+    intervalMs: 900_000,
   }), false);
+  assert.equal(configRefreshDue({
+    lastConfigUpdatedAtMs: 0,
+    lastAttemptCompletedAtMs: 900_000,
+    nowMs: 1_800_000,
+    intervalMs: 900_000,
+  }), true);
 });
 
-test("rejects an incomplete safety-critical config mirror", () => {
-  for (const missingCount of ["pairingCount", "boardCount", "sensorCount", "valveCount"]) {
-    assert.equal(shouldWriteObservedConfig({
-      ...completeObservedConfig,
-      [missingCount]: 0,
-    }), false, missingCount);
-  }
+test("successful or skipped config work has no error or warning", () => {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: false, required: false, writeOk: false, previousConfigAvailable: false }), {
+    error: null,
+    warning: null,
+  });
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: true, writeOk: true, previousConfigAvailable: false }), {
+    error: null,
+    warning: null,
+  });
+});
+
+test("automatic refresh failure preserves config and warns without failing core health", () => {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeOk: false, previousConfigAvailable: true }), {
+    error: null,
+    warning: "config_state_preserved",
+  });
+});
+
+test("explicit refresh failure or missing fallback remains fail closed", () => {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: true, writeOk: false, previousConfigAvailable: true }), {
+    error: "config_state",
+    warning: null,
+  });
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeOk: false, previousConfigAvailable: false }), {
+    error: "config_state",
+    warning: null,
+  });
 });
