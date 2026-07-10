@@ -27,14 +27,14 @@ export function configRefreshDue(input) {
  * fail closed so an operator cannot mistake a stale mirror for a completed
  * refresh.
  *
- * @param {{ includeConfig: unknown, required: unknown, writeOk: unknown, previousConfigAvailable: unknown }} input
+ * @param {{ includeConfig: unknown, required: unknown, writeAttempted: unknown, writeOk: unknown, previousConfigUsable: unknown }} input
  * @returns {{ error: string | null, warning: string | null }}
  */
 export function configRefreshOutcome(input) {
   if (input.includeConfig !== true || input.writeOk === true) {
     return { error: null, warning: null };
   }
-  if (input.required === true || input.previousConfigAvailable !== true) {
+  if (input.required === true || input.writeAttempted === true || input.previousConfigUsable !== true) {
     return { error: "config_state", warning: null };
   }
   return { error: null, warning: "config_state_preserved" };

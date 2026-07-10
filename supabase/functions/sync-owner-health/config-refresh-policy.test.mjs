@@ -27,29 +27,36 @@ test("a failed refresh attempt suppresses retries until the interval passes", ()
 });
 
 test("successful or skipped config work has no error or warning", () => {
-  assert.deepEqual(configRefreshOutcome({ includeConfig: false, required: false, writeOk: false, previousConfigAvailable: false }), {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: false, required: false, writeAttempted: false, writeOk: false, previousConfigUsable: false }), {
     error: null,
     warning: null,
   });
-  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: true, writeOk: true, previousConfigAvailable: false }), {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: true, writeAttempted: true, writeOk: true, previousConfigUsable: false }), {
     error: null,
     warning: null,
   });
 });
 
 test("automatic refresh failure preserves config and warns without failing core health", () => {
-  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeOk: false, previousConfigAvailable: true }), {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeAttempted: false, writeOk: false, previousConfigUsable: true }), {
     error: null,
     warning: "config_state_preserved",
   });
 });
 
-test("explicit refresh failure or missing fallback remains fail closed", () => {
-  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: true, writeOk: false, previousConfigAvailable: true }), {
+test("explicit refresh failure or unusable fallback remains fail closed", () => {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: true, writeAttempted: false, writeOk: false, previousConfigUsable: true }), {
     error: "config_state",
     warning: null,
   });
-  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeOk: false, previousConfigAvailable: false }), {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeAttempted: false, writeOk: false, previousConfigUsable: false }), {
+    error: "config_state",
+    warning: null,
+  });
+});
+
+test("a failed database write is never downgraded to a preservation warning", () => {
+  assert.deepEqual(configRefreshOutcome({ includeConfig: true, required: false, writeAttempted: true, writeOk: false, previousConfigUsable: true }), {
     error: "config_state",
     warning: null,
   });

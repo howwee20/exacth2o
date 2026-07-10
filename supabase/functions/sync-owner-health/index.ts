@@ -1582,6 +1582,12 @@ serve(async (request) => {
     console.error("Could not write config state", configWrite.error);
   }
 
+  const previousConfigUsable =
+    normalizeConfigSection(lastConfigState?.pairings, "pairings").length > 0 &&
+    normalizeConfigSection(lastConfigState?.board_config, "board_config").length > 0 &&
+    normalizeConfigSection(lastConfigState?.sensors, "sensors").length > 0 &&
+    normalizeConfigSection(lastConfigState?.valves, "valves").length > 0;
+
   let configCheckpointError: string | null = null;
   if (includeConfig) {
     const { error: checkpointError } = await admin
@@ -1594,7 +1600,7 @@ serve(async (request) => {
           source,
           required: configRefreshRequired,
           config_write_ok: configWrite.ok,
-          previous_config_preserved: !configWrite.ok && lastConfigState != null,
+          previous_config_preserved: !configWrite.ok && previousConfigUsable,
           endpoints: endpointStatus,
         },
       }, { onConflict: "task_name" });
@@ -1607,8 +1613,9 @@ serve(async (request) => {
   const configOutcome = configRefreshOutcome({
     includeConfig,
     required: configRefreshRequired,
+    writeAttempted: shouldWriteConfig,
     writeOk: configWrite.ok,
-    previousConfigAvailable: lastConfigState != null,
+    previousConfigUsable,
   });
 
   const ingestionErrors = [
@@ -1671,7 +1678,7 @@ serve(async (request) => {
       ok: configWrite.ok,
       attempted: includeConfig,
       required: configRefreshRequired,
-      preserved: includeConfig && !configWrite.ok && lastConfigState != null,
+      preserved: includeConfig && !configWrite.ok && previousConfigUsable,
       configHash,
       counts: {
         pairings: pairings.length,
