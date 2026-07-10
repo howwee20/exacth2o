@@ -1,11 +1,14 @@
 -- This migration is intentionally additive. It does not alter controller configuration,
 -- pairings, calibrations, targets, or valve state.
 
-begin;
-
--- The migration runner must keep this lock and the following preflight check in
--- one transaction. It fences command inserts/claims during the schema cutover.
-lock table public.project_control_commands in access exclusive mode;
+-- Supabase batches each migration and its history insert in one implicit
+-- transaction. This first ALTER obtains ACCESS EXCLUSIVE and keeps the command
+-- table fenced for the preflight and the rest of the migration without an
+-- explicit BEGIN/COMMIT that could separate schema changes from migration history.
+alter table public.project_control_commands
+  add column if not exists lease_expires_at timestamptz,
+  add column if not exists attempt_count integer not null default 0,
+  add column if not exists client_request_id uuid;
 
 do $$
 begin
@@ -17,11 +20,6 @@ begin
     raise exception 'Control hardening migration requires zero queued, accepted, or running commands';
   end if;
 end $$;
-
-alter table public.project_control_commands
-  add column if not exists lease_expires_at timestamptz,
-  add column if not exists attempt_count integer not null default 0,
-  add column if not exists client_request_id uuid;
 
 alter table public.device_control_tokens
   add column if not exists disabled_at timestamptz,
@@ -1486,5 +1484,3 @@ comment on function public.device_renew_control_command_lease(text, uuid)
 
 comment on table public.device_ingest_leases
   is 'Short service-role leases that debounce concurrent health ingestion authorities.';
-
-commit;
