@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { shouldWriteObservedConfig } from "./config-refresh-policy.mjs";
 
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
@@ -1324,23 +1325,17 @@ serve(async (request) => {
   const sensors = resolvedConfigSection(currentSensors, lastConfigState?.sensors, "sensors");
   const valves = resolvedConfigSection(currentValves, lastConfigState?.valves, "valves");
   const groups = resolvedConfigSection(currentGroups, lastConfigState?.groups, "groups");
-  const configSectionObserved = [
-    currentPairings,
-    currentCalibrations,
-    currentBoardConfig,
-    currentSensors,
-    currentValves,
-    currentGroups,
-  ].some((section) => section.found);
-  const configFetchSucceeded = includeConfig && (
-    configResponse.ok || (systemConfigResponse.ok && pairingsResponse.ok)
-  ) && configSectionObserved;
-  const configIsComplete =
-    pairings.length > 0 &&
-    boardConfig.length > 0 &&
-    sensors.length > 0 &&
-    valves.length > 0;
-  const shouldWriteConfig = configFetchSucceeded && configIsComplete;
+  const shouldWriteConfig = shouldWriteObservedConfig({
+    includeConfig,
+    pairingsObserved: currentPairings.found,
+    boardObserved: currentBoardConfig.found,
+    sensorsObserved: currentSensors.found,
+    valvesObserved: currentValves.found,
+    pairingCount: pairings.length,
+    boardCount: boardConfig.length,
+    sensorCount: sensors.length,
+    valveCount: valves.length,
+  });
   const configPayload = {
     pairings,
     calibrations,
