@@ -6,6 +6,7 @@ import {
   commandAccessDecision,
   controlCommandIntakeEnabled,
   disabledCommandTypes,
+  manualWaterIntakeEnabled,
   researcherCommandTypes,
 } from "./command-policy.mjs";
 
@@ -16,13 +17,20 @@ test("control command intake is a strict fail-closed production gate", () => {
   }
 });
 
+test("manual watering has an independent strict safety gate", () => {
+  assert.equal(manualWaterIntakeEnabled("1"), true);
+  for (const value of [undefined, null, "", "0", "true", "yes"]) {
+    assert.equal(manualWaterIntakeEnabled(value), false, String(value));
+  }
+});
+
 test("researchers retain the explicitly supported experiment workflows", () => {
   for (const commandType of researcherCommandTypes) {
     assert.equal(commandAccessDecision("researcher", commandType).allowed, true, commandType);
   }
 });
 
-test("researchers cannot submit controller-wide or irreversible commands", () => {
+test("researchers cannot submit infrastructure-level commands", () => {
   for (const commandType of adminOnlyCommandTypes) {
     const decision = commandAccessDecision("researcher", commandType);
     assert.equal(decision.allowed, false, commandType);

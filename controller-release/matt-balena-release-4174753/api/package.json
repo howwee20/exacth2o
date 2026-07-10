@@ -1,0 +1,40 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "ts-node  -P tsconfig.json src/index.ts",
+    "watch": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "tsc --build --clean",
+    "postman:": "newman run scripts/WalkerLabs.postman_collection.json"
+  },
+  "author": "cwd <cwd@ursascience.com>",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/mysql": "^5.0.2",
+    "@fastify/swagger": "^9.4.1",
+    "fastify": "^5.2.1",
+    "mariadb": "^3.4.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "sequelize": "^6.37.5",
+    "sqlite3": "^5.1.7",
+    "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.14.10",
+    "jest": "^29.7.0",
+    "newman": "^6.2.1",
+    "ts-jest": "^29.2.2",
+    "ts-node": "^10.9.2"
+  }
+}

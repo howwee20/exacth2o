@@ -1,0 +1,268 @@
+{
+	"info": {
+		"_postman_id": "8de3685f-c169-46e0-b187-2892854db83d",
+		"name": "WalkerLabs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "4738694"
+	},
+	"variable": [
+		{ "key": "calibrationId", "value": "1", "type": "string" },
+		{ "key": "calibrationName", "value": "TestCal1", "type": "string" }
+	],
+	"item": [
+		{
+			"name": "GET Sensors",
+			"request": {
+				"auth": {
+					"type": "inherit"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://[::]:8080/v1/sensors",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"sensors"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET Groups",
+			"request": {
+				"auth": {
+					"type": "inherit"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://[::]:8080/v1/groups",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"groups"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Sensor",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"CWD Sensor 01\",\n  \"type\": \"moisture\",\n  \"description\": \"a moisture Sensor\",\n  \"address\": \"BEADDEAF\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://[::]:8080/v1/sensors",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"sensors"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Pairings",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"sensorId\": 2,\n  \"valveId\": 2,\n  \"groupId\": 1,\n  \"name\": \"pairing02-02\",\n  \"WTCPercentLimit\": 40,\n  \"ValveOpenTime\": 15000,\n  \"MeasurementInterval\": 7000\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://[::]:8080/v1/pairings",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"pairings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Groups",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"CWD Group\",\n  \"type\": \"group\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://[::]:8080/v1/groups",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"groups"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Valves",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"CWD Valve 01\",\n  \"relayAddress\": \"relay01\",\n  \"description\": \"a watering valve\",\n  \"address\": \"BEADDEAF\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://[::]:8080/v1/valves",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"valves"
+					]
+				}
+			},
+			"response": []
+		}
+		,
+		{
+			"name": "GET Calibrations",
+			"request": {
+				"auth": { "type": "inherit" },
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://[::]:8080/v1/calibrations",
+					"protocol": "http",
+					"host": ["[::]"],
+					"port": "8080",
+					"path": ["v1","calibrations"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET Calibration by Id",
+			"request": {
+				"auth": { "type": "inherit" },
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://[::]:8080/v1/calibrations/{{calibrationId}}",
+					"protocol": "http",
+					"host": ["[::]"],
+					"port": "8080",
+					"path": ["v1","calibrations","{{calibrationId}}"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET Calibration Name Exists",
+			"request": {
+				"auth": { "type": "inherit" },
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://[::]:8080/v1/calibrations/check-name/{{calibrationName}}",
+					"protocol": "http",
+					"host": ["[::]"],
+					"port": "8080",
+					"path": ["v1","calibrations","check-name","{{calibrationName}}"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Calibration",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"TestCal1\",\n  \"polynomialCoefficientsCommaDelimited\": \"1,2,3\",\n  \"readingsJSONString\": \"[{\\\"x\\\":1,\\\"y\\\":2}]\"\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "http://[::]:8080/v1/calibrations",
+					"protocol": "http",
+					"host": ["[::]"],
+					"port": "8080",
+					"path": ["v1","calibrations"]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DELETE Calibration",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://[::]:8080/v1/calibrations/{{calibrationId}}",
+					"protocol": "http",
+					"host": [
+						"[::]"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"calibrations",
+						"{{calibrationId}}"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

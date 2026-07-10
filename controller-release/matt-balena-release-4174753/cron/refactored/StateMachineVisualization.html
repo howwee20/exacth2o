@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StateMachine Flow Diagram</title>
+    <script src="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .diagram-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .legend {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007acc;
+        }
+        .timing-info {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌱 Irrigation Control StateMachine</h1>
+
+    <div class="diagram-container">
+        <h2>State Transition Flow</h2>
+        <div class="mermaid">
+            stateDiagram-v2
+                [*] --> STARTUP
+
+                STARTUP --> MEASURING : Always<br/>Initialize pairing
+
+                MEASURING --> DELAY : After measurementTime<br/>Store sensor reading
+
+                DELAY --> VALVE_OPEN : If WTC < Limit<br/>Soil needs water
+                DELAY --> VALVE_CLOSE : If WTC >= Limit<br/>Soil has enough water
+
+                VALVE_OPEN --> VALVE_CLOSE : After valveOpenTime<br/>Irrigation complete
+
+                VALVE_CLOSE --> IDLE : After valve close delay<br/>Return to standby
+
+                IDLE --> MEASURING : After intervalTime<br/>Start next cycle
+
+                STARTUP --> DISABLED : Manual disable
+                MEASURING --> DISABLED : Manual disable
+                DELAY --> DISABLED : Manual disable
+                VALVE_OPEN --> DISABLED : Manual disable
+                VALVE_CLOSE --> DISABLED : Manual disable
+                IDLE --> DISABLED : Manual disable
+
+                DISABLED --> [*]
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>System Architecture</h2>
+        <div class="mermaid">
+            graph TB
+                subgraph "🎭 StateMachine Orchestrator"
+                    SM[StateMachine<br/>Main Controller]
+                end
+
+                subgraph "🔧 Core Services"
+                    API[ApiService<br/>HTTP Communication]
+                    PAIR[PairingService<br/>Data Management]
+                    VALVE[ValveService<br/>Irrigation Control]
+                    SENSOR[SensorService<br/>Soil Monitoring]
+                    RULES[RulesEngineService<br/>Business Logic]
+                    QUEUE[EventQueueService<br/>Event Processing]
+                end
+
+                subgraph "🔌 Hardware Layer"
+                    BOARDS[I2C Valve Boards<br/>Expand13Controllers]
+                    SDI12[SDI-12 Sensor Boards<br/>Serial Communication]
+                end
+
+                subgraph "🌐 External Systems"
+                    BACKEND[Backend API<br/>Database & Logging]
+                    CONFIG[Configuration<br/>Constants & Types]
+                end
+
+                SM --> API
+                SM --> PAIR
+                SM --> VALVE
+                SM --> SENSOR
+                SM --> RULES
+                SM --> QUEUE
+
+                API --> BACKEND
+                PAIR --> API
+                VALVE --> BOARDS
+                SENSOR --> SDI12
+
+                CONFIG --> SM
+                CONFIG --> VALVE
+                CONFIG --> SENSOR
+
+                classDef service fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+                classDef hardware fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+                classDef external fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+                classDef orchestrator fill:#fff3e0,stroke:#e65100,stroke-width:3px
+
+                class API,PAIR,VALVE,SENSOR,RULES,QUEUE service
+                class BOARDS,SDI12 hardware
+                class BACKEND,CONFIG external
+                class SM orchestrator
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>Event Processing Sequence</h2>
+        <div class="mermaid">
+            sequenceDiagram
+                participant SM as StateMachine
+                participant EQ as EventQueue
+                participant RS as RulesEngine
+                participant SS as SensorService
+                participant VS as ValveService
+                participant API as ApiService
+
+                Note over SM,API: Irrigation Cycle Start
+
+                SM->>+EQ: Queue MEASURING state
+                EQ->>+SM: Process event
+                SM->>+RS: Evaluate rules
+                RS-->>-SM: MEASURING → DELAY
+
+                Note over SM,SS: Sensor Reading Phase
+                SM->>+SS: Read soil moisture
+                SS->>SS: Apply calibration
+                SS-->>-SM: Calibrated moisture %
+                SM->>+API: Log reading
+                API-->>-SM: Success
+
+                SM->>+RS: Evaluate rules (DELAY)
+                RS-->>-SM: DELAY → VALVE_OPEN/CLOSE
+
+                alt Soil is dry (WTC < Limit)
+                    Note over SM,VS: Irrigation Phase
+                    SM->>+VS: Open valve
+                    VS->>VS: Activate I2C pin
+                    VS-->>-SM: Valve opened
+                    SM->>+API: Log valve action
+                    API-->>-SM: Success
+
+                    Note over SM: Wait valveOpenTime
+
+                    SM->>+VS: Close valve
+                    VS->>VS: Deactivate I2C pin
+                    VS-->>-SM: Valve closed
+                else Soil has enough moisture
+                    Note over SM: Skip irrigation
+                    SM->>+API: Log skip action
+                    API-->>-SM: Success
+                end
+
+                SM->>+RS: Evaluate rules (IDLE)
+                RS-->>-SM: IDLE → MEASURING
+
+                Note over SM: Wait intervalTime
+                Note over SM,API: Next Cycle Begins
+        </div>
+    </div>
+
+    <div class="legend">
+        <h3>📋 State Descriptions</h3>
+        <ul>
+            <li><strong>STARTUP:</strong> Initial state when pairing is first activated</li>
+            <li><strong>MEASURING:</strong> Reading soil moisture from SDI-12 sensor</li>
+            <li><strong>DELAY:</strong> Processing sensor data and deciding next action</li>
+            <li><strong>VALVE_OPEN:</strong> Actively irrigating (valve is open)</li>
+            <li><strong>VALVE_CLOSE:</strong> Stopping irrigation (valve is closed)</li>
+            <li><strong>IDLE:</strong> Waiting for next measurement cycle</li>
+            <li><strong>DISABLED:</strong> Pairing is manually disabled/stopped</li>
+        </ul>
+    </div>
+
+    <div class="timing-info">
+        <h3>⏱️ Timing Configuration</h3>
+        <ul>
+            <li><strong>measurementTime:</strong> Time to complete sensor reading (default: varies by sensor)</li>
+            <li><strong>delayTime:</strong> Processing time between measurement and action (default: 1000ms)</li>
+            <li><strong>valveOpenTime:</strong> Duration to keep irrigation valve open (configurable per pairing)</li>
+            <li><strong>intervalTime:</strong> Time between measurement cycles (configurable per pairing)</li>
+        </ul>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#007acc',
+                primaryTextColor: '#fff',
+                primaryBorderColor: '#005999',
+                lineColor: '#333',
+                sectionBkgColor: '#f7f7f7',
+                altSectionBkgColor: '#f7f7f7',
+                gridColor: '#ddd',
+                secondaryColor: '#e8f4f8',
+                tertiaryColor: '#f9f9f9'
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,19 +1,19 @@
 export const researcherCommandTypes = new Set([
   "update_pairing",
   "bulk_update_pairings",
+  "create_pairing",
   "create_group",
+  "remove_group",
   "create_calibration",
+  "delete_calibration",
   "apply_calibration",
   "manual_water",
+  "update_system_state",
   "export_data",
 ]);
 
 export const adminOnlyCommandTypes = new Set([
-  "create_pairing",
-  "remove_group",
-  "delete_calibration",
   "update_board_config",
-  "update_system_state",
 ]);
 
 export const disabledCommandTypes = new Set([
@@ -21,6 +21,10 @@ export const disabledCommandTypes = new Set([
 ]);
 
 export function controlCommandIntakeEnabled(value) {
+  return value === "1";
+}
+
+export function manualWaterIntakeEnabled(value) {
   return value === "1";
 }
 

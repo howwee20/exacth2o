@@ -148,6 +148,7 @@ function hasSyncSecret(request: Request) {
   const acceptedSecrets = [
     cleanSecret(Deno.env.get("SYNC_OWNER_HEALTH_SECRET")),
     cleanSecret(Deno.env.get("SYNC_OWNER_HEALTH_CRON_SECRET")),
+    cleanSecret(Deno.env.get("EXACTH2O_CONTROL_EXECUTOR_SYNC_SECRET")),
   ].filter(Boolean);
   if (acceptedSecrets.length === 0) return false;
   const suppliedSecrets = [
@@ -958,24 +959,9 @@ function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations
     }
   }
 
-  if (kind === "pairings" || kind === "sensors") {
-    return filterIgnoredDiagnosticItems(items);
-  }
-
-  if (kind === "valves") {
-    return items.filter((item) => {
-      const record = asRecord(item);
-      return !(
-        isIgnoredDiagnosticValveKey(item) ||
-        isIgnoredDiagnosticValveKey(firstString(record, ["valve", "valve_key", "valveKey", "address", "id", "name"])) ||
-        isIgnoredDiagnosticNumber(record.source_valve_id, ignoredDiagnosticValveIds) ||
-        isIgnoredDiagnosticNumber(record.sourceValveId, ignoredDiagnosticValveIds) ||
-        isIgnoredDiagnosticNumber(record.valve_id, ignoredDiagnosticValveIds) ||
-        isIgnoredDiagnosticNumber(record.valveId, ignoredDiagnosticValveIds)
-      );
-    });
-  }
-
+  // Dedicated controller config endpoints are authoritative. Historical
+  // diagnostic filters belong only to aggregate health/event ingestion; using
+  // them here can drop legitimate boards, sensor addresses, or pairings.
   return items;
 }
 
@@ -1298,7 +1284,7 @@ serve(async (request) => {
   const configSources = [systemConfig, config, pairingsConfig, system, health, status];
   const controllerState = controllerStateFromSources(runtimeSources);
   const wateringDisabled = wateringDisabledFromSources(runtimeSources);
-  const wateringEnabled = firstBooleanFromSources(runtimeSources, [
+  let wateringEnabled = firstBooleanFromSources(runtimeSources, [
     ["watering_enabled"],
     ["wateringEnabled"],
     ["watering", "enabled"],
@@ -1343,6 +1329,17 @@ serve(async (request) => {
   const sensors = resolvedConfigSection(currentSensors, lastConfigState?.sensors, "sensors");
   const valves = resolvedConfigSection(currentValves, lastConfigState?.valves, "valves");
   const groups = resolvedConfigSection(currentGroups, lastConfigState?.groups, "groups");
+  if (wateringEnabled == null) {
+    const hasEnabledPairing = pairings.some((pairing) => {
+      const record = asRecord(pairing);
+      const target = asNumber(
+        record.WTCPercentLimit ?? record.wtc_percent_limit ?? record.target_vwc,
+      );
+      return target != null && target > -999_000;
+    });
+    if (controllerState.normalized === "RUNNING") wateringEnabled = hasEnabledPairing;
+    if (controllerState.normalized === "STOPPED") wateringEnabled = false;
+  }
   const configSectionObserved = [
     currentPairings,
     currentCalibrations,

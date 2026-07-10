@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
   commandAccessDecision,
   controlCommandIntakeEnabled,
+  manualWaterIntakeEnabled,
 } from "./command-policy.mjs";
 
 type CommandType =
@@ -344,6 +345,12 @@ serve(async (request) => {
 
   if (!commandType || !commandTypes.has(commandType)) {
     return jsonResponse({ error: "Unsupported command type" }, 400, origin);
+  }
+
+  if (commandType === "manual_water" && !manualWaterIntakeEnabled(Deno.env.get("MANUAL_WATER_INTAKE_ENABLED"))) {
+    return jsonResponse({
+      error: "Manual watering remains locked until the physical valve fail-safe check is recorded.",
+    }, 503, origin);
   }
 
   let validated: ValidatedCommand;

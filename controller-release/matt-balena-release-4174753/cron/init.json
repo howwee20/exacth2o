@@ -1,0 +1,3102 @@
+{
+  "lastStartTime": "2026-06-22T15:49:15.053Z",
+  "pairings": [
+    {
+      "sensorId": 521,
+      "valveId": 1369,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot25",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "1",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "25",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354364
+    },
+    {
+      "sensorId": 522,
+      "valveId": 1298,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot50",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:46.000Z",
+      "Sensor": {
+        "address": "2",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "2",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354376
+    },
+    {
+      "sensorId": 523,
+      "valveId": 1345,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot01",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "A",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "1",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354388
+    },
+    {
+      "sensorId": 524,
+      "valveId": 1346,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot02",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "B",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "2",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354394
+    },
+    {
+      "sensorId": 525,
+      "valveId": 1347,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot03",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "C",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "3",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354400
+    },
+    {
+      "sensorId": 526,
+      "valveId": 1348,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot04",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "D",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "4",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354413
+    },
+    {
+      "sensorId": 527,
+      "valveId": 1349,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot05",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "E",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "5",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354425
+    },
+    {
+      "sensorId": 528,
+      "valveId": 1350,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot06",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "F",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "6",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354436
+    },
+    {
+      "sensorId": 529,
+      "valveId": 1351,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot07",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "G",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "7",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354447
+    },
+    {
+      "sensorId": 530,
+      "valveId": 1352,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot08",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "H",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "8",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354452
+    },
+    {
+      "sensorId": 531,
+      "valveId": 1353,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot09",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "I",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "9",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354457
+    },
+    {
+      "sensorId": 532,
+      "valveId": 1354,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot10",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "J",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "10",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354461
+    },
+    {
+      "sensorId": 533,
+      "valveId": 1355,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot11",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "K",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "11",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354468
+    },
+    {
+      "sensorId": 534,
+      "valveId": 1356,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot12",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "L",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "12",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354477
+    },
+    {
+      "sensorId": 535,
+      "valveId": 1357,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot13",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "M",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "13",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354482
+    },
+    {
+      "sensorId": 536,
+      "valveId": 1358,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot14",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "N",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "14",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354486
+    },
+    {
+      "sensorId": 537,
+      "valveId": 1359,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot15",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "O",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "15",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354491
+    },
+    {
+      "sensorId": 538,
+      "valveId": 1360,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot16",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "P",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "16",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354503
+    },
+    {
+      "sensorId": 539,
+      "valveId": 1361,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot17",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "Q",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "17",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354507
+    },
+    {
+      "sensorId": 540,
+      "valveId": 1362,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot18",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "R",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "18",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354512
+    },
+    {
+      "sensorId": 541,
+      "valveId": 1363,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot19",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "S",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "19",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354516
+    },
+    {
+      "sensorId": 542,
+      "valveId": 1364,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot20",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "T",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "20",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354521
+    },
+    {
+      "sensorId": 543,
+      "valveId": 1365,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot21",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "U",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "21",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354525
+    },
+    {
+      "sensorId": 544,
+      "valveId": 1366,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot22",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "V",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "22",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354531
+    },
+    {
+      "sensorId": 545,
+      "valveId": 1367,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot23",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "W",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "23",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354547
+    },
+    {
+      "sensorId": 546,
+      "valveId": 1368,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone1-Pot24",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:43.000Z",
+      "updatedAt": "2026-06-14T22:25:43.000Z",
+      "Sensor": {
+        "address": "X",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "24",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354555
+    },
+    {
+      "sensorId": 547,
+      "valveId": 1370,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot26",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "a",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "26",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354561
+    },
+    {
+      "sensorId": 548,
+      "valveId": 1371,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot27",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "b",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "27",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354567
+    },
+    {
+      "sensorId": 549,
+      "valveId": 1372,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot28",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "c",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "28",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354571
+    },
+    {
+      "sensorId": 550,
+      "valveId": 1373,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot29",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "d",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "29",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354576
+    },
+    {
+      "sensorId": 551,
+      "valveId": 1374,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot30",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "e",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "30",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354581
+    },
+    {
+      "sensorId": 552,
+      "valveId": 1375,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot31",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "f",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "31",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354586
+    },
+    {
+      "sensorId": 553,
+      "valveId": 1376,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot32",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "g",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "32",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354591
+    },
+    {
+      "sensorId": 554,
+      "valveId": 1377,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot33",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "h",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "33",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354598
+    },
+    {
+      "sensorId": 555,
+      "valveId": 1378,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot34",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "i",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "34",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354603
+    },
+    {
+      "sensorId": 556,
+      "valveId": 1379,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot35",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "j",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "35",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354609
+    },
+    {
+      "sensorId": 557,
+      "valveId": 1380,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot36",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "k",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "36",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354614
+    },
+    {
+      "sensorId": 558,
+      "valveId": 1381,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot37",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "l",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "37",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354622
+    },
+    {
+      "sensorId": 559,
+      "valveId": 1382,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot38",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "m",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "38",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354628
+    },
+    {
+      "sensorId": 560,
+      "valveId": 1383,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot39",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "n",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "39",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354634
+    },
+    {
+      "sensorId": 561,
+      "valveId": 1384,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone2-Pot40",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "o",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "40",
+        "relayAddress": "0x24"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354640
+    },
+    {
+      "sensorId": 562,
+      "valveId": 1385,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot41",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:47.000Z",
+      "Sensor": {
+        "address": "p",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "41",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354646
+    },
+    {
+      "sensorId": 563,
+      "valveId": 1386,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot42",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:47.000Z",
+      "Sensor": {
+        "address": "q",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "42",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354652
+    },
+    {
+      "sensorId": 564,
+      "valveId": 1387,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot43",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:47.000Z",
+      "Sensor": {
+        "address": "r",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "43",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354661
+    },
+    {
+      "sensorId": 565,
+      "valveId": 1388,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot44",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:47.000Z",
+      "Sensor": {
+        "address": "s",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "44",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354668
+    },
+    {
+      "sensorId": 566,
+      "valveId": 1389,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot45",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:48.000Z",
+      "Sensor": {
+        "address": "t",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "45",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354675
+    },
+    {
+      "sensorId": 567,
+      "valveId": 1390,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot46",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:48.000Z",
+      "Sensor": {
+        "address": "u",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "46",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354682
+    },
+    {
+      "sensorId": 568,
+      "valveId": 1391,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot47",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:48.000Z",
+      "Sensor": {
+        "address": "v",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "47",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354688
+    },
+    {
+      "sensorId": 569,
+      "valveId": 1392,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot48",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:48.000Z",
+      "Sensor": {
+        "address": "w",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "48",
+        "relayAddress": "0x24"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354694
+    },
+    {
+      "sensorId": 570,
+      "valveId": 1297,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone2-Pot49",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-16T16:41:49.000Z",
+      "Sensor": {
+        "address": "x",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2E"
+      },
+      "Valve": {
+        "address": "1",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354699
+    },
+    {
+      "sensorId": 571,
+      "valveId": 1324,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot75",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "1",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "28",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354705
+    },
+    {
+      "sensorId": 572,
+      "valveId": 1339,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot100",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-18T17:40:43.000Z",
+      "updatedAt": "2026-06-18T17:40:43.000Z",
+      "Sensor": {
+        "address": "2",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "43",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354714
+    },
+    {
+      "sensorId": 573,
+      "valveId": 1299,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot51",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "A",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "3",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354720
+    },
+    {
+      "sensorId": 574,
+      "valveId": 1300,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot52",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "B",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "4",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354726
+    },
+    {
+      "sensorId": 575,
+      "valveId": 1301,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot53",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "C",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "5",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354733
+    },
+    {
+      "sensorId": 576,
+      "valveId": 1302,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot54",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "D",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "6",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354738
+    },
+    {
+      "sensorId": 577,
+      "valveId": 1303,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot55",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "E",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "7",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354744
+    },
+    {
+      "sensorId": 578,
+      "valveId": 1304,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot56",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "F",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "8",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354750
+    },
+    {
+      "sensorId": 579,
+      "valveId": 1305,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot57",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "G",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "9",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354756
+    },
+    {
+      "sensorId": 580,
+      "valveId": 1306,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot58",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "H",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "10",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354762
+    },
+    {
+      "sensorId": 581,
+      "valveId": 1307,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot59",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "I",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "11",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354770
+    },
+    {
+      "sensorId": 582,
+      "valveId": 1308,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot60",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "J",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "12",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354778
+    },
+    {
+      "sensorId": 583,
+      "valveId": 1309,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot61",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "K",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "13",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354785
+    },
+    {
+      "sensorId": 584,
+      "valveId": 1310,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot62",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "L",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "14",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354791
+    },
+    {
+      "sensorId": 585,
+      "valveId": 1311,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot63",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "M",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "15",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354798
+    },
+    {
+      "sensorId": 586,
+      "valveId": 1312,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot64",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "N",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "16",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354806
+    },
+    {
+      "sensorId": 587,
+      "valveId": 1313,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot65",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "O",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "17",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354814
+    },
+    {
+      "sensorId": 588,
+      "valveId": 1314,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot66",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "P",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "18",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354831
+    },
+    {
+      "sensorId": 589,
+      "valveId": 1315,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot67",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "Q",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "19",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354838
+    },
+    {
+      "sensorId": 590,
+      "valveId": 1316,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot68",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "R",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "20",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354845
+    },
+    {
+      "sensorId": 591,
+      "valveId": 1317,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot69",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "S",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "21",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354852
+    },
+    {
+      "sensorId": 592,
+      "valveId": 1318,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot70",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "T",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "22",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354859
+    },
+    {
+      "sensorId": 593,
+      "valveId": 1319,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot71",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "U",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "23",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354867
+    },
+    {
+      "sensorId": 594,
+      "valveId": 1320,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot72",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "V",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "24",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354874
+    },
+    {
+      "sensorId": 595,
+      "valveId": 1321,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot73",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "W",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "25",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354884
+    },
+    {
+      "sensorId": 596,
+      "valveId": 1323,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone3-Pot74",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-14T22:25:44.000Z",
+      "updatedAt": "2026-06-14T22:25:44.000Z",
+      "Sensor": {
+        "address": "X",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "27",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354892
+    },
+    {
+      "sensorId": 597,
+      "valveId": 1325,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot76",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "a",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "29",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354900
+    },
+    {
+      "sensorId": 598,
+      "valveId": 1326,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot77",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "b",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "30",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354908
+    },
+    {
+      "sensorId": 599,
+      "valveId": 1327,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot78",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "c",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "31",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354916
+    },
+    {
+      "sensorId": 600,
+      "valveId": 1328,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot79",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "d",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "32",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354924
+    },
+    {
+      "sensorId": 601,
+      "valveId": 1329,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot80",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "e",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "33",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354931
+    },
+    {
+      "sensorId": 602,
+      "valveId": 1330,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot81",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "f",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "34",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354938
+    },
+    {
+      "sensorId": 603,
+      "valveId": 1331,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot82",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "g",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "35",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354946
+    },
+    {
+      "sensorId": 604,
+      "valveId": 1332,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot83",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "h",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "36",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354953
+    },
+    {
+      "sensorId": 605,
+      "valveId": 1333,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot84",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "i",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "37",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354961
+    },
+    {
+      "sensorId": 606,
+      "valveId": 1334,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "Zone4-Pot85",
+      "WTCPercentLimit": null,
+      "ValveOpenTime": null,
+      "MeasurementInterval": null,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-15T20:52:33.000Z",
+      "Sensor": {
+        "address": "j",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "38",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": null,
+        "intervalTime": null
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354969
+    },
+    {
+      "sensorId": 612,
+      "valveId": 1340,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot91",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-16T18:29:32.000Z",
+      "Sensor": {
+        "address": "p",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "44",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354977
+    },
+    {
+      "sensorId": 613,
+      "valveId": 1341,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot92",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-16T18:29:33.000Z",
+      "Sensor": {
+        "address": "q",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "45",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354985
+    },
+    {
+      "sensorId": 614,
+      "valveId": 1342,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot93",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-16T18:30:24.000Z",
+      "Sensor": {
+        "address": "r",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "46",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143354993
+    },
+    {
+      "sensorId": 615,
+      "valveId": 1343,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot94",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-15T20:52:33.000Z",
+      "updatedAt": "2026-06-16T18:29:42.000Z",
+      "Sensor": {
+        "address": "s",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "47",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143355001
+    },
+    {
+      "sensorId": 616,
+      "valveId": 1335,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot96",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-18T17:40:43.000Z",
+      "updatedAt": "2026-06-18T17:40:43.000Z",
+      "Sensor": {
+        "address": "u",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "39",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143355009
+    },
+    {
+      "sensorId": 617,
+      "valveId": 1336,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot97",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-18T17:40:43.000Z",
+      "updatedAt": "2026-06-18T17:40:43.000Z",
+      "Sensor": {
+        "address": "v",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "40",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143355017
+    },
+    {
+      "sensorId": 618,
+      "valveId": 1337,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot98",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-18T17:40:43.000Z",
+      "updatedAt": "2026-06-18T17:40:43.000Z",
+      "Sensor": {
+        "address": "w",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "41",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143355027
+    },
+    {
+      "sensorId": 619,
+      "valveId": 1338,
+      "calibrationId": 1,
+      "groupId": null,
+      "name": "Zone4-Pot99",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-18T17:40:43.000Z",
+      "updatedAt": "2026-06-18T17:40:43.000Z",
+      "Sensor": {
+        "address": "x",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "42",
+        "relayAddress": "0x20"
+      },
+      "Calibration": {
+        "name": "matts greenhouse pots",
+        "polynomialCoefficientsCommaDelimited": "100.68,-0.1289,0.00004,0,0,0"
+      },
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143355035
+    },
+    {
+      "sensorId": 620,
+      "valveId": 1344,
+      "calibrationId": null,
+      "groupId": null,
+      "name": "zone4 pot 95",
+      "WTCPercentLimit": 20,
+      "ValveOpenTime": 5000,
+      "MeasurementInterval": 600000,
+      "createdAt": "2026-06-19T20:25:35.000Z",
+      "updatedAt": "2026-06-19T20:25:35.000Z",
+      "Sensor": {
+        "address": "t",
+        "type": "SDI12",
+        "boardSerialId": "D30GQN2D"
+      },
+      "Valve": {
+        "address": "48",
+        "relayAddress": "0x20"
+      },
+      "Calibration": null,
+      "timingRules": {
+        "measurementTime": 210000,
+        "startDelayTime": 1000,
+        "delayTime": 30000,
+        "valveOpenTime": 5000,
+        "intervalTime": 600000
+      },
+      "state": "STARTUP",
+      "WTCPercentMeasured": -1,
+      "nextTransitionTime": 1782143355044
+    }
+  ]
+}

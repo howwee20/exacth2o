@@ -26,7 +26,6 @@ import {
   Maximize2,
   MessageSquare,
   Minimize2,
-  RefreshCw,
   Search,
   Server,
   Settings as SettingsIcon,
@@ -255,12 +254,8 @@ type ControlCommandType =
   | "export_data";
 
 const adminOnlyControlCommandTypes = new Set<ControlCommandType>([
-  "create_pairing",
-  "remove_group",
-  "delete_calibration",
   "update_board_config",
   "initialize_sensors",
-  "update_system_state",
 ]);
 
 type ControlCommand = {
@@ -1808,40 +1803,6 @@ function controlCommandLabel(commandType: ControlCommandType) {
   return labels[commandType];
 }
 
-function commandPayloadSummary(command: ControlCommand) {
-  const payload = command.payload ?? {};
-  if (command.command_type === "bulk_update_pairings" || command.command_type === "manual_water") {
-    const pairings = Array.isArray(payload.pairing_names) ? payload.pairing_names.length : 0;
-    return `${pairings} pairings`;
-  }
-  if (command.command_type === "create_pairing") return String(payload.name ?? "New pairing");
-  if (command.command_type === "create_group" || command.command_type === "remove_group") {
-    return String(payload.group_name ?? "Group");
-  }
-  if (command.command_type === "create_calibration") return String(payload.name ?? "Calibration");
-  if (command.command_type === "apply_calibration" || command.command_type === "delete_calibration") {
-    return String(payload.calibration_name ?? "Calibration");
-  }
-  if (command.command_type === "update_board_config") {
-    const boards = Array.isArray(payload.boards) ? payload.boards.length : 0;
-    return `${boards} boards`;
-  }
-  if (command.command_type === "update_system_state") return String(payload.state ?? "System state");
-  if (command.command_type === "export_data") return String(payload.data_type ?? "Export");
-  return "Request";
-}
-
-function commandStatusText(command: ControlCommand) {
-  if (command.error) return command.error;
-  if (command.status === "queued") return `Pending ${formatSettingsTimestamp(command.requested_at)}`;
-  if (command.status === "accepted") return "Accepted";
-  if (command.status === "running") return "Running on device";
-  if (command.status === "succeeded") return "Applied";
-  if (command.status === "failed") return "Failed";
-  if (command.status === "expired") return "Expired";
-  return "Canceled";
-}
-
 type PortalSettingsPanelProps = {
   open: boolean;
   portalRole: PortalRole;
@@ -1857,12 +1818,10 @@ type PortalSettingsPanelProps = {
   controlBusy: boolean;
   controlNotice: string | null;
   controlError: string | null;
-  recentCommands: ControlCommand[];
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
   onDownloadPairingsCsv: () => void;
-  onRefreshCommands: () => void;
   onQueueCommand: QueueControlCommand;
   onSignOut: () => void;
 };
@@ -1882,12 +1841,10 @@ function PortalSettingsPanel({
   controlBusy,
   controlNotice,
   controlError,
-  recentCommands,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
   onDownloadPairingsCsv,
-  onRefreshCommands,
   onQueueCommand,
   onSignOut,
 }: PortalSettingsPanelProps) {
@@ -2178,44 +2135,6 @@ function PortalSettingsPanel({
             </section>
           </div>
           {commandStatusPanel}
-          <div className="settings-toolbar">
-            <p>Recent device commands and their recorded outcomes.</p>
-            <button
-              type="button"
-              className="settings-secondary-button"
-              onClick={onRefreshCommands}
-              disabled={controlBusy}
-            >
-              <RefreshCw size={14} />
-              Refresh status
-            </button>
-          </div>
-          <div className="settings-table-wrap">
-            <table className="settings-table">
-              <thead>
-                <tr>
-                  <th>Command</th>
-                  <th>Target</th>
-                  <th>Status</th>
-                  <th>Requested</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentCommands.length ? recentCommands.map((command) => (
-                  <tr key={command.id}>
-                    <td><b>{controlCommandLabel(command.command_type)}</b></td>
-                    <td>{commandPayloadSummary(command)}</td>
-                    <td title={command.error ?? undefined}>{commandStatusText(command)}</td>
-                    <td>{formatSettingsTimestamp(command.requested_at)}</td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={4}>No recent commands.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
         </>
       );
     }
@@ -2289,8 +2208,7 @@ function PortalSettingsPanel({
                 </button>
               </form>
             </section>
-            {isAdmin ? (
-              <section className="settings-card">
+            <section className="settings-card">
                 <h3>Create Pairing</h3>
                 <form className="settings-form" onSubmit={submitCreatePairing}>
                 <div className="settings-field-grid is-two">
@@ -2322,7 +2240,6 @@ function PortalSettingsPanel({
                 </button>
                 </form>
               </section>
-            ) : null}
           </div>
           <div className="settings-toolbar">
             <p>Current pot, sensor, valve, target, open-time, and measurement interval state synced from the portal project tables.</p>
@@ -2435,12 +2352,12 @@ function PortalSettingsPanel({
             {(syncedCalibrations.length ? syncedCalibrations : ["No calibration data"]).map((label) => (
               <div className="settings-list-row" key={label}>
                 <span>{label}</span>
-                {syncedCalibrations.length && isAdmin ? (
+                {syncedCalibrations.length ? (
                   <button type="button" className="settings-danger-button" onClick={() => void deleteCalibration(label)} disabled={controlBusy}>
                     Delete
                   </button>
                 ) : (
-                  <em>{syncedCalibrations.length ? "Admin only" : "--"}</em>
+                  <em>--</em>
                 )}
               </div>
             ))}
@@ -2485,10 +2402,40 @@ function PortalSettingsPanel({
                   Duration seconds
                   <input type="number" min="1" max="60" step="1" value={manualSeconds} onChange={(event) => setManualSeconds(event.target.value)} required />
                 </label>
-                <button type="submit" className="settings-primary-button" disabled={controlBusy || pairingsForGroup(manualGroup).length === 0}>
-                  Water group
+                <button type="submit" className="settings-primary-button" disabled title="Manual watering requires the physical valve fail-safe check">
+                  Manual watering locked
                 </button>
               </form>
+              <p className="settings-muted">Targets and automatic watering settings are live. A bounded manual pulse unlocks only after the physical valve-close check.</p>
+            </section>
+            <section className="settings-card">
+              <h3>Experiment State</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Controller</span>
+                  <strong>{controllerStateLabel(runtimeState)}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Observed</span>
+                  <strong>{formatSettingsTimestamp(runtimeState?.state_observed_at)}</strong>
+                </div>
+              </div>
+              <label className="settings-check">
+                <input
+                  type="checkbox"
+                  checked={destructiveConfirm}
+                  onChange={(event) => setDestructiveConfirm(event.target.checked)}
+                />
+                <span>Confirm experiment stop</span>
+              </label>
+              <div className="settings-action-stack">
+                <button type="button" onClick={() => void queueSystemState("running")} disabled={controlBusy}>
+                  <CheckCircle2 size={14} /> Start experiment
+                </button>
+                <button type="button" onClick={() => void queueSystemState("stopped")} disabled={controlBusy || !destructiveConfirm}>
+                  <AlertTriangle size={14} /> Stop experiment
+                </button>
+              </div>
             </section>
           </div>
         </>
@@ -2512,8 +2459,7 @@ function PortalSettingsPanel({
                 </button>
               </form>
             </section>
-            {isAdmin ? (
-              <section className="settings-card">
+            <section className="settings-card">
                 <h3>Remove Group</h3>
                 <form className="settings-form" onSubmit={submitRemoveGroup}>
                 <label>
@@ -2530,7 +2476,6 @@ function PortalSettingsPanel({
                 </button>
                 </form>
               </section>
-            ) : null}
           </div>
           <div className="settings-grid">
             {projectGroups.map((group) => (
@@ -2608,38 +2553,13 @@ function PortalSettingsPanel({
                 </div>
               </div>
             </section>
-            <section className="settings-card">
-              <h3>System</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>Controller state</span>
-                  <strong>{controllerStateLabel(runtimeState)}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Last observed</span>
-                  <strong>{formatSettingsTimestamp(runtimeState?.state_observed_at)}</strong>
-                </div>
-              </div>
-              {isAdmin ? <label className="settings-check">
-                <input
-                  type="checkbox"
-                  checked={destructiveConfirm}
-                  onChange={(event) => setDestructiveConfirm(event.target.checked)}
-                />
-                <span>Live command</span>
-              </label> : null}
-              {isAdmin ? <div className="settings-action-stack">
-                <button type="button" onClick={() => void queueSystemState("running")} disabled={controlBusy}>
-                  <CheckCircle2 size={14} /> Start system
-                </button>
-                <button type="button" disabled>
-                  <Lock size={14} /> Sensor initialization locked
-                </button>
-                <button type="button" onClick={() => void queueSystemState("stopped")} disabled={controlBusy || !destructiveConfirm}>
-                  <AlertTriangle size={14} /> Stop system
-                </button>
-              </div> : <p className="settings-muted">Controller-wide actions are admin-only.</p>}
-            </section>
+            {isAdmin ? <section className="settings-card">
+              <h3>Protected Operations</h3>
+              <p className="settings-muted">Sensor initialization, board addresses, reset pins, credentials, firmware, and recovery stay administrator-only.</p>
+              <button type="button" disabled>
+                <Lock size={14} /> Sensor initialization locked
+              </button>
+            </section> : null}
           </div>
           {isAdmin ? <section className="settings-card">
             <h3>Board Configuration</h3>
@@ -4583,7 +4503,6 @@ export default function App() {
   const [controlBusy, setControlBusy] = useState(false);
   const [controlNotice, setControlNotice] = useState<string | null>(null);
   const [controlError, setControlError] = useState<string | null>(null);
-  const [recentCommands, setRecentCommands] = useState<ControlCommand[]>([]);
   const [data, setData] = useState<LoadState>(initialLoadState);
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
   const [accessLoading, setAccessLoading] = useState(false);
@@ -4668,7 +4587,6 @@ export default function App() {
     setControlBusy(false);
     setControlNotice(null);
     setControlError(null);
-    setRecentCommands([]);
     setCsvDownload(null);
     setCsvError(null);
     setTermsOpen(false);
@@ -5084,32 +5002,6 @@ export default function App() {
     [refreshLatestReadings, runPortalRefresh],
   );
 
-  const loadRecentCommands = useCallback(async () => {
-    if (!canUseExperimentSettings) {
-      setRecentCommands([]);
-      return;
-    }
-
-    try {
-      const response = await withSupabaseTimeout(
-        supabase
-          .from("project_control_commands")
-          .select("id, client_request_id, project_id, device_id, command_type, payload, status, requested_at, expires_at, requires_confirmation, result, error")
-          .eq("project_id", mattProjectId)
-          .eq("device_id", mattDeviceId)
-          .order("requested_at", { ascending: false })
-          .limit(20),
-        supabaseQueryTimeoutMs,
-        "Recent control commands",
-      );
-
-      if (response.error) throw response.error;
-      setRecentCommands((response.data ?? []) as ControlCommand[]);
-    } catch {
-      setRecentCommands([]);
-    }
-  }, [canUseExperimentSettings]);
-
   const queueControlCommand = useCallback<QueueControlCommand>(
     async (commandType, payload, options) => {
       if (!canUseExperimentSettings) {
@@ -5157,7 +5049,6 @@ export default function App() {
 
         controlRequestIdsRef.current.delete(requestKey);
         setControlNotice(`${controlCommandLabel(commandType)} sent`);
-        await loadRecentCommands();
       } catch (err) {
         try {
           const reconciliation = await withSupabaseTimeout(
@@ -5173,7 +5064,6 @@ export default function App() {
           if (!reconciliation.error && reconciliation.data?.id) {
             controlRequestIdsRef.current.delete(requestKey);
             setControlNotice(`${controlCommandLabel(commandType)} received; status refreshed`);
-            await loadRecentCommands();
           } else {
             setControlError(`${errorMessage(err)} Safe to retry; the same request ID will be reused.`);
           }
@@ -5184,13 +5074,8 @@ export default function App() {
         setControlBusy(false);
       }
     },
-    [canUseExperimentSettings, isAdmin, loadRecentCommands],
+    [canUseExperimentSettings, isAdmin],
   );
-
-  useEffect(() => {
-    if (!settingsOpen || !sessionReady) return;
-    void loadRecentCommands();
-  }, [loadRecentCommands, sessionReady, settingsOpen]);
 
   async function signIn(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -6201,12 +6086,10 @@ export default function App() {
           controlBusy={controlBusy}
           controlNotice={controlNotice}
           controlError={controlError}
-          recentCommands={recentCommands}
           onClose={() => setSettingsOpen(false)}
           onSectionChange={setSettingsSection}
           onPrepareCsvDownload={prepareCsvDownload}
           onDownloadPairingsCsv={downloadPairingsCsv}
-          onRefreshCommands={loadRecentCommands}
           onQueueCommand={queueControlCommand}
           onSignOut={signOut}
         />
@@ -6266,12 +6149,10 @@ export default function App() {
           controlBusy={controlBusy}
           controlNotice={controlNotice}
           controlError={controlError}
-          recentCommands={recentCommands}
           onClose={() => setSettingsOpen(false)}
           onSectionChange={setSettingsSection}
           onPrepareCsvDownload={prepareCsvDownload}
           onDownloadPairingsCsv={downloadPairingsCsv}
-          onRefreshCommands={loadRecentCommands}
           onQueueCommand={queueControlCommand}
           onSignOut={signOut}
         />

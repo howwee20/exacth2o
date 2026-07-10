@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ExactH2O System Health</title>
+    <link rel="stylesheet" href="/owner-health/styles.css?v=20260625-health-simplify" />
+  </head>
+  <body>
+    <div class="app-layout">
+      <aside class="sidebar" aria-label="Dashboard navigation">
+        <div class="brand-lockup">
+          <div class="brand-mark">E</div>
+          <div>
+            <strong>ExactH2O</strong>
+          </div>
+        </div>
+        <nav class="side-nav">
+          <a href="#overview" class="active">Overview</a>
+          <a href="#restart">Restart</a>
+          <a href="#power">Power</a>
+          <a href="#ethernet">Connectivity</a>
+          <a href="#scheduler">Scheduler</a>
+          <a href="#sensors">Sensors</a>
+          <a href="#watering">Watering</a>
+          <a href="#events">Events</a>
+        </nav>
+        <div class="sidebar-foot">
+          <span>plain-feather</span>
+          <a href="/owner-health/logout">Sign out</a>
+        </div>
+      </aside>
+
+      <main class="shell">
+        <header class="topbar">
+          <div>
+            <h1>System Health</h1>
+          </div>
+          <div class="actions">
+            <span id="timestamp" class="timestamp">Waiting for first check</span>
+            <button id="refreshButton" class="button">Refresh</button>
+          </div>
+        </header>
+
+        <section id="overview" class="anchor-section"></section>
+        <section id="summary" class="summary pending">
+          <div>
+            <p class="summary-kicker">Current condition</p>
+            <h2 id="overallTitle">Checking system</h2>
+            <p id="overallDetail">Reading live API, network, power, sensor, and watering status.</p>
+          </div>
+          <span id="summaryBadge" class="badge neutral">Checking</span>
+        </section>
+
+        <section class="status-grid" aria-label="Core status">
+          <article id="systemTile" class="tile pending">
+            <span class="tile-label">Controller</span>
+            <strong id="systemTileValue">Checking</strong>
+            <p id="systemTileDetail">System state</p>
+          </article>
+          <article id="networkTile" class="tile pending">
+            <span class="tile-label">Ethernet</span>
+            <strong id="networkTileValue">Checking</strong>
+            <p id="networkTileDetail">Network link</p>
+          </article>
+          <article id="hardwareTile" class="tile pending">
+            <span class="tile-label">Power</span>
+            <strong id="hardwareTileValue">Checking</strong>
+            <p id="hardwareTileDetail">Temperature and undervoltage</p>
+          </article>
+          <article id="mapTile" class="tile pending">
+            <span class="tile-label">Sensors</span>
+            <strong id="mapTileValue">Checking</strong>
+            <p id="mapTileDetail">Reading freshness</p>
+          </article>
+        </section>
+
+        <section id="restart" class="panel restart-panel">
+          <div class="panel-header">
+            <div>
+              <h3>Restart / Outage Evidence</h3>
+              <p id="restartDetail" class="subtle-status">Host uptime, restart markers, and connectivity-down samples share one timeline.</p>
+            </div>
+            <span id="restartBadge" class="badge neutral">Checking</span>
+          </div>
+          <div id="restartFacts" class="outage-facts"></div>
+          <div id="restartGraph" class="health-chart compact-chart"></div>
+          <div id="restartEventLog" class="outage-log"></div>
+        </section>
+
+        <section class="graph-grid" aria-label="Health graphs">
+          <article id="power" class="panel graph-panel">
+            <div class="panel-header">
+              <div>
+                <h3>Power Evidence</h3>
+                <p id="powerGraphDetail" class="subtle-status">Waiting for samples.</p>
+              </div>
+              <span id="powerGraphBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="powerFacts" class="evidence-facts"></div>
+            <div id="powerGraph" class="health-chart"></div>
+          </article>
+
+          <article id="ethernet" class="panel graph-panel">
+            <div class="panel-header">
+              <div>
+                <h3>Ethernet Link</h3>
+                <p id="ethernetGraphDetail" class="subtle-status">Waiting for samples.</p>
+              </div>
+              <span id="ethernetGraphBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="connectivityFacts" class="evidence-facts"></div>
+            <div id="ethernetGraph" class="health-chart"></div>
+          </article>
+
+          <article id="watering" class="panel graph-panel">
+            <div class="panel-header">
+              <div>
+                <h3>Watering Safety</h3>
+                <p id="waterGraphDetail" class="subtle-status">Waiting for valve events.</p>
+              </div>
+              <span id="waterGraphBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="waterFacts" class="evidence-facts"></div>
+            <div id="waterGraph" class="health-chart"></div>
+          </article>
+
+          <article id="sensors" class="panel graph-panel">
+            <div class="panel-header">
+              <div>
+                <h3>Sensor Freshness</h3>
+                <p id="sensorGraphDetail" class="subtle-status">Waiting for samples.</p>
+              </div>
+              <span id="sensorGraphBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="sensorFacts" class="evidence-facts"></div>
+            <div id="sensorGraph" class="health-chart"></div>
+          </article>
+
+          <article id="scheduler" class="panel graph-panel scheduler-compact">
+            <div class="panel-header">
+              <div>
+                <h3>Scheduler Status</h3>
+                <p id="schedulerGraphDetail" class="subtle-status">Waiting for queue counts.</p>
+              </div>
+              <span id="schedulerGraphBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="schedulerFacts" class="evidence-facts scheduler-facts"></div>
+            <div id="schedulerGraph" class="scheduler-status-box"></div>
+          </article>
+        </section>
+
+        <section id="events" class="anchor-section"></section>
+        <section class="detail-grid" aria-label="System details">
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Live API</h3>
+              <span id="apiBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="apiFacts" class="facts"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Network</h3>
+              <span id="networkBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="networkFacts" class="facts"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Controller</h3>
+              <span id="piBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="piFacts" class="facts"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Relay Boards</h3>
+              <span id="boardsBadge" class="badge neutral">Checking</span>
+            </div>
+            <div id="boardRow" class="board-row"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <div id="detailOverlay" class="detail-overlay" hidden></div>
+    <aside id="detailDrawer" class="detail-drawer" aria-hidden="true" aria-label="Selected health detail">
+      <div class="detail-drawer-head">
+        <div>
+          <p class="eyebrow">Selected detail</p>
+          <h3 id="detailTitle">Detail</h3>
+        </div>
+        <button id="detailClose" class="button secondary" type="button">Close</button>
+      </div>
+      <div id="detailBody" class="detail-body"></div>
+    </aside>
+
+    <script src="/owner-health/app.js?v=20260625-health-simplify"></script>
+  </body>
+</html>

@@ -1,0 +1,195 @@
+version: "2.4"
+
+volumes:
+  db_data: {}
+  database: {}
+  redis_data: {}
+  cron_config: {}
+  health_data: {}
+
+services:
+  ui_svc:
+    build:
+      context: ./ui
+      dockerfile: ui.dockerfile
+    ports:
+      - "80:80/tcp"
+    expose:
+      - "80"
+    restart: always
+    depends_on:
+      - api_svc
+      - health_svc
+    environment:
+      PORT: "80"
+      API_URL: "http://api_svc:8888/v1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      retries: 5
+      timeout: 30s
+      interval: 30s
+
+  api_svc:
+    build:
+      context: ./api
+      dockerfile: api.dockerfile
+    ports:
+      - "8888:8888/tcp"
+    expose:
+      - "8888"
+    devices:
+      - "/dev/i2c-1:/dev/i2c-1"
+      - "/dev/mem:/dev/mem"
+      - "/dev/gpiomem:/dev/gpiomem"
+    restart: always
+    depends_on:
+      - database_svc
+    privileged: true
+    environment:
+      PORT: "8888"
+      DB_CONN: "mariadb://root:walkerlabs@database_svc:3306/walkerlabs"
+      CRON_URL: "http://cron_svc:3000/v1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/v1/healthcheck"]
+      retries: 5
+      timeout: 30s
+      interval: 30s
+
+  cron_svc:
+    build:
+      context: ./cron
+      dockerfile: cron.dockerfile
+    devices:
+      - "/dev/i2c-1:/dev/i2c-1"
+      - "/dev/mem:/dev/mem"
+      - "/dev/gpiomem:/dev/gpiomem"
+    restart: always
+    volumes:
+      - "cron_config:/app/config"
+    depends_on:
+      - api_svc
+      - redis_svc
+    privileged: true
+    environment:
+      PORT: "3000"
+      API_URL: "http://api_svc:8888"
+      API_FETCH_RETRIES: "90"
+      API_FETCH_RETRY_DELAY_MS: "2000"
+      REDIS_HOST: "redis_svc"
+      REDIS_PORT: "6379"
+      SDI12_CONFIG_PATH: "/app/config/sdi12-config.json"
+
+  control_executor:
+    build:
+      context: ./control-executor
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - api_svc
+      - cron_svc
+      - health_svc
+    environment:
+      EXACTH2O_PROJECT_ID: "22222222-2222-4222-8222-222222222222"
+      EXACTH2O_DEVICE_ID: "3100e37ee3205651fe3dd86dafd4dc0c"
+      EXACTH2O_LOCAL_API_BASE: "http://api_svc:8888/v1"
+      EXACTH2O_SYNC_OWNER_HEALTH_URL: "https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/sync-owner-health"
+      EXACTH2O_CONTROL_EXECUTOR_POLL_MS: "5000"
+      EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "1"
+      EXACTH2O_MANUAL_WATER_ENABLED: "0"
+      EXACTH2O_MANUAL_WATER_MAX_SECONDS: "60"
+      EXACTH2O_MANUAL_WATER_MAX_VALVE_SECONDS: "120"
+      EXACTH2O_STATE_SYNC_MS: "120000"
+
+  redis_svc:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379/tcp"
+    expose:
+      - "6379"
+    restart: unless-stopped
+    volumes:
+      - "redis_data:/data"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+
+  database_svc:
+    build:
+      context: .
+      dockerfile: database.dockerfile
+    ports:
+      - "3306:3306/tcp"
+    expose:
+      - "3306"
+    restart: unless-stopped
+    volumes:
+      - "database:/docker-entrypoint-initdb.d"
+      - "db_data:/var/lib/mysql"
+    environment:
+      MYSQL_DATABASE: "walkerlabs"
+      MYSQL_PASSWORD: "walkerlabs"
+      MARIADB_DATABASE: "walkerlabs"
+      MARIADB_PASSWORD: "walkerlabs"
+      MYSQL_ROOT_PASSWORD: "walkerlabs"
+      MARIADB_ROOT_PASSWORD: "walkerlabs"
+    healthcheck:
+      test: ["CMD", "mariadb", "-h", "localhost", "-u", "root", "-pwalkerlabs", "-e", "SELECT 1"]
+      retries: 5
+      timeout: 30s
+      interval: 30s
+
+  health_svc:
+    build:
+      context: ./health
+      dockerfile: Dockerfile
+    ports:
+      - "8767:8767/tcp"
+    expose:
+      - "8767"
+    devices:
+      - "/dev/i2c-1:/dev/i2c-1"
+      - "/dev/mem:/dev/mem"
+      - "/dev/gpiomem:/dev/gpiomem"
+    restart: always
+    depends_on:
+      - api_svc
+      - redis_svc
+    privileged: true
+    labels:
+      io.balena.features.balena-socket: "1"
+    volumes:
+      - "health_data:/data"
+      - "/sys:/host/sys:ro"
+      - "/proc:/host/proc:ro"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8767"
+      PUBLIC_BASE_PATH: "/owner-health"
+      PI_API_BASE: "http://api_svc:8888"
+      PI_DEVICE_API_BASE: "http://api_svc:8888"
+      PI_PUBLIC_URL: "https://3100e37ee3205651fe3dd86dafd4dc0c.balena-devices.com"
+      PI_EXPECTED_BOARDS: "0x20,0x24,0x26"
+      PI_EXPECTED_SERVICES: "api_svc,ui_svc,cron_svc,database_svc,redis_svc,health_svc,control_executor"
+      PI_ETH_DEVICE: "eth0"
+      PI_CONTROLLER_IPV4: "35.8.86.10"
+      PI_HOST_SYS: "/sys"
+      PI_HOST_PROC: "/proc"
+      PI_I2C_BUS: "1"
+      PI_DEVICE_SSH_FALLBACK: "0"
+      PI_REMOTE_HOST_HEALTH_ENABLED: "0"
+      PI_SCHEDULER_HEALTH_ENABLED: "1"
+      PI_SCHEDULER_HEALTH_SOURCE: "redis"
+      PI_REDIS_HOST: "redis_svc"
+      PI_REDIS_PORT: "6379"
+      HEALTH_HISTORY_FILE: "/data/health-history.jsonl"
+      HEALTH_HISTORY_RETENTION_DAYS: "21"
+      HEALTH_HISTORY_SAMPLE_INTERVAL_SECONDS: "300"
+      OWNER_ALERT_STATE_FILE: "/data/owner-alert-state.json"
+      DASHBOARD_COOKIE_SECURE: "1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8767/api/livez"]
+      retries: 5
+      timeout: 30s
+      interval: 30s
