@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { enforcePublicSubmission } from "../_shared/abuse-prevention.mjs";
 
 type SupportPayload = {
   name?: string;
@@ -164,11 +165,12 @@ serve(async (request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const rateLimitSalt = Deno.env.get("PUBLIC_FORM_RATE_LIMIT_SALT")?.trim();
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const emailTo = Deno.env.get("SUPPORT_NOTIFY_EMAIL") ?? Deno.env.get("QUOTE_EMAIL_TO") ?? "support@exacth2o.com";
   const emailFrom = Deno.env.get("SUPPORT_EMAIL_FROM") ?? Deno.env.get("QUOTE_EMAIL_FROM") ?? "exactH2O Support <onboarding@resend.dev>";
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !serviceRoleKey || !rateLimitSalt) {
     return jsonResponse({ error: "Server is missing Supabase configuration" }, 500, origin);
   }
 
@@ -176,61 +178,53 @@ serve(async (request) => {
     auth: { persistSession: false },
   });
 
-  const { data: thread, error: threadError } = await supabase
-    .from("support_threads")
-    .insert({
-      project_id: mattProjectId,
-      source: "form",
-      status: "new",
-      priority: "normal",
-      request_type: submission.requestType,
-      subject: submission.subject,
-      customer_name: submission.name,
-      customer_email: submission.email,
-      customer_phone: submission.phone || null,
-      customer_organization: submission.organization || null,
-      metadata: {
-        source_url: submission.sourceUrl || null,
-        referrer: clean(request.headers.get("Referer"), 500) || null,
-        origin,
-        user_agent: clean(request.headers.get("User-Agent"), 500) || null,
-      },
-    })
-    .select("id")
-    .single();
+  let submissionFingerprint = "";
+  try {
+    const guard = await enforcePublicSubmission({
+      request,
+      admin: supabase,
+      scope: "support",
+      payload: submission,
+      maxRequests: 10,
+      salt: rateLimitSalt,
+    });
+    submissionFingerprint = guard.fingerprint;
+    if (guard.duplicate) return jsonResponse({ ok: true, duplicate: true }, 200, origin);
+    if (!guard.allowed) {
+      return jsonResponse({ error: "Too many requests. Please try again later." }, 429, origin);
+    }
+  } catch (error) {
+    console.error("Support submission guard failed", error);
+    return jsonResponse({ error: "Could not validate this request" }, 503, origin);
+  }
 
-  if (threadError || !thread) {
+  const { data: savedRows, error: threadError } = await supabase.rpc(
+    "save_public_support_submission",
+    {
+      submission_data: {
+        project_id: mattProjectId,
+        name: submission.name,
+        email: submission.email,
+        phone: submission.phone,
+        organization: submission.organization,
+        request_type: submission.requestType,
+        subject: submission.subject,
+        message: submission.message,
+        source_url: submission.sourceUrl,
+        referrer: clean(request.headers.get("Referer"), 500),
+        origin: origin ?? "",
+        user_agent: clean(request.headers.get("User-Agent"), 500),
+      },
+      submission_fingerprint_value: submissionFingerprint,
+    },
+  );
+  const saved = Array.isArray(savedRows) ? savedRows[0] : savedRows;
+
+  if (threadError || !saved?.request_id) {
     return jsonResponse({ error: "Could not save support request" }, 500, origin);
   }
-
-  const { error: messageError } = await supabase
-    .from("support_messages")
-    .insert({
-      thread_id: thread.id,
-      project_id: mattProjectId,
-      direction: "inbound",
-      channel: "form",
-      from_email: submission.email,
-      from_name: submission.name,
-      to_emails: ["support@exacth2o.com"],
-      subject: submission.subject,
-      body_text: submission.message,
-      metadata: {
-        request_type: submission.requestType,
-        source_url: submission.sourceUrl || null,
-      },
-    });
-
-  if (messageError) {
-    await supabase
-      .from("support_threads")
-      .update({
-        metadata: {
-          message_insert_error: messageError.message,
-        },
-      })
-      .eq("id", thread.id);
-  }
+  if (saved.duplicate === true) return jsonResponse({ ok: true, duplicate: true }, 200, origin);
+  const thread = { id: String(saved.request_id) };
 
   if (resendApiKey) {
     await fetch("https://api.resend.com/emails", {

@@ -10,6 +10,11 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
   an invite token, email, and password; the service-role key stays server-side.
 - Portal settings can queue authenticated control commands through a Supabase
   Edge Function. The browser never writes hardware settings directly.
+- Researchers retain experiment data, target editing, calibration, group creation,
+  exports, and confirmed bounded manual-watering requests. Physical manual watering
+  remains independently disabled until the controller timed-pulse bench gate passes. Pairing creation/removal,
+  calibration deletion, board configuration, and system-level commands are enforced
+  as admin-only by the Edge Function. Sensor initialization is locked for all portal roles.
 - Dashboard queries the existing tables:
   - `pairings`
   - `sensor_readings`
@@ -36,10 +41,10 @@ For the website entry point:
 
 ```bash
 cd research-portal
-npm install
+npm ci
 cp .env.example .env.local
 # replace VITE_SUPABASE_ANON_KEY with the project anon key
-npm run build
+npm run check
 cd ..
 python3 -m http.server 8123 --bind 127.0.0.1
 ```
@@ -49,11 +54,19 @@ Then open `http://127.0.0.1:8123/portal.html`.
 The build writes browser-ready assets to `../portal-app/`, and the website's
 root `portal.html` loads those assets directly.
 
+Production CI installs locked dependencies; runs frontend lint, unit tests, strict
+type checking/build, command-policy tests, executor safety tests, Deno Edge Function
+checks, and dependency audits; then fails when the committed `portal-app/` bundle
+differs from the build output. Stable React, Supabase, and icon dependencies are
+emitted as cacheable hashed chunks while `assets/portal.js` remains the fixed entry.
+The build also synchronizes module-preload links and a content-derived JavaScript/CSS
+cache token into the deployed root `portal.html` wrapper.
+
 For active React development:
 
 ```bash
 cd research-portal
-npm install
+npm ci
 cp .env.example .env.local
 # replace VITE_SUPABASE_ANON_KEY with the project anon key
 npm run dev

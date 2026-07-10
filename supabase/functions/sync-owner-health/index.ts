@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
@@ -30,6 +30,14 @@ type FetchResult = {
   data: Record<string, unknown>;
   error: string | null;
 };
+
+type SyncRequest = {
+  source?: unknown;
+  include_config?: unknown;
+  include_history?: unknown;
+};
+
+type AdminClient = SupabaseClient<any, "public", any>;
 
 type DeviceRuntimeStateWrite = {
   project_id: string;
@@ -126,7 +134,7 @@ function jsonResponse(body: unknown, status = 200, origin: string | null = null)
   });
 }
 
-function cleanSecret(value: string | null) {
+function cleanSecret(value: string | null | undefined) {
   return (value ?? "").trim();
 }
 
@@ -135,30 +143,16 @@ function bearerToken(request: Request) {
 }
 
 function hasSyncSecret(request: Request) {
-  const syncSecret = cleanSecret(Deno.env.get("SYNC_OWNER_HEALTH_SECRET"));
-  if (!syncSecret) return false;
-  return request.headers.get("x-sync-owner-health-secret") === syncSecret || bearerToken(request) === syncSecret;
-}
-
-async function portalAdminUserId(
-  admin: ReturnType<typeof createClient>,
-  request: Request,
-) {
-  const jwt = bearerToken(request);
-  if (!jwt) return null;
-
-  const { data: userData, error: userError } = await admin.auth.getUser(jwt);
-  if (userError || !userData.user) return null;
-
-  const { data: access, error: accessError } = await admin
-    .from("portal_access")
-    .select("role")
-    .eq("project_id", mattProjectId)
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-
-  if (accessError || access?.role !== "admin") return null;
-  return userData.user.id;
+  const acceptedSecrets = [
+    cleanSecret(Deno.env.get("SYNC_OWNER_HEALTH_SECRET")),
+    cleanSecret(Deno.env.get("SYNC_OWNER_HEALTH_CRON_SECRET")),
+  ].filter(Boolean);
+  if (acceptedSecrets.length === 0) return false;
+  const suppliedSecrets = [
+    cleanSecret(request.headers.get("x-sync-owner-health-secret")),
+    bearerToken(request),
+  ].filter(Boolean);
+  return acceptedSecrets.some((acceptedSecret) => suppliedSecrets.includes(acceptedSecret));
 }
 
 function basicAuthHeader(username: string, password: string) {
@@ -210,6 +204,16 @@ async function fetchJson(url: string, authHeader: string, timeoutMs = 25_000): P
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function skippedFetchResult(reason: string): FetchResult {
+  return {
+    ok: false,
+    status: null,
+    elapsedMs: null,
+    data: {},
+    error: reason,
+  };
 }
 
 function asString(value: unknown) {
@@ -585,7 +589,7 @@ function compactValveEvent(row: ValveEventWriteRow) {
 }
 
 async function insertValveEventRows(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   rows: ValveEventWriteRow[],
 ) {
   let inserted = 0;
@@ -639,7 +643,7 @@ async function insertValveEventRows(
 }
 
 async function selectExistingValveEventIds(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   eventIds: string[],
 ) {
   const existingIds = new Set<string>();
@@ -672,7 +676,7 @@ async function selectExistingValveEventIds(
 }
 
 async function insertMissingValveEvents(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   events: ValveEventInsert[],
 ) {
   if (!events.length) {
@@ -884,16 +888,49 @@ function wateringDisabledFromSources(sources: unknown[]) {
   return filterIgnoredDiagnosticItems(asArray(value));
 }
 
-function extractConfigSection(sources: unknown[], keys: string[]) {
+type ConfigSectionMatch = {
+  found: boolean;
+  value: unknown;
+};
+
+function configSectionCandidates(
+  value: unknown,
+  keys: string[],
+  maxDepth = 5,
+): unknown[] {
+  if (maxDepth < 0) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => configSectionCandidates(item, keys, maxDepth - 1));
+  }
+
+  const record = asRecord(value);
+  if (!Object.keys(record).length) return [];
+  const matches = keys
+    .filter((key) => Object.prototype.hasOwnProperty.call(record, key))
+    .map((key) => record[key]);
+  return [
+    ...matches,
+    ...Object.values(record).flatMap((child) => configSectionCandidates(child, keys, maxDepth - 1)),
+  ];
+}
+
+function extractConfigSection(sources: unknown[], keys: string[]): ConfigSectionMatch {
+  let explicitEmpty: unknown = null;
+  let emptyFound = false;
+
   for (const source of sources) {
-    const record = asRecord(source);
-    for (const key of keys) {
-      const value = record[key];
-      if (hasUsableValue(value)) return value;
+    for (const candidate of configSectionCandidates(source, keys)) {
+      if (hasUsableValue(candidate)) return { found: true, value: candidate };
+      if (Array.isArray(candidate) || (candidate !== null && typeof candidate === "object")) {
+        if (!emptyFound) explicitEmpty = candidate;
+        emptyFound = true;
+      }
     }
   }
 
-  return firstNestedFromSources(sources, keys);
+  return emptyFound
+    ? { found: true, value: explicitEmpty }
+    : { found: false, value: null };
 }
 
 function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations" | "board_config" | "sensors" | "valves" | "groups") {
@@ -940,6 +977,14 @@ function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations
   return items;
 }
 
+function resolvedConfigSection(
+  current: ConfigSectionMatch,
+  previous: unknown,
+  kind: "pairings" | "calibrations" | "board_config" | "sensors" | "valves" | "groups",
+) {
+  return normalizeConfigSection(current.found ? current.value : previous, kind);
+}
+
 function sortedJsonValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortedJsonValue);
   if (!value || typeof value !== "object") return value;
@@ -965,7 +1010,7 @@ async function sha256Hex(value: string) {
 }
 
 async function upsertDeviceRuntimeState(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   row: DeviceRuntimeStateWrite,
 ) {
   const { data, error } = await admin
@@ -987,7 +1032,7 @@ async function upsertDeviceRuntimeState(
 }
 
 async function upsertDeviceConfigState(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   row: DeviceConfigStateWrite,
 ) {
   const { data, error } = await admin
@@ -1037,13 +1082,141 @@ serve(async (request) => {
   });
 
   const syncSecretAuthorized = hasSyncSecret(request);
-  const requestedBy = syncSecretAuthorized
-    ? null
-    : await portalAdminUserId(admin, request);
-
-  if (!syncSecretAuthorized && !requestedBy) {
-    return jsonResponse({ error: "Admin access is required for owner-health sync" }, 403, origin);
+  if (!syncSecretAuthorized) {
+    return jsonResponse({ error: "Server ingestion authorization is required" }, 401, origin);
   }
+
+  let syncRequest: SyncRequest = {};
+  try {
+    const parsed = await request.json();
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      syncRequest = parsed as SyncRequest;
+    }
+  } catch {
+    // Scheduled watchdog calls intentionally use an empty request body.
+  }
+
+  const requestedSource = (asString(syncRequest.source) ?? "scheduled_watchdog").slice(0, 80);
+  const trustedSyncSources = new Set([
+    "scheduled_watchdog",
+    "github_actions_watchdog",
+    "supabase_cron_watchdog",
+    "control_executor",
+    "control_executor_watchdog",
+    "manual_admin_sync",
+  ]);
+  const source = trustedSyncSources.has(requestedSource) ? requestedSource : "scheduled_watchdog";
+  let includeHistory = syncRequest.include_history === true;
+  const leaseHolder = crypto.randomUUID();
+  const { data: leaseAcquired, error: leaseError } = await admin.rpc("acquire_device_ingest_lease", {
+    lease_project_id: mattProjectId,
+    lease_device_id: mattDeviceId,
+    lease_holder: leaseHolder,
+    lease_seconds: 300,
+  });
+
+  if (leaseError) {
+    console.error("Could not acquire health ingest lease", leaseError);
+    return jsonResponse({ error: "Could not acquire health ingest lease" }, 500, origin);
+  }
+
+  if (leaseAcquired !== true) {
+    return jsonResponse({ ok: true, deduplicated: true, source }, 202, origin);
+  }
+
+  const releaseLease = async () => {
+    const { error } = await admin.rpc("release_device_ingest_lease", {
+      lease_project_id: mattProjectId,
+      lease_device_id: mattDeviceId,
+      lease_holder: leaseHolder,
+    });
+    if (error) console.error("Could not release health ingest lease", error);
+  };
+
+  try {
+
+  if (source.endsWith("_watchdog")) {
+    const { error: retentionError } = await admin.rpc("run_device_health_retention", {
+      retention_days: 30,
+      minimum_interval_hours: 23,
+    });
+    if (retentionError) console.error("Could not run health retention", retentionError);
+
+    const { data: historyMaintenance, error: historyMaintenanceError } = await admin
+      .from("device_maintenance_state")
+      .select("last_completed_at")
+      .eq("task_name", "owner_health_history_recovery")
+      .maybeSingle();
+    if (historyMaintenanceError) {
+      console.error("Could not read history recovery checkpoint", historyMaintenanceError);
+    }
+    const lastHistoryRecoveryAt = Date.parse(String(historyMaintenance?.last_completed_at ?? ""));
+    const historyRecoveryDue =
+      historyMaintenanceError !== null ||
+      !Number.isFinite(lastHistoryRecoveryAt) ||
+      Date.now() - lastHistoryRecoveryAt >= 30 * 60 * 1000;
+    includeHistory = includeHistory || historyRecoveryDue;
+
+    const isExternalWatchdog =
+      source === "scheduled_watchdog" ||
+      source === "github_actions_watchdog" ||
+      source === "supabase_cron_watchdog";
+    if (isExternalWatchdog) {
+      const [latestSnapshotResult, latestRuntimeResult] = await Promise.all([
+        admin
+          .from("device_health_snapshots")
+          .select("created_at, captured_at, status_endpoint_ok, ingest_complete")
+          .eq("project_id", mattProjectId)
+          .eq("device_id", mattDeviceId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        admin
+          .from("device_runtime_state")
+          .select("updated_at, state_observed_at, state_fresh_until")
+          .eq("project_id", mattProjectId)
+          .eq("device_id", mattDeviceId)
+          .maybeSingle(),
+      ]);
+      const latestSnapshot = latestSnapshotResult.data;
+      const latestRuntime = latestRuntimeResult.data;
+      const latestCreatedAt = Date.parse(String(latestSnapshot?.created_at ?? ""));
+      const latestRuntimeAt = Date.parse(String(latestRuntime?.updated_at ?? ""));
+      const latestCapturedAt = Date.parse(String(latestSnapshot?.captured_at ?? ""));
+      const latestStateObservedAt = Date.parse(String(latestRuntime?.state_observed_at ?? ""));
+      const latestStateFreshUntil = Date.parse(String(latestRuntime?.state_fresh_until ?? ""));
+      if (
+        !includeHistory &&
+        latestSnapshot?.status_endpoint_ok === true &&
+        latestSnapshot?.ingest_complete === true &&
+        Number.isFinite(latestCreatedAt) &&
+        Number.isFinite(latestRuntimeAt) &&
+        Number.isFinite(latestCapturedAt) &&
+        Number.isFinite(latestStateObservedAt) &&
+        Number.isFinite(latestStateFreshUntil) &&
+        Date.now() - latestCreatedAt < 3 * 60 * 1000 &&
+        Date.now() - latestRuntimeAt < 3 * 60 * 1000 &&
+        Date.now() - latestCapturedAt < 10 * 60 * 1000 &&
+        Date.now() - latestStateObservedAt < 10 * 60 * 1000 &&
+        latestStateFreshUntil > Date.now()
+      ) {
+        return jsonResponse({ ok: true, deduplicated: true, source, reason: "primary_authority_fresh" }, 202, origin);
+      }
+    }
+  }
+
+  const { data: lastConfigState } = await admin
+    .from("device_config_state")
+    .select("updated_at, config_hash, pairings, calibrations, board_config, sensors, valves, groups")
+    .eq("project_id", mattProjectId)
+    .eq("device_id", mattDeviceId)
+    .maybeSingle();
+  const lastConfigAt = Date.parse(String(lastConfigState?.updated_at ?? ""));
+  const configIsStale = !Number.isFinite(lastConfigAt) || Date.now() - lastConfigAt >= 15 * 60 * 1000;
+  const includeConfig =
+    syncRequest.include_config === true ||
+    source === "control_executor" ||
+    configIsStale;
 
   const authHeader = basicAuthHeader(ownerUser, ownerPassword);
   const optionalEndpointTimeoutMs = 6_000;
@@ -1058,12 +1231,25 @@ serve(async (request) => {
   ] = await Promise.all([
     fetchJson(`${ownerHealthBaseUrl}/api/status`, authHeader),
     fetchJson(`${ownerHealthBaseUrl}/api/health`, authHeader),
-    fetchJson(`${ownerHealthBaseUrl}/api/history?days=2`, authHeader),
-    fetchJson(`${ownerHealthBaseUrl}/api/system`, authHeader, optionalEndpointTimeoutMs),
-    fetchJson(`${ownerHealthBaseUrl}/api/system-config`, authHeader, optionalEndpointTimeoutMs),
-    fetchJson(`${ownerHealthBaseUrl}/api/config`, authHeader, optionalEndpointTimeoutMs),
-    fetchJson(`${ownerHealthBaseUrl}/api/pairings`, authHeader, optionalEndpointTimeoutMs),
+    includeHistory
+      ? fetchJson(`${ownerHealthBaseUrl}/api/history?days=2`, authHeader)
+      : Promise.resolve(skippedFetchResult("history_not_requested")),
+    includeConfig
+      ? fetchJson(`${ownerHealthBaseUrl}/api/system`, authHeader, optionalEndpointTimeoutMs)
+      : Promise.resolve(skippedFetchResult("config_not_due")),
+    includeConfig
+      ? fetchJson(`${ownerHealthBaseUrl}/api/system-config`, authHeader, optionalEndpointTimeoutMs)
+      : Promise.resolve(skippedFetchResult("config_not_due")),
+    includeConfig
+      ? fetchJson(`${ownerHealthBaseUrl}/api/config`, authHeader, optionalEndpointTimeoutMs)
+      : Promise.resolve(skippedFetchResult("config_not_due")),
+    includeConfig
+      ? fetchJson(`${ownerHealthBaseUrl}/api/pairings`, authHeader, optionalEndpointTimeoutMs)
+      : Promise.resolve(skippedFetchResult("config_not_due")),
   ]);
+  if (!statusResponse.ok) {
+    return jsonResponse({ error: "Owner-health status endpoint is unavailable" }, 502, origin);
+  }
   const status = statusResponse.ok ? statusResponse.data : {};
   const health = healthResponse.ok ? healthResponse.data : {};
   const history = historyResponse.ok ? historyResponse.data : {};
@@ -1099,19 +1285,19 @@ serve(async (request) => {
     ["watering", "enabled"],
     ["api", "watering", "enabled"],
   ], ["watering_enabled", "wateringEnabled"]) ?? (wateringDisabled.length ? false : null);
-  const pairings = normalizeConfigSection(extractConfigSection(configSources, [
+  const currentPairings = extractConfigSection(configSources, [
     "pairings",
     "Pairings",
     "watering_pairings",
     "wateringPairings",
-  ]), "pairings");
-  const calibrations = normalizeConfigSection(extractConfigSection(configSources, [
+  ]);
+  const currentCalibrations = extractConfigSection(configSources, [
     "calibrations",
     "Calibrations",
     "calibration",
     "Calibration",
-  ]), "calibrations");
-  const boardConfig = normalizeConfigSection(extractConfigSection(configSources, [
+  ]);
+  const currentBoardConfig = extractConfigSection(configSources, [
     "board_config",
     "boardConfig",
     "board_configurations",
@@ -1119,29 +1305,42 @@ serve(async (request) => {
     "board_configs",
     "boardConfigs",
     "boards",
-  ]), "board_config");
-  const sensors = normalizeConfigSection(extractConfigSection(configSources, [
+  ]);
+  const currentSensors = extractConfigSection(configSources, [
     "sensors",
     "Sensors",
-  ]), "sensors");
-  const valves = normalizeConfigSection(extractConfigSection(configSources, [
+  ]);
+  const currentValves = extractConfigSection(configSources, [
     "valves",
     "Valves",
-  ]), "valves");
-  const groups = normalizeConfigSection(extractConfigSection(configSources, [
+  ]);
+  const currentGroups = extractConfigSection(configSources, [
     "groups",
     "Groups",
-  ]), "groups");
-  const hasConfigEndpointData =
-    systemConfigResponse.ok ||
-    configResponse.ok ||
-    pairingsResponse.ok ||
-    pairings.length > 0 ||
-    calibrations.length > 0 ||
-    boardConfig.length > 0 ||
-    sensors.length > 0 ||
-    valves.length > 0 ||
-    groups.length > 0;
+  ]);
+  const pairings = resolvedConfigSection(currentPairings, lastConfigState?.pairings, "pairings");
+  const calibrations = resolvedConfigSection(currentCalibrations, lastConfigState?.calibrations, "calibrations");
+  const boardConfig = resolvedConfigSection(currentBoardConfig, lastConfigState?.board_config, "board_config");
+  const sensors = resolvedConfigSection(currentSensors, lastConfigState?.sensors, "sensors");
+  const valves = resolvedConfigSection(currentValves, lastConfigState?.valves, "valves");
+  const groups = resolvedConfigSection(currentGroups, lastConfigState?.groups, "groups");
+  const configSectionObserved = [
+    currentPairings,
+    currentCalibrations,
+    currentBoardConfig,
+    currentSensors,
+    currentValves,
+    currentGroups,
+  ].some((section) => section.found);
+  const configFetchSucceeded = includeConfig && (
+    configResponse.ok || (systemConfigResponse.ok && pairingsResponse.ok)
+  ) && configSectionObserved;
+  const configIsComplete =
+    pairings.length > 0 &&
+    boardConfig.length > 0 &&
+    sensors.length > 0 &&
+    valves.length > 0;
+  const shouldWriteConfig = configFetchSucceeded && configIsComplete;
   const configPayload = {
     pairings,
     calibrations,
@@ -1150,20 +1349,45 @@ serve(async (request) => {
     valves,
     groups,
   };
-  const configHash = hasConfigEndpointData ? await sha256Hex(stableJson(configPayload)) : null;
+  const nextConfigHash = shouldWriteConfig ? await sha256Hex(stableJson(configPayload)) : null;
+  const configHash = nextConfigHash ?? asString(lastConfigState?.config_hash);
+  const reportedCapturedValue = status.last_checked_at;
+  const reportedCapturedPresent =
+    reportedCapturedValue !== null &&
+    reportedCapturedValue !== undefined &&
+    String(reportedCapturedValue).trim() !== "";
+  const reportedCapturedAt = asTimestamp(reportedCapturedValue);
+  const reportedCapturedAtMs = Date.parse(String(reportedCapturedAt ?? ""));
+  const observationTimestampValid =
+    reportedCapturedPresent && (
+      reportedCapturedAt !== null &&
+      Number.isFinite(reportedCapturedAtMs) &&
+      reportedCapturedAtMs <= Date.now() + 60 * 1000
+    );
+  const capturedAt = observationTimestampValid && reportedCapturedAt ? reportedCapturedAt : nowIso;
+  const capturedAtMs = Date.parse(capturedAt);
+  const statusObservationFresh =
+    observationTimestampValid &&
+    Number.isFinite(capturedAtMs) &&
+    Date.now() - capturedAtMs <= 10 * 60 * 1000;
+  const stateFreshUntil = statusObservationFresh
+    ? new Date(capturedAtMs + 10 * 60 * 1000).toISOString()
+    : new Date(Date.now() - 1).toISOString();
 
   const snapshot = {
     project_id: mattProjectId,
     device_id: mattDeviceId,
     device_name: "plain-feather",
-    source: "owner-health",
-    captured_at: asTimestamp(status.last_checked_at) ?? nowIso,
+    source,
+    captured_at: capturedAt,
+    observation_key: capturedAt,
+    ingest_complete: false,
     owner_checked_at: asTimestamp(status.last_checked_at),
     status_endpoint_ok: statusResponse.ok,
-    history_endpoint_ok: historyResponse.ok,
+    history_endpoint_ok: includeHistory ? historyResponse.ok : null,
     status_http_status: statusResponse.status,
     status_elapsed_ms: statusResponse.elapsedMs,
-    history_samples: historyRecords.length,
+    history_samples: includeHistory ? historyRecords.length : null,
     overall_status: asString(status.overall_status),
     api_status: asString(status.api_status),
     pi_online: asBoolean(status.pi_online),
@@ -1187,16 +1411,43 @@ serve(async (request) => {
     scheduler_jobs_loaded: asInteger(status.scheduler_jobs_loaded),
     active_alerts: asArray(status.active_alerts).filter((issue) => !isIgnoredDiagnosticIssue(issue)),
     known_issues: asArray(status.known_issues).filter((issue) => !isIgnoredDiagnosticIssue(issue)),
-    raw_status: statusResponse.data,
-    raw_health: healthResponse.data,
-    raw_history: historyResponse.data,
+    raw_status: {},
+    raw_health: {},
+    raw_history: {},
   };
 
-  const { data, error } = await admin
+  const insertResult = await admin
     .from("device_health_snapshots")
     .insert(snapshot)
     .select("id, captured_at, overall_status, sensors_current, sensors_stale, sensors_missing")
     .single();
+  let data = insertResult.data;
+  let error = insertResult.error;
+  let snapshotInserted = !insertResult.error;
+
+  if (insertResult.error?.code === "23505") {
+    const existingResult = await admin
+      .from("device_health_snapshots")
+      .select("id")
+      .eq("project_id", mattProjectId)
+      .eq("device_id", mattDeviceId)
+      .eq("observation_key", snapshot.observation_key)
+      .single();
+    if (existingResult.error || !existingResult.data?.id) {
+      data = null;
+      error = existingResult.error ?? insertResult.error;
+    } else {
+      const retryUpdate = await admin
+        .from("device_health_snapshots")
+        .update(snapshot)
+        .eq("id", existingResult.data.id)
+        .select("id, captured_at, overall_status, sensors_current, sensors_stale, sensors_missing")
+        .single();
+      data = retryUpdate.data;
+      error = retryUpdate.error;
+      snapshotInserted = false;
+    }
+  }
 
   if (error) {
     return jsonResponse({ error: "Could not write health snapshot" }, 500, origin);
@@ -1211,12 +1462,12 @@ serve(async (request) => {
     project_id: mattProjectId,
     device_id: mattDeviceId,
     device_name: "plain-feather",
-    source: "owner-health",
+    source,
     controller_state: controllerState.normalized,
     controller_state_raw: controllerState.raw,
     controller_state_updated_at: stateUpdatedAtFromSources(runtimeSources, snapshot.captured_at),
     state_observed_at: snapshot.captured_at,
-    state_fresh_until: new Date(Date.parse(nowIso) + 10 * 60 * 1000).toISOString(),
+    state_fresh_until: stateFreshUntil,
     owner_checked_at: snapshot.owner_checked_at,
     overall_status: snapshot.overall_status,
     api_status: snapshot.api_status,
@@ -1271,12 +1522,12 @@ serve(async (request) => {
     },
   };
 
-  const configWrite = hasConfigEndpointData && configHash
+  const configWrite = shouldWriteConfig && nextConfigHash
     ? await upsertDeviceConfigState(admin, {
       project_id: mattProjectId,
       device_id: mattDeviceId,
       device_name: "plain-feather",
-      source: "owner-health",
+      source,
       observed_at: nowIso,
       pairings,
       calibrations,
@@ -1290,7 +1541,7 @@ serve(async (request) => {
       sensor_count: sensors.length,
       valve_count: valves.length,
       group_count: groups.length,
-      config_hash: configHash,
+      config_hash: nextConfigHash,
       endpoint_status: endpointStatus,
       raw_config: {
         system,
@@ -1302,17 +1553,62 @@ serve(async (request) => {
     })
     : {
       ok: false,
-      error: "No config endpoint data available",
+      error: includeConfig
+        ? "Config endpoints did not return a complete mirror; previous config was preserved"
+        : "Config refresh was not due",
       code: null,
       details: null,
       row: null,
     };
-  if (!configWrite.ok && hasConfigEndpointData) {
+  if (!configWrite.ok && includeConfig) {
     console.error("Could not write config state", configWrite.error);
   }
 
+  const ingestionErrors = [
+    !statusObservationFresh ? "stale_status_observation" : null,
+    !healthResponse.ok ? "health_endpoint" : null,
+    includeHistory && !historyResponse.ok ? "history_endpoint" : null,
+    valveEventWrite.error ? "valve_events" : null,
+    !runtimeWrite.ok ? "runtime_state" : null,
+    includeConfig && !configWrite.ok ? "config_state" : null,
+  ].filter((value): value is string => value != null);
+
+  let historyCheckpointRecorded = false;
+  if (includeHistory && historyResponse.ok && !valveEventWrite.error) {
+    const { error: historyCheckpointError } = await admin
+      .from("device_maintenance_state")
+      .upsert({
+        task_name: "owner_health_history_recovery",
+        last_started_at: nowIso,
+        last_completed_at: nowIso,
+        details: {
+          source,
+          history_samples: historyRecords.length,
+          valve_events_found: valveEvents.length,
+          valve_events_inserted: valveEventWrite.inserted,
+        },
+      }, { onConflict: "task_name" });
+    if (historyCheckpointError) {
+      console.error("Could not record history recovery checkpoint", historyCheckpointError);
+    } else {
+      historyCheckpointRecorded = true;
+    }
+  }
+
+  if (ingestionErrors.length === 0 && data?.id) {
+    const { error: completionError } = await admin
+      .from("device_health_snapshots")
+      .update({ ingest_complete: true })
+      .eq("id", data.id);
+    if (completionError) {
+      console.error("Could not mark health ingestion complete", completionError);
+      ingestionErrors.push("snapshot_completion");
+    }
+  }
+  const ingestionComplete = ingestionErrors.length === 0;
+
   return jsonResponse({
-    ok: true,
+    ok: ingestionComplete,
     snapshot: data,
     runtimeState: {
       ok: runtimeWrite.ok,
@@ -1345,14 +1641,26 @@ serve(async (request) => {
       raw: valveEventWrite.raw,
     },
     source: {
+      authority: source,
       statusEndpointOk: statusResponse.ok,
+      statusObservationFresh,
       healthEndpointOk: healthResponse.ok,
-      historyEndpointOk: historyResponse.ok,
+      historyEndpointOk: includeHistory ? historyResponse.ok : null,
       systemEndpointOk: systemResponse.ok,
       systemConfigEndpointOk: systemConfigResponse.ok,
       configEndpointOk: configResponse.ok,
       pairingsEndpointOk: pairingsResponse.ok,
-      historySamples: historyRecords.length,
+      historySamples: includeHistory ? historyRecords.length : null,
+      includeConfig,
+      includeHistory,
+      historyCheckpointRecorded,
+      compactSnapshot: true,
+      snapshotInserted,
+      ingestionComplete,
+      ingestionErrors,
     },
-  }, 200, origin);
+  }, ingestionComplete ? 200 : 503, origin);
+  } finally {
+    await releaseLease();
+  }
 });

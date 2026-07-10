@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  commandAccessDecision,
+  controlCommandIntakeEnabled,
+} from "./command-policy.mjs";
 
 type CommandType =
   | "update_pairing"
@@ -19,6 +23,7 @@ type CommandType =
 type ControlCommandPayload = {
   project_id?: string;
   device_id?: string;
+  client_request_id?: string;
   command_type?: CommandType;
   payload?: unknown;
   confirm?: boolean;
@@ -60,6 +65,7 @@ const commandTypes = new Set<CommandType>([
 ]);
 
 const destructiveCommands = new Set<CommandType>([
+  "manual_water",
   "update_board_config",
   "initialize_sensors",
   "update_system_state",
@@ -222,8 +228,15 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
   }
 
   if (commandType === "manual_water") {
-    payload.pairing_names = stringList(rawPayload.pairing_names, "Pairings", 100);
-    payload.duration_seconds = numberInRange(rawPayload.duration_seconds, 1, 60, "Manual water duration");
+    const pairingNames = stringList(rawPayload.pairing_names, "Pairings", 20);
+    const durationSeconds = numberInRange(rawPayload.duration_seconds, 1, 60, "Manual water duration");
+    const valveSeconds = pairingNames.length * durationSeconds;
+    if (valveSeconds > 120) {
+      throw new Error("Manual watering is limited to 120 total valve-seconds per command");
+    }
+    payload.pairing_names = pairingNames;
+    payload.duration_seconds = durationSeconds;
+    payload.total_valve_seconds = valveSeconds;
   }
 
   if (commandType === "update_board_config") {
@@ -295,6 +308,12 @@ serve(async (request) => {
     return jsonResponse({ error: "Origin not allowed" }, 403, origin);
   }
 
+  if (!controlCommandIntakeEnabled(Deno.env.get("CONTROL_COMMAND_INTAKE_ENABLED"))) {
+    return jsonResponse({
+      error: "Controller changes are temporarily paused while the production safety release is verified.",
+    }, 503, origin);
+  }
+
   let body: ControlCommandPayload;
   try {
     body = await request.json();
@@ -307,11 +326,20 @@ serve(async (request) => {
   }
 
   const projectId = clean(body.project_id, 80);
-  const deviceId = clean(body.device_id, 200) || null;
+  const deviceId = clean(body.device_id, 200);
+  const clientRequestId = clean(body.client_request_id, 80);
   const commandType = body.command_type;
 
   if (!isUuid(projectId)) {
     return jsonResponse({ error: "Project ID is required" }, 400, origin);
+  }
+
+  if (!deviceId) {
+    return jsonResponse({ error: "Device ID is required" }, 400, origin);
+  }
+
+  if (!isUuid(clientRequestId)) {
+    return jsonResponse({ error: "Client request ID is required" }, 400, origin);
   }
 
   if (!commandType || !commandTypes.has(commandType)) {
@@ -366,41 +394,41 @@ serve(async (request) => {
     return jsonResponse({ error: "Experiment settings access is required for portal controls" }, 403, origin);
   }
 
-  const now = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const { data: command, error: insertError } = await admin
-    .from("project_control_commands")
-    .insert({
-      project_id: projectId,
-      device_id: deviceId,
-      command_type: validated.commandType,
-      payload: validated.payload,
-      requested_by: userData.user.id,
-      expires_at: expiresAt,
-      requires_confirmation: validated.requiresConfirmation,
-      confirmed_at: validated.requiresConfirmation ? now : null,
-    })
-    .select("id, project_id, device_id, command_type, status, requested_at, expires_at, requires_confirmation")
-    .single();
-
-  if (insertError || !command) {
-    return jsonResponse({ error: "Could not queue control command" }, 500, origin);
+  const accessDecision = commandAccessDecision(access.role, validated.commandType);
+  if (!accessDecision.allowed) {
+    return jsonResponse({ error: accessDecision.error }, accessDecision.status, origin);
   }
 
-  await admin
-    .from("project_control_audit")
-    .insert({
-      command_id: command.id,
-      project_id: projectId,
-      device_id: deviceId,
-      action: validated.commandType,
-      actor_id: userData.user.id,
-      status: "queued",
-      details: {
-        payload: validated.payload,
-        requires_confirmation: validated.requiresConfirmation,
-      },
-    });
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const { data: commandRows, error: insertError } = await admin.rpc(
+    "enqueue_portal_control_command",
+    {
+      command_project_id: projectId,
+      command_device_id: deviceId,
+      command_type: validated.commandType,
+      command_payload: validated.payload,
+      command_requested_by: userData.user.id,
+      command_expires_at: expiresAt,
+      command_requires_confirmation: validated.requiresConfirmation,
+      command_confirmed_at: validated.requiresConfirmation ? now : null,
+      command_client_request_id: clientRequestId,
+    },
+  );
+  const command = Array.isArray(commandRows) ? commandRows[0] : commandRows;
+
+  if (insertError || !command) {
+    if (insertError?.message?.includes("already active or cooling down")) {
+      return jsonResponse({ error: "Manual watering is already active or cooling down" }, 409, origin);
+    }
+    if (insertError?.message?.includes("no enabled executor token")) {
+      return jsonResponse({ error: "Device controls are unavailable until an enabled executor token is provisioned" }, 409, origin);
+    }
+    if (insertError?.message?.includes("disabled or quarantined")) {
+      return jsonResponse({ error: "Device controls are quarantined pending state reconciliation" }, 409, origin);
+    }
+    return jsonResponse({ error: "Could not queue control command" }, 500, origin);
+  }
 
   return jsonResponse({
     ok: true,

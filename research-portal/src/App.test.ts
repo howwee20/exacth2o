@@ -1,0 +1,134 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  booleanMarker,
+  healthEvidenceValue,
+  mergeReadings,
+  resolveEffectiveMode,
+  sumKnownCounts,
+  visibleExperimentPairings,
+} from "./portalData";
+import { withSupabaseTimeout } from "./supabaseTimeout";
+import type { PairingRow, SensorReading } from "./types";
+
+function reading(overrides: Partial<SensorReading>): SensorReading {
+  return {
+    id: 1,
+    event_id: "live-device:1",
+    pairing_name: "Pot 41",
+    sensor_key: "sensor-41",
+    raw_value: 100,
+    calibrated_value: 25,
+    temperature: null,
+    electrical_conductivity: null,
+    device_recorded_at: "2026-07-09T12:00:00.000Z",
+    server_received_at: "2026-07-09T12:00:01.000Z",
+    ...overrides,
+  };
+}
+
+function pairing(overrides: Partial<PairingRow>): PairingRow {
+  return {
+    id: 1,
+    name: "Pot 41",
+    zone: 2,
+    pot_number: 41,
+    source_sensor_id: 41,
+    sensor_key: "sensor-41",
+    source_valve_id: 141,
+    valve_key: "valve-41",
+    wtc_percent_limit: 25,
+    valve_open_time_ms: 5000,
+    measurement_interval_ms: 600000,
+    ...overrides,
+  };
+}
+
+describe("portal data mode", () => {
+  it("falls back to the imported snapshot when no fresh live reading exists", () => {
+    expect(resolveEffectiveMode("auto", false)).toBe("snapshot");
+    expect(resolveEffectiveMode("auto", true)).toBe("live");
+  });
+});
+
+describe("reading merge", () => {
+  it("deduplicates by event id and retains the incoming version", () => {
+    const existing = reading({ calibrated_value: 20 });
+    const incoming = reading({ calibrated_value: 26 });
+    const merged = mergeReadings([existing], [incoming]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].calibrated_value).toBe(26);
+  });
+});
+
+describe("diagnostic filtering", () => {
+  it("removes known diagnostic sensor rows without hiding experiment pairings", () => {
+    const visible = pairing({ id: 1 });
+    const diagnostic = pairing({ id: 2, sensor_key: "D30GQN2D:t" });
+
+    expect(visibleExperimentPairings([visible, diagnostic])).toEqual([visible]);
+  });
+});
+
+describe("Supabase timeout", () => {
+  it("aborts the underlying request and returns a stable timeout error", async () => {
+    let aborted = false;
+    const request = (signal: AbortSignal) => new Promise<never>((_resolve, reject) => {
+      signal.addEventListener("abort", () => {
+        aborted = true;
+        reject(new Error("underlying request aborted"));
+      }, { once: true });
+    });
+
+    await expect(withSupabaseTimeout(request, 5, "Readings query")).rejects.toThrow(
+      "Readings query timed out",
+    );
+    expect(aborted).toBe(true);
+  });
+});
+
+describe("compact health evidence", () => {
+  it("keeps missing boolean evidence out of healthy chart markers", () => {
+    expect(booleanMarker(null, 85, 0)).toBeNull();
+    expect(booleanMarker(undefined, 85, 0)).toBeNull();
+    expect(booleanMarker(false, 85, 0)).toBe(0);
+    expect(booleanMarker(true, 85, 0)).toBe(85);
+  });
+
+  it("does not turn unknown stale or missing counts into zero", () => {
+    expect(sumKnownCounts(0, 0)).toBe(0);
+    expect(sumKnownCounts(2, 1)).toBe(3);
+    expect(sumKnownCounts(null, 0)).toBeNull();
+  });
+
+  it("prefers fresh runtime owner evidence over compact snapshot evidence", () => {
+    expect(healthEvidenceValue({
+      snapshotStatus: { throttled_flags: "snapshot" },
+      snapshotHealth: null,
+      runtimeStatus: { throttled_flags: "runtime-status" },
+      runtimeHealth: { ownerStatus: { throttled_flags: "runtime-owner" } },
+      runtimeFresh: true,
+    }, "throttled_flags")).toBe("runtime-owner");
+  });
+
+  it("ignores stale runtime evidence and falls back to snapshot evidence", () => {
+    expect(healthEvidenceValue({
+      snapshotStatus: { undervoltage_occurred: false },
+      snapshotHealth: null,
+      runtimeStatus: { undervoltage_occurred: true },
+      runtimeHealth: null,
+      runtimeFresh: false,
+    }, "undervoltage_occurred")).toBe(false);
+  });
+
+  it("reads fresh top-level runtime health evidence when no owner block exists", () => {
+    expect(healthEvidenceValue({
+      snapshotStatus: null,
+      snapshotHealth: null,
+      runtimeStatus: null,
+      runtimeHealth: { undervoltage_occurred: true },
+      runtimeFresh: true,
+    }, "undervoltage_occurred")).toBe(true);
+  });
+});

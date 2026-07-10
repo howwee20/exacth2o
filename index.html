@@ -491,19 +491,19 @@ footer a:hover { color: var(--accent); }
   <div class="hero-right">
     <div class="hero-slideshow">
       <div class="hero-slide active">
-        <img src="product1.jpg" alt="Greenhouse Installation">
+        <img src="product1.avif" alt="Greenhouse Installation" width="1600" height="1200" decoding="async" fetchpriority="high" onerror="this.onerror=null;this.src='product1.jpg'">
         <div class="slide-title">Greenhouse Installation</div>
       </div>
       <div class="hero-slide">
-        <img src="product2.jpg" alt="Control Panel">
+        <img data-src="product2.avif" data-fallback="product2.jpg" alt="Control Panel" width="1600" height="1200" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=this.dataset.fallback">
         <div class="slide-title">Control Panel</div>
       </div>
       <div class="hero-slide">
-        <img src="product3.jpg" alt="Sensors">
+        <img data-src="product3.avif" data-fallback="product3.jpg" alt="Sensors" width="1200" height="1600" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=this.dataset.fallback">
         <div class="slide-title">Sensors in Pots</div>
       </div>
       <div class="hero-slide">
-        <img src="product4.jpg?v=20260705-real-portal-chart" alt="Data Visualization">
+        <img data-src="product4.avif?v=20260709-avif" data-fallback="product4.jpg?v=20260705-real-portal-chart" alt="Data Visualization" width="1600" height="921" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=this.dataset.fallback">
         <div class="slide-title">Data Visualization</div>
       </div>
     </div>
@@ -533,7 +533,7 @@ footer a:hover { color: var(--accent); }
     <div class="features-grid reveal">
       <div class="feat-card">
         <div class="feat-card-img">
-          <img src="scheduling.jpg?v=20260705-smart-scheduling" alt="Smart Scheduling" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="scheduling.avif?v=20260709-avif" alt="Smart Scheduling" width="1600" height="1200" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='scheduling.jpg'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><circle cx="24" cy="24" r="18"/><path d="M24 12 L24 24 L32 28"/></svg>
           </div>
@@ -544,7 +544,7 @@ footer a:hover { color: var(--accent); }
       </div>
       <div class="feat-card">
         <div class="feat-card-img">
-          <img src="dashboard.jpg?v=20260705-real-portal-chart" alt="Web Dashboard" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="dashboard.avif?v=20260709-avif" alt="Web Dashboard" width="1600" height="921" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='dashboard.jpg'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="8" width="40" height="28" rx="3"/><path d="M16 36 L16 42"/><path d="M32 36 L32 42"/><path d="M10 42 L38 42"/><polyline points="10 26 18 18 24 22 32 14 38 18"/></svg>
           </div>
@@ -555,7 +555,7 @@ footer a:hover { color: var(--accent); }
       </div>
       <div class="feat-card">
         <div class="feat-card-img">
-          <img src="sensor.jpg" alt="Sensor Integration" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="sensor.avif?v=20260709-avif" alt="Sensor Integration" width="1200" height="1600" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='sensor.jpg'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><circle cx="24" cy="16" r="8"/><line x1="24" y1="24" x2="24" y2="44"/><circle cx="24" cy="44" r="3"/></svg>
           </div>
@@ -566,7 +566,7 @@ footer a:hover { color: var(--accent); }
       </div>
       <div class="feat-card">
         <div class="feat-card-img">
-          <img src="scaling.jpg?v=20260707-active-systems-scale" alt="Easy Scaling" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="scaling.avif?v=20260709-avif" alt="Easy Scaling" width="1600" height="1066" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='scaling.jpg'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="14" height="14" rx="2"/><rect x="30" y="4" width="14" height="14" rx="2"/><rect x="4" y="30" width="14" height="14" rx="2"/><rect x="30" y="30" width="14" height="14" rx="2"/><circle cx="24" cy="24" r="4"/></svg>
           </div>
@@ -641,10 +641,18 @@ footer a:hover { color: var(--accent); }
   const heroSlides = document.querySelectorAll('.hero-slide');
   const heroDots = document.querySelectorAll('.slide-dot');
 
+  function loadHeroSlide(index) {
+    const image = heroSlides[index]?.querySelector('img[data-src]');
+    if (!image) return;
+    image.src = image.dataset.src;
+    image.removeAttribute('data-src');
+  }
+
   function goToSlide(n) {
     heroSlides[heroIdx].classList.remove('active');
     heroDots[heroIdx].classList.remove('active');
     heroIdx = (n + heroSlides.length) % heroSlides.length;
+    loadHeroSlide(heroIdx);
     heroSlides[heroIdx].classList.add('active');
     heroDots[heroIdx].classList.add('active');
   }
