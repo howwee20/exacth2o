@@ -56,6 +56,7 @@ import {
   type PortalRole,
 } from "./portalAccess";
 import { withSupabaseTimeout } from "./supabaseTimeout";
+import { reconstructCurrentBootUptime } from "./healthUptime";
 import {
   softwareTermsCompany,
   softwareTermsIntro,
@@ -4242,12 +4243,16 @@ function SystemHealthView({
   onBackHome: () => void;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
-  const records = healthHistoryRecords(snapshot, history);
+  const rawRecords = healthHistoryRecords(snapshot, history);
+  const currentUptime = currentUptimeSeconds(snapshot, runtimeState, rawRecords);
+  const uptimeObservedAt = runtimeStateIsFresh(runtimeState)
+    ? runtimeState?.state_observed_at
+    : snapshot?.captured_at;
+  const records = reconstructCurrentBootUptime(rawRecords, currentUptime, uptimeObservedAt);
   const evidenceRecords = healthRecentRecords(records, 8);
   const restarts = restartEvents(evidenceRecords);
   const allRestarts = restartEvents(records);
   const gaps = monitoringGaps(evidenceRecords, healthNumber(snapshot?.raw_history?.sampleIntervalSeconds) ?? 300);
-  const currentUptime = currentUptimeSeconds(snapshot, runtimeState, records);
   const lastRestart = restarts[restarts.length - 1] ?? null;
   const lastGap = gaps[gaps.length - 1] ?? null;
   const latestRecord = records[records.length - 1] ?? null;

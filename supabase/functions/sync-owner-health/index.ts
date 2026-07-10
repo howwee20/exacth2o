@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { configRefreshDue, configRefreshOutcome } from "./config-refresh-policy.mjs";
+import { uptimeSecondsFromSources } from "./uptime-policy.mjs";
 
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
@@ -1415,7 +1416,7 @@ serve(async (request) => {
     gateway_ping_ms: asNumber(status.gateway_ping_ms),
     undervoltage: asBoolean(status.undervoltage),
     cpu_temp_c: asNumber(status.cpu_temp_c),
-    uptime_seconds: asNumber(status.uptime_seconds),
+    uptime_seconds: uptimeSecondsFromSources(status, health),
     sensors_expected: adjustedHealthCount(asInteger(status.sensors_expected), ignoredSensorCount),
     sensors_current: asInteger(status.sensors_current),
     sensors_stale: adjustedHealthCount(asInteger(status.sensors_stale), ignoredStaleCount),

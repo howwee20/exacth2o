@@ -47,6 +47,7 @@ jobs:
           node --test supabase/functions/accept-invite/invite-role-policy.test.mjs
           node --test supabase/functions/_shared/abuse-prevention.test.mjs
           node --test supabase/functions/sync-owner-health/config-refresh-policy.test.mjs
+          node --test supabase/functions/sync-owner-health/uptime-policy.test.mjs
           npm test --prefix controller-release/control-executor
           npm audit --omit=dev --prefix controller-release/control-executor
           deno check supabase/functions/accept-invite/index.ts

@@ -9,6 +9,7 @@ import {
   visibleExperimentPairings,
 } from "./portalData";
 import { withSupabaseTimeout } from "./supabaseTimeout";
+import { reconstructCurrentBootUptime } from "./healthUptime";
 import type { PairingRow, SensorReading } from "./types";
 
 function reading(overrides: Partial<SensorReading>): SensorReading {
@@ -130,5 +131,38 @@ describe("compact health evidence", () => {
       runtimeHealth: { undervoltage_occurred: true },
       runtimeFresh: true,
     }, "undervoltage_occurred")).toBe(true);
+  });
+});
+
+describe("uptime history", () => {
+  it("reconstructs missing samples only within the currently observed boot", () => {
+    const observedAt = "2026-07-10T02:30:00.000Z";
+    const records = reconstructCurrentBootUptime([
+      { t: "2026-07-10T00:30:00.000Z", uptimeSeconds: null },
+      { t: "2026-07-10T01:30:00.000Z", uptimeSeconds: null },
+      { t: observedAt, uptimeSeconds: null },
+    ], 318 * 60 * 60, observedAt);
+
+    expect(records.map((record) => record.uptimeSeconds)).toEqual([
+      316 * 60 * 60,
+      317 * 60 * 60,
+      318 * 60 * 60,
+    ]);
+  });
+
+  it("preserves observed values and does not infer across the current boot", () => {
+    const records = reconstructCurrentBootUptime([
+      { t: "2026-07-10T00:00:00.000Z", uptimeSeconds: null },
+      { t: "2026-07-10T01:45:00.000Z", uptimeSeconds: 875 },
+      { t: "2026-07-10T02:00:00.000Z", uptimeSeconds: null },
+      { t: "2026-07-10T02:05:00.000Z", uptimeSeconds: null },
+    ], 30 * 60, "2026-07-10T02:00:00.000Z");
+
+    expect(records.map((record) => record.uptimeSeconds)).toEqual([
+      null,
+      875,
+      1800,
+      null,
+    ]);
   });
 });
