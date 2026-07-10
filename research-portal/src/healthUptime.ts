@@ -45,3 +45,47 @@ export function reconstructCurrentBootUptime<T extends UptimeHistoryRecord>(
     };
   });
 }
+
+export type RestartOutagePresentation = {
+  detail: string;
+  badge: "Not synced" | "Review" | "Recovered" | "Stable";
+  badgeTone: "ok" | "warning" | "unknown";
+};
+
+/**
+ * Summarizes restart/outage evidence without presenting a resolved monitoring
+ * gap as an active incident. Restarts still require review; a gap with newer
+ * synchronized evidence is historical and therefore recovered.
+ */
+export function restartOutagePresentation(
+  evidenceKnown: boolean,
+  restartCount: number,
+  gapCount: number,
+): RestartOutagePresentation {
+  if (!evidenceKnown) {
+    return {
+      detail: "Not enough synchronized history to evaluate restarts or outages.",
+      badge: "Not synced",
+      badgeTone: "unknown",
+    };
+  }
+  if (restartCount > 0) {
+    return {
+      detail: "Restart detected in the synchronized window.",
+      badge: "Review",
+      badgeTone: "warning",
+    };
+  }
+  if (gapCount > 0) {
+    return {
+      detail: "Monitoring gap recovered; the controller is reporting again.",
+      badge: "Recovered",
+      badgeTone: "ok",
+    };
+  }
+  return {
+    detail: "No reset or outage in the synchronized window.",
+    badge: "Stable",
+    badgeTone: "ok",
+  };
+}

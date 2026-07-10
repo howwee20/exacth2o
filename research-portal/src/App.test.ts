@@ -9,7 +9,7 @@ import {
   visibleExperimentPairings,
 } from "./portalData";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import { reconstructCurrentBootUptime } from "./healthUptime";
+import { reconstructCurrentBootUptime, restartOutagePresentation } from "./healthUptime";
 import type { PairingRow, SensorReading } from "./types";
 
 function reading(overrides: Partial<SensorReading>): SensorReading {
@@ -135,6 +135,21 @@ describe("compact health evidence", () => {
 });
 
 describe("uptime history", () => {
+  it("shows a resolved monitoring gap as recovered instead of requiring review", () => {
+    expect(restartOutagePresentation(true, 0, 1)).toEqual({
+      detail: "Monitoring gap recovered; the controller is reporting again.",
+      badge: "Recovered",
+      badgeTone: "ok",
+    });
+  });
+
+  it("continues to flag an observed restart for review", () => {
+    expect(restartOutagePresentation(true, 1, 0)).toMatchObject({
+      badge: "Review",
+      badgeTone: "warning",
+    });
+  });
+
   it("reconstructs missing samples only within the currently observed boot", () => {
     const observedAt = "2026-07-10T02:30:00.000Z";
     const records = reconstructCurrentBootUptime([

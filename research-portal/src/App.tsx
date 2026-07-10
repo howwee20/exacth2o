@@ -55,7 +55,7 @@ import {
   type PortalRole,
 } from "./portalAccess";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import { reconstructCurrentBootUptime } from "./healthUptime";
+import { reconstructCurrentBootUptime, restartOutagePresentation } from "./healthUptime";
 import {
   softwareTermsCompany,
   softwareTermsIntro,
@@ -3969,7 +3969,9 @@ function HealthWateringChart({
   onSelectDetail?: (detail: HealthSelectedDetail) => void;
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
-  const width = 760;
+  // A wider viewBox prevents the row chart from ballooning vertically on wide
+  // desktop canvases while leaving the VWC chart geometry entirely untouched.
+  const width = 1040;
   const pairingIndex = useMemo(() => buildWateringPairingIndex(pairings), [pairings]);
   const rowLabels = useMemo(() => {
     return pairings.map((pairing) => ({
@@ -4067,7 +4069,7 @@ function HealthWateringChart({
               key={`${event.id ?? event.t}-${label}-${event.t}`}
               cx={xFor(time)}
               cy={yFor(label)}
-              r={4.8}
+              r={4.4}
               className={`watering-event-dot is-${treatment}`}
               role="button"
               tabIndex={0}
@@ -4183,7 +4185,11 @@ function SystemHealthView({
   const expectedSensors = snapshot?.sensors_expected ?? null;
   const staleMissing = sumKnownCounts(snapshot?.sensors_stale, snapshot?.sensors_missing);
   const restartEvidenceKnown = records.length >= 2 && currentUptime != null;
-  const restartOrGapDetected = restarts.length > 0 || gaps.length > 0;
+  const restartOutageStatus = restartOutagePresentation(
+    restartEvidenceKnown,
+    restarts.length,
+    gaps.length,
+  );
   const ethernetLink = snapshot?.ethernet_link ?? null;
   const sensorEvidenceKnown = currentSensors != null && expectedSensors != null && staleMissing != null;
 
@@ -4207,13 +4213,9 @@ function SystemHealthView({
 
       <HealthPanel
         title="Restart / Outage Evidence"
-        detail={!restartEvidenceKnown
-          ? "Not enough synchronized history to evaluate restarts or outages."
-          : restartOrGapDetected
-            ? "Restart or gap detected."
-            : "No reset or outage in the synchronized window."}
-        badge={!restartEvidenceKnown ? "Not synced" : restartOrGapDetected ? "Review" : "Stable"}
-        badgeTone={!restartEvidenceKnown ? "unknown" : restartOrGapDetected ? "warning" : "ok"}
+        detail={restartOutageStatus.detail}
+        badge={restartOutageStatus.badge}
+        badgeTone={restartOutageStatus.badgeTone}
       >
         <div className="health-mini-grid is-five">
           <HealthMiniFact label="Now" value={currentUptime == null ? "Not synced" : `up; ${healthDurationText(currentUptime)}`} />

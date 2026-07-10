@@ -2578,6 +2578,36 @@ select {
   min-height: 420px;
 }
 
+.research-watering-activity .health-chart-grid,
+.research-watering-activity .health-chart-axis,
+.research-watering-activity .watering-event-dot {
+  vector-effect: non-scaling-stroke;
+}
+
+.research-watering-activity .watering-event-dot {
+  fill: rgba(37, 99, 235, 0.1);
+  transition: fill 140ms ease, stroke-width 140ms ease;
+}
+
+.research-watering-activity .watering-event-dot.is-drought {
+  fill: rgba(249, 115, 22, 0.1);
+}
+
+.research-watering-activity .watering-event-dot.is-unknown {
+  fill: rgba(100, 116, 139, 0.1);
+}
+
+.research-watering-activity .watering-event-dot:hover,
+.research-watering-activity .watering-event-dot:focus-visible {
+  fill: rgba(37, 99, 235, 0.22);
+  stroke-width: 3.2;
+}
+
+.research-watering-activity .watering-event-dot.is-drought:hover,
+.research-watering-activity .watering-event-dot.is-drought:focus-visible {
+  fill: rgba(249, 115, 22, 0.22);
+}
+
 .research-watering-list {
   margin-top: 0;
 }
