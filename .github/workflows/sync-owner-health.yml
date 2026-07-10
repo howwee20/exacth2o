@@ -2,7 +2,7 @@ name: Sync owner health
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -18,7 +18,12 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --show-error --silent \
+            --connect-timeout 10 \
+            --max-time 35 \
+            --retry 2 \
+            --retry-all-errors \
             --request POST \
             --header "x-sync-owner-health-secret: ${SYNC_OWNER_HEALTH_SECRET}" \
             --header "content-type: application/json" \
+            --data '{"source":"github_actions_watchdog"}' \
             "https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/sync-owner-health"
