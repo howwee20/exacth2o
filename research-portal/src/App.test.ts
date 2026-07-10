@@ -9,7 +9,11 @@ import {
   visibleExperimentPairings,
 } from "./portalData";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import { reconstructCurrentBootUptime, restartOutagePresentation } from "./healthUptime";
+import {
+  advanceCurrentBootUptime,
+  reconstructCurrentBootUptime,
+  restartOutagePresentation,
+} from "./healthUptime";
 import type { PairingRow, SensorReading } from "./types";
 
 function reading(overrides: Partial<SensorReading>): SensorReading {
@@ -148,6 +152,22 @@ describe("uptime history", () => {
       badge: "Review",
       badgeTone: "warning",
     });
+  });
+
+  it("shows a restart as recovered once fresh healthy telemetry resumes", () => {
+    expect(restartOutagePresentation(true, 1, 1, true)).toEqual({
+      detail: "Restart recorded; telemetry recovered and the controller is reporting again.",
+      badge: "Recovered",
+      badgeTone: "ok",
+    });
+  });
+
+  it("advances fresh uptime between synchronized observations", () => {
+    expect(advanceCurrentBootUptime(
+      600,
+      "2026-07-10T15:00:00.000Z",
+      "2026-07-10T15:01:30.000Z",
+    )).toBe(690);
   });
 
   it("reconstructs missing samples only within the currently observed boot", () => {

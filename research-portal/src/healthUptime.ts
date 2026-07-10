@@ -46,6 +46,25 @@ export function reconstructCurrentBootUptime<T extends UptimeHistoryRecord>(
   });
 }
 
+/**
+ * Advances a synchronized uptime observation using the browser clock.
+ *
+ * Callers must only use the result while the source observation is still
+ * fresh. This keeps the visible uptime moving between controller publishes
+ * without pretending that an expired device observation is current.
+ */
+export function advanceCurrentBootUptime(
+  uptimeSeconds: unknown,
+  observedAt: unknown,
+  now: unknown,
+): number | null {
+  const uptime = finiteNonnegativeNumber(uptimeSeconds);
+  const observedAtMs = timestampMs(observedAt);
+  const nowMs = typeof now === "number" && Number.isFinite(now) ? now : timestampMs(now);
+  if (uptime == null || observedAtMs == null || nowMs == null) return uptime;
+  return uptime + Math.max(0, nowMs - observedAtMs) / 1000;
+}
+
 export type RestartOutagePresentation = {
   detail: string;
   badge: "Not synced" | "Review" | "Recovered" | "Stable";
@@ -61,6 +80,7 @@ export function restartOutagePresentation(
   evidenceKnown: boolean,
   restartCount: number,
   gapCount: number,
+  reportingHealthy = false,
 ): RestartOutagePresentation {
   if (!evidenceKnown) {
     return {
@@ -70,6 +90,13 @@ export function restartOutagePresentation(
     };
   }
   if (restartCount > 0) {
+    if (reportingHealthy) {
+      return {
+        detail: "Restart recorded; telemetry recovered and the controller is reporting again.",
+        badge: "Recovered",
+        badgeTone: "ok",
+      };
+    }
     return {
       detail: "Restart detected in the synchronized window.",
       badge: "Review",

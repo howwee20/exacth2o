@@ -55,7 +55,11 @@ import {
   type PortalRole,
 } from "./portalAccess";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import { reconstructCurrentBootUptime, restartOutagePresentation } from "./healthUptime";
+import {
+  advanceCurrentBootUptime,
+  reconstructCurrentBootUptime,
+  restartOutagePresentation,
+} from "./healthUptime";
 import {
   softwareTermsCompany,
   softwareTermsIntro,
@@ -3357,6 +3361,59 @@ function currentUptimeSeconds(
   );
 }
 
+function currentHealthObservation(
+  snapshot: DeviceHealthSnapshot | null,
+  runtimeState: DeviceRuntimeState | null,
+  uptimeSeconds: number | null,
+): HealthHistoryRecord | null {
+  if (!runtimeStateIsFresh(runtimeState) || !runtimeState?.state_observed_at) return null;
+  const staleOrMissingSensors = sumKnownCounts(
+    runtimeState.sensors_stale ?? snapshot?.sensors_stale,
+    runtimeState.sensors_missing ?? snapshot?.sensors_missing,
+  );
+  return {
+    t: runtimeState.state_observed_at,
+    uptimeSeconds,
+    ethUp:
+      healthBoolean(healthOwnerValue(snapshot, runtimeState, "ethernet_link")) ??
+      snapshot?.ethernet_link ??
+      null,
+    cpuTempC:
+      healthNumber(healthOwnerValue(snapshot, runtimeState, "cpu_temp_c")) ??
+      snapshot?.cpu_temp_c ??
+      null,
+    undervoltage:
+      healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_current")) ??
+      snapshot?.undervoltage ??
+      null,
+    undervoltageOccurred: healthBoolean(
+      healthOwnerValue(snapshot, runtimeState, "undervoltage_occurred"),
+    ),
+    staleOrMissingSensors,
+    sensorRows: runtimeState.sensors_current ?? snapshot?.sensors_current ?? null,
+  };
+}
+
+function mergeHealthObservation(
+  records: HealthHistoryRecord[],
+  observation: HealthHistoryRecord | null,
+) {
+  if (!observation || healthTimestampMs(observation.t) == null) return records;
+  const byTimestamp = new Map<number, HealthHistoryRecord>();
+  records.forEach((record) => {
+    const timestamp = healthTimestampMs(record.t);
+    if (timestamp != null) byTimestamp.set(timestamp, record);
+  });
+  const observationTimestamp = healthTimestampMs(observation.t) as number;
+  byTimestamp.set(observationTimestamp, {
+    ...(byTimestamp.get(observationTimestamp) ?? {}),
+    ...observation,
+  });
+  return Array.from(byTimestamp.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([, record]) => record);
+}
+
 function restartEvents(records: HealthHistoryRecord[]) {
   const events: Array<{ t: string; detectedAt: string; previous: string; uptimeSeconds: number; previousUptimeSeconds: number }> = [];
   let previous: HealthHistoryRecord | null = null;
@@ -4165,32 +4222,76 @@ function SystemHealthView({
   onBackHome: () => void;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<HealthSelectedDetail | null>(null);
+  const [clockNowMs, setClockNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setClockNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const rawRecords = healthHistoryRecords(snapshot, history);
-  const currentUptime = currentUptimeSeconds(snapshot, runtimeState, rawRecords);
-  const uptimeObservedAt = runtimeStateIsFresh(runtimeState)
+  const synchronizedUptime = currentUptimeSeconds(snapshot, runtimeState, rawRecords);
+  const runtimeFresh = runtimeStateIsFresh(runtimeState);
+  const uptimeObservedAt = runtimeFresh
     ? runtimeState?.state_observed_at
     : snapshot?.captured_at;
-  const records = reconstructCurrentBootUptime(rawRecords, currentUptime, uptimeObservedAt);
+  const currentUptime = runtimeFresh
+    ? advanceCurrentBootUptime(synchronizedUptime, uptimeObservedAt, clockNowMs)
+    : synchronizedUptime;
+  const reconstructedRecords = reconstructCurrentBootUptime(
+    rawRecords,
+    synchronizedUptime,
+    uptimeObservedAt,
+  );
+  const records = mergeHealthObservation(
+    reconstructedRecords,
+    currentHealthObservation(snapshot, runtimeState, synchronizedUptime),
+  );
   const evidenceRecords = healthRecentRecords(records, 8);
   const restarts = restartEvents(evidenceRecords);
   const allRestarts = restartEvents(records);
   const gaps = monitoringGaps(evidenceRecords, healthNumber(snapshot?.raw_history?.sampleIntervalSeconds) ?? 300);
   const lastRestart = restarts[restarts.length - 1] ?? null;
   const lastGap = gaps[gaps.length - 1] ?? null;
+  const currentBootStartMs = healthTimestampMs(lastRestart?.t);
+  let uptimeChartRecords = currentBootStartMs == null
+    ? records
+    : records.filter((record) => (healthTimestampMs(record.t) ?? 0) >= currentBootStartMs);
+  if (lastRestart) {
+    uptimeChartRecords = mergeHealthObservation(uptimeChartRecords, {
+      t: lastRestart.t,
+      uptimeSeconds: 0,
+    });
+  }
+  if (runtimeFresh && currentUptime != null) {
+    uptimeChartRecords = mergeHealthObservation(uptimeChartRecords, {
+      t: new Date(clockNowMs).toISOString(),
+      uptimeSeconds: currentUptime,
+    });
+  }
   const latestRecord = records[records.length - 1] ?? null;
   const undervoltageCurrent = healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_current")) ?? snapshot?.undervoltage ?? null;
   const undervoltageOccurred = healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_occurred"));
   const throttleFlags = healthString(healthOwnerValue(snapshot, runtimeState, "throttled_flags"));
-  const currentSensors = snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
-  const expectedSensors = snapshot?.sensors_expected ?? null;
-  const staleMissing = sumKnownCounts(snapshot?.sensors_stale, snapshot?.sensors_missing);
+  const currentCpuTemp = healthNumber(healthOwnerValue(snapshot, runtimeState, "cpu_temp_c")) ?? snapshot?.cpu_temp_c ?? null;
+  const ethernetLink = healthBoolean(healthOwnerValue(snapshot, runtimeState, "ethernet_link")) ?? snapshot?.ethernet_link ?? null;
+  const ethernetIp = healthString(healthOwnerValue(snapshot, runtimeState, "ethernet_ip")) ?? snapshot?.ethernet_ip ?? null;
+  const gatewayPingMs = healthNumber(healthOwnerValue(snapshot, runtimeState, "gateway_ping_ms")) ?? snapshot?.gateway_ping_ms ?? null;
+  const currentSensors = (runtimeFresh ? runtimeState?.sensors_current : null) ?? snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
+  const expectedSensors = (runtimeFresh ? runtimeState?.sensors_expected : null) ?? snapshot?.sensors_expected ?? null;
+  const staleMissing = sumKnownCounts(
+    (runtimeFresh ? runtimeState?.sensors_stale : null) ?? snapshot?.sensors_stale,
+    (runtimeFresh ? runtimeState?.sensors_missing : null) ?? snapshot?.sensors_missing,
+  );
+  const lastSensorReadingAt = (runtimeFresh ? runtimeState?.last_sensor_reading_at : null) ?? snapshot?.last_sensor_reading_at ?? null;
   const restartEvidenceKnown = records.length >= 2 && currentUptime != null;
+  const reportingHealthy = runtimeFresh && runtimeState?.pi_online === true && runtimeState.api_status?.toUpperCase() === "OK";
   const restartOutageStatus = restartOutagePresentation(
     restartEvidenceKnown,
     restarts.length,
     gaps.length,
+    reportingHealthy,
   );
-  const ethernetLink = snapshot?.ethernet_link ?? null;
   const sensorEvidenceKnown = currentSensors != null && expectedSensors != null && staleMissing != null;
 
   return (
@@ -4219,9 +4320,9 @@ function SystemHealthView({
       >
         <div className="health-mini-grid is-five">
           <HealthMiniFact label="Now" value={currentUptime == null ? "Not synced" : `up; ${healthDurationText(currentUptime)}`} />
-          <HealthMiniFact label="Restarts shown" value={restartEvidenceKnown ? String(restarts.length) : "Not synced"} />
           <HealthMiniFact label="Latest restart" value={!restartEvidenceKnown ? "Not synced" : lastRestart ? formatSettingsTimestamp(lastRestart.t) : "none detected"} />
-          <HealthMiniFact label="Latest outage" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.end) : "none detected"} />
+          <HealthMiniFact label="Telemetry stopped" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.start) : "none detected"} />
+          <HealthMiniFact label="Service restored" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.end) : "none detected"} />
           <HealthMiniFact label="Outage duration" value={!restartEvidenceKnown ? "Not synced" : lastGap ? healthCompactDuration(lastGap.durationMs) : "none detected"} />
         </div>
         <HealthTrendChart
@@ -4229,9 +4330,9 @@ function SystemHealthView({
           onSelectDetail={setSelectedDetail}
           series={[
             {
-              label: "Host uptime minutes",
+              label: "Current boot uptime",
               tone: "primary",
-              points: records.map((record) => {
+              points: uptimeChartRecords.map((record) => {
                 const point = healthChartPoint(record, "uptimeSeconds");
                 return { ...point, value: point.value == null ? null : point.value / 60 };
               }),
@@ -4239,18 +4340,19 @@ function SystemHealthView({
             {
               label: "Restart detected",
               tone: "danger",
-              points: allRestarts.map((restart) => ({
+              points: restarts.map((restart) => ({
                 t: healthTimestampMs(restart.t) ?? Date.now(),
                 iso: restart.t,
                 value: 0,
               })),
             },
             {
-              label: "Connectivity down",
+              label: "Observed telemetry gap",
               tone: "warning",
-              points: records
-                .filter((record) => healthBoolean(record.ethUp) === false)
-                .map((record) => healthChartPoint(record, "ethUp", 0)),
+              points: gaps.flatMap((gap) => [
+                { t: healthTimestampMs(gap.start) ?? Date.now(), iso: gap.start, value: 0 },
+                { t: healthTimestampMs(gap.end) ?? Date.now(), iso: gap.end, value: 0 },
+              ]),
             },
           ]}
         />
@@ -4259,12 +4361,12 @@ function SystemHealthView({
       <div className="health-evidence-grid">
         <HealthPanel
           title="Power Evidence"
-          detail={`${formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")} now; undervoltage ${formatHealthBoolean(undervoltageCurrent, "on", "off")}.`}
-          badge={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")}
+          detail={`${formatHealthNumber(currentCpuTemp, 1, " C")} now; undervoltage ${formatHealthBoolean(undervoltageCurrent, "on", "off")}.`}
+          badge={formatHealthNumber(currentCpuTemp, 1, " C")}
           badgeTone={undervoltageCurrent == null ? "unknown" : undervoltageCurrent ? "warning" : "ok"}
         >
           <div className="health-mini-grid">
-            <HealthMiniFact label="CPU temp" value={formatHealthNumber(snapshot?.cpu_temp_c, 1, " C")} />
+            <HealthMiniFact label="CPU temp" value={formatHealthNumber(currentCpuTemp, 1, " C")} />
             <HealthMiniFact label="Current undervoltage" value={formatHealthBoolean(undervoltageCurrent)} />
             <HealthMiniFact label="Since boot" value={formatHealthBoolean(undervoltageOccurred)} />
             <HealthMiniFact label="Throttle flags" value={throttleFlags ?? "Not synced"} />
@@ -4309,14 +4411,14 @@ function SystemHealthView({
           title="Ethernet Link"
           detail={ethernetLink == null
             ? "Ethernet state has not been synchronized."
-            : `${snapshot?.ethernet_ip ?? "No IP reported"}; gateway ${formatHealthNumber(snapshot?.gateway_ping_ms, 3, " ms")}.`}
+            : `${ethernetIp ?? "No IP reported"}; gateway ${formatHealthNumber(gatewayPingMs, 3, " ms")}.`}
           badge={formatHealthBoolean(ethernetLink, "Link up", "Link down")}
           badgeTone={ethernetLink == null ? "unknown" : ethernetLink ? "ok" : "bad"}
         >
           <div className="health-mini-grid">
             <HealthMiniFact label="Ethernet link" value={formatHealthBoolean(ethernetLink, "up", "down")} />
             <HealthMiniFact label="Speed" value="Not synced" />
-            <HealthMiniFact label="Gateway ping" value={formatHealthNumber(snapshot?.gateway_ping_ms, 3, " ms")} />
+            <HealthMiniFact label="Gateway ping" value={formatHealthNumber(gatewayPingMs, 3, " ms")} />
           </div>
           <HealthTrendChart
             yTitle="Ethernet link"
@@ -4338,14 +4440,14 @@ function SystemHealthView({
 
       <HealthPanel
         title="Sensor Freshness"
-        detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} current; latest read ${healthDateWithAge(snapshot?.last_sensor_reading_at)}.`}
+        detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} current; latest read ${healthDateWithAge(lastSensorReadingAt)}.`}
         badge={!sensorEvidenceKnown
           ? "Not synced"
           : `${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)} ${staleMissing > 0 ? "Review" : "OK"}`}
         badgeTone={!sensorEvidenceKnown ? "unknown" : staleMissing > 0 ? "warning" : "ok"}
       >
         <div className="health-mini-grid">
-          <HealthMiniFact label="Last Matt read" value={healthDateWithAge(snapshot?.last_sensor_reading_at)} />
+          <HealthMiniFact label="Last Matt read" value={healthDateWithAge(lastSensorReadingAt)} />
           <HealthMiniFact label="Current" value={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)}`} />
           <HealthMiniFact label="Stale/missing" value={formatHealthInteger(staleMissing)} />
           <HealthMiniFact label="Node2" value="Not synced" />
