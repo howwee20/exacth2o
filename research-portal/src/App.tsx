@@ -36,6 +36,10 @@ import {
 } from "lucide-react";
 import { supabase } from "./supabase";
 import {
+  expiredPortalSessionNotice,
+  isSessionAuthorizationError,
+} from "./authSession";
+import {
   booleanMarker,
   dedupeReadings,
   healthEvidenceValue,
@@ -1047,6 +1051,7 @@ function incrementalReadingCursor(readings: SensorReading[]) {
 }
 
 function errorMessage(error: unknown) {
+  if (isSessionAuthorizationError(error)) return expiredPortalSessionNotice;
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string") return error;
   if (error && typeof error === "object" && "message" in error) {
@@ -4857,6 +4862,7 @@ export default function App() {
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [sessionRevision, setSessionRevision] = useState(0);
   const [loading, setLoading] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
@@ -4899,6 +4905,7 @@ export default function App() {
   const refreshInFlightRef = useRef(false);
   const pendingRefreshRef = useRef<RefreshOptions | null>(null);
   const realtimeRefreshInFlightRef = useRef(false);
+  const authRecoveryInFlightRef = useRef<Promise<boolean> | null>(null);
   const watchdogRefreshCountRef = useRef(0);
   const controlRequestIdsRef = useRef(new Map<string, { id: string; createdAt: number }>());
   const dashboardMainRef = useRef<HTMLElement | null>(null);
@@ -4986,38 +4993,68 @@ export default function App() {
     setPortalView(nextView);
   }, []);
 
+  const expirePortalSession = useCallback(() => {
+    setError(null);
+    setLoginError(null);
+    setAuthNotice(expiredPortalSessionNotice);
+    setSessionReady(false);
+  }, []);
+
+  const recoverPortalSession = useCallback(async () => {
+    if (authRecoveryInFlightRef.current) return authRecoveryInFlightRef.current;
+
+    const recovery = (async () => {
+      const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !sessionData.session) {
+        await supabase.auth.signOut({ scope: "local" });
+        expirePortalSession();
+        return false;
+      }
+      setSessionReady(true);
+      return true;
+    })();
+
+    authRecoveryInFlightRef.current = recovery;
+    try {
+      return await recovery;
+    } finally {
+      authRecoveryInFlightRef.current = null;
+    }
+  }, [expirePortalSession]);
+
   const loadPortalAccess = useCallback(async () => {
     setAccessLoading(true);
-    let userId: string | null = null;
     try {
-      const userResponse = await withSupabaseTimeout(
-        supabase.auth.getUser(),
-        portalAccessTimeoutMs,
-        "Portal session",
-      );
-      userId = userResponse.data.user?.id ?? null;
+      const queryAccess = async () => {
+        const userResponse = await withSupabaseTimeout(
+          supabase.auth.getUser(),
+          portalAccessTimeoutMs,
+          "Portal session",
+        );
+        if (userResponse.error) throw userResponse.error;
+        const userId = userResponse.data.user?.id ?? null;
+        if (!userId) throw { status: 401, message: "Portal session is unavailable" };
 
-      if (userResponse.error || !userId) {
-        setPortalAccess(null);
-        setPortalView("experiment");
-        return;
-      }
+        const response = await withSupabaseTimeout(
+          supabase
+            .from("portal_access")
+            .select("role, email")
+            .eq("project_id", mattProjectId)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          portalAccessTimeoutMs,
+          "Portal access",
+        );
+        if (response.error) throw response.error;
+        return response;
+      };
 
-      const response = await withSupabaseTimeout(
-        supabase
-          .from("portal_access")
-          .select("role, email")
-          .eq("project_id", mattProjectId)
-          .eq("user_id", userId)
-          .maybeSingle(),
-        portalAccessTimeoutMs,
-        "Portal access",
-      );
-
-      if (response.error) {
-        setPortalAccess(null);
-        setPortalView("experiment");
-        return;
+      let response;
+      try {
+        response = await queryAccess();
+      } catch (err) {
+        if (!isSessionAuthorizationError(err) || !(await recoverPortalSession())) throw err;
+        response = await queryAccess();
       }
 
       const role = parsePortalRole(response.data?.role);
@@ -5032,13 +5069,17 @@ export default function App() {
       };
       setPortalAccess(access);
       setPortalView(role === "admin" ? "home" : "experiment");
-    } catch {
+    } catch (err) {
+      if (isSessionAuthorizationError(err)) {
+        expirePortalSession();
+        return;
+      }
       setPortalAccess(null);
       setPortalView("experiment");
     } finally {
       setAccessLoading(false);
     }
-  }, []);
+  }, [expirePortalSession, recoverPortalSession]);
 
   const loadHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!isAdmin) return;
@@ -5220,45 +5261,53 @@ export default function App() {
       setError(null);
       setLoading(!incremental || dataRef.current.readings.length === 0);
       try {
-        const [
-          pairings,
-          latestState,
-          liveAvailability,
-        ] = await Promise.all([
-          withSupabaseTimeout(
-            supabase.from("pairings").select("*").limit(1000),
-            supabaseQueryTimeoutMs,
-            "Pairings",
-          ),
-          withSupabaseTimeout(
-            supabase
-              .from("latest_device_state")
-              .select("*")
-              .eq("device_id", mattDeviceId)
-              .limit(1)
-              .maybeSingle(),
-            supabaseQueryTimeoutMs,
-            "Latest device state",
-          ),
-          selectedMode === "auto"
-            ? withSupabaseTimeout(
-              supabase
-                .from("sensor_readings")
-                .select("id, server_received_at")
-                .eq("project_id", mattProjectId)
-                .eq("device_id", mattDeviceId)
-                .like("event_id", livePrefix)
-                .gte("server_received_at", new Date(Date.now() - staleAfterMs).toISOString())
-                .limit(1),
+        const loadCoreData = async () => {
+          const results = await Promise.all([
+            withSupabaseTimeout(
+              supabase.from("pairings").select("*").limit(1000),
               supabaseQueryTimeoutMs,
-              "Live reading availability",
-            )
-            : Promise.resolve({ data: null, error: null }),
-        ]);
+              "Pairings",
+            ),
+            withSupabaseTimeout(
+              supabase
+                .from("latest_device_state")
+                .select("*")
+                .eq("device_id", mattDeviceId)
+                .limit(1)
+                .maybeSingle(),
+              supabaseQueryTimeoutMs,
+              "Latest device state",
+            ),
+            selectedMode === "auto"
+              ? withSupabaseTimeout(
+                supabase
+                  .from("sensor_readings")
+                  .select("id, server_received_at")
+                  .eq("project_id", mattProjectId)
+                  .eq("device_id", mattDeviceId)
+                  .like("event_id", livePrefix)
+                  .gte("server_received_at", new Date(Date.now() - staleAfterMs).toISOString())
+                  .limit(1),
+                supabaseQueryTimeoutMs,
+                "Live reading availability",
+              )
+              : Promise.resolve({ data: null, error: null }),
+          ]);
 
-        for (const result of [pairings, latestState, liveAvailability]) {
-          if (result.error) throw result.error;
+          for (const result of results) {
+            if (result.error) throw result.error;
+          }
+          return results;
+        };
+
+        let coreData;
+        try {
+          coreData = await loadCoreData();
+        } catch (err) {
+          if (!isSessionAuthorizationError(err) || !(await recoverPortalSession())) throw err;
+          coreData = await loadCoreData();
         }
+        const [pairings, latestState, liveAvailability] = coreData;
 
         const previous = dataRef.current;
         const effectiveMode = resolveEffectiveMode(selectedMode, Boolean(liveAvailability.data?.length));
@@ -5310,6 +5359,10 @@ export default function App() {
         await fetchReadingsForMode(effectiveMode, newerThan, applyReadingsBatch);
       } catch (err) {
         if (token === loadTokenRef.current) {
+          if (isSessionAuthorizationError(err)) {
+            expirePortalSession();
+            return;
+          }
           setError(errorMessage(err));
         }
       } finally {
@@ -5318,7 +5371,7 @@ export default function App() {
         }
       }
     },
-    [selectedMode],
+    [expirePortalSession, recoverPortalSession, selectedMode],
   );
 
   const refreshLatestReadings = useCallback(async () => {
@@ -5881,16 +5934,56 @@ export default function App() {
       setEmail(rememberedEmail);
       setRememberDevice(true);
     }
-    supabase.auth.getSession().then(({ data: sessionData }) => {
-      if (authMode === "set-password" || authMode === "accept-invite") return;
+
+    let active = true;
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active || authMode === "set-password" || authMode === "accept-invite") return;
+      setSessionReady(Boolean(session));
+      if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        setSessionRevision((current) => current + 1);
+      }
+    });
+
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (!active || authMode === "set-password" || authMode === "accept-invite") return;
       setSessionReady(Boolean(sessionData.session));
     });
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
   }, [authMode]);
 
   useEffect(() => {
-    if (!sessionReady) return;
+    if (!sessionReady) return undefined;
+
+    const validateVisibleSession = () => {
+      if (document.visibilityState !== "visible" || !navigator.onLine) return;
+      void supabase.auth.getSession().then(({ data: sessionData, error: sessionError }) => {
+        if (sessionError || !sessionData.session) {
+          expirePortalSession();
+          return;
+        }
+        const expiresAtMs = (sessionData.session.expires_at ?? 0) * 1000;
+        if (expiresAtMs <= Date.now() + 60_000) {
+          void recoverPortalSession();
+        }
+      });
+    };
+
+    document.addEventListener("visibilitychange", validateVisibleSession);
+    window.addEventListener("online", validateVisibleSession);
+    return () => {
+      document.removeEventListener("visibilitychange", validateVisibleSession);
+      window.removeEventListener("online", validateVisibleSession);
+    };
+  }, [expirePortalSession, recoverPortalSession, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !canReadProjectData) return;
     void refresh({ incremental: false });
-  }, [sessionReady, selectedMode, refresh]);
+  }, [canReadProjectData, refresh, selectedMode, sessionReady, sessionRevision]);
 
   useEffect(() => {
     if (!sessionReady) {
@@ -5904,6 +5997,9 @@ export default function App() {
       setConfigState(null);
       setValveEvents([]);
       setSalesSupportData(initialSalesSupportData);
+      setData(initialLoadState);
+      dataRef.current = initialLoadState;
+      valveEventsRef.current = [];
       return;
     }
     void loadPortalAccess();
@@ -5962,7 +6058,7 @@ export default function App() {
   }, [isAdmin, loadSalesSupport, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady) return undefined;
+    if (!sessionReady || !canReadProjectData) return undefined;
     const intervalId = window.setInterval(() => {
       watchdogRefreshCountRef.current += 1;
       const fullReconciliation =
@@ -5970,10 +6066,10 @@ export default function App() {
       void refresh({ incremental: !fullReconciliation });
     }, autoRefreshMs);
     return () => window.clearInterval(intervalId);
-  }, [sessionReady, refresh]);
+  }, [canReadProjectData, refresh, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady) return undefined;
+    if (!sessionReady || !canReadProjectData) return undefined;
 
     const shouldApplyReading = (reading: Partial<SensorReading> | null | undefined) => {
       if (!reading || isIgnoredDiagnosticReading(reading)) return false;
@@ -6048,7 +6144,7 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [refresh, sessionReady, selectedMode]);
+  }, [canReadProjectData, refresh, sessionReady, selectedMode]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
