@@ -2612,6 +2612,20 @@ select {
   margin-top: 0;
 }
 
+.research-watering-list .health-event-row {
+  font-family: var(--portal-mono);
+  letter-spacing: 0.01em;
+}
+
+.research-watering-list .health-event-row strong {
+  font-weight: 500;
+}
+
+.research-watering-list .health-event-row span,
+.research-watering-list .health-event-row em {
+  font-weight: 400;
+}
+
 .chart-panel-main .canvas-chart {
   min-height: calc(100vh - 148px);
 }
@@ -2729,6 +2743,42 @@ select {
   width: 100%;
   height: 100%;
   cursor: crosshair;
+}
+
+.watering-overlay-legend {
+  position: absolute;
+  top: 14px;
+  left: 78px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #dfe5ee;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+  color: #64748b;
+  font-family: var(--portal-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+.watering-overlay-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.watering-overlay-legend i {
+  width: 8px;
+  height: 8px;
+  border: 2px solid #2563eb;
+  border-radius: 999px;
+  background: #ffffff;
 }
 
 .chart-loading-overlay {
@@ -2889,6 +2939,16 @@ select {
   z-index: 5;
 }
 
+.chart-tooltip.is-watering {
+  width: 220px;
+}
+
+.chart-tooltip.is-watering small {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .chart-crosshair {
   position: absolute;
   top: 22px;
@@ -2897,6 +2957,16 @@ select {
   width: 1px;
   opacity: 0.34;
   pointer-events: none;
+}
+
+.chart-crosshair.is-watering {
+  width: 2px;
+  opacity: 0.18;
+}
+
+.chart-lock-dot.is-watering {
+  width: 13px;
+  height: 13px;
 }
 
 .chart-lock-dot {
@@ -3722,6 +3792,11 @@ select {
 
   .canvas-chart {
     min-height: 500px;
+  }
+
+  .watering-overlay-legend {
+    top: 54px;
+    left: 14px;
   }
 
   .chart-panel-main .canvas-chart {

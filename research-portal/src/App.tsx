@@ -55,6 +55,7 @@ import {
   type PortalRole,
 } from "./portalAccess";
 import { withSupabaseTimeout } from "./supabaseTimeout";
+import { interpolateOverlayValue, overlayTimeBounds } from "./wateringOverlay";
 import {
   advanceCurrentBootUptime,
   reconstructCurrentBootUptime,
@@ -88,6 +89,10 @@ const maxPointsPerSeries = graphReadLimit;
 const tenMinutesMs = 10 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
 const wateringEventDedupeBucketMs = 60 * 1000;
+const wateringHistoryMs = 7 * dayMs;
+const maxValveEventRows = 2_000;
+const incrementalValveEventRows = 250;
+const wateringOverlayMaxSampleSpanMs = 30 * 60 * 1000;
 
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
@@ -122,7 +127,7 @@ const zone4Palette = [
 ];
 
 type ViewMode = "group" | "traces" | "individual" | "qc";
-type ExperimentGraphMode = "vwc" | "watering";
+type ExperimentGraphMode = "vwc" | "watering" | "overlay";
 
 type LoadState = {
   pairings: PairingRow[];
@@ -154,6 +159,22 @@ type ChartSeries = {
   points: ChartPoint[];
   rawPointCount: number;
   memberCount?: number;
+};
+
+type WateringOverlayMarker = {
+  event: HealthWateringEvent;
+  series: ChartSeries;
+  timestampMs: number;
+  value: number | null;
+  exactValue: boolean;
+  before: ChartPoint | null;
+  after: ChartPoint | null;
+};
+
+type WateringOverlayTooltip = WateringOverlayMarker & {
+  x: number;
+  y: number;
+  locked?: boolean;
 };
 
 type Treatment = "control" | "drought" | "unknown";
@@ -1253,14 +1274,24 @@ function crispLine(value: number) {
   return Math.round(value) + 0.5;
 }
 
-function chartBounds(series: ChartSeries[], width: number, height: number) {
+function chartBounds(
+  series: ChartSeries[],
+  width: number,
+  height: number,
+  xDomain: TimeBounds | null = null,
+) {
   const margin = { top: 22, right: 24, bottom: 54, left: 68 };
   const plotWidth = Math.max(1, width - margin.left - margin.right);
   const plotHeight = Math.max(1, height - margin.top - margin.bottom);
   const allPoints = series.flatMap((item) => item.points);
   const yDomain = vwcDomain(allPoints);
-  const minX = allPoints.length ? Math.min(...allPoints.map((point) => point.timestampMs)) : 0;
-  const maxX = allPoints.length ? Math.max(...allPoints.map((point) => point.timestampMs)) : 1;
+  const domainIsValid = xDomain && xDomain.endMs > xDomain.startMs;
+  const minX = domainIsValid
+    ? xDomain.startMs
+    : allPoints.length ? Math.min(...allPoints.map((point) => point.timestampMs)) : 0;
+  const maxX = domainIsValid
+    ? xDomain.endMs
+    : allPoints.length ? Math.max(...allPoints.map((point) => point.timestampMs)) : 1;
   const spanX = Math.max(1, maxX - minX);
 
   const xScale = (timestampMs: number) =>
@@ -1304,8 +1335,58 @@ function filterSeriesByTime(series: ChartSeries[], bounds: TimeBounds | null, wi
 
   return series.map((item) => ({
     ...item,
-    points: item.points.filter((point) => point.timestampMs >= startMs && point.timestampMs <= endMs),
+    points: (() => {
+      const firstInside = item.points.findIndex((point) => point.timestampMs >= startMs);
+      if (firstInside < 0) return item.points.slice(-1);
+      const firstAfter = item.points.findIndex((point) => point.timestampMs > endMs);
+      const from = Math.max(0, firstInside - 1);
+      const to = firstAfter < 0 ? item.points.length : Math.min(item.points.length, firstAfter + 1);
+      return item.points.slice(from, to);
+    })(),
   }));
+}
+
+function wateringOverlaySeriesForEvent(
+  event: HealthWateringEvent,
+  series: ChartSeries[],
+) {
+  const pairingName = healthString(event.pairingName);
+  if (pairingName) {
+    const matchingName = series.find((item) => item.kind === "pot" && item.name === pairingName);
+    if (matchingName) return matchingName;
+  }
+  const potNumber = healthNumber(event.physicalPot);
+  return potNumber == null
+    ? null
+    : series.find((item) => item.kind === "pot" && item.potNumber === Math.trunc(potNumber)) ?? null;
+}
+
+function buildWateringOverlayMarkers(
+  events: HealthWateringEvent[],
+  series: ChartSeries[],
+  xDomain: TimeBounds | null,
+) {
+  if (!xDomain) return [];
+  return events.flatMap((event): WateringOverlayMarker[] => {
+    const timestampMs = healthTimestampMs(event.t);
+    if (timestampMs == null || timestampMs < xDomain.startMs || timestampMs > xDomain.endMs) return [];
+    const matchingSeries = wateringOverlaySeriesForEvent(event, series);
+    if (!matchingSeries) return [];
+    const interpolation = interpolateOverlayValue(
+      matchingSeries.points,
+      timestampMs,
+      wateringOverlayMaxSampleSpanMs,
+    );
+    return [{
+      event,
+      series: matchingSeries,
+      timestampMs,
+      value: interpolation?.value ?? null,
+      exactValue: interpolation?.exact ?? false,
+      before: interpolation?.before ?? null,
+      after: interpolation?.after ?? null,
+    }];
+  });
 }
 
 function TimeRangeControl({
@@ -1437,6 +1518,8 @@ function SensorCanvasChart({
   viewMode,
   onSelectSeries,
   loading,
+  xDomain = null,
+  wateringEvents = [],
 }: {
   series: ChartSeries[];
   visibleNames: Set<string>;
@@ -1444,16 +1527,36 @@ function SensorCanvasChart({
   viewMode: ViewMode;
   onSelectSeries: (name: string) => void;
   loading: boolean;
+  xDomain?: TimeBounds | null;
+  wateringEvents?: HealthWateringEvent[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [wateringTooltip, setWateringTooltip] = useState<WateringOverlayTooltip | null>(null);
   const [lockedSeriesName, setLockedSeriesName] = useState<string | null>(null);
 
   const visibleSeries = useMemo(
     () => series.filter((item) => visibleNames.has(item.name) && item.points.length > 0),
     [series, visibleNames],
   );
+  const wateringMarkers = useMemo(
+    () => buildWateringOverlayMarkers(wateringEvents, visibleSeries, xDomain),
+    [visibleSeries, wateringEvents, xDomain],
+  );
+
+  useEffect(() => {
+    if (!wateringEvents.length) setWateringTooltip(null);
+  }, [wateringEvents.length]);
+
+  useEffect(() => {
+    if (!wateringTooltip) return;
+    const stillVisible = wateringMarkers.some((marker) =>
+      marker.timestampMs === wateringTooltip.timestampMs &&
+      marker.series.name === wateringTooltip.series.name
+    );
+    if (!stillVisible) setWateringTooltip(null);
+  }, [wateringMarkers, wateringTooltip]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1479,7 +1582,7 @@ function SensorCanvasChart({
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, width, height);
 
-      const bounds = chartBounds(visibleSeries, width, height);
+      const bounds = chartBounds(visibleSeries, width, height, xDomain);
       const { margin, plotWidth, plotHeight, minX, spanX, xScale, yScale, yTicks } = bounds;
 
       context.save();
@@ -1588,6 +1691,27 @@ function SensorCanvasChart({
         context.fill();
       }
 
+      for (const marker of wateringMarkers) {
+        const x = xScale(marker.timestampMs);
+        const y = marker.value == null ? margin.top + 9 : yScale(marker.value);
+        const selected = selectedName === marker.series.name;
+        const markerColor = marker.series.treatment === "drought" ? "#f97316" : "#2563eb";
+        context.globalAlpha = selected || visiblePotLineCount <= 6 ? 0.98 : 0.72;
+        context.setLineDash([]);
+        context.strokeStyle = markerColor;
+        context.fillStyle = "rgba(255, 255, 255, 0.96)";
+        context.lineWidth = selected ? 2.8 : 2.2;
+        context.beginPath();
+        context.arc(x, y, selected ? 5.2 : 4.4, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.beginPath();
+        context.moveTo(x, y - (selected ? 6.5 : 5.7));
+        context.lineTo(x, y - (selected ? 10 : 8.7));
+        context.stroke();
+        context.globalAlpha = 1;
+      }
+
       context.restore();
 
     };
@@ -1605,7 +1729,7 @@ function SensorCanvasChart({
       observer.disconnect();
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [visibleSeries, selectedName, viewMode]);
+  }, [visibleSeries, selectedName, viewMode, wateringMarkers, xDomain]);
 
   function nearestAt(event: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -1613,7 +1737,7 @@ function SensorCanvasChart({
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const bounds = chartBounds(visibleSeries, rect.width, rect.height);
+    const bounds = chartBounds(visibleSeries, rect.width, rect.height, xDomain);
     const { margin, plotWidth, plotHeight, xScale, yScale } = bounds;
 
     if (
@@ -1654,6 +1778,39 @@ function SensorCanvasChart({
     return nearest && nearestDistance < 48 ? nearest : null;
   }
 
+  function nearestWateringAt(
+    event: React.MouseEvent<HTMLCanvasElement>,
+  ): WateringOverlayTooltip | null {
+    const canvas = canvasRef.current;
+    if (!canvas || !wateringMarkers.length) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const bounds = chartBounds(visibleSeries, rect.width, rect.height, xDomain);
+    const { margin, plotWidth, plotHeight, xScale, yScale } = bounds;
+    if (
+      mouseX < margin.left ||
+      mouseX > margin.left + plotWidth ||
+      mouseY < margin.top ||
+      mouseY > margin.top + plotHeight
+    ) {
+      return null;
+    }
+
+    let nearest: WateringOverlayTooltip | null = null;
+    let nearestDistance = Infinity;
+    for (const marker of wateringMarkers) {
+      const x = xScale(marker.timestampMs);
+      const y = marker.value == null ? margin.top + 9 : yScale(marker.value);
+      const distance = Math.hypot(x - mouseX, y - mouseY);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = { ...marker, x, y };
+      }
+    }
+    return nearestDistance <= 14 ? nearest : null;
+  }
+
   function pointOnSeriesAtX(event: React.MouseEvent<HTMLCanvasElement>, seriesName: string) {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -1663,7 +1820,7 @@ function SensorCanvasChart({
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const bounds = chartBounds(visibleSeries, rect.width, rect.height);
+    const bounds = chartBounds(visibleSeries, rect.width, rect.height, xDomain);
     const { margin, plotWidth, plotHeight, xScale, yScale } = bounds;
 
     if (
@@ -1701,6 +1858,14 @@ function SensorCanvasChart({
   }
 
   function updateTooltip(event: React.MouseEvent<HTMLCanvasElement>) {
+    if (wateringTooltip?.locked) return;
+    const watering = nearestWateringAt(event);
+    if (watering) {
+      setWateringTooltip(watering);
+      setTooltip(null);
+      return;
+    }
+    setWateringTooltip(null);
     if (lockedSeriesName) {
       setTooltip(pointOnSeriesAtX(event, lockedSeriesName));
       return;
@@ -1709,15 +1874,25 @@ function SensorCanvasChart({
   }
 
   function selectNearest(event: React.MouseEvent<HTMLCanvasElement>) {
+    const watering = nearestWateringAt(event);
+    if (watering) {
+      setLockedSeriesName(watering.series.name);
+      onSelectSeries(watering.series.name);
+      setTooltip(null);
+      setWateringTooltip({ ...watering, locked: true });
+      return;
+    }
     const nearest = nearestAt(event);
     if (nearest?.seriesKind === "pot") {
       setLockedSeriesName(nearest.seriesName);
       onSelectSeries(nearest.seriesName);
       setTooltip(pointOnSeriesAtX(event, nearest.seriesName) ?? nearest);
+      setWateringTooltip(null);
       return;
     }
     setLockedSeriesName(null);
     setTooltip(null);
+    setWateringTooltip(null);
   }
 
   return (
@@ -1728,16 +1903,73 @@ function SensorCanvasChart({
         onMouseMove={updateTooltip}
         onClick={selectNearest}
         onMouseLeave={() => {
-          if (!lockedSeriesName) setTooltip(null);
+          if (!lockedSeriesName) {
+            setTooltip(null);
+            setWateringTooltip(null);
+          }
         }}
-        aria-label="Soil moisture chart"
+        aria-label={wateringEvents.length ? "VWC with watering events chart" : "Soil moisture chart"}
       />
+      {wateringEvents.length ? (
+        <div className="watering-overlay-legend" aria-label="Watering overlay legend">
+          <span><i />Water event</span>
+          <span>{wateringMarkers.length} shown</span>
+        </div>
+      ) : null}
       {loading ? (
         <div className="chart-loading-overlay" aria-label="Loading readings" aria-live="polite">
           <Loader2 className="chart-loading-spinner" size={34} aria-hidden="true" />
         </div>
       ) : null}
-      {tooltip ? (
+      {wateringTooltip ? (
+        <>
+          <div
+            className="chart-crosshair is-watering"
+            style={{
+              left: wateringTooltip.x,
+              backgroundColor: wateringTooltip.series.treatment === "drought" ? "#f97316" : "#2563eb",
+            }}
+          />
+          <div
+            className={`chart-tooltip is-watering ${wateringTooltip.locked ? "is-locked" : ""}`}
+            style={{
+              left: Math.min(
+                Math.max(wateringTooltip.x + 14, 10),
+                Math.max(10, (wrapperRef.current?.clientWidth ?? 960) - 235),
+              ),
+              top: Math.min(
+                Math.max(wateringTooltip.y - 98, 10),
+                Math.max(10, (wrapperRef.current?.clientHeight ?? 560) - 164),
+              ),
+              borderColor: wateringTooltip.series.treatment === "drought" ? "#f97316" : "#2563eb",
+            }}
+          >
+            <strong>Pot {wateringTooltip.series.potNumber} watered</strong>
+            <span>{formatDateTime(wateringTooltip.timestampMs)}</span>
+            <span>{healthNumber(wateringTooltip.event.valveOpenTimeMs) == null
+              ? "Duration not reported"
+              : `${Math.round(healthNumber(wateringTooltip.event.valveOpenTimeMs) as number) / 1000} sec`}</span>
+            {wateringTooltip.value == null ? (
+              <b>VWC unavailable near event</b>
+            ) : (
+              <b>{wateringTooltip.value.toFixed(1)}% VWC {wateringTooltip.exactValue ? "measured" : "on displayed line"}</b>
+            )}
+            {wateringTooltip.before && wateringTooltip.after && !wateringTooltip.exactValue ? (
+              <small>
+                Samples: {formatDateTime(wateringTooltip.before.timestampMs)} ({wateringTooltip.before.value.toFixed(1)}%) and {formatDateTime(wateringTooltip.after.timestampMs)} ({wateringTooltip.after.value.toFixed(1)}%)
+              </small>
+            ) : null}
+          </div>
+          <div
+            className="chart-lock-dot is-watering"
+            style={{
+              left: wateringTooltip.x,
+              top: wateringTooltip.y,
+              borderColor: wateringTooltip.series.treatment === "drought" ? "#f97316" : "#2563eb",
+            }}
+          />
+        </>
+      ) : tooltip ? (
         <>
           {tooltip.locked ? (
             <div
@@ -3745,6 +3977,23 @@ function valveEventsToHealthWateringEvents(events: ValveEvent[], pairings: Pairi
     }));
 }
 
+function valveEventTimestampMs(event: ValveEvent) {
+  const timestamp = Date.parse(event.device_recorded_at ?? event.server_received_at);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function mergeValveEventRows(current: ValveEvent[], incoming: ValveEvent[]) {
+  const cutoff = Date.now() - wateringHistoryMs;
+  const byEvent = new Map<string, ValveEvent>();
+  [...current, ...incoming].forEach((event) => {
+    if (!event.event_id || valveEventTimestampMs(event) < cutoff || isIgnoredDiagnosticValveEvent(event)) return;
+    byEvent.set(event.event_id, event);
+  });
+  return Array.from(byEvent.values())
+    .sort((left, right) => valveEventTimestampMs(right) - valveEventTimestampMs(left))
+    .slice(0, maxValveEventRows);
+}
+
 function wateringEventsLastDay(events: HealthWateringEvent[]) {
   const since = Date.now() - dayMs;
   return events.filter((event) => {
@@ -4623,6 +4872,7 @@ export default function App() {
   const [salesSupportError, setSalesSupportError] = useState<string | null>(null);
 
   const dataRef = useRef(data);
+  const valveEventsRef = useRef(valveEvents);
   const loadTokenRef = useRef(0);
   const refreshInFlightRef = useRef(false);
   const pendingRefreshRef = useRef<RefreshOptions | null>(null);
@@ -4636,6 +4886,10 @@ export default function App() {
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+
+  useEffect(() => {
+    valveEventsRef.current = valveEvents;
+  }, [valveEvents]);
 
   useEffect(() => {
     if (!settingsOpen) return undefined;
@@ -4664,6 +4918,10 @@ export default function App() {
   const timeFilteredSeries = useMemo(
     () => filterSeriesByTime(chartDisplaySeries, timeBounds, timeWindow),
     [chartDisplaySeries, timeBounds, timeWindow],
+  );
+  const selectedVwcTimeBounds = useMemo(
+    () => overlayTimeBounds(timeBounds, timeWindow),
+    [timeBounds, timeWindow],
   );
   const visibleNames = useMemo(
     () => new Set(series.filter((item) => !hiddenPots.has(item.name)).map((item) => item.name)),
@@ -4829,29 +5087,37 @@ export default function App() {
     }
   }, [canUseExperimentSettings]);
 
-  const loadValveEvents = useCallback(async () => {
+  const loadValveEvents = useCallback(async (options: { incremental?: boolean } = {}) => {
     if (!canReadProjectData) {
       setValveEvents([]);
       return;
     }
 
     try {
-      const sinceIso = new Date(Date.now() - dayMs).toISOString();
+      const incremental = options.incremental === true;
+      const existing = valveEventsRef.current;
+      const newestExistingAt = existing.reduce(
+        (latest, event) => Math.max(latest, valveEventTimestampMs(event)),
+        0,
+      );
+      const sinceMs = incremental && newestExistingAt > 0
+        ? newestExistingAt - incrementalCursorOverlapMs
+        : Date.now() - wateringHistoryMs;
       const response = await withSupabaseTimeout(
         supabase
           .from("valve_events")
           .select("*")
           .eq("project_id", mattProjectId)
           .eq("device_id", mattDeviceId)
-          .gte("device_recorded_at", sinceIso)
+          .gte("device_recorded_at", new Date(sinceMs).toISOString())
           .order("device_recorded_at", { ascending: false })
-          .limit(1000),
+          .limit(incremental ? incrementalValveEventRows : maxValveEventRows),
         supabaseQueryTimeoutMs,
         "Valve events",
       );
 
       if (response.error) throw response.error;
-      setValveEvents(((response.data ?? []) as ValveEvent[]).filter((event) => !isIgnoredDiagnosticValveEvent(event)));
+      setValveEvents((current) => mergeValveEventRows(current, (response.data ?? []) as ValveEvent[]));
     } catch {
       // Keep the last good watering timeline visible until Supabase recovers.
     }
@@ -5646,7 +5912,7 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return undefined;
     const pollId = window.setInterval(() => {
-      void loadValveEvents();
+      void loadValveEvents({ incremental: true });
     }, healthSnapshotPollMs);
     return () => window.clearInterval(pollId);
   }, [canReadProjectData, loadValveEvents, sessionReady]);
@@ -5855,13 +6121,7 @@ export default function App() {
         (payload) => {
           const row = payload.new as ValveEvent;
           if (row.device_id !== mattDeviceId || isIgnoredDiagnosticValveEvent(row)) return;
-          setValveEvents((current) => {
-            const byEvent = new Map(current.map((event) => [event.event_id, event]));
-            byEvent.set(row.event_id, row);
-            return Array.from(byEvent.values())
-              .sort((left, right) => Date.parse(right.device_recorded_at) - Date.parse(left.device_recorded_at))
-              .slice(0, 1000);
-          });
+          setValveEvents((current) => mergeValveEventRows(current, [row]));
         },
       )
       .subscribe();
@@ -6293,6 +6553,16 @@ export default function App() {
               >
                 Watering
               </button>
+              <button
+                type="button"
+                className={experimentGraphMode === "overlay" ? "is-selected" : ""}
+                onClick={() => {
+                  setSelectedWateringDetail(null);
+                  setExperimentGraphMode("overlay");
+                }}
+              >
+                Overlay
+              </button>
             </div>
             <button
               className="expand-button"
@@ -6307,7 +6577,13 @@ export default function App() {
 
           <section
             className="chart-panel-main"
-            aria-label={experimentGraphMode === "watering" ? "Watering activity chart" : "All plants chart"}
+            aria-label={
+              experimentGraphMode === "watering"
+                ? "Watering activity chart"
+                : experimentGraphMode === "overlay"
+                  ? "VWC and watering overlay chart"
+                  : "All plants chart"
+            }
           >
             {experimentGraphMode === "watering" ? (
               <ResearchWateringActivity
@@ -6323,10 +6599,12 @@ export default function App() {
                 viewMode="traces"
                 onSelectSeries={selectPot}
                 loading={loading}
+                xDomain={selectedVwcTimeBounds}
+                wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : []}
               />
             )}
           </section>
-          {experimentGraphMode === "vwc" ? (
+          {experimentGraphMode !== "watering" ? (
             <div className="chart-bottom-controls">
               <TimeRangeControl
                 bounds={timeBounds}
