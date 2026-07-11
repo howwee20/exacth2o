@@ -20,6 +20,21 @@ export type OverlayInterpolation<T extends OverlayTimedValue> = {
   after: T;
 };
 
+export function partitionOverlayMarkers<T extends { value: number | null }>(markers: T[]) {
+  const visible: Array<T & { value: number }> = [];
+  let omittedCount = 0;
+
+  for (const marker of markers) {
+    if (marker.value == null) {
+      omittedCount += 1;
+      continue;
+    }
+    visible.push(marker as T & { value: number });
+  }
+
+  return { visible, omittedCount };
+}
+
 export function overlayTimeBounds(
   bounds: OverlayTimeBounds | null,
   window: OverlayTimeWindow,

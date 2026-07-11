@@ -55,7 +55,11 @@ import {
   type PortalRole,
 } from "./portalAccess";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import { interpolateOverlayValue, overlayTimeBounds } from "./wateringOverlay";
+import {
+  interpolateOverlayValue,
+  overlayTimeBounds,
+  partitionOverlayMarkers,
+} from "./wateringOverlay";
 import {
   advanceCurrentBootUptime,
   reconstructCurrentBootUptime,
@@ -1540,9 +1544,13 @@ function SensorCanvasChart({
     () => series.filter((item) => visibleNames.has(item.name) && item.points.length > 0),
     [series, visibleNames],
   );
-  const wateringMarkers = useMemo(
+  const allWateringMarkers = useMemo(
     () => buildWateringOverlayMarkers(wateringEvents, visibleSeries, xDomain),
     [visibleSeries, wateringEvents, xDomain],
+  );
+  const { visible: wateringMarkers, omittedCount: omittedWateringMarkerCount } = useMemo(
+    () => partitionOverlayMarkers(allWateringMarkers),
+    [allWateringMarkers],
   );
 
   useEffect(() => {
@@ -1702,7 +1710,7 @@ function SensorCanvasChart({
 
       for (const marker of wateringMarkers) {
         const x = xScale(marker.timestampMs);
-        const y = marker.value == null ? margin.top + 9 : yScale(marker.value);
+        const y = yScale(marker.value);
         const selected = selectedName === marker.series.name;
         const markerColor = marker.series.treatment === "drought" ? "#f97316" : "#2563eb";
         context.globalAlpha = selected || visiblePotLineCount <= 6 ? 0.98 : 0.72;
@@ -1810,7 +1818,7 @@ function SensorCanvasChart({
     let nearestDistance = Infinity;
     for (const marker of wateringMarkers) {
       const x = xScale(marker.timestampMs);
-      const y = marker.value == null ? margin.top + 9 : yScale(marker.value);
+      const y = yScale(marker.value);
       const distance = Math.hypot(x - mouseX, y - mouseY);
       if (distance < nearestDistance) {
         nearestDistance = distance;
@@ -1923,6 +1931,11 @@ function SensorCanvasChart({
         <div className="watering-overlay-legend" aria-label="Watering overlay legend">
           <span><i />Water event</span>
           <span>{wateringMarkers.length} shown</span>
+          {omittedWateringMarkerCount > 0 ? (
+            <span className="is-omitted">
+              {omittedWateringMarkerCount} water {omittedWateringMarkerCount === 1 ? "event" : "events"} omitted—no nearby VWC sample
+            </span>
+          ) : null}
         </div>
       ) : null}
       {loading ? (

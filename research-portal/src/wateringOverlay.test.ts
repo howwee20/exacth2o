@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { interpolateOverlayValue, overlayTimeBounds } from "./wateringOverlay";
+import {
+  interpolateOverlayValue,
+  overlayTimeBounds,
+  partitionOverlayMarkers,
+} from "./wateringOverlay";
 
 describe("watering overlay time alignment", () => {
   it("uses the exact VWC chart window for event positioning", () => {
@@ -40,5 +44,18 @@ describe("watering overlay time alignment", () => {
       { timestampMs: 60 * 60_000, value: 22 },
     ];
     expect(interpolateOverlayValue(points, 30 * 60_000, 30 * 60_000)).toBeNull();
+  });
+
+  it("keeps unmatched watering events out of the VWC plot and counts them", () => {
+    const markers = [
+      { id: "visible", value: 20.4 },
+      { id: "missing-before", value: null },
+      { id: "missing-after", value: null },
+    ];
+
+    expect(partitionOverlayMarkers(markers)).toEqual({
+      visible: [{ id: "visible", value: 20.4 }],
+      omittedCount: 2,
+    });
   });
 });
