@@ -1546,6 +1546,15 @@ function SensorCanvasChart({
   );
 
   useEffect(() => {
+    if (tooltip && !visibleSeries.some((item) => item.name === tooltip.seriesName)) {
+      setTooltip(null);
+    }
+    if (lockedSeriesName && !visibleSeries.some((item) => item.name === lockedSeriesName)) {
+      setLockedSeriesName(null);
+    }
+  }, [lockedSeriesName, tooltip, visibleSeries]);
+
+  useEffect(() => {
     if (!wateringEvents.length) setWateringTooltip(null);
   }, [wateringEvents.length]);
 
@@ -4927,6 +4936,12 @@ export default function App() {
     () => new Set(series.filter((item) => !hiddenPots.has(item.name)).map((item) => item.name)),
     [series, hiddenPots],
   );
+  const overlayVisibleNames = useMemo(
+    () => new Set(series
+      .filter((item) => item.kind === "pot" && !hiddenPots.has(item.name))
+      .map((item) => item.name)),
+    [series, hiddenPots],
+  );
   const visibleWateringPairings = useMemo(
     () => sortedPairings.filter((pairing) => !hiddenPots.has(pairing.name)),
     [hiddenPots, sortedPairings],
@@ -6594,7 +6609,7 @@ export default function App() {
             ) : (
               <SensorCanvasChart
                 series={timeFilteredSeries}
-                visibleNames={visibleNames}
+                visibleNames={experimentGraphMode === "overlay" ? overlayVisibleNames : visibleNames}
                 selectedName={selectedSeriesName}
                 viewMode="traces"
                 onSelectSeries={selectPot}
