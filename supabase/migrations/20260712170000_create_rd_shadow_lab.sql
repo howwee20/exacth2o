@@ -121,6 +121,7 @@ create table if not exists public.rd_curve_predictions (
   feature_as_of_device_at timestamptz not null,
   issued_at timestamptz not null,
   feature_hash text not null,
+  features jsonb not null,
   p10 jsonb not null,
   p50 jsonb not null,
   p90 jsonb not null,
@@ -442,4 +443,3 @@ comment on table public.rd_jobs is
 
 -- R&D tables are intentionally not added to supabase_realtime. The admin Lab
 -- polls a protected DTO endpoint; Realtime is not a correctness dependency.
-
