@@ -38,6 +38,36 @@ export type RdProgressPoint = {
   curve_mae: number | null;
 };
 
+export type RdIrrigationEvent = {
+  id: string;
+  valve_event_id: string;
+  sequence: number;
+  opened_at: string;
+  duration_ms: number | null;
+  duration_source: "observed_event" | "configured_snapshot" | "unknown";
+  prediction_status: "committed" | "missed_causal_window";
+  prediction_lead_seconds: number | null;
+  prediction: RdLabEvent | null;
+  quality: Record<string, unknown>;
+};
+
+export type RdCorrectionEpisode = {
+  id: string;
+  pairing_name: string;
+  status: "active" | "observing" | "complete";
+  started_at: string;
+  last_open_at: string;
+  target_vwc: number;
+  pulse_count: number;
+  correction_ended_at: string | null;
+  observation_ends_at: string;
+  completed_at: string | null;
+  curve: RdCurvePoint[];
+  pulses: RdIrrigationEvent[];
+  missed_forecasts: number;
+  quality: Record<string, unknown>;
+};
+
 export type RdPotSummary = {
   pairing_name: string;
   target_vwc: number;
@@ -46,6 +76,9 @@ export type RdPotSummary = {
   last_reading_at: string | null;
   state: string;
   event: RdLabEvent | null;
+  next_forecast?: RdLabEvent | null;
+  active_episode?: RdCorrectionEpisode | null;
+  episodes?: RdCorrectionEpisode[];
 };
 
 export type RdLabSnapshot = {
@@ -56,6 +89,7 @@ export type RdLabSnapshot = {
   clean_events_learned: number;
   current: RdLabEvent;
   pots: RdPotSummary[];
+  episodes?: RdCorrectionEpisode[];
   history: RdLabEvent[];
   progress: RdProgressPoint[];
 };

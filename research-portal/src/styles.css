@@ -3887,6 +3887,51 @@ select {
   min-height: 120px;
 }
 
+.rd-pulse-rail {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 14px 0 2px;
+}
+
+.rd-pulse-rail button {
+  display: grid;
+  min-width: 116px;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--rd-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--rd-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rd-pulse-rail button.is-active {
+  border-color: var(--rd-purple);
+  box-shadow: 0 0 0 2px rgba(103, 87, 232, 0.12);
+}
+
+.rd-pulse-rail small,
+.rd-pulse-rail em {
+  color: var(--rd-muted);
+  font-size: 0.58rem;
+  font-style: normal;
+}
+
+.rd-pulse-line {
+  stroke: rgba(103, 87, 232, 0.5);
+  stroke-dasharray: 3 4;
+  stroke-width: 1.4;
+}
+
+.rd-pulse-label {
+  fill: var(--rd-purple);
+  font-family: var(--portal-mono);
+  font-size: 10px;
+  font-weight: 760;
+}
+
 .rd-chart-title {
   display: flex;
   align-items: center;

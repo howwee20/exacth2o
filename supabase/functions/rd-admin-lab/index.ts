@@ -119,6 +119,104 @@ function actualByHorizon(
   return values;
 }
 
+const responseMinutes = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240];
+
+function interpolateCurve(
+  curve: Array<Record<string, unknown>>,
+  field: "p10" | "predicted" | "p90",
+  ageMinutes: number,
+) {
+  if (ageMinutes < 0 || !curve.length) return null;
+  const points = curve
+    .map((point) => ({
+      minute: Number(point.minute),
+      value: Number(point[field]),
+    }))
+    .filter((point) =>
+      Number.isFinite(point.minute) && Number.isFinite(point.value)
+    )
+    .sort((left, right) => left.minute - right.minute);
+  if (!points.length || ageMinutes > points[points.length - 1].minute) {
+    return null;
+  }
+  const exact = points.find((point) => point.minute === ageMinutes);
+  if (exact) return exact.value;
+  const rightIndex = points.findIndex((point) => point.minute > ageMinutes);
+  if (rightIndex <= 0) return points[0].value;
+  const left = points[rightIndex - 1];
+  const right = points[rightIndex];
+  const ratio = (ageMinutes - left.minute) / (right.minute - left.minute);
+  return left.value + (right.value - left.value) * ratio;
+}
+
+function episodeTotalCurve(
+  episode: Record<string, unknown>,
+  irrigationEvents: Array<Record<string, unknown>>,
+  displayByPrediction: Map<string, Record<string, unknown>>,
+  readings: Array<Record<string, unknown>>,
+) {
+  const startedAt = String(episode.first_open_device_at ?? "");
+  const startedMs = Date.parse(startedAt);
+  const pairing = String(episode.pairing_name ?? "");
+  const potReadings = readings.filter((reading) =>
+    reading.pairing_name === pairing
+  );
+  const baseline = potReadings
+    .filter((reading) =>
+      Date.parse(String(reading.device_recorded_at ?? "")) <= startedMs
+    )
+    .at(-1);
+  const baselineVwc = Number(
+    baseline?.calibrated_value ?? episode.target_vwc_at_start ?? 0,
+  );
+  const pulses = irrigationEvents
+    .filter((event) => event.episode_id === episode.id)
+    .sort((left, right) =>
+      Date.parse(String(left.opened_device_at)) -
+      Date.parse(String(right.opened_device_at))
+    );
+  return responseMinutes.map((minute) => {
+    const totals = {
+      p10: baselineVwc,
+      predicted: baselineVwc,
+      p90: baselineVwc,
+    };
+    for (const pulse of pulses) {
+      if (!pulse.prediction_id) continue;
+      const prediction = displayByPrediction.get(String(pulse.prediction_id));
+      const curve = Array.isArray(prediction?.curve)
+        ? prediction.curve as Array<Record<string, unknown>>
+        : [];
+      const offset = (Date.parse(String(pulse.opened_device_at)) - startedMs) /
+        60_000;
+      const age = minute - offset;
+      for (const field of ["p10", "predicted", "p90"] as const) {
+        const value = interpolateCurve(curve, field, age);
+        const origin = interpolateCurve(curve, field, 0);
+        if (value != null && origin != null) totals[field] += value - origin;
+      }
+    }
+    const targetMs = startedMs + minute * 60_000;
+    const nearest = potReadings
+      .map((reading) => ({
+        reading,
+        delta:
+          Math.abs(Date.parse(String(reading.device_recorded_at)) - targetMs) /
+          60_000,
+      }))
+      .sort((left, right) => left.delta - right.delta)[0];
+    return {
+      minute,
+      p10: totals.p10,
+      predicted: totals.predicted,
+      p90: totals.p90,
+      actual: nearest && nearest.delta <= 6
+        ? Number(nearest.reading.calibrated_value)
+        : null,
+    };
+  });
+}
+
 Deno.serve(async (request) => {
   const origin = request.headers.get("origin");
   if (request.method === "OPTIONS") return response({ ok: true }, 200, origin);
@@ -200,7 +298,7 @@ Deno.serve(async (request) => {
     )
     .eq("project_id", projectId)
     .order("issued_at", { ascending: false })
-    .limit(200);
+    .limit(500);
   if (predictionError) {
     return response({ error: "Could not load R&D predictions" }, 500, origin);
   }
@@ -284,26 +382,43 @@ Deno.serve(async (request) => {
   const modelIds = Array.from(
     new Set(predictions.map((item) => item.model_version_id)),
   );
-  const [stateResult, scoreResult, modelResult, cleanCountResult] =
-    await Promise.all([
-      admin.from("rd_prediction_events").select(
-        "prediction_id,state,details,occurred_at",
-      ).in("prediction_id", predictionIds),
-      admin.from("rd_prediction_scores").select(
-        "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
-      ).in("prediction_id", predictionIds),
-      admin.from("rd_model_versions").select("id,version,status").in(
-        "id",
-        modelIds,
-      ),
-      admin.from("rd_curve_outcomes").select("id", {
-        count: "exact",
-        head: true,
-      }).eq("eligible_for_training", true),
-    ]);
+  const [
+    stateResult,
+    scoreResult,
+    modelResult,
+    cleanCountResult,
+    episodeV2Result,
+    irrigationEventV2Result,
+  ] = await Promise.all([
+    admin.from("rd_prediction_events").select(
+      "prediction_id,state,details,occurred_at",
+    ).in("prediction_id", predictionIds),
+    admin.from("rd_prediction_scores").select(
+      "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
+    ).in("prediction_id", predictionIds),
+    admin.from("rd_model_versions").select("id,version,status").in(
+      "id",
+      modelIds,
+    ),
+    admin.from("rd_curve_outcomes").select("id", {
+      count: "exact",
+      head: true,
+    }).eq("eligible_for_training", true),
+    admin.from("rd_correction_episodes_v2").select(
+      "id,episode_key,pairing_name,first_open_device_at,last_open_device_at,target_vwc_at_start,pulse_count,status,correction_ended_at,observation_ends_at,completed_at,quality",
+    ).eq("project_id", projectId).order("first_open_device_at", {
+      ascending: false,
+    }).limit(200),
+    admin.from("rd_irrigation_events_v2").select(
+      "id,valve_event_id,episode_id,pairing_name,sequence_in_episode,prediction_id,prediction_status,opened_device_at,duration_ms,duration_source,evidence_source,prediction_lead_seconds,quality",
+    ).eq("project_id", projectId).order("opened_device_at", {
+      ascending: false,
+    }).limit(1000),
+  ]);
   if (
     stateResult.error || scoreResult.error || modelResult.error ||
-    cleanCountResult.error
+    cleanCountResult.error || episodeV2Result.error ||
+    irrigationEventV2Result.error
   ) {
     return response({ error: "Could not assemble R&D snapshot" }, 500, origin);
   }
@@ -392,6 +507,56 @@ Deno.serve(async (request) => {
       confidence: prediction.confidence,
     };
   });
+  const displayByPrediction = new Map<string, Record<string, unknown>>(
+    displayEvents.map((event) => [event.id, event]),
+  );
+  const irrigationEventsV2 = (irrigationEventV2Result.data ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const episodeDtos = ((episodeV2Result.data ?? []) as Array<
+    Record<string, unknown>
+  >).map((episode) => {
+    const pulses = irrigationEventsV2
+      .filter((event) => event.episode_id === episode.id)
+      .sort((left, right) =>
+        Number(left.sequence_in_episode) - Number(right.sequence_in_episode)
+      )
+      .map((event) => ({
+        id: event.id,
+        valve_event_id: event.valve_event_id,
+        sequence: event.sequence_in_episode,
+        opened_at: event.opened_device_at,
+        duration_ms: event.duration_ms,
+        duration_source: event.duration_source,
+        prediction_status: event.prediction_status,
+        prediction_lead_seconds: event.prediction_lead_seconds,
+        prediction: event.prediction_id
+          ? displayByPrediction.get(String(event.prediction_id)) ?? null
+          : null,
+        quality: event.quality,
+      }));
+    return {
+      id: episode.id,
+      pairing_name: episode.pairing_name,
+      status: episode.status,
+      started_at: episode.first_open_device_at,
+      last_open_at: episode.last_open_device_at,
+      target_vwc: episode.target_vwc_at_start,
+      pulse_count: episode.pulse_count,
+      correction_ended_at: episode.correction_ended_at,
+      observation_ends_at: episode.observation_ends_at,
+      completed_at: episode.completed_at,
+      curve: episodeTotalCurve(
+        episode,
+        irrigationEventsV2,
+        displayByPrediction,
+        readings,
+      ),
+      pulses,
+      missed_forecasts: pulses.filter((pulse) => !pulse.prediction).length,
+      quality: episode.quality,
+    };
+  });
 
   const { error: auditError } = await admin.from("rd_access_audit").insert({
     project_id: projectId,
@@ -452,21 +617,52 @@ Deno.serve(async (request) => {
       latestEventByPairing.set(event.pairing_name, event);
     }
   }
+  const nextForecastByPairing = new Map<string, typeof displayEvents[number]>();
+  for (const event of displayEvents) {
+    if (
+      ["armed_early", "armed_refresh"].includes(String(event.state)) &&
+      !nextForecastByPairing.has(event.pairing_name)
+    ) nextForecastByPairing.set(event.pairing_name, event);
+  }
+  const activeEpisodeByPairing = new Map<string, typeof episodeDtos[number]>();
+  const episodesByPairing = new Map<
+    string,
+    Array<typeof episodeDtos[number]>
+  >();
+  for (const episode of episodeDtos) {
+    const name = String(episode.pairing_name);
+    const list = episodesByPairing.get(name) ?? [];
+    list.push(episode);
+    episodesByPairing.set(name, list);
+    if (
+      ["active", "observing"].includes(String(episode.status)) &&
+      !activeEpisodeByPairing.has(name)
+    ) activeEpisodeByPairing.set(name, episode);
+  }
   const pots = enabledPairings
     .map((item) => {
       const name = pairingName(item);
       const target = targetVwc(item);
       const reading = latestByPairing.get(name);
       const currentVwc = Number(reading?.calibrated_value ?? target);
-      const event = latestEventByPairing.get(name) ?? null;
+      const episode = activeEpisodeByPairing.get(name) ?? null;
+      const nextForecast = nextForecastByPairing.get(name) ?? null;
+      const lastPulse = episode?.pulses.at(-1);
+      const event = lastPulse?.prediction ?? nextForecast ??
+        latestEventByPairing.get(name) ?? null;
       return {
         pairing_name: name,
         target_vwc: target,
         current_vwc: currentVwc,
         distance_to_target: currentVwc - target,
         last_reading_at: reading?.device_recorded_at ?? null,
-        state: event?.state ?? "waiting_threshold",
+        state: episode
+          ? `episode_${episode.status}`
+          : nextForecast?.state ?? "waiting_threshold",
         event,
+        next_forecast: nextForecast,
+        active_episode: episode,
+        episodes: episodesByPairing.get(name) ?? [],
       };
     })
     .sort((left, right) =>
@@ -483,6 +679,7 @@ Deno.serve(async (request) => {
       clean_events_learned: cleanCountResult.count ?? 0,
       current,
       pots,
+      episodes: episodeDtos,
       history,
       progress: history.slice().reverse().map((event, index) => ({
         event: event.pairing_name,
