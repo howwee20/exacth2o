@@ -6073,6 +6073,14 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
     const pollId = window.setInterval(() => {
+      void loadRdSnapshot();
+    }, healthSnapshotPollMs);
+    return () => window.clearInterval(pollId);
+  }, [isAdmin, loadRdSnapshot, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return undefined;
+    const pollId = window.setInterval(() => {
       void loadHealthSnapshot({ silent: true });
     }, healthSnapshotPollMs);
     return () => window.clearInterval(pollId);
