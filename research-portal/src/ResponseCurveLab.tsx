@@ -266,7 +266,7 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
       <header className="rd-lab-header">
         {onBack ? <button type="button" className="support-back-button" onClick={onBack}><ArrowLeft size={14} /> Home</button> : null}
         <div className="rd-lab-title-row">
-          <div><p className="rd-eyebrow">EXACTH2O R&amp;D · {pots.length} POTS</p><h1>Response Curve Lab</h1></div>
+          <div><p className="rd-eyebrow">EXACTH2O R&amp;D · CONTROL · {pots.length} POTS</p><h1>Response Curve Lab</h1></div>
           <div className="rd-lab-summary"><strong>{snapshot.episodes?.filter((episode) => episode.status !== "complete").length ?? 0}</strong><span>active episodes</span></div>
         </div>
         <nav className="rd-tabs" aria-label="R&D views">

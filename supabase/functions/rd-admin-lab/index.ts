@@ -38,6 +38,7 @@ function latestState(
 }
 
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
+const mattControlTargetVwc = 20;
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -281,7 +282,8 @@ Deno.serve(async (request) => {
   const pairings = Array.isArray(config.pairings) ? config.pairings : [];
   const enabledPairings = pairings.filter((item) => {
     const target = targetVwc(item);
-    return Number.isFinite(target) && target >= 0;
+    return Number.isFinite(target) &&
+      Math.abs(target - mattControlTargetVwc) < 1e-9;
   });
   const readings = dedupeReadings(
     Array.isArray(observationRecord.readings) ? observationRecord.readings : [],
