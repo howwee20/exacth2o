@@ -338,6 +338,24 @@ Deno.serve(async (request) => {
         champion_version: "bootstrap pending",
         candidate_version: null,
         clean_events_learned: 0,
+        learning: {
+          completed_episode_totals: 0,
+          eligible_episode_totals: 0,
+          minimum_episode_floor: 40,
+          next_training_at: 40,
+          episodes_until_next_training: 40,
+          represented_control_pots: 0,
+          required_control_pots: 8,
+          multi_pulse_episodes: 0,
+          required_multi_pulse_episodes: 10,
+          calendar_span_days: 0,
+          required_calendar_span_days: 7,
+          qualified_chronological_windows: 0,
+          required_chronological_windows: 2,
+          model_family: "regularized additive impulse",
+          last_training_at: null,
+          status: "collecting_evidence",
+        },
         current: {
           id: "awaiting-first-causal-forecast",
           pairing_name: selected.pairingName,
@@ -381,16 +399,16 @@ Deno.serve(async (request) => {
   }
 
   const predictionIds = predictions.map((item) => item.id);
-  const modelIds = Array.from(
-    new Set(predictions.map((item) => item.model_version_id)),
-  );
   const [
     stateResult,
     scoreResult,
     modelResult,
-    cleanCountResult,
     episodeV2Result,
     irrigationEventV2Result,
+    outcomeV2Result,
+    episodeScoreV2Result,
+    evaluationV2Result,
+    trainingRunResult,
   ] = await Promise.all([
     admin.from("rd_prediction_events").select(
       "prediction_id,state,details,occurred_at",
@@ -398,14 +416,9 @@ Deno.serve(async (request) => {
     admin.from("rd_prediction_scores").select(
       "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
     ).in("prediction_id", predictionIds),
-    admin.from("rd_model_versions").select("id,version,status").in(
-      "id",
-      modelIds,
-    ),
-    admin.from("rd_curve_outcomes").select("id", {
-      count: "exact",
-      head: true,
-    }).eq("eligible_for_training", true),
+    admin.from("rd_model_versions").select(
+      "id,version,status,metrics,training_event_count,feature_schema_version,synthetic_data_only,created_at",
+    ).order("created_at", { ascending: false }).limit(100),
     admin.from("rd_correction_episodes_v2").select(
       "id,episode_key,pairing_name,first_open_device_at,last_open_device_at,target_vwc_at_start,pulse_count,status,correction_ended_at,observation_ends_at,completed_at,quality",
     ).eq("project_id", projectId).order("first_open_device_at", {
@@ -416,21 +429,60 @@ Deno.serve(async (request) => {
     ).eq("project_id", projectId).order("opened_device_at", {
       ascending: false,
     }).limit(1000),
+    admin.from("rd_episode_outcomes_v2").select(
+      "id,episode_id,pairing_name,first_open_device_at,observed_horizons,pulse_count,eligible_for_scoring,eligible_for_training,quality_reasons,completed_at",
+    ).eq("project_id", projectId).order("completed_at", { ascending: false })
+      .limit(500),
+    admin.from("rd_episode_scores_v2").select(
+      "episode_id,model_version_id,model_role,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons,created_at",
+    ).order("created_at", { ascending: false }).limit(2000),
+    admin.from("rd_evaluation_windows_v2").select(
+      "model_version_id,window_number,episode_count,multi_pulse_episode_count,pot_count,baseline_curve_mae,candidate_curve_mae,improvement_percent,interval_coverage,passed,evaluation_started_at,evaluation_ended_at",
+    ).order("created_at", { ascending: false }).limit(200),
+    admin.from("rd_training_runs").select(
+      "model_version_id,training_event_count,held_out_event_count,result,metrics,completed_at",
+    ).order("completed_at", { ascending: false }).limit(50),
   ]);
   if (
     stateResult.error || scoreResult.error || modelResult.error ||
-    cleanCountResult.error || episodeV2Result.error ||
-    irrigationEventV2Result.error
+    episodeV2Result.error || irrigationEventV2Result.error ||
+    outcomeV2Result.error || episodeScoreV2Result.error ||
+    evaluationV2Result.error || trainingRunResult.error
   ) {
     return response({ error: "Could not assemble R&D snapshot" }, 500, origin);
   }
   const states = stateResult.data ?? [];
   const scores = scoreResult.data ?? [];
   const models = modelResult.data ?? [];
+  const outcomesV2 = outcomeV2Result.data ?? [];
+  const episodeScoresV2 = episodeScoreV2Result.data ?? [];
+  const evaluationsV2 = evaluationV2Result.data ?? [];
+  const trainingRuns = trainingRunResult.data ?? [];
   const scoreByPrediction = new Map(
     (scores ?? []).map((item) => [item.prediction_id, item]),
   );
   const modelById = new Map((models ?? []).map((item) => [item.id, item]));
+  const champion = (models ?? []).find((model) =>
+    model.status === "champion" &&
+    model.feature_schema_version === "episode-impulse-v2" &&
+    model.synthetic_data_only === false
+  );
+  const candidate = (models ?? []).find((model) =>
+    model.status === "candidate" &&
+    model.feature_schema_version === "episode-impulse-v2" &&
+    model.synthetic_data_only === false
+  );
+  const outcomeByEpisode = new Map(
+    outcomesV2.map((outcome) => [outcome.episode_id, outcome]),
+  );
+  const learningScoreByEpisode = new Map<string, Record<string, unknown>>();
+  for (const score of episodeScoresV2) {
+    const preferred = score.model_version_id === champion?.id ||
+      (!champion && score.model_version_id === candidate?.id);
+    if (preferred || !learningScoreByEpisode.has(String(score.episode_id))) {
+      learningScoreByEpisode.set(String(score.episode_id), score);
+    }
+  }
 
   const displayEvents = predictions.map((prediction) => {
     const state = latestState(states ?? [], prediction.id);
@@ -537,6 +589,8 @@ Deno.serve(async (request) => {
           : null,
         quality: event.quality,
       }));
+    const outcome = outcomeByEpisode.get(String(episode.id)) ?? null;
+    const learningScore = learningScoreByEpisode.get(String(episode.id)) ?? null;
     return {
       id: episode.id,
       pairing_name: episode.pairing_name,
@@ -557,6 +611,29 @@ Deno.serve(async (request) => {
       pulses,
       missed_forecasts: pulses.filter((pulse) => !pulse.prediction).length,
       quality: episode.quality,
+      outcome: outcome
+        ? {
+          observed_horizons: outcome.observed_horizons,
+          eligible_for_scoring: outcome.eligible_for_scoring,
+          eligible_for_training: outcome.eligible_for_training,
+          quality_reasons: outcome.quality_reasons,
+          completed_at: outcome.completed_at,
+        }
+        : null,
+      score: learningScore
+        ? {
+          model_version: modelById.get(String(learningScore.model_version_id))
+            ?.version ?? "unknown",
+          model_role: learningScore.model_role,
+          curve_mae: learningScore.curve_mae,
+          peak_error: learningScore.peak_error,
+          time_to_peak_error_minutes:
+            learningScore.time_to_peak_error_minutes,
+          integrated_response_error: learningScore.integrated_response_error,
+          interval_coverage: learningScore.interval_coverage,
+          scored_horizons: learningScore.scored_horizons,
+        }
+        : null,
     };
   });
 
@@ -570,10 +647,6 @@ Deno.serve(async (request) => {
     return response({ error: "Could not audit R&D access" }, 500, origin);
   }
 
-  const champion = (models ?? []).find((model) => model.status === "champion");
-  const candidate = (models ?? []).find((model) =>
-    model.status === "candidate"
-  );
   const activeCurrent = displayEvents.find((event) =>
     ![
       "expired_no_event",
@@ -672,22 +745,89 @@ Deno.serve(async (request) => {
         numeric: true,
       })
     );
+  const eligibleOutcomes = outcomesV2.filter((outcome) =>
+    outcome.eligible_for_training === true
+  );
+  const eligiblePots = new Set(
+    eligibleOutcomes.map((outcome) => String(outcome.pairing_name)),
+  ).size;
+  const multiPulseEpisodes = eligibleOutcomes.filter((outcome) =>
+    Number(outcome.pulse_count) > 1
+  ).length;
+  const eligibleTimes = eligibleOutcomes
+    .map((outcome) => Date.parse(String(outcome.first_open_device_at)))
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+  const calendarSpanDays = eligibleTimes.length > 1
+    ? (eligibleTimes.at(-1)! - eligibleTimes[0]) / 86_400_000
+    : 0;
+  const activeLearningModel = champion ?? candidate ?? null;
+  const activeWindows = activeLearningModel
+    ? evaluationsV2.filter((window) =>
+      window.model_version_id === activeLearningModel.id
+    )
+    : [];
+  const qualifiedWindows = activeWindows.filter((window) =>
+    window.passed === true
+  ).length;
+  const lastTraining = trainingRuns.find((run) =>
+    run.result === "succeeded"
+  ) ?? null;
+  const priorTrainingCount = Math.max(
+    0,
+    ...models.filter((model) =>
+      model.feature_schema_version === "episode-impulse-v2"
+    ).map((model) => Number(model.training_event_count ?? 0)),
+  );
+  const nextTrainingAt = priorTrainingCount > 0
+    ? priorTrainingCount + 10
+    : 40;
+  const progress = episodeDtos
+    .filter((episode) => episode.score?.curve_mae != null)
+    .slice()
+    .reverse()
+    .map((episode, index) => ({
+      event: episode.pairing_name,
+      index: index + 1,
+      curve_mae: episode.score?.curve_mae ?? null,
+    }));
   return response(
     {
       generated_at: new Date().toISOString(),
       mode: "shadow",
       champion_version: champion?.version ?? displayEvents[0].model_version,
       candidate_version: candidate?.version ?? null,
-      clean_events_learned: cleanCountResult.count ?? 0,
+      clean_events_learned: eligibleOutcomes.length,
+      learning: {
+        completed_episode_totals: outcomesV2.length,
+        eligible_episode_totals: eligibleOutcomes.length,
+        minimum_episode_floor: 40,
+        next_training_at: nextTrainingAt,
+        episodes_until_next_training: Math.max(
+          0,
+          nextTrainingAt - eligibleOutcomes.length,
+        ),
+        represented_control_pots: eligiblePots,
+        required_control_pots: 8,
+        multi_pulse_episodes: multiPulseEpisodes,
+        required_multi_pulse_episodes: 10,
+        calendar_span_days: calendarSpanDays,
+        required_calendar_span_days: 7,
+        qualified_chronological_windows: qualifiedWindows,
+        required_chronological_windows: 2,
+        model_family: "regularized additive impulse",
+        last_training_at: lastTraining?.completed_at ?? null,
+        status: champion
+          ? "champion_active"
+          : candidate
+          ? "candidate_evaluating"
+          : "collecting_evidence",
+      },
       current,
       pots,
       episodes: episodeDtos,
       history,
-      progress: history.slice().reverse().map((event, index) => ({
-        event: event.pairing_name,
-        index: index + 1,
-        curve_mae: event.score?.curve_mae ?? null,
-      })),
+      progress,
     },
     200,
     origin,

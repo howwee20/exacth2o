@@ -66,6 +66,36 @@ export type RdCorrectionEpisode = {
   pulses: RdIrrigationEvent[];
   missed_forecasts: number;
   quality: Record<string, unknown>;
+  outcome?: {
+    observed_horizons: number;
+    eligible_for_scoring: boolean;
+    eligible_for_training: boolean;
+    quality_reasons: string[];
+    completed_at: string;
+  } | null;
+  score?: (RdPredictionScore & {
+    model_version: string;
+    model_role: "baseline" | "candidate" | "champion";
+  }) | null;
+};
+
+export type RdLearningState = {
+  completed_episode_totals: number;
+  eligible_episode_totals: number;
+  minimum_episode_floor: number;
+  next_training_at: number;
+  episodes_until_next_training: number;
+  represented_control_pots: number;
+  required_control_pots: number;
+  multi_pulse_episodes: number;
+  required_multi_pulse_episodes: number;
+  calendar_span_days: number;
+  required_calendar_span_days: number;
+  qualified_chronological_windows: number;
+  required_chronological_windows: number;
+  model_family: string;
+  last_training_at: string | null;
+  status: "collecting_evidence" | "candidate_evaluating" | "champion_active";
 };
 
 export type RdPotSummary = {
@@ -87,6 +117,7 @@ export type RdLabSnapshot = {
   champion_version: string;
   candidate_version: string | null;
   clean_events_learned: number;
+  learning?: RdLearningState;
   current: RdLabEvent;
   pots: RdPotSummary[];
   episodes?: RdCorrectionEpisode[];

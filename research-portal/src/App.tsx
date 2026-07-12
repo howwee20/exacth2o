@@ -3084,7 +3084,7 @@ function PortalAdminHome({
               <span className="portal-launch-copy">
                 <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
                 <strong>{rdSnapshot.current.pairing_name} · {rdSnapshot.current.state.replace(/_/g, " ")}</strong>
-                <em>{rdSnapshot.clean_events_learned} clean events · {rdSnapshot.champion_version}</em>
+                <em>{rdSnapshot.learning?.eligible_episode_totals ?? rdSnapshot.clean_events_learned} eligible episode totals · {rdSnapshot.champion_version}</em>
               </span>
               <span className="portal-launch-action">Open Lab <ArrowRight size={14} /></span>
             </button>

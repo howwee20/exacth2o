@@ -143,6 +143,24 @@ function ResponseCurveChart({
 
 function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
   const points = snapshot.progress.filter((point) => point.curve_mae != null);
+  const learning = snapshot.learning ?? {
+    completed_episode_totals: 0,
+    eligible_episode_totals: snapshot.clean_events_learned,
+    minimum_episode_floor: 40,
+    next_training_at: 40,
+    episodes_until_next_training: Math.max(0, 40 - snapshot.clean_events_learned),
+    represented_control_pots: 0,
+    required_control_pots: 8,
+    multi_pulse_episodes: 0,
+    required_multi_pulse_episodes: 10,
+    calendar_span_days: 0,
+    required_calendar_span_days: 7,
+    qualified_chronological_windows: 0,
+    required_chronological_windows: 2,
+    model_family: "regularized additive impulse",
+    last_training_at: null,
+    status: "collecting_evidence" as const,
+  };
   const width = 760;
   const height = 260;
   const max = Math.max(...points.map((point) => point.curve_mae!), 0.5);
@@ -153,13 +171,29 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
   }).join(" ");
   return (
     <section className="rd-progress-panel">
-      <div><p className="rd-eyebrow">MEASURED EPISODE ERROR</p><h2>Learning progress</h2></div>
+      <div className="rd-learning-heading">
+        <div><p className="rd-eyebrow">EPISODE-TOTAL LEARNING</p><h2>Model readiness</h2></div>
+        <span className="rd-status-chip">{learning.status.replace(/_/g, " ")}</span>
+      </div>
+      <div className="rd-learning-gates">
+        <article><strong>{learning.eligible_episode_totals}</strong><span>eligible totals</span><small>next train at {learning.next_training_at}</small></article>
+        <article><strong>{learning.represented_control_pots}/{learning.required_control_pots}</strong><span>control pots</span><small>represented</small></article>
+        <article><strong>{learning.multi_pulse_episodes}/{learning.required_multi_pulse_episodes}</strong><span>multi-event totals</span><small>minimum evidence</small></article>
+        <article><strong>{learning.calendar_span_days.toFixed(1)}/{learning.required_calendar_span_days}</strong><span>calendar days</span><small>minimum span</small></article>
+        <article><strong>{learning.qualified_chronological_windows}/{learning.required_chronological_windows}</strong><span>holdout wins</span><small>required to promote</small></article>
+      </div>
+      <div className="rd-learning-model-row">
+        <span>Model<strong>{learning.model_family}</strong></span>
+        <span>Last train<strong>{formatTime(learning.last_training_at)}</strong></span>
+        <span>Next batch<strong>{learning.episodes_until_next_training} episodes</strong></span>
+      </div>
+      <div><p className="rd-eyebrow">MEASURED EPISODE ERROR</p><h2>Chronological results</h2></div>
       {points.length ? (
         <svg viewBox={`0 0 ${width} ${height}`} className="rd-progress-chart" role="img" aria-label="Recent episode error trend">
           <line x1="34" x2={width - 34} y1={height - 36} y2={height - 36} className="rd-grid-line" />
           <path d={path} className="rd-progress-line" />
         </svg>
-      ) : <div className="rd-empty-panel">No qualified episode totals yet.</div>}
+      ) : <div className="rd-empty-panel">No eligible episode-total scores yet.</div>}
     </section>
   );
 }

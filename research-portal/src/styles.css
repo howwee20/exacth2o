@@ -4262,9 +4262,64 @@ select {
 
 .rd-progress-panel {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 30px;
+  gap: 22px;
+}
+
+.rd-learning-heading,
+.rd-learning-model-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.rd-learning-gates {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rd-learning-gates article {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--rd-line);
+  border-radius: 10px;
+  background: rgba(249, 251, 250, 0.78);
+}
+
+.rd-learning-gates strong {
+  font-family: var(--portal-mono);
+  font-size: 1.1rem;
+}
+
+.rd-learning-gates span {
+  color: var(--rd-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.rd-learning-gates small,
+.rd-learning-model-row span {
+  color: var(--rd-muted);
+  font-size: 0.6rem;
+}
+
+.rd-learning-model-row {
+  padding: 12px 14px;
+  border-radius: 9px;
+  background: #f5f8f6;
+}
+
+.rd-learning-model-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.rd-learning-model-row strong {
+  color: var(--rd-ink);
+  font-family: var(--portal-mono);
+  font-size: 0.68rem;
 }
 
 .rd-progress-chart { width: 100%; height: auto; }
@@ -4322,6 +4377,10 @@ select {
   .rd-current-grid,
   .rd-progress-panel {
     grid-template-columns: 1fr;
+  }
+
+  .rd-learning-gates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .rd-pot-panel {
