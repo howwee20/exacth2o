@@ -1,15 +1,31 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { configRefreshDue, configRefreshOutcome } from "./config-refresh-policy.mjs";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  configRefreshDue,
+  configRefreshOutcome,
+} from "./config-refresh-policy.mjs";
+import {
+  collectLiveReadingRows,
+  resolveEvidencePairing,
+  semanticDedupeValveEvents,
+} from "./rd-evidence-policy.mjs";
 import { uptimeSecondsFromSources } from "./uptime-policy.mjs";
 
 const mattProjectId = "22222222-2222-4222-8222-222222222222";
 const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
-const ownerHealthBaseUrl = `https://${mattDeviceId}.balena-devices.com/owner-health`;
+const ownerHealthBaseUrl =
+  `https://${mattDeviceId}.balena-devices.com/owner-health`;
 const ignoredDiagnosticPairingNames = new Set(["cwd-lowercaset", "720-1539"]);
 const ignoredDiagnosticSensorKeys = new Set(["t", "d30gqn2d:t"]);
-const ignoredDiagnosticValveKeys = new Set(["1539", "0x20:3", "d30gqn2d:0x20:3"]);
+const ignoredDiagnosticValveKeys = new Set([
+  "1539",
+  "0x20:3",
+  "d30gqn2d:0x20:3",
+]);
 const ignoredDiagnosticSensorIds = new Set([720]);
 const ignoredDiagnosticValveIds = new Set([1539]);
 
@@ -107,6 +123,15 @@ type ValveEventInsert = {
   duration_ms: number | null;
   device_recorded_at: string;
   server_received_at: string;
+  evidence_source:
+    | "owner_health_direct"
+    | "owner_health_scalar"
+    | "owner_health_history"
+    | "unknown";
+  source_class: "automatic" | "manual" | "unknown";
+  pairing_name_raw: string | null;
+  pairing_resolved: boolean;
+  quality_flags: string[];
 };
 
 type ValveEventWriteRow = ValveEventInsert & {
@@ -116,16 +141,23 @@ type ValveEventWriteRow = ValveEventInsert & {
 };
 
 function corsHeaders(origin: string | null) {
-  const allowedOrigin = origin && allowedOrigins.has(origin) ? origin : "https://exacth2o.com";
+  const allowedOrigin = origin && allowedOrigins.has(origin)
+    ? origin
+    : "https://exacth2o.com";
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-sync-owner-health-secret",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-sync-owner-health-secret",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
 }
 
-function jsonResponse(body: unknown, status = 200, origin: string | null = null) {
+function jsonResponse(
+  body: unknown,
+  status = 200,
+  origin: string | null = null,
+) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -141,7 +173,8 @@ function cleanSecret(value: string | null | undefined) {
 }
 
 function bearerToken(request: Request) {
-  return (request.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  return (request.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "")
+    .trim();
 }
 
 function hasSyncSecret(request: Request) {
@@ -155,14 +188,20 @@ function hasSyncSecret(request: Request) {
     cleanSecret(request.headers.get("x-sync-owner-health-secret")),
     bearerToken(request),
   ].filter(Boolean);
-  return acceptedSecrets.some((acceptedSecret) => suppliedSecrets.includes(acceptedSecret));
+  return acceptedSecrets.some((acceptedSecret) =>
+    suppliedSecrets.includes(acceptedSecret)
+  );
 }
 
 function basicAuthHeader(username: string, password: string) {
   return `Basic ${btoa(`${username}:${password}`)}`;
 }
 
-async function fetchJson(url: string, authHeader: string, timeoutMs = 25_000): Promise<FetchResult> {
+async function fetchJson(
+  url: string,
+  authHeader: string,
+  timeoutMs = 25_000,
+): Promise<FetchResult> {
   const started = Date.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -225,7 +264,9 @@ function asString(value: unknown) {
 
 function asNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  if (
+    typeof value === "string" && value.trim() && Number.isFinite(Number(value))
+  ) return Number(value);
   return null;
 }
 
@@ -273,7 +314,9 @@ function isIgnoredDiagnosticValveKey(value: unknown) {
 
 function isIgnoredDiagnosticNumber(value: unknown, ignored: Set<number>) {
   if (typeof value === "number") return ignored.has(value);
-  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+  if (
+    typeof value === "string" && value.trim() && Number.isFinite(Number(value))
+  ) {
     return ignored.has(Number(value));
   }
   return false;
@@ -304,17 +347,36 @@ function isIgnoredDiagnosticSensorItem(value: unknown) {
   return (
     isIgnoredDiagnosticSensorKey(value) ||
     isIgnoredDiagnosticPairingName(value) ||
-    isIgnoredDiagnosticSensorKey(firstString(record, ["sensor", "sensor_key", "sensorKey", "address", "id", "name"])) ||
-    isIgnoredDiagnosticPairingName(firstString(record, ["pairing", "pairing_name", "pairingName", "name"])) ||
-    isIgnoredDiagnosticNumber(record.source_sensor_id, ignoredDiagnosticSensorIds) ||
-    isIgnoredDiagnosticNumber(record.sourceSensorId, ignoredDiagnosticSensorIds) ||
+    isIgnoredDiagnosticSensorKey(
+      firstString(record, [
+        "sensor",
+        "sensor_key",
+        "sensorKey",
+        "address",
+        "id",
+        "name",
+      ]),
+    ) ||
+    isIgnoredDiagnosticPairingName(
+      firstString(record, ["pairing", "pairing_name", "pairingName", "name"]),
+    ) ||
+    isIgnoredDiagnosticNumber(
+      record.source_sensor_id,
+      ignoredDiagnosticSensorIds,
+    ) ||
+    isIgnoredDiagnosticNumber(
+      record.sourceSensorId,
+      ignoredDiagnosticSensorIds,
+    ) ||
     isIgnoredDiagnosticNumber(record.sensor_id, ignoredDiagnosticSensorIds) ||
     isIgnoredDiagnosticNumber(record.sensorId, ignoredDiagnosticSensorIds)
   );
 }
 
 function filterIgnoredDiagnosticItems(values: unknown[]) {
-  return values.filter((value) => !isIgnoredDiagnosticSensorItem(value) && !isIgnoredDiagnosticIssue(value));
+  return values.filter((value) =>
+    !isIgnoredDiagnosticSensorItem(value) && !isIgnoredDiagnosticIssue(value)
+  );
 }
 
 function adjustedHealthCount(value: number | null, removedCount: number) {
@@ -342,11 +404,16 @@ function firstInteger(record: Record<string, unknown>, keys: string[]) {
 }
 
 function eventAction(record: Record<string, unknown>): "open" | "close" {
-  const text = firstString(record, ["action", "event", "state", "operation"])?.toLowerCase() ?? "";
+  const text = firstString(record, ["action", "event", "state", "operation"])
+    ?.toLowerCase() ?? "";
   return text.includes("close") || text.includes("closed") ? "close" : "open";
 }
 
-function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert | null {
+function normalizeValveEvent(
+  value: unknown,
+  nowIso: string,
+  evidenceSource: ValveEventInsert["evidence_source"] = "unknown",
+): ValveEventInsert | null {
   const record = asRecord(value);
   const deviceRecordedAt = asTimestamp(firstString(record, [
     "t",
@@ -360,9 +427,24 @@ function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert |
   ]));
   if (!deviceRecordedAt) return null;
 
-  const pairingName = firstString(record, ["pairing", "pairing_name", "pairingName", "name"]);
-  const valveKey = firstString(record, ["valve", "valve_key", "valveKey", "valve_id", "valveId"]);
-  const sourceValveId = firstInteger(record, ["source_valve_id", "sourceValveId", "sourceValveID"]);
+  const pairingName = firstString(record, [
+    "pairing",
+    "pairing_name",
+    "pairingName",
+    "name",
+  ]);
+  const valveKey = firstString(record, [
+    "valve",
+    "valve_key",
+    "valveKey",
+    "valve_id",
+    "valveId",
+  ]);
+  const sourceValveId = firstInteger(record, [
+    "source_valve_id",
+    "sourceValveId",
+    "sourceValveID",
+  ]);
   const action = eventAction(record);
   const duration = asInteger(record.valveOpenTimeMs) ??
     asInteger(record.valve_open_time_ms) ??
@@ -387,6 +469,11 @@ function normalizeValveEvent(value: unknown, nowIso: string): ValveEventInsert |
     duration_ms: duration,
     device_recorded_at: deviceRecordedAt,
     server_received_at: nowIso,
+    evidence_source: evidenceSource,
+    source_class: "unknown",
+    pairing_name_raw: pairingName ?? valveKey,
+    pairing_resolved: false,
+    quality_flags: [],
   };
 }
 
@@ -429,22 +516,23 @@ function scalarWateringEvent(
   );
   if (!deviceRecordedAt) return null;
 
-  const pairingName =
-    firstString(record, [
-      "watering_last_event",
-      "wateringLastEvent",
-      "last_watering_event",
-      "lastWateringEvent",
-      "wateringLastPairing",
-      "watering_last_pairing",
-    ]) ??
+  const pairingName = firstString(record, [
+    "watering_last_event",
+    "wateringLastEvent",
+    "last_watering_event",
+    "lastWateringEvent",
+    "wateringLastPairing",
+    "watering_last_pairing",
+  ]) ??
     nestedFirstString(record, ["watering", "last_event"]) ??
     nestedFirstString(record, ["watering", "lastEvent"]) ??
     nestedFirstString(record, ["lastEvent", "pairing"]) ??
     nestedFirstString(record, ["lastEvent", "pairId"]) ??
     "unknown";
-  const duration =
-    firstInteger(record, ["watering_last_duration_ms", "wateringLastDurationMs"]) ??
+  const duration = firstInteger(record, [
+    "watering_last_duration_ms",
+    "wateringLastDurationMs",
+  ]) ??
     nestedFirstInteger(record, ["watering", "last_duration_ms"]) ??
     nestedFirstInteger(record, ["watering", "lastDurationMs"]);
   return {
@@ -460,6 +548,14 @@ function scalarWateringEvent(
     duration_ms: duration,
     device_recorded_at: deviceRecordedAt,
     server_received_at: nowIso,
+    evidence_source: "owner_health_scalar",
+    source_class: "unknown",
+    pairing_name_raw: pairingName,
+    pairing_resolved: false,
+    quality_flags: [
+      "ambiguous_source",
+      ...(duration == null ? ["null_duration"] : []),
+    ],
   };
 }
 
@@ -472,7 +568,9 @@ function collectNestedScalarWateringEvents(
   if (Array.isArray(value)) {
     return [
       ...(directEvent ? [directEvent] : []),
-      ...value.flatMap((item) => collectNestedScalarWateringEvents(item, nowIso)),
+      ...value.flatMap((item) =>
+        collectNestedScalarWateringEvents(item, nowIso)
+      ),
     ];
   }
 
@@ -481,7 +579,9 @@ function collectNestedScalarWateringEvents(
 
   return [
     ...(directEvent ? [directEvent] : []),
-    ...Object.values(record).flatMap((child) => collectNestedScalarWateringEvents(child, nowIso)),
+    ...Object.values(record).flatMap((child) =>
+      collectNestedScalarWateringEvents(child, nowIso)
+    ),
   ];
 }
 
@@ -502,8 +602,10 @@ function collectNestedValveEventCandidates(
   if (Array.isArray(value)) {
     const directEvents = pathHintsValveEvents(path)
       ? value
-          .map((event) => normalizeValveEvent(event, nowIso))
-          .filter((event): event is ValveEventInsert => event != null)
+        .map((event) =>
+          normalizeValveEvent(event, nowIso, "owner_health_history")
+        )
+        .filter((event): event is ValveEventInsert => event != null)
       : [];
     const nestedEvents = value.flatMap((item, index) =>
       collectNestedValveEventCandidates(item, nowIso, [...path, String(index)])
@@ -513,7 +615,9 @@ function collectNestedValveEventCandidates(
 
   const record = asRecord(value);
   if (!Object.keys(record).length) return [];
-  const directEvent = pathHintsValveEvents(path) ? normalizeValveEvent(value, nowIso) : null;
+  const directEvent = pathHintsValveEvents(path)
+    ? normalizeValveEvent(value, nowIso)
+    : null;
   return Object.entries(record).flatMap(([key, child]) =>
     collectNestedValveEventCandidates(child, nowIso, [...path, key])
   ).concat(directEvent ? [directEvent] : []);
@@ -533,11 +637,36 @@ function collectValveEvents(
   ];
   const directEvents = sources
     .flatMap((source) => Array.isArray(source) ? source : [])
-    .map((event) => normalizeValveEvent(event, nowIso))
+    .map((event) => normalizeValveEvent(event, nowIso, "owner_health_direct"))
     .filter((event): event is ValveEventInsert => event != null);
-  const scalarEvents = collectNestedScalarWateringEvents({ status, health, history }, nowIso);
-  const nestedEvents = collectNestedValveEventCandidates(history, nowIso, ["history"]);
-  const events = [...directEvents, ...scalarEvents, ...nestedEvents];
+  const scalarEvents = collectNestedScalarWateringEvents({
+    status,
+    health,
+    history,
+  }, nowIso);
+  const nestedEvents = collectNestedValveEventCandidates(history, nowIso, [
+    "history",
+  ]);
+  const events = [...directEvents, ...scalarEvents, ...nestedEvents].map(
+    (event) => {
+      const resolution = resolveEvidencePairing(event.pairing_name, health);
+      const automatic = event.evidence_source === "owner_health_direct" &&
+        resolution.resolved;
+      const qualityFlags = new Set(event.quality_flags);
+      if (!resolution.resolved) qualityFlags.add("unmapped_pairing");
+      if (event.duration_ms == null) qualityFlags.add("null_duration");
+      if (event.action === "open") qualityFlags.add("open_only");
+      if (!automatic) qualityFlags.add("ambiguous_source");
+      return {
+        ...event,
+        pairing_name: resolution.pairingName,
+        pairing_name_raw: resolution.raw || event.pairing_name_raw,
+        pairing_resolved: resolution.resolved,
+        source_class: automatic ? "automatic" as const : "unknown" as const,
+        quality_flags: [...qualityFlags],
+      };
+    },
+  );
 
   const deduped = new Map<string, ValveEventInsert>();
   for (const event of events) {
@@ -546,7 +675,7 @@ function collectValveEvents(
       deduped.set(event.event_id, event);
     }
   }
-  return [...deduped.values()];
+  return semanticDedupeValveEvents([...deduped.values()]);
 }
 
 function isIgnoredDiagnosticValveEvent(event: ValveEventInsert) {
@@ -588,6 +717,10 @@ function compactValveEvent(row: ValveEventWriteRow) {
     action: row.action,
     duration_ms: row.duration_ms,
     device_recorded_at: row.device_recorded_at,
+    evidence_source: row.evidence_source,
+    source_class: row.source_class,
+    pairing_resolved: row.pairing_resolved,
+    quality_flags: row.quality_flags,
   };
 }
 
@@ -712,7 +845,9 @@ async function insertMissingValveEvents(
     };
   }
 
-  const missingEvents = events.filter((event) => !existingResult.existingIds.has(event.event_id));
+  const missingEvents = events.filter((event) =>
+    !existingResult.existingIds.has(event.event_id)
+  );
 
   if (!missingEvents.length) {
     return {
@@ -730,10 +865,47 @@ async function insertMissingValveEvents(
   return insertValveEventRows(admin, missingEvents.map(valveEventWriteRow));
 }
 
+async function mirrorLiveReadings(
+  admin: AdminClient,
+  health: Record<string, unknown>,
+  nowIso: string,
+) {
+  const enabled = Deno.env.get("RD_LIVE_READING_MIRROR_ENABLED") !== "false";
+  const rows = collectLiveReadingRows(health, {
+    organizationId: mattOrganizationId,
+    projectId: mattProjectId,
+    deviceId: mattDeviceId,
+    serverReceivedAt: nowIso,
+  });
+  if (!enabled) {
+    return {
+      enabled,
+      found: rows.length,
+      inserted: 0,
+      error: null as string | null,
+    };
+  }
+  if (!rows.length) {
+    return { enabled, found: 0, inserted: 0, error: null as string | null };
+  }
+
+  const { data, error } = await admin.rpc("mirror_live_sensor_readings", {
+    reading_rows: rows,
+  });
+  return {
+    enabled,
+    found: rows.length,
+    inserted: error ? 0 : asInteger(data) ?? 0,
+    error: error?.message ?? null,
+  };
+}
+
 function hasUsableValue(value: unknown): boolean {
   if (value == null) return false;
   if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") return Object.keys(value as Record<string, unknown>).length > 0;
+  if (typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>).length > 0;
+  }
   if (typeof value === "string") return value.trim().length > 0;
   return true;
 }
@@ -756,7 +928,11 @@ function firstValueAtPaths(sources: unknown[], paths: string[][]) {
   return null;
 }
 
-function firstNestedValue(value: unknown, keys: string[], maxDepth = 5): unknown {
+function firstNestedValue(
+  value: unknown,
+  keys: string[],
+  maxDepth = 5,
+): unknown {
   if (maxDepth < 0) return null;
 
   if (Array.isArray(value)) {
@@ -865,7 +1041,11 @@ function stateUpdatedAtFromSources(sources: unknown[], fallback: string) {
   return asTimestamp(value) ?? fallback;
 }
 
-function firstBooleanFromSources(sources: unknown[], paths: string[][], nestedKeys: string[]) {
+function firstBooleanFromSources(
+  sources: unknown[],
+  paths: string[][],
+  nestedKeys: string[],
+) {
   const pathValue = firstValueAtPaths(sources, paths);
   const pathBoolean = asBoolean(pathValue);
   if (pathBoolean != null) return pathBoolean;
@@ -904,7 +1084,9 @@ function configSectionCandidates(
 ): unknown[] {
   if (maxDepth < 0) return [];
   if (Array.isArray(value)) {
-    return value.flatMap((item) => configSectionCandidates(item, keys, maxDepth - 1));
+    return value.flatMap((item) =>
+      configSectionCandidates(item, keys, maxDepth - 1)
+    );
   }
 
   const record = asRecord(value);
@@ -914,18 +1096,26 @@ function configSectionCandidates(
     .map((key) => record[key]);
   return [
     ...matches,
-    ...Object.values(record).flatMap((child) => configSectionCandidates(child, keys, maxDepth - 1)),
+    ...Object.values(record).flatMap((child) =>
+      configSectionCandidates(child, keys, maxDepth - 1)
+    ),
   ];
 }
 
-function extractConfigSection(sources: unknown[], keys: string[]): ConfigSectionMatch {
+function extractConfigSection(
+  sources: unknown[],
+  keys: string[],
+): ConfigSectionMatch {
   let explicitEmpty: unknown = null;
   let emptyFound = false;
 
   for (const source of sources) {
     for (const candidate of configSectionCandidates(source, keys)) {
       if (hasUsableValue(candidate)) return { found: true, value: candidate };
-      if (Array.isArray(candidate) || (candidate !== null && typeof candidate === "object")) {
+      if (
+        Array.isArray(candidate) ||
+        (candidate !== null && typeof candidate === "object")
+      ) {
         if (!emptyFound) explicitEmpty = candidate;
         emptyFound = true;
       }
@@ -937,7 +1127,16 @@ function extractConfigSection(sources: unknown[], keys: string[]): ConfigSection
     : { found: false, value: null };
 }
 
-function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations" | "board_config" | "sensors" | "valves" | "groups") {
+function normalizeConfigSection(
+  value: unknown,
+  kind:
+    | "pairings"
+    | "calibrations"
+    | "board_config"
+    | "sensors"
+    | "valves"
+    | "groups",
+) {
   if (!hasUsableValue(value)) return [];
 
   let items: unknown[] = [];
@@ -948,13 +1147,15 @@ function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations
     const nestedArray = asArray(record.items).length
       ? asArray(record.items)
       : asArray(record.records).length
-        ? asArray(record.records)
-        : asArray(record.data);
+      ? asArray(record.records)
+      : asArray(record.data);
     if (nestedArray.length) {
       items = nestedArray;
     } else {
       const values = Object.values(record);
-      items = values.length && values.every((item) => typeof item === "object" && item !== null)
+      items = values.length && values.every((item) =>
+          typeof item === "object" && item !== null
+        )
         ? values
         : [record];
     }
@@ -969,7 +1170,13 @@ function normalizeConfigSection(value: unknown, kind: "pairings" | "calibrations
 function resolvedConfigSection(
   current: ConfigSectionMatch,
   previous: unknown,
-  kind: "pairings" | "calibrations" | "board_config" | "sensors" | "valves" | "groups",
+  kind:
+    | "pairings"
+    | "calibrations"
+    | "board_config"
+    | "sensors"
+    | "valves"
+    | "groups",
 ) {
   return normalizeConfigSection(current.found ? current.value : previous, kind);
 }
@@ -992,7 +1199,10 @@ function stableJson(value: unknown) {
 }
 
 async function sha256Hex(value: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -1017,7 +1227,13 @@ async function upsertDeviceRuntimeState(
     };
   }
 
-  return { ok: true, row: data ?? null, error: null, code: null, details: null };
+  return {
+    ok: true,
+    row: data ?? null,
+    error: null,
+    code: null,
+    details: null,
+  };
 }
 
 async function upsertDeviceConfigState(
@@ -1039,7 +1255,13 @@ async function upsertDeviceConfigState(
     };
   }
 
-  return { ok: true, row: data ?? null, error: null, code: null, details: null };
+  return {
+    ok: true,
+    row: data ?? null,
+    error: null,
+    code: null,
+    details: null,
+  };
 }
 
 serve(async (request) => {
@@ -1059,11 +1281,19 @@ serve(async (request) => {
   const ownerPassword = cleanSecret(Deno.env.get("MATT_OWNER_HEALTH_PASSWORD"));
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse({ error: "Server is missing Supabase configuration" }, 500, origin);
+    return jsonResponse(
+      { error: "Server is missing Supabase configuration" },
+      500,
+      origin,
+    );
   }
 
   if (!ownerUser || !ownerPassword) {
-    return jsonResponse({ error: "Server is missing owner-health credentials" }, 500, origin);
+    return jsonResponse(
+      { error: "Server is missing owner-health credentials" },
+      500,
+      origin,
+    );
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -1072,7 +1302,11 @@ serve(async (request) => {
 
   const syncSecretAuthorized = hasSyncSecret(request);
   if (!syncSecretAuthorized) {
-    return jsonResponse({ error: "Server ingestion authorization is required" }, 401, origin);
+    return jsonResponse(
+      { error: "Server ingestion authorization is required" },
+      401,
+      origin,
+    );
   }
 
   let syncRequest: SyncRequest = {};
@@ -1085,7 +1319,8 @@ serve(async (request) => {
     // Scheduled watchdog calls intentionally use an empty request body.
   }
 
-  const requestedSource = (asString(syncRequest.source) ?? "scheduled_watchdog").slice(0, 80);
+  const requestedSource = (asString(syncRequest.source) ?? "scheduled_watchdog")
+    .slice(0, 80);
   const trustedSyncSources = new Set([
     "scheduled_watchdog",
     "github_actions_watchdog",
@@ -1094,19 +1329,28 @@ serve(async (request) => {
     "control_executor_watchdog",
     "manual_admin_sync",
   ]);
-  const source = trustedSyncSources.has(requestedSource) ? requestedSource : "scheduled_watchdog";
+  const source = trustedSyncSources.has(requestedSource)
+    ? requestedSource
+    : "scheduled_watchdog";
   let includeHistory = syncRequest.include_history === true;
   const leaseHolder = crypto.randomUUID();
-  const { data: leaseAcquired, error: leaseError } = await admin.rpc("acquire_device_ingest_lease", {
-    lease_project_id: mattProjectId,
-    lease_device_id: mattDeviceId,
-    lease_holder: leaseHolder,
-    lease_seconds: 300,
-  });
+  const { data: leaseAcquired, error: leaseError } = await admin.rpc(
+    "acquire_device_ingest_lease",
+    {
+      lease_project_id: mattProjectId,
+      lease_device_id: mattDeviceId,
+      lease_holder: leaseHolder,
+      lease_seconds: 300,
+    },
+  );
 
   if (leaseError) {
     console.error("Could not acquire health ingest lease", leaseError);
-    return jsonResponse({ error: "Could not acquire health ingest lease" }, 500, origin);
+    return jsonResponse(
+      { error: "Could not acquire health ingest lease" },
+      500,
+      origin,
+    );
   }
 
   if (leaseAcquired !== true) {
@@ -1123,609 +1367,754 @@ serve(async (request) => {
   };
 
   try {
+    if (source.endsWith("_watchdog")) {
+      const { error: retentionError } = await admin.rpc(
+        "run_device_health_retention",
+        {
+          retention_days: 30,
+          minimum_interval_hours: 23,
+        },
+      );
+      if (retentionError) {
+        console.error("Could not run health retention", retentionError);
+      }
 
-  if (source.endsWith("_watchdog")) {
-    const { error: retentionError } = await admin.rpc("run_device_health_retention", {
-      retention_days: 30,
-      minimum_interval_hours: 23,
-    });
-    if (retentionError) console.error("Could not run health retention", retentionError);
+      const { data: historyMaintenance, error: historyMaintenanceError } =
+        await admin
+          .from("device_maintenance_state")
+          .select("last_completed_at")
+          .eq("task_name", "owner_health_history_recovery")
+          .maybeSingle();
+      if (historyMaintenanceError) {
+        console.error(
+          "Could not read history recovery checkpoint",
+          historyMaintenanceError,
+        );
+      }
+      const lastHistoryRecoveryAt = Date.parse(
+        String(historyMaintenance?.last_completed_at ?? ""),
+      );
+      const historyRecoveryDue = historyMaintenanceError !== null ||
+        !Number.isFinite(lastHistoryRecoveryAt) ||
+        Date.now() - lastHistoryRecoveryAt >= 30 * 60 * 1000;
+      includeHistory = includeHistory || historyRecoveryDue;
 
-    const { data: historyMaintenance, error: historyMaintenanceError } = await admin
-      .from("device_maintenance_state")
-      .select("last_completed_at")
-      .eq("task_name", "owner_health_history_recovery")
-      .maybeSingle();
-    if (historyMaintenanceError) {
-      console.error("Could not read history recovery checkpoint", historyMaintenanceError);
-    }
-    const lastHistoryRecoveryAt = Date.parse(String(historyMaintenance?.last_completed_at ?? ""));
-    const historyRecoveryDue =
-      historyMaintenanceError !== null ||
-      !Number.isFinite(lastHistoryRecoveryAt) ||
-      Date.now() - lastHistoryRecoveryAt >= 30 * 60 * 1000;
-    includeHistory = includeHistory || historyRecoveryDue;
-
-    const isExternalWatchdog =
-      source === "scheduled_watchdog" ||
-      source === "github_actions_watchdog" ||
-      source === "supabase_cron_watchdog";
-    if (isExternalWatchdog) {
-      const [latestSnapshotResult, latestRuntimeResult] = await Promise.all([
-        admin
-          .from("device_health_snapshots")
-          .select("created_at, captured_at, status_endpoint_ok, ingest_complete")
-          .eq("project_id", mattProjectId)
-          .eq("device_id", mattDeviceId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        admin
-          .from("device_runtime_state")
-          .select("updated_at, state_observed_at, state_fresh_until")
-          .eq("project_id", mattProjectId)
-          .eq("device_id", mattDeviceId)
-          .maybeSingle(),
-      ]);
-      const latestSnapshot = latestSnapshotResult.data;
-      const latestRuntime = latestRuntimeResult.data;
-      const latestCreatedAt = Date.parse(String(latestSnapshot?.created_at ?? ""));
-      const latestRuntimeAt = Date.parse(String(latestRuntime?.updated_at ?? ""));
-      const latestCapturedAt = Date.parse(String(latestSnapshot?.captured_at ?? ""));
-      const latestStateObservedAt = Date.parse(String(latestRuntime?.state_observed_at ?? ""));
-      const latestStateFreshUntil = Date.parse(String(latestRuntime?.state_fresh_until ?? ""));
-      if (
-        !includeHistory &&
-        latestSnapshot?.status_endpoint_ok === true &&
-        latestSnapshot?.ingest_complete === true &&
-        Number.isFinite(latestCreatedAt) &&
-        Number.isFinite(latestRuntimeAt) &&
-        Number.isFinite(latestCapturedAt) &&
-        Number.isFinite(latestStateObservedAt) &&
-        Number.isFinite(latestStateFreshUntil) &&
-        Date.now() - latestCreatedAt < 3 * 60 * 1000 &&
-        Date.now() - latestRuntimeAt < 3 * 60 * 1000 &&
-        Date.now() - latestCapturedAt < 10 * 60 * 1000 &&
-        Date.now() - latestStateObservedAt < 10 * 60 * 1000 &&
-        latestStateFreshUntil > Date.now()
-      ) {
-        return jsonResponse({ ok: true, deduplicated: true, source, reason: "primary_authority_fresh" }, 202, origin);
+      const isExternalWatchdog = source === "scheduled_watchdog" ||
+        source === "github_actions_watchdog" ||
+        source === "supabase_cron_watchdog";
+      if (isExternalWatchdog) {
+        const [latestSnapshotResult, latestRuntimeResult] = await Promise.all([
+          admin
+            .from("device_health_snapshots")
+            .select(
+              "created_at, captured_at, status_endpoint_ok, ingest_complete",
+            )
+            .eq("project_id", mattProjectId)
+            .eq("device_id", mattDeviceId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          admin
+            .from("device_runtime_state")
+            .select("updated_at, state_observed_at, state_fresh_until")
+            .eq("project_id", mattProjectId)
+            .eq("device_id", mattDeviceId)
+            .maybeSingle(),
+        ]);
+        const latestSnapshot = latestSnapshotResult.data;
+        const latestRuntime = latestRuntimeResult.data;
+        const latestCreatedAt = Date.parse(
+          String(latestSnapshot?.created_at ?? ""),
+        );
+        const latestRuntimeAt = Date.parse(
+          String(latestRuntime?.updated_at ?? ""),
+        );
+        const latestCapturedAt = Date.parse(
+          String(latestSnapshot?.captured_at ?? ""),
+        );
+        const latestStateObservedAt = Date.parse(
+          String(latestRuntime?.state_observed_at ?? ""),
+        );
+        const latestStateFreshUntil = Date.parse(
+          String(latestRuntime?.state_fresh_until ?? ""),
+        );
+        if (
+          !includeHistory &&
+          latestSnapshot?.status_endpoint_ok === true &&
+          latestSnapshot?.ingest_complete === true &&
+          Number.isFinite(latestCreatedAt) &&
+          Number.isFinite(latestRuntimeAt) &&
+          Number.isFinite(latestCapturedAt) &&
+          Number.isFinite(latestStateObservedAt) &&
+          Number.isFinite(latestStateFreshUntil) &&
+          Date.now() - latestCreatedAt < 3 * 60 * 1000 &&
+          Date.now() - latestRuntimeAt < 3 * 60 * 1000 &&
+          Date.now() - latestCapturedAt < 10 * 60 * 1000 &&
+          Date.now() - latestStateObservedAt < 10 * 60 * 1000 &&
+          latestStateFreshUntil > Date.now()
+        ) {
+          return jsonResponse(
+            {
+              ok: true,
+              deduplicated: true,
+              source,
+              reason: "primary_authority_fresh",
+            },
+            202,
+            origin,
+          );
+        }
       }
     }
-  }
 
-  const [lastConfigStateResult, configAttemptResult] = await Promise.all([
-    admin
-      .from("device_config_state")
-      .select("updated_at, config_hash, pairings, calibrations, board_config, sensors, valves, groups")
-      .eq("project_id", mattProjectId)
-      .eq("device_id", mattDeviceId)
-      .maybeSingle(),
-    admin
-      .from("device_maintenance_state")
-      .select("last_completed_at")
-      .eq("task_name", "owner_health_config_refresh_attempt")
-      .maybeSingle(),
-  ]);
-  if (lastConfigStateResult.error) {
-    console.error("Could not read previous config state", lastConfigStateResult.error);
-  }
-  if (configAttemptResult.error) {
-    console.error("Could not read config refresh checkpoint", configAttemptResult.error);
-  }
-  const lastConfigState = lastConfigStateResult.data;
-  const lastConfigAt = Date.parse(String(lastConfigState?.updated_at ?? ""));
-  const lastConfigAttemptAt = Date.parse(String(configAttemptResult.data?.last_completed_at ?? ""));
-  const configIsStale = configRefreshDue({
-    lastConfigUpdatedAtMs: lastConfigAt,
-    lastAttemptCompletedAtMs: lastConfigAttemptAt,
-    nowMs: Date.now(),
-  });
-  const configRefreshRequired = syncRequest.include_config === true || source === "control_executor";
-  const includeConfig = configRefreshRequired || configIsStale;
-
-  const authHeader = basicAuthHeader(ownerUser, ownerPassword);
-  const optionalEndpointTimeoutMs = 6_000;
-  const [
-    statusResponse,
-    healthResponse,
-    historyResponse,
-    systemResponse,
-    systemConfigResponse,
-    configResponse,
-    pairingsResponse,
-  ] = await Promise.all([
-    fetchJson(`${ownerHealthBaseUrl}/api/status`, authHeader),
-    fetchJson(`${ownerHealthBaseUrl}/api/health`, authHeader),
-    includeHistory
-      ? fetchJson(`${ownerHealthBaseUrl}/api/history?days=2`, authHeader)
-      : Promise.resolve(skippedFetchResult("history_not_requested")),
-    includeConfig
-      ? fetchJson(`${ownerHealthBaseUrl}/api/system`, authHeader, optionalEndpointTimeoutMs)
-      : Promise.resolve(skippedFetchResult("config_not_due")),
-    includeConfig
-      ? fetchJson(`${ownerHealthBaseUrl}/api/system-config`, authHeader, optionalEndpointTimeoutMs)
-      : Promise.resolve(skippedFetchResult("config_not_due")),
-    includeConfig
-      ? fetchJson(`${ownerHealthBaseUrl}/api/config`, authHeader, optionalEndpointTimeoutMs)
-      : Promise.resolve(skippedFetchResult("config_not_due")),
-    includeConfig
-      ? fetchJson(`${ownerHealthBaseUrl}/api/pairings`, authHeader, optionalEndpointTimeoutMs)
-      : Promise.resolve(skippedFetchResult("config_not_due")),
-  ]);
-  if (!statusResponse.ok) {
-    return jsonResponse({ error: "Owner-health status endpoint is unavailable" }, 502, origin);
-  }
-  const status = statusResponse.ok ? statusResponse.data : {};
-  const health = healthResponse.ok ? healthResponse.data : {};
-  const history = historyResponse.ok ? historyResponse.data : {};
-  const system = systemResponse.ok ? systemResponse.data : {};
-  const systemConfig = systemConfigResponse.ok ? systemConfigResponse.data : {};
-  const config = configResponse.ok ? configResponse.data : {};
-  const pairingsConfig = pairingsResponse.ok ? pairingsResponse.data : {};
-  const historyRecords = Array.isArray(history.records) ? history.records : [];
-  const rawMissingSensors = asArray(status.missing_sensors);
-  const rawStaleSensors = asArray(status.stale_sensors);
-  const missingSensors = filterIgnoredDiagnosticItems(rawMissingSensors);
-  const staleSensors = filterIgnoredDiagnosticItems(rawStaleSensors);
-  const ignoredMissingCount = rawMissingSensors.length - missingSensors.length;
-  const ignoredStaleCount = rawStaleSensors.length - staleSensors.length;
-  const ignoredSensorCount = new Set([
-    ...rawMissingSensors.filter(isIgnoredDiagnosticSensorItem).map(diagnosticIssueText),
-    ...rawStaleSensors.filter(isIgnoredDiagnosticSensorItem).map(diagnosticIssueText),
-  ]).size;
-  const nowIso = new Date().toISOString();
-  const valveEvents = collectValveEvents(
-    status,
-    health,
-    history,
-    nowIso,
-  );
-  const runtimeSources = [status, health, system];
-  // When config was not requested, aggregate health objects may contain fields
-  // named like configuration sections (for example a compact pairing count).
-  // They are diagnostics, not controller config; use the last verified mirror.
-  const configSources = includeConfig
-    ? [systemConfig, config, pairingsConfig, system, health, status]
-    : [];
-  const controllerState = controllerStateFromSources(runtimeSources);
-  const wateringDisabled = wateringDisabledFromSources(runtimeSources);
-  let wateringEnabled = firstBooleanFromSources(runtimeSources, [
-    ["watering_enabled"],
-    ["wateringEnabled"],
-    ["watering", "enabled"],
-    ["api", "watering", "enabled"],
-  ], ["watering_enabled", "wateringEnabled"]) ?? (wateringDisabled.length ? false : null);
-  const currentPairings = extractConfigSection(configSources, [
-    "pairings",
-    "Pairings",
-    "watering_pairings",
-    "wateringPairings",
-  ]);
-  const currentCalibrations = extractConfigSection(configSources, [
-    "calibrations",
-    "Calibrations",
-    "calibration",
-    "Calibration",
-  ]);
-  const currentBoardConfig = extractConfigSection(configSources, [
-    "board_config",
-    "boardConfig",
-    "board_configurations",
-    "boardConfigurations",
-    "board_configs",
-    "boardConfigs",
-    "boards",
-  ]);
-  const currentSensors = extractConfigSection(configSources, [
-    "sensors",
-    "Sensors",
-  ]);
-  const currentValves = extractConfigSection(configSources, [
-    "valves",
-    "Valves",
-  ]);
-  const currentGroups = extractConfigSection(configSources, [
-    "groups",
-    "Groups",
-  ]);
-  const pairings = resolvedConfigSection(currentPairings, lastConfigState?.pairings, "pairings");
-  const calibrations = resolvedConfigSection(currentCalibrations, lastConfigState?.calibrations, "calibrations");
-  const boardConfig = resolvedConfigSection(currentBoardConfig, lastConfigState?.board_config, "board_config");
-  const sensors = resolvedConfigSection(currentSensors, lastConfigState?.sensors, "sensors");
-  const valves = resolvedConfigSection(currentValves, lastConfigState?.valves, "valves");
-  const groups = resolvedConfigSection(currentGroups, lastConfigState?.groups, "groups");
-  if (wateringEnabled == null) {
-    const hasEnabledPairing = pairings.some((pairing) => {
-      const record = asRecord(pairing);
-      const target = asNumber(
-        record.WTCPercentLimit ?? record.wtc_percent_limit ?? record.target_vwc,
+    const [lastConfigStateResult, configAttemptResult] = await Promise.all([
+      admin
+        .from("device_config_state")
+        .select(
+          "updated_at, config_hash, pairings, calibrations, board_config, sensors, valves, groups",
+        )
+        .eq("project_id", mattProjectId)
+        .eq("device_id", mattDeviceId)
+        .maybeSingle(),
+      admin
+        .from("device_maintenance_state")
+        .select("last_completed_at")
+        .eq("task_name", "owner_health_config_refresh_attempt")
+        .maybeSingle(),
+    ]);
+    if (lastConfigStateResult.error) {
+      console.error(
+        "Could not read previous config state",
+        lastConfigStateResult.error,
       );
-      return target != null && target > -999_000;
-    });
-    if (controllerState.normalized === "RUNNING") wateringEnabled = hasEnabledPairing;
-    if (controllerState.normalized === "STOPPED") wateringEnabled = false;
-  }
-  const configSectionObserved = [
-    currentPairings,
-    currentCalibrations,
-    currentBoardConfig,
-    currentSensors,
-    currentValves,
-    currentGroups,
-  ].some((section) => section.found);
-  const configFetchSucceeded = includeConfig && (
-    configResponse.ok || (systemConfigResponse.ok && pairingsResponse.ok)
-  ) && configSectionObserved;
-  const configIsComplete =
-    pairings.length > 0 &&
-    boardConfig.length > 0 &&
-    sensors.length > 0 &&
-    valves.length > 0;
-  const shouldWriteConfig = configFetchSucceeded && configIsComplete;
-  const configPayload = {
-    pairings,
-    calibrations,
-    board_config: boardConfig,
-    sensors,
-    valves,
-    groups,
-  };
-  const nextConfigHash = shouldWriteConfig ? await sha256Hex(stableJson(configPayload)) : null;
-  const configHash = nextConfigHash ?? asString(lastConfigState?.config_hash);
-  const reportedCapturedValue = status.last_checked_at;
-  const reportedCapturedPresent =
-    reportedCapturedValue !== null &&
-    reportedCapturedValue !== undefined &&
-    String(reportedCapturedValue).trim() !== "";
-  const reportedCapturedAt = asTimestamp(reportedCapturedValue);
-  const reportedCapturedAtMs = Date.parse(String(reportedCapturedAt ?? ""));
-  const observationTimestampValid =
-    reportedCapturedPresent && (
-      reportedCapturedAt !== null &&
-      Number.isFinite(reportedCapturedAtMs) &&
-      reportedCapturedAtMs <= Date.now() + 60 * 1000
-    );
-  const capturedAt = observationTimestampValid && reportedCapturedAt ? reportedCapturedAt : nowIso;
-  const capturedAtMs = Date.parse(capturedAt);
-  const statusObservationFresh =
-    observationTimestampValid &&
-    Number.isFinite(capturedAtMs) &&
-    Date.now() - capturedAtMs <= 10 * 60 * 1000;
-  const stateFreshUntil = statusObservationFresh
-    ? new Date(capturedAtMs + 10 * 60 * 1000).toISOString()
-    : new Date(Date.now() - 1).toISOString();
-
-  const snapshot = {
-    project_id: mattProjectId,
-    device_id: mattDeviceId,
-    device_name: "plain-feather",
-    source,
-    captured_at: capturedAt,
-    observation_key: capturedAt,
-    ingest_complete: false,
-    owner_checked_at: asTimestamp(status.last_checked_at),
-    status_endpoint_ok: statusResponse.ok,
-    history_endpoint_ok: includeHistory ? historyResponse.ok : null,
-    status_http_status: statusResponse.status,
-    status_elapsed_ms: statusResponse.elapsedMs,
-    history_samples: includeHistory ? historyRecords.length : null,
-    overall_status: asString(status.overall_status),
-    api_status: asString(status.api_status),
-    pi_online: asBoolean(status.pi_online),
-    public_url_reachable: asBoolean(status.public_url_reachable),
-    ethernet_link: asBoolean(status.ethernet_link),
-    ethernet_ip: asString(status.ethernet_ip),
-    gateway_ping_ms: asNumber(status.gateway_ping_ms),
-    undervoltage: asBoolean(status.undervoltage),
-    cpu_temp_c: asNumber(status.cpu_temp_c),
-    uptime_seconds: uptimeSecondsFromSources(status, health),
-    sensors_expected: adjustedHealthCount(asInteger(status.sensors_expected), ignoredSensorCount),
-    sensors_current: asInteger(status.sensors_current),
-    sensors_stale: adjustedHealthCount(asInteger(status.sensors_stale), ignoredStaleCount),
-    sensors_missing: adjustedHealthCount(asInteger(status.sensors_missing), ignoredMissingCount),
-    missing_sensors: missingSensors,
-    stale_sensors: staleSensors,
-    last_sensor_reading_at: asTimestamp(status.last_sensor_reading_at),
-    watering_last_event: asString(status.watering_last_event),
-    watering_last_event_at: asTimestamp(status.watering_last_event_at),
-    watering_events_last_24h: asInteger(status.watering_events_last_24h),
-    scheduler_jobs_loaded: asInteger(status.scheduler_jobs_loaded),
-    active_alerts: asArray(status.active_alerts).filter((issue) => !isIgnoredDiagnosticIssue(issue)),
-    known_issues: asArray(status.known_issues).filter((issue) => !isIgnoredDiagnosticIssue(issue)),
-    raw_status: {},
-    raw_health: {},
-    raw_history: {},
-  };
-
-  const insertResult = await admin
-    .from("device_health_snapshots")
-    .insert(snapshot)
-    .select("id, captured_at, overall_status, sensors_current, sensors_stale, sensors_missing")
-    .single();
-  let data = insertResult.data;
-  let error = insertResult.error;
-  let snapshotInserted = !insertResult.error;
-
-  if (insertResult.error?.code === "23505") {
-    const existingResult = await admin
-      .from("device_health_snapshots")
-      .select("id")
-      .eq("project_id", mattProjectId)
-      .eq("device_id", mattDeviceId)
-      .eq("observation_key", snapshot.observation_key)
-      .single();
-    if (existingResult.error || !existingResult.data?.id) {
-      data = null;
-      error = existingResult.error ?? insertResult.error;
-    } else {
-      const retryUpdate = await admin
-        .from("device_health_snapshots")
-        .update(snapshot)
-        .eq("id", existingResult.data.id)
-        .select("id, captured_at, overall_status, sensors_current, sensors_stale, sensors_missing")
-        .single();
-      data = retryUpdate.data;
-      error = retryUpdate.error;
-      snapshotInserted = false;
     }
-  }
+    if (configAttemptResult.error) {
+      console.error(
+        "Could not read config refresh checkpoint",
+        configAttemptResult.error,
+      );
+    }
+    const lastConfigState = lastConfigStateResult.data;
+    const lastConfigAt = Date.parse(String(lastConfigState?.updated_at ?? ""));
+    const lastConfigAttemptAt = Date.parse(
+      String(configAttemptResult.data?.last_completed_at ?? ""),
+    );
+    const configIsStale = configRefreshDue({
+      lastConfigUpdatedAtMs: lastConfigAt,
+      lastAttemptCompletedAtMs: lastConfigAttemptAt,
+      nowMs: Date.now(),
+    });
+    const configRefreshRequired = syncRequest.include_config === true ||
+      source === "control_executor";
+    const includeConfig = configRefreshRequired || configIsStale;
 
-  if (error) {
-    return jsonResponse({ error: "Could not write health snapshot" }, 500, origin);
-  }
-
-  const valveEventWrite = await insertMissingValveEvents(admin, valveEvents);
-  if (valveEventWrite.error) {
-    console.error("Could not write valve events", valveEventWrite.error);
-  }
-
-  const runtimeRow: DeviceRuntimeStateWrite = {
-    project_id: mattProjectId,
-    device_id: mattDeviceId,
-    device_name: "plain-feather",
-    source,
-    controller_state: controllerState.normalized,
-    controller_state_raw: controllerState.raw,
-    controller_state_updated_at: stateUpdatedAtFromSources(runtimeSources, snapshot.captured_at),
-    state_observed_at: snapshot.captured_at,
-    state_fresh_until: stateFreshUntil,
-    owner_checked_at: snapshot.owner_checked_at,
-    overall_status: snapshot.overall_status,
-    api_status: snapshot.api_status,
-    pi_online: snapshot.pi_online,
-    public_url_reachable: snapshot.public_url_reachable,
-    watering_enabled: wateringEnabled,
-    watering_disabled: wateringDisabled,
-    watering_last_event: snapshot.watering_last_event,
-    watering_last_event_at: snapshot.watering_last_event_at,
-    watering_events_last_24h: snapshot.watering_events_last_24h,
-    scheduler_jobs_loaded: snapshot.scheduler_jobs_loaded,
-    sensors_expected: snapshot.sensors_expected,
-    sensors_current: snapshot.sensors_current,
-    sensors_stale: snapshot.sensors_stale,
-    sensors_missing: snapshot.sensors_missing,
-    last_sensor_reading_at: snapshot.last_sensor_reading_at,
-    config_hash: configHash,
-    raw_status: statusResponse.data,
-    raw_health: healthResponse.data,
-    raw_system: system,
-    updated_at: nowIso,
-  };
-  const runtimeWrite = await upsertDeviceRuntimeState(admin, runtimeRow);
-  if (!runtimeWrite.ok) {
-    console.error("Could not write runtime state", runtimeWrite.error);
-  }
-
-  const endpointStatus = {
-    system: {
-      ok: systemResponse.ok,
-      status: systemResponse.status,
-      elapsedMs: systemResponse.elapsedMs,
-      error: systemResponse.error,
-    },
-    systemConfig: {
-      ok: systemConfigResponse.ok,
-      status: systemConfigResponse.status,
-      elapsedMs: systemConfigResponse.elapsedMs,
-      error: systemConfigResponse.error,
-    },
-    config: {
-      ok: configResponse.ok,
-      status: configResponse.status,
-      elapsedMs: configResponse.elapsedMs,
-      error: configResponse.error,
-    },
-    pairings: {
-      ok: pairingsResponse.ok,
-      status: pairingsResponse.status,
-      elapsedMs: pairingsResponse.elapsedMs,
-      error: pairingsResponse.error,
-    },
-  };
-
-  const configWrite = shouldWriteConfig && nextConfigHash
-    ? await upsertDeviceConfigState(admin, {
-      project_id: mattProjectId,
-      device_id: mattDeviceId,
-      device_name: "plain-feather",
-      source,
-      observed_at: nowIso,
+    const authHeader = basicAuthHeader(ownerUser, ownerPassword);
+    const optionalEndpointTimeoutMs = 6_000;
+    const [
+      statusResponse,
+      healthResponse,
+      historyResponse,
+      systemResponse,
+      systemConfigResponse,
+      configResponse,
+      pairingsResponse,
+    ] = await Promise.all([
+      fetchJson(`${ownerHealthBaseUrl}/api/status`, authHeader),
+      fetchJson(`${ownerHealthBaseUrl}/api/health`, authHeader),
+      includeHistory
+        ? fetchJson(`${ownerHealthBaseUrl}/api/history?days=2`, authHeader)
+        : Promise.resolve(skippedFetchResult("history_not_requested")),
+      includeConfig
+        ? fetchJson(
+          `${ownerHealthBaseUrl}/api/system`,
+          authHeader,
+          optionalEndpointTimeoutMs,
+        )
+        : Promise.resolve(skippedFetchResult("config_not_due")),
+      includeConfig
+        ? fetchJson(
+          `${ownerHealthBaseUrl}/api/system-config`,
+          authHeader,
+          optionalEndpointTimeoutMs,
+        )
+        : Promise.resolve(skippedFetchResult("config_not_due")),
+      includeConfig
+        ? fetchJson(
+          `${ownerHealthBaseUrl}/api/config`,
+          authHeader,
+          optionalEndpointTimeoutMs,
+        )
+        : Promise.resolve(skippedFetchResult("config_not_due")),
+      includeConfig
+        ? fetchJson(
+          `${ownerHealthBaseUrl}/api/pairings`,
+          authHeader,
+          optionalEndpointTimeoutMs,
+        )
+        : Promise.resolve(skippedFetchResult("config_not_due")),
+    ]);
+    if (!statusResponse.ok) {
+      return jsonResponse(
+        { error: "Owner-health status endpoint is unavailable" },
+        502,
+        origin,
+      );
+    }
+    const status = statusResponse.ok ? statusResponse.data : {};
+    const health = healthResponse.ok ? healthResponse.data : {};
+    const history = historyResponse.ok ? historyResponse.data : {};
+    const system = systemResponse.ok ? systemResponse.data : {};
+    const systemConfig = systemConfigResponse.ok
+      ? systemConfigResponse.data
+      : {};
+    const config = configResponse.ok ? configResponse.data : {};
+    const pairingsConfig = pairingsResponse.ok ? pairingsResponse.data : {};
+    const historyRecords = Array.isArray(history.records)
+      ? history.records
+      : [];
+    const rawMissingSensors = asArray(status.missing_sensors);
+    const rawStaleSensors = asArray(status.stale_sensors);
+    const missingSensors = filterIgnoredDiagnosticItems(rawMissingSensors);
+    const staleSensors = filterIgnoredDiagnosticItems(rawStaleSensors);
+    const ignoredMissingCount = rawMissingSensors.length -
+      missingSensors.length;
+    const ignoredStaleCount = rawStaleSensors.length - staleSensors.length;
+    const ignoredSensorCount = new Set([
+      ...rawMissingSensors.filter(isIgnoredDiagnosticSensorItem).map(
+        diagnosticIssueText,
+      ),
+      ...rawStaleSensors.filter(isIgnoredDiagnosticSensorItem).map(
+        diagnosticIssueText,
+      ),
+    ]).size;
+    const nowIso = new Date().toISOString();
+    const valveEvents = collectValveEvents(
+      status,
+      health,
+      history,
+      nowIso,
+    );
+    const runtimeSources = [status, health, system];
+    // When config was not requested, aggregate health objects may contain fields
+    // named like configuration sections (for example a compact pairing count).
+    // They are diagnostics, not controller config; use the last verified mirror.
+    const configSources = includeConfig
+      ? [systemConfig, config, pairingsConfig, system, health, status]
+      : [];
+    const controllerState = controllerStateFromSources(runtimeSources);
+    const wateringDisabled = wateringDisabledFromSources(runtimeSources);
+    let wateringEnabled = firstBooleanFromSources(runtimeSources, [
+      ["watering_enabled"],
+      ["wateringEnabled"],
+      ["watering", "enabled"],
+      ["api", "watering", "enabled"],
+    ], ["watering_enabled", "wateringEnabled"]) ??
+      (wateringDisabled.length ? false : null);
+    const currentPairings = extractConfigSection(configSources, [
+      "pairings",
+      "Pairings",
+      "watering_pairings",
+      "wateringPairings",
+    ]);
+    const currentCalibrations = extractConfigSection(configSources, [
+      "calibrations",
+      "Calibrations",
+      "calibration",
+      "Calibration",
+    ]);
+    const currentBoardConfig = extractConfigSection(configSources, [
+      "board_config",
+      "boardConfig",
+      "board_configurations",
+      "boardConfigurations",
+      "board_configs",
+      "boardConfigs",
+      "boards",
+    ]);
+    const currentSensors = extractConfigSection(configSources, [
+      "sensors",
+      "Sensors",
+    ]);
+    const currentValves = extractConfigSection(configSources, [
+      "valves",
+      "Valves",
+    ]);
+    const currentGroups = extractConfigSection(configSources, [
+      "groups",
+      "Groups",
+    ]);
+    const pairings = resolvedConfigSection(
+      currentPairings,
+      lastConfigState?.pairings,
+      "pairings",
+    );
+    const calibrations = resolvedConfigSection(
+      currentCalibrations,
+      lastConfigState?.calibrations,
+      "calibrations",
+    );
+    const boardConfig = resolvedConfigSection(
+      currentBoardConfig,
+      lastConfigState?.board_config,
+      "board_config",
+    );
+    const sensors = resolvedConfigSection(
+      currentSensors,
+      lastConfigState?.sensors,
+      "sensors",
+    );
+    const valves = resolvedConfigSection(
+      currentValves,
+      lastConfigState?.valves,
+      "valves",
+    );
+    const groups = resolvedConfigSection(
+      currentGroups,
+      lastConfigState?.groups,
+      "groups",
+    );
+    if (wateringEnabled == null) {
+      const hasEnabledPairing = pairings.some((pairing) => {
+        const record = asRecord(pairing);
+        const target = asNumber(
+          record.WTCPercentLimit ?? record.wtc_percent_limit ??
+            record.target_vwc,
+        );
+        return target != null && target > -999_000;
+      });
+      if (controllerState.normalized === "RUNNING") {
+        wateringEnabled = hasEnabledPairing;
+      }
+      if (controllerState.normalized === "STOPPED") wateringEnabled = false;
+    }
+    const configSectionObserved = [
+      currentPairings,
+      currentCalibrations,
+      currentBoardConfig,
+      currentSensors,
+      currentValves,
+      currentGroups,
+    ].some((section) => section.found);
+    const configFetchSucceeded = includeConfig && (
+      configResponse.ok || (systemConfigResponse.ok && pairingsResponse.ok)
+    ) && configSectionObserved;
+    const configIsComplete = pairings.length > 0 &&
+      boardConfig.length > 0 &&
+      sensors.length > 0 &&
+      valves.length > 0;
+    const shouldWriteConfig = configFetchSucceeded && configIsComplete;
+    const configPayload = {
       pairings,
       calibrations,
       board_config: boardConfig,
       sensors,
       valves,
       groups,
-      pairing_count: pairings.length,
-      calibration_count: calibrations.length,
-      board_count: boardConfig.length,
-      sensor_count: sensors.length,
-      valve_count: valves.length,
-      group_count: groups.length,
-      config_hash: nextConfigHash,
-      endpoint_status: endpointStatus,
-      raw_config: {
-        system,
-        systemConfig,
-        config,
-        pairings: pairingsConfig,
-      },
-      updated_at: nowIso,
-    })
-    : {
-      ok: false,
-      error: includeConfig
-        ? "Config endpoints did not return a complete mirror; previous config was preserved"
-        : "Config refresh was not due",
-      code: null,
-      details: null,
-      row: null,
     };
-  if (!configWrite.ok && includeConfig) {
-    console.error("Could not write config state", configWrite.error);
-  }
+    const nextConfigHash = shouldWriteConfig
+      ? await sha256Hex(stableJson(configPayload))
+      : null;
+    const configHash = nextConfigHash ?? asString(lastConfigState?.config_hash);
+    const reportedCapturedValue = status.last_checked_at;
+    const reportedCapturedPresent = reportedCapturedValue !== null &&
+      reportedCapturedValue !== undefined &&
+      String(reportedCapturedValue).trim() !== "";
+    const reportedCapturedAt = asTimestamp(reportedCapturedValue);
+    const reportedCapturedAtMs = Date.parse(String(reportedCapturedAt ?? ""));
+    const observationTimestampValid = reportedCapturedPresent && (
+      reportedCapturedAt !== null &&
+      Number.isFinite(reportedCapturedAtMs) &&
+      reportedCapturedAtMs <= Date.now() + 60 * 1000
+    );
+    const capturedAt = observationTimestampValid && reportedCapturedAt
+      ? reportedCapturedAt
+      : nowIso;
+    const capturedAtMs = Date.parse(capturedAt);
+    const statusObservationFresh = observationTimestampValid &&
+      Number.isFinite(capturedAtMs) &&
+      Date.now() - capturedAtMs <= 10 * 60 * 1000;
+    const stateFreshUntil = statusObservationFresh
+      ? new Date(capturedAtMs + 10 * 60 * 1000).toISOString()
+      : new Date(Date.now() - 1).toISOString();
 
-  const previousConfigUsable =
-    normalizeConfigSection(lastConfigState?.pairings, "pairings").length > 0 &&
-    normalizeConfigSection(lastConfigState?.board_config, "board_config").length > 0 &&
-    normalizeConfigSection(lastConfigState?.sensors, "sensors").length > 0 &&
-    normalizeConfigSection(lastConfigState?.valves, "valves").length > 0;
+    const snapshot = {
+      project_id: mattProjectId,
+      device_id: mattDeviceId,
+      device_name: "plain-feather",
+      source,
+      captured_at: capturedAt,
+      observation_key: capturedAt,
+      ingest_complete: false,
+      owner_checked_at: asTimestamp(status.last_checked_at),
+      status_endpoint_ok: statusResponse.ok,
+      history_endpoint_ok: includeHistory ? historyResponse.ok : null,
+      status_http_status: statusResponse.status,
+      status_elapsed_ms: statusResponse.elapsedMs,
+      history_samples: includeHistory ? historyRecords.length : null,
+      overall_status: asString(status.overall_status),
+      api_status: asString(status.api_status),
+      pi_online: asBoolean(status.pi_online),
+      public_url_reachable: asBoolean(status.public_url_reachable),
+      ethernet_link: asBoolean(status.ethernet_link),
+      ethernet_ip: asString(status.ethernet_ip),
+      gateway_ping_ms: asNumber(status.gateway_ping_ms),
+      undervoltage: asBoolean(status.undervoltage),
+      cpu_temp_c: asNumber(status.cpu_temp_c),
+      uptime_seconds: uptimeSecondsFromSources(status, health),
+      sensors_expected: adjustedHealthCount(
+        asInteger(status.sensors_expected),
+        ignoredSensorCount,
+      ),
+      sensors_current: asInteger(status.sensors_current),
+      sensors_stale: adjustedHealthCount(
+        asInteger(status.sensors_stale),
+        ignoredStaleCount,
+      ),
+      sensors_missing: adjustedHealthCount(
+        asInteger(status.sensors_missing),
+        ignoredMissingCount,
+      ),
+      missing_sensors: missingSensors,
+      stale_sensors: staleSensors,
+      last_sensor_reading_at: asTimestamp(status.last_sensor_reading_at),
+      watering_last_event: asString(status.watering_last_event),
+      watering_last_event_at: asTimestamp(status.watering_last_event_at),
+      watering_events_last_24h: asInteger(status.watering_events_last_24h),
+      scheduler_jobs_loaded: asInteger(status.scheduler_jobs_loaded),
+      active_alerts: asArray(status.active_alerts).filter((issue) =>
+        !isIgnoredDiagnosticIssue(issue)
+      ),
+      known_issues: asArray(status.known_issues).filter((issue) =>
+        !isIgnoredDiagnosticIssue(issue)
+      ),
+      raw_status: {},
+      raw_health: {},
+      raw_history: {},
+    };
 
-  let configCheckpointError: string | null = null;
-  if (includeConfig) {
-    const { error: checkpointError } = await admin
-      .from("device_maintenance_state")
-      .upsert({
-        task_name: "owner_health_config_refresh_attempt",
-        last_started_at: nowIso,
-        last_completed_at: nowIso,
-        details: {
-          source,
-          required: configRefreshRequired,
-          config_write_ok: configWrite.ok,
-          previous_config_preserved: !configWrite.ok && previousConfigUsable,
-          endpoints: endpointStatus,
-        },
-      }, { onConflict: "task_name" });
-    if (checkpointError) {
-      configCheckpointError = checkpointError.message;
-      console.error("Could not record config refresh checkpoint", checkpointError);
-    }
-  }
-
-  const configOutcome = configRefreshOutcome({
-    includeConfig,
-    required: configRefreshRequired,
-    writeAttempted: shouldWriteConfig,
-    writeOk: configWrite.ok,
-    previousConfigUsable,
-  });
-
-  const ingestionErrors = [
-    !statusObservationFresh ? "stale_status_observation" : null,
-    !healthResponse.ok ? "health_endpoint" : null,
-    includeHistory && !historyResponse.ok ? "history_endpoint" : null,
-    valveEventWrite.error ? "valve_events" : null,
-    !runtimeWrite.ok ? "runtime_state" : null,
-    configOutcome.error,
-  ].filter((value): value is string => value != null);
-  const ingestionWarnings = [
-    configOutcome.warning,
-    configCheckpointError ? "config_refresh_checkpoint" : null,
-  ].filter((value): value is string => value != null);
-
-  let historyCheckpointRecorded = false;
-  if (includeHistory && historyResponse.ok && !valveEventWrite.error) {
-    const { error: historyCheckpointError } = await admin
-      .from("device_maintenance_state")
-      .upsert({
-        task_name: "owner_health_history_recovery",
-        last_started_at: nowIso,
-        last_completed_at: nowIso,
-        details: {
-          source,
-          history_samples: historyRecords.length,
-          valve_events_found: valveEvents.length,
-          valve_events_inserted: valveEventWrite.inserted,
-        },
-      }, { onConflict: "task_name" });
-    if (historyCheckpointError) {
-      console.error("Could not record history recovery checkpoint", historyCheckpointError);
-    } else {
-      historyCheckpointRecorded = true;
-    }
-  }
-
-  if (ingestionErrors.length === 0 && data?.id) {
-    const { error: completionError } = await admin
+    const insertResult = await admin
       .from("device_health_snapshots")
-      .update({ ingest_complete: true })
-      .eq("id", data.id);
-    if (completionError) {
-      console.error("Could not mark health ingestion complete", completionError);
-      ingestionErrors.push("snapshot_completion");
-    }
-  }
-  const ingestionComplete = ingestionErrors.length === 0;
+      .insert(snapshot)
+      .select(
+        "id, captured_at, overall_status, sensors_current, sensors_stale, sensors_missing",
+      )
+      .single();
+    let data = insertResult.data;
+    let error = insertResult.error;
+    let snapshotInserted = !insertResult.error;
 
-  return jsonResponse({
-    ok: ingestionComplete,
-    snapshot: data,
-    runtimeState: {
-      ok: runtimeWrite.ok,
-      controllerState: runtimeRow.controller_state,
-      observedAt: runtimeRow.state_observed_at,
-      error: runtimeWrite.error,
-    },
-    configState: {
-      ok: configWrite.ok,
-      attempted: includeConfig,
-      required: configRefreshRequired,
-      preserved: includeConfig && !configWrite.ok && previousConfigUsable,
-      configHash,
-      counts: {
-        pairings: pairings.length,
-        calibrations: calibrations.length,
-        boards: boardConfig.length,
-        sensors: sensors.length,
-        valves: valves.length,
-        groups: groups.length,
+    if (insertResult.error?.code === "23505") {
+      const existingResult = await admin
+        .from("device_health_snapshots")
+        .select("id")
+        .eq("project_id", mattProjectId)
+        .eq("device_id", mattDeviceId)
+        .eq("observation_key", snapshot.observation_key)
+        .single();
+      if (existingResult.error || !existingResult.data?.id) {
+        data = null;
+        error = existingResult.error ?? insertResult.error;
+      } else {
+        const retryUpdate = await admin
+          .from("device_health_snapshots")
+          .update(snapshot)
+          .eq("id", existingResult.data.id)
+          .select(
+            "id, captured_at, overall_status, sensors_current, sensors_stale, sensors_missing",
+          )
+          .single();
+        data = retryUpdate.data;
+        error = retryUpdate.error;
+        snapshotInserted = false;
+      }
+    }
+
+    if (error) {
+      return jsonResponse(
+        { error: "Could not write health snapshot" },
+        500,
+        origin,
+      );
+    }
+
+    const valveEventWrite = await insertMissingValveEvents(admin, valveEvents);
+    if (valveEventWrite.error) {
+      console.error("Could not write valve events", valveEventWrite.error);
+    }
+    const liveReadingMirror = await mirrorLiveReadings(admin, health, nowIso);
+    if (liveReadingMirror.error) {
+      console.error(
+        "Could not mirror live sensor readings",
+        liveReadingMirror.error,
+      );
+    }
+
+    const runtimeRow: DeviceRuntimeStateWrite = {
+      project_id: mattProjectId,
+      device_id: mattDeviceId,
+      device_name: "plain-feather",
+      source,
+      controller_state: controllerState.normalized,
+      controller_state_raw: controllerState.raw,
+      controller_state_updated_at: stateUpdatedAtFromSources(
+        runtimeSources,
+        snapshot.captured_at,
+      ),
+      state_observed_at: snapshot.captured_at,
+      state_fresh_until: stateFreshUntil,
+      owner_checked_at: snapshot.owner_checked_at,
+      overall_status: snapshot.overall_status,
+      api_status: snapshot.api_status,
+      pi_online: snapshot.pi_online,
+      public_url_reachable: snapshot.public_url_reachable,
+      watering_enabled: wateringEnabled,
+      watering_disabled: wateringDisabled,
+      watering_last_event: snapshot.watering_last_event,
+      watering_last_event_at: snapshot.watering_last_event_at,
+      watering_events_last_24h: snapshot.watering_events_last_24h,
+      scheduler_jobs_loaded: snapshot.scheduler_jobs_loaded,
+      sensors_expected: snapshot.sensors_expected,
+      sensors_current: snapshot.sensors_current,
+      sensors_stale: snapshot.sensors_stale,
+      sensors_missing: snapshot.sensors_missing,
+      last_sensor_reading_at: snapshot.last_sensor_reading_at,
+      config_hash: configHash,
+      raw_status: statusResponse.data,
+      raw_health: healthResponse.data,
+      raw_system: system,
+      updated_at: nowIso,
+    };
+    const runtimeWrite = await upsertDeviceRuntimeState(admin, runtimeRow);
+    if (!runtimeWrite.ok) {
+      console.error("Could not write runtime state", runtimeWrite.error);
+    }
+
+    const endpointStatus = {
+      system: {
+        ok: systemResponse.ok,
+        status: systemResponse.status,
+        elapsedMs: systemResponse.elapsedMs,
+        error: systemResponse.error,
       },
-      error: configWrite.error,
-    },
-    valveEvents: {
-      found: valveEvents.length,
-      inserted: valveEventWrite.inserted,
-      error: valveEventWrite.error,
-      code: valveEventWrite.code,
-      details: valveEventWrite.details,
-      hint: valveEventWrite.hint,
-      fallbackRows: valveEventWrite.fallbackRows,
-      rejected: valveEventWrite.rejected,
-      raw: valveEventWrite.raw,
-    },
-    source: {
-      authority: source,
-      statusEndpointOk: statusResponse.ok,
-      statusObservationFresh,
-      healthEndpointOk: healthResponse.ok,
-      historyEndpointOk: includeHistory ? historyResponse.ok : null,
-      systemEndpointOk: systemResponse.ok,
-      systemConfigEndpointOk: systemConfigResponse.ok,
-      configEndpointOk: configResponse.ok,
-      pairingsEndpointOk: pairingsResponse.ok,
-      historySamples: includeHistory ? historyRecords.length : null,
+      systemConfig: {
+        ok: systemConfigResponse.ok,
+        status: systemConfigResponse.status,
+        elapsedMs: systemConfigResponse.elapsedMs,
+        error: systemConfigResponse.error,
+      },
+      config: {
+        ok: configResponse.ok,
+        status: configResponse.status,
+        elapsedMs: configResponse.elapsedMs,
+        error: configResponse.error,
+      },
+      pairings: {
+        ok: pairingsResponse.ok,
+        status: pairingsResponse.status,
+        elapsedMs: pairingsResponse.elapsedMs,
+        error: pairingsResponse.error,
+      },
+    };
+
+    const configWrite = shouldWriteConfig && nextConfigHash
+      ? await upsertDeviceConfigState(admin, {
+        project_id: mattProjectId,
+        device_id: mattDeviceId,
+        device_name: "plain-feather",
+        source,
+        observed_at: nowIso,
+        pairings,
+        calibrations,
+        board_config: boardConfig,
+        sensors,
+        valves,
+        groups,
+        pairing_count: pairings.length,
+        calibration_count: calibrations.length,
+        board_count: boardConfig.length,
+        sensor_count: sensors.length,
+        valve_count: valves.length,
+        group_count: groups.length,
+        config_hash: nextConfigHash,
+        endpoint_status: endpointStatus,
+        raw_config: {
+          system,
+          systemConfig,
+          config,
+          pairings: pairingsConfig,
+        },
+        updated_at: nowIso,
+      })
+      : {
+        ok: false,
+        error: includeConfig
+          ? "Config endpoints did not return a complete mirror; previous config was preserved"
+          : "Config refresh was not due",
+        code: null,
+        details: null,
+        row: null,
+      };
+    if (!configWrite.ok && includeConfig) {
+      console.error("Could not write config state", configWrite.error);
+    }
+
+    const previousConfigUsable =
+      normalizeConfigSection(lastConfigState?.pairings, "pairings").length >
+        0 &&
+      normalizeConfigSection(lastConfigState?.board_config, "board_config")
+          .length > 0 &&
+      normalizeConfigSection(lastConfigState?.sensors, "sensors").length > 0 &&
+      normalizeConfigSection(lastConfigState?.valves, "valves").length > 0;
+
+    let configCheckpointError: string | null = null;
+    if (includeConfig) {
+      const { error: checkpointError } = await admin
+        .from("device_maintenance_state")
+        .upsert({
+          task_name: "owner_health_config_refresh_attempt",
+          last_started_at: nowIso,
+          last_completed_at: nowIso,
+          details: {
+            source,
+            required: configRefreshRequired,
+            config_write_ok: configWrite.ok,
+            previous_config_preserved: !configWrite.ok && previousConfigUsable,
+            endpoints: endpointStatus,
+          },
+        }, { onConflict: "task_name" });
+      if (checkpointError) {
+        configCheckpointError = checkpointError.message;
+        console.error(
+          "Could not record config refresh checkpoint",
+          checkpointError,
+        );
+      }
+    }
+
+    const configOutcome = configRefreshOutcome({
       includeConfig,
-      includeHistory,
-      historyCheckpointRecorded,
-      compactSnapshot: true,
-      snapshotInserted,
-      ingestionComplete,
-      ingestionErrors,
-      ingestionWarnings,
-    },
-  }, ingestionComplete ? 200 : 503, origin);
+      required: configRefreshRequired,
+      writeAttempted: shouldWriteConfig,
+      writeOk: configWrite.ok,
+      previousConfigUsable,
+    });
+
+    const ingestionErrors = [
+      !statusObservationFresh ? "stale_status_observation" : null,
+      !healthResponse.ok ? "health_endpoint" : null,
+      includeHistory && !historyResponse.ok ? "history_endpoint" : null,
+      valveEventWrite.error ? "valve_events" : null,
+      !runtimeWrite.ok ? "runtime_state" : null,
+      configOutcome.error,
+    ].filter((value): value is string => value != null);
+    const ingestionWarnings = [
+      configOutcome.warning,
+      configCheckpointError ? "config_refresh_checkpoint" : null,
+      liveReadingMirror.error ? "live_reading_mirror" : null,
+    ].filter((value): value is string => value != null);
+
+    let historyCheckpointRecorded = false;
+    if (includeHistory && historyResponse.ok && !valveEventWrite.error) {
+      const { error: historyCheckpointError } = await admin
+        .from("device_maintenance_state")
+        .upsert({
+          task_name: "owner_health_history_recovery",
+          last_started_at: nowIso,
+          last_completed_at: nowIso,
+          details: {
+            source,
+            history_samples: historyRecords.length,
+            valve_events_found: valveEvents.length,
+            valve_events_inserted: valveEventWrite.inserted,
+          },
+        }, { onConflict: "task_name" });
+      if (historyCheckpointError) {
+        console.error(
+          "Could not record history recovery checkpoint",
+          historyCheckpointError,
+        );
+      } else {
+        historyCheckpointRecorded = true;
+      }
+    }
+
+    if (ingestionErrors.length === 0 && data?.id) {
+      const { error: completionError } = await admin
+        .from("device_health_snapshots")
+        .update({ ingest_complete: true })
+        .eq("id", data.id);
+      if (completionError) {
+        console.error(
+          "Could not mark health ingestion complete",
+          completionError,
+        );
+        ingestionErrors.push("snapshot_completion");
+      }
+    }
+    const ingestionComplete = ingestionErrors.length === 0;
+
+    return jsonResponse(
+      {
+        ok: ingestionComplete,
+        snapshot: data,
+        runtimeState: {
+          ok: runtimeWrite.ok,
+          controllerState: runtimeRow.controller_state,
+          observedAt: runtimeRow.state_observed_at,
+          error: runtimeWrite.error,
+        },
+        configState: {
+          ok: configWrite.ok,
+          attempted: includeConfig,
+          required: configRefreshRequired,
+          preserved: includeConfig && !configWrite.ok && previousConfigUsable,
+          configHash,
+          counts: {
+            pairings: pairings.length,
+            calibrations: calibrations.length,
+            boards: boardConfig.length,
+            sensors: sensors.length,
+            valves: valves.length,
+            groups: groups.length,
+          },
+          error: configWrite.error,
+        },
+        valveEvents: {
+          found: valveEvents.length,
+          inserted: valveEventWrite.inserted,
+          error: valveEventWrite.error,
+          code: valveEventWrite.code,
+          details: valveEventWrite.details,
+          hint: valveEventWrite.hint,
+          fallbackRows: valveEventWrite.fallbackRows,
+          rejected: valveEventWrite.rejected,
+          raw: valveEventWrite.raw,
+        },
+        liveReadings: liveReadingMirror,
+        source: {
+          authority: source,
+          statusEndpointOk: statusResponse.ok,
+          statusObservationFresh,
+          healthEndpointOk: healthResponse.ok,
+          historyEndpointOk: includeHistory ? historyResponse.ok : null,
+          systemEndpointOk: systemResponse.ok,
+          systemConfigEndpointOk: systemConfigResponse.ok,
+          configEndpointOk: configResponse.ok,
+          pairingsEndpointOk: pairingsResponse.ok,
+          historySamples: includeHistory ? historyRecords.length : null,
+          includeConfig,
+          includeHistory,
+          historyCheckpointRecorded,
+          compactSnapshot: true,
+          snapshotInserted,
+          ingestionComplete,
+          ingestionErrors,
+          ingestionWarnings,
+        },
+      },
+      ingestionComplete ? 200 : 503,
+      origin,
+    );
   } finally {
     await releaseLease();
   }
