@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  BrainCircuit,
   CheckCircle2,
   Database,
   Download,
@@ -77,6 +78,9 @@ import {
   supportEmail,
 } from "./softwareTerms";
 import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
+import { ResponseCurveLab } from "./ResponseCurveLab";
+import { loadRdLabSnapshot } from "./rdClient";
+import type { RdLabSnapshot } from "./rdTypes";
 
 const graphReadLimit = 12_000;
 const pageSize = 1000;
@@ -191,7 +195,7 @@ type PlantGroup = "maize" | "sorghum" | "unknown";
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
-type PortalView = "home" | "experiment" | "health" | "support";
+type PortalView = "home" | "experiment" | "health" | "support" | "rd";
 
 type PortalAccess = {
   role: PortalRole;
@@ -2979,18 +2983,22 @@ function PortalAdminHome({
   healthLoading,
   salesSupportData,
   salesSupportLoading,
+  rdSnapshot,
   onOpenExperiment,
   onOpenHealth,
   onOpenSupport,
+  onOpenRd,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
   healthLoading: boolean;
   salesSupportData: SalesSupportData;
   salesSupportLoading: boolean;
+  rdSnapshot: RdLabSnapshot | null;
   onOpenExperiment: () => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
+  onOpenRd: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
@@ -3047,24 +3055,41 @@ function PortalAdminHome({
           </button>
         </div>
 
-        <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
-          <span className="portal-launch-top">
-            <span className="portal-launch-icon">
-              <Mail size={20} />
+        <div className="portal-business-stack">
+          <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
+            <span className="portal-launch-top">
+              <span className="portal-launch-icon">
+                <Mail size={20} />
+              </span>
+              <span className={`portal-status-pill ${newSupportCount ? "is-warning" : "is-ok"}`}>
+                {newSupportCount ? "NEW" : "READY"}
+              </span>
             </span>
-            <span className={`portal-status-pill ${newSupportCount ? "is-warning" : "is-ok"}`}>
-              {newSupportCount ? "NEW" : "READY"}
+            <span className="portal-launch-copy">
+              <span className="portal-launch-title">Sales &amp; Support</span>
+              <strong>{salesSupportLoading ? "Loading..." : `${newSupportCount} new · ${openSupportCount + quoteCount} open`}</strong>
+              <em>Updated {formatSettingsTimestamp(supportUpdated)}</em>
             </span>
-          </span>
-          <span className="portal-launch-copy">
-            <span className="portal-launch-title">Sales &amp; Support</span>
-            <strong>{salesSupportLoading ? "Loading..." : `${newSupportCount} new · ${openSupportCount + quoteCount} open`}</strong>
-            <em>Updated {formatSettingsTimestamp(supportUpdated)}</em>
-          </span>
-          <span className="portal-launch-action">
-            Open <ArrowRight size={14} />
-          </span>
-        </button>
+            <span className="portal-launch-action">
+              Open <ArrowRight size={14} />
+            </span>
+          </button>
+
+          {rdSnapshot ? (
+            <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
+              <span className="portal-launch-top">
+                <span className="portal-launch-icon"><BrainCircuit size={20} /></span>
+                <span className="portal-status-pill">SHADOW LEARNING</span>
+              </span>
+              <span className="portal-launch-copy">
+                <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
+                <strong>{rdSnapshot.current.pairing_name} · {rdSnapshot.current.state.replace(/_/g, " ")}</strong>
+                <em>{rdSnapshot.clean_events_learned} clean events · {rdSnapshot.champion_version}</em>
+              </span>
+              <span className="portal-launch-action">Open Lab <ArrowRight size={14} /></span>
+            </button>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -4898,6 +4923,7 @@ export default function App() {
   const [salesSupportData, setSalesSupportData] = useState<SalesSupportData>(initialSalesSupportData);
   const [salesSupportLoading, setSalesSupportLoading] = useState(false);
   const [salesSupportError, setSalesSupportError] = useState<string | null>(null);
+  const [rdSnapshot, setRdSnapshot] = useState<RdLabSnapshot | null>(null);
 
   const dataRef = useRef(data);
   const valveEventsRef = useRef(valveEvents);
@@ -5251,6 +5277,19 @@ export default function App() {
       if (!silent) setSalesSupportError(errorMessage(err));
     } finally {
       if (!silent) setSalesSupportLoading(false);
+    }
+  }, [isAdmin]);
+
+  const loadRdSnapshot = useCallback(async () => {
+    if (!isAdmin) {
+      setRdSnapshot(null);
+      return;
+    }
+    try {
+      setRdSnapshot(await loadRdLabSnapshot());
+    } catch {
+      // Deny by default. A normal portal admin is not implicitly an R&D system admin.
+      setRdSnapshot(null);
     }
   }, [isAdmin]);
 
@@ -5683,6 +5722,7 @@ export default function App() {
     setSalesSupportData(initialSalesSupportData);
     setSalesSupportLoading(false);
     setSalesSupportError(null);
+    setRdSnapshot(null);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
   }
@@ -6024,6 +6064,11 @@ export default function App() {
     if (!sessionReady || !isAdmin) return;
     void loadSalesSupport();
   }, [isAdmin, loadSalesSupport, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAdmin) return;
+    void loadRdSnapshot();
+  }, [isAdmin, loadRdSnapshot, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -6555,9 +6600,11 @@ export default function App() {
           healthLoading={healthLoading}
           salesSupportData={salesSupportData}
           salesSupportLoading={salesSupportLoading}
+          rdSnapshot={rdSnapshot}
           onOpenExperiment={() => setPortalView("experiment")}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
+          onOpenRd={() => setPortalView("rd")}
         />
         <PortalSettingsPanel
           open={settingsOpen}
@@ -6609,6 +6656,15 @@ export default function App() {
           error={salesSupportError}
           onBackHome={() => setPortalView("home")}
         />
+      </main>
+    );
+  }
+
+  if (isAdmin && portalView === "rd" && rdSnapshot) {
+    return (
+      <main className="dashboard-shell portal-admin-shell rd-preview-shell">
+        {portalHeader}
+        <ResponseCurveLab snapshot={rdSnapshot} onBack={() => setPortalView("home")} />
       </main>
     );
   }
