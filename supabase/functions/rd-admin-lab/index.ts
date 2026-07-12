@@ -298,6 +298,29 @@ Deno.serve(async (request) => {
   const candidate = (models ?? []).find((model) =>
     model.status === "candidate"
   );
+  const activeCurrent = displayEvents.find((event) =>
+    ![
+      "expired_no_event",
+      "missed_causal_window",
+      "aborted_config_change",
+    ].includes(String(event.state))
+  );
+  const current = activeCurrent ?? {
+    ...displayEvents[0],
+    id: "awaiting-next-causal-forecast",
+    state: "awaiting_threshold",
+    trigger_vwc: displayEvents[0].target_vwc,
+    committed_at: new Date().toISOString(),
+    feature_as_of_device_at: new Date().toISOString(),
+    irrigation_opened_device_at: null,
+    prediction_lead_seconds: 0,
+    curve: [],
+    score: null,
+    censored: false,
+  };
+  const history = activeCurrent
+    ? displayEvents.filter((event) => event.id !== activeCurrent.id)
+    : displayEvents;
   return response(
     {
       generated_at: new Date().toISOString(),
@@ -305,9 +328,9 @@ Deno.serve(async (request) => {
       champion_version: champion?.version ?? displayEvents[0].model_version,
       candidate_version: candidate?.version ?? null,
       clean_events_learned: cleanCountResult.count ?? 0,
-      current: displayEvents[0],
-      history: displayEvents.slice(1),
-      progress: displayEvents.slice(1).reverse().map((event, index) => ({
+      current,
+      history,
+      progress: history.slice().reverse().map((event, index) => ({
         event: event.pairing_name,
         index: index + 1,
         curve_mae: event.score?.curve_mae ?? null,
