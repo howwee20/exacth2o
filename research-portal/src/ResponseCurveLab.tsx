@@ -21,7 +21,8 @@ function formatNumber(value: number | null | undefined, digits = 2) {
   return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
 }
 
-function formatTime(value: string) {
+function formatTime(value: string | null) {
+  if (!value) return "Awaiting event";
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
@@ -177,7 +178,7 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
             {onBack ? <button type="button" className="support-back-button" onClick={onBack}><ArrowLeft size={14} /> Home</button> : null}
             <p className="rd-eyebrow"><FlaskConical size={14} /> EXACTH2O R&amp;D</p>
             <h1>Response Curve Lab</h1>
-            <p>Watch the shadow model predict, observe, score, and learn from every eligible irrigation episode.</p>
+            <p>Watch the shadow model predict, observe, score, and learn from eligible irrigation episodes.</p>
           </div>
           <div className="rd-shadow-badge"><ShieldCheck size={16} /><span><strong>SHADOW MODE</strong>No irrigation control</span></div>
         </div>
@@ -198,13 +199,13 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
             <div className="rd-event-banner-facts">
               <span>Target<strong>{current.target_vwc.toFixed(1)}%</strong></span>
               <span>Armed at<strong>{current.trigger_vwc.toFixed(2)}%</strong></span>
-              <span>Lead time<strong>{Math.round(current.prediction_lead_seconds / 60)} min</strong></span>
+              <span>Lead time<strong>{current.irrigation_opened_device_at ? `${Math.round(current.prediction_lead_seconds / 60)} min` : "Pending"}</strong></span>
               <span>Model<strong>{current.model_version}</strong></span>
             </div>
           </section>
           <div className="rd-current-grid">
             <section className="rd-chart-card">
-              <div className="rd-chart-title"><div><p className="rd-eyebrow">IRRIGATION RESPONSE</p><h2>Prediction vs. reality</h2></div><span className="rd-status-chip"><span className="rd-live-dot" /> LIVE SHADOW</span></div>
+              <div className="rd-chart-title"><div><p className="rd-eyebrow">IRRIGATION RESPONSE</p><h2>Prediction vs. reality</h2></div><span className="rd-status-chip"><span className="rd-live-dot" /> SHADOW OBSERVER</span></div>
               <ResponseCurveChart event={current} />
               <div className="rd-causal-strip">
                 <Clock3 size={15} />

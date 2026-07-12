@@ -23,7 +23,7 @@ export type RdLabEvent = {
   trigger_vwc: number;
   committed_at: string;
   feature_as_of_device_at: string;
-  irrigation_opened_device_at: string;
+  irrigation_opened_device_at: string | null;
   model_version: string;
   prediction_lead_seconds: number;
   curve: RdCurvePoint[];
@@ -48,4 +48,3 @@ export type RdLabSnapshot = {
   history: RdLabEvent[];
   progress: RdProgressPoint[];
 };
-

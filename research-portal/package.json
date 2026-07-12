@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build && node scripts/sync-portal-preloads.mjs",
+    "audit:rd-bundle": "node scripts/audit-rd-bundle.mjs",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run",
-    "check": "npm run lint && npm test && npm run build && npm audit --omit=dev",
+    "check": "npm run lint && npm test && npm run build && npm run audit:rd-bundle && npm audit --omit=dev",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
