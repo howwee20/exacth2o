@@ -318,9 +318,18 @@ Deno.serve(async (request) => {
     score: null,
     censored: false,
   };
+  const completedHistory = displayEvents.filter((event) =>
+    ![
+      "armed_early",
+      "armed_refresh",
+      "expired_no_event",
+      "missed_causal_window",
+      "aborted_config_change",
+    ].includes(String(event.state))
+  );
   const history = activeCurrent
-    ? displayEvents.filter((event) => event.id !== activeCurrent.id)
-    : displayEvents;
+    ? completedHistory.filter((event) => event.id !== activeCurrent.id)
+    : completedHistory;
   return response(
     {
       generated_at: new Date().toISOString(),
