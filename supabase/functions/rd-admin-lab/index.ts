@@ -96,7 +96,102 @@ Deno.serve(async (request) => {
     return response({ error: "Could not load R&D predictions" }, 500, origin);
   }
   if (!predictions?.length) {
-    return response({ allowed: true, snapshot: null }, 200, origin);
+    const { error: emptyAuditError } = await admin.from("rd_access_audit")
+      .insert({
+        project_id: projectId,
+        user_id: userData.user.id,
+        action: "lab_snapshot",
+        prediction_ids: [],
+      });
+    if (emptyAuditError) {
+      return response({ error: "Could not audit R&D access" }, 500, origin);
+    }
+    const { data: observation, error: observationError } = await admin.rpc(
+      "rd_worker_observation",
+      {
+        observation_project_id: projectId,
+        observation_device_id: "3100e37ee3205651fe3dd86dafd4dc0c",
+        observation_since: new Date(Date.now() - 36 * 60 * 60 * 1000)
+          .toISOString(),
+      },
+    );
+    if (observationError) {
+      return response({ error: "Could not load R&D observation" }, 500, origin);
+    }
+    const config = (observation?.config ?? {}) as Record<string, unknown>;
+    const pairings = Array.isArray(config.pairings) ? config.pairings : [];
+    const enabledPairings = pairings.filter((item) => {
+      const row = item as Record<string, unknown>;
+      const target = Number(
+        row.WTCPercentLimit ?? row.wtc_percent_limit ?? row.target_vwc,
+      );
+      return Number.isFinite(target) && target >= 0;
+    });
+    const readings = Array.isArray(observation?.readings)
+      ? observation.readings as Array<Record<string, unknown>>
+      : [];
+    const latestByPairing = new Map<string, Record<string, unknown>>();
+    for (const reading of readings) {
+      const name = String(reading.pairing_name ?? "");
+      const previous = latestByPairing.get(name);
+      if (
+        !previous ||
+        Date.parse(String(reading.device_recorded_at)) >
+          Date.parse(String(previous.device_recorded_at))
+      ) latestByPairing.set(name, reading);
+    }
+    const candidates = enabledPairings.map((item) => {
+      const row = item as Record<string, unknown>;
+      const pairingName = String(
+        row.name ?? row.pairing_name ?? row.pairingName ?? "Awaiting telemetry",
+      );
+      const target = Number(
+        row.WTCPercentLimit ?? row.wtc_percent_limit ?? row.target_vwc ?? 0,
+      );
+      const reading = latestByPairing.get(pairingName);
+      const vwc = Number(reading?.calibrated_value ?? target);
+      return { pairingName, target, vwc, reading };
+    }).sort((left, right) =>
+      Math.abs(left.vwc - left.target) - Math.abs(right.vwc - right.target)
+    );
+    const selected = candidates[0] ?? {
+      pairingName: "Matt experiment",
+      target: 0,
+      vwc: 0,
+      reading: null,
+    };
+    const now = new Date().toISOString();
+    return response(
+      {
+        generated_at: now,
+        mode: "shadow",
+        champion_version: "bootstrap pending",
+        candidate_version: null,
+        clean_events_learned: 0,
+        current: {
+          id: "awaiting-first-causal-forecast",
+          pairing_name: selected.pairingName,
+          state: "awaiting_threshold",
+          target_vwc: selected.target,
+          trigger_vwc: selected.vwc,
+          committed_at: now,
+          feature_as_of_device_at: String(
+            selected.reading?.device_recorded_at ?? now,
+          ),
+          irrigation_opened_device_at: null,
+          model_version: "bootstrap pending",
+          prediction_lead_seconds: 0,
+          curve: [],
+          score: null,
+          censored: false,
+          confidence: "low_confidence",
+        },
+        history: [],
+        progress: [],
+      },
+      200,
+      origin,
+    );
   }
 
   const predictionIds = predictions.map((item) => item.id);
@@ -222,4 +317,3 @@ Deno.serve(async (request) => {
     origin,
   );
 });
-
