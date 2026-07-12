@@ -38,6 +38,16 @@ export type RdProgressPoint = {
   curve_mae: number | null;
 };
 
+export type RdPotSummary = {
+  pairing_name: string;
+  target_vwc: number;
+  current_vwc: number;
+  distance_to_target: number;
+  last_reading_at: string | null;
+  state: string;
+  event: RdLabEvent | null;
+};
+
 export type RdLabSnapshot = {
   generated_at: string;
   mode: "shadow";
@@ -45,6 +55,7 @@ export type RdLabSnapshot = {
   candidate_version: string | null;
   clean_events_learned: number;
   current: RdLabEvent;
+  pots: RdPotSummary[];
   history: RdLabEvent[];
   progress: RdProgressPoint[];
 };

@@ -3594,12 +3594,44 @@ select {
 .rd-lab-main {
   width: min(100%, 1360px);
   margin: 0 auto;
-  padding: 84px clamp(18px, 4vw, 52px) 96px;
+  padding: 64px clamp(18px, 4vw, 52px) 72px;
   color: var(--rd-ink);
 }
 
 .rd-lab-header {
-  margin-bottom: 28px;
+  margin-bottom: 18px;
+}
+
+.rd-lab-title-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.rd-lab-title-row h1 {
+  margin: 6px 0 0;
+  font-family: var(--portal-display);
+  font-size: clamp(2rem, 3.4vw, 3.1rem);
+  font-weight: 560;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.rd-lab-summary {
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  color: var(--rd-muted);
+  font-size: 0.66rem;
+}
+
+.rd-lab-summary strong {
+  color: var(--rd-ink);
+  font-family: var(--portal-mono);
+  font-size: 0.88rem;
 }
 
 .rd-lab-heading-row {
@@ -3666,11 +3698,64 @@ select {
 .rd-tabs {
   display: inline-flex;
   gap: 4px;
-  margin-top: 28px;
+  margin-top: 18px;
   padding: 4px;
   border: 1px solid var(--rd-line);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.62);
+}
+
+.rd-pot-panel {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(112px, 1fr));
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.rd-pot-button {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--rd-line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--rd-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rd-pot-button:hover,
+.rd-pot-button.is-active {
+  border-color: rgba(103, 84, 217, 0.48);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(40, 33, 80, 0.08);
+}
+
+.rd-pot-button.is-active {
+  box-shadow: inset 0 0 0 1px rgba(103, 84, 217, 0.28), 0 8px 18px rgba(40, 33, 80, 0.08);
+}
+
+.rd-pot-button > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.rd-pot-button strong {
+  overflow: hidden;
+  font-family: var(--portal-mono);
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-pot-button small {
+  overflow: hidden;
+  color: var(--rd-muted);
+  font-size: 0.57rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rd-tabs button {
@@ -3780,6 +3865,26 @@ select {
 .rd-chart-card {
   min-width: 0;
   padding: 20px;
+}
+
+.rd-empty-chart,
+.rd-empty-panel {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 220px;
+  color: var(--rd-muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.rd-empty-chart strong {
+  color: var(--rd-ink);
+  font-size: 1rem;
+}
+
+.rd-empty-panel {
+  min-height: 120px;
 }
 
 .rd-chart-title {
@@ -4174,6 +4279,10 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .rd-pot-panel {
+    grid-template-columns: repeat(5, minmax(112px, 1fr));
+  }
+
   .rd-event-banner {
     grid-template-columns: auto 1fr;
   }
@@ -4244,8 +4353,9 @@ select {
 @media (max-width: 680px) {
   .rd-preview-label { display: none; }
   .rd-lab-main { padding: 72px 10px 72px; }
-  .rd-lab-heading-row { display: grid; }
-  .rd-shadow-badge { justify-self: start; }
+  .rd-lab-title-row { display: grid; }
+  .rd-lab-summary { grid-template-columns: auto auto auto auto; justify-content: start; }
+  .rd-pot-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rd-tabs { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
   .rd-tabs button { padding: 0 6px; font-size: 0.55rem; }
   .rd-event-banner-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -3079,7 +3079,7 @@ function PortalAdminHome({
             <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
               <span className="portal-launch-top">
                 <span className="portal-launch-icon"><BrainCircuit size={20} /></span>
-                <span className="portal-status-pill">SHADOW LEARNING</span>
+                <span className="portal-status-pill">LIVE MODEL</span>
               </span>
               <span className="portal-launch-copy">
                 <span className="portal-launch-title">R&amp;D · Response Curve Model</span>

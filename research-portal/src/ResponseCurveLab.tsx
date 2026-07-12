@@ -1,17 +1,14 @@
-import {
-  ArrowLeft,
-  BrainCircuit,
-  CheckCircle2,
-  Clock3,
-  FlaskConical,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, BrainCircuit, CheckCircle2, Clock3 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { RdCurvePoint, RdLabEvent, RdLabSnapshot } from "./rdTypes";
+import type {
+  RdCurvePoint,
+  RdLabEvent,
+  RdLabSnapshot,
+  RdPotSummary,
+} from "./rdTypes";
 
-type LabTab = "current" | "history" | "progress";
+type LabTab = "pots" | "history" | "progress";
 
 const chartWidth = 980;
 const chartHeight = 430;
@@ -22,7 +19,7 @@ function formatNumber(value: number | null | undefined, digits = 2) {
 }
 
 function formatTime(value: string | null) {
-  if (!value) return "Awaiting event";
+  if (!value) return "—";
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
@@ -33,7 +30,15 @@ function formatTime(value: string | null) {
 }
 
 function stateLabel(value: string) {
-  return value.replace(/_/g, " ").toUpperCase();
+  const labels: Record<string, string> = {
+    waiting_threshold: "Waiting",
+    armed_early: "Early forecast",
+    armed_refresh: "Forecast armed",
+    committed: "Irrigation detected",
+    tracking_response: "Observing response",
+    scored: "Complete",
+  };
+  return labels[value] ?? value.replace(/_/g, " ");
 }
 
 function linePath(
@@ -116,9 +121,10 @@ function ResponseCurveChart({ event }: { event: RdLabEvent }) {
 
 function ScoreCard({ event }: { event: RdLabEvent }) {
   const score = event.score;
+  const observed = event.curve.filter((point) => point.actual != null).length;
   return (
     <section className="rd-side-card">
-      <div className="rd-card-heading"><CheckCircle2 size={16} /><span>Prediction score</span></div>
+      <div className="rd-card-heading"><CheckCircle2 size={16} /><span>Score</span></div>
       {score ? (
         <dl className="rd-score-grid">
           <div><dt>Curve MAE</dt><dd>{formatNumber(score.curve_mae)}</dd></div>
@@ -129,8 +135,8 @@ function ScoreCard({ event }: { event: RdLabEvent }) {
       ) : (
         <div className="rd-waiting-copy">
           <span className="rd-live-dot" />
-          <strong>Waiting for the complete response</strong>
-          <p>The committed forecast is locked. Scores appear as observed horizons arrive.</p>
+          <strong>{observed} observed horizons</strong>
+          <p>Final score at 240 minutes.</p>
         </div>
       )}
     </section>
@@ -149,80 +155,128 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
   }).join(" ");
   return (
     <section className="rd-progress-panel">
-      <div>
-        <p className="rd-eyebrow">HELD-OUT EVENT ERROR</p>
-        <h2>Model improvement</h2>
-        <p>Lower curve error is better. Censored and incomplete events are excluded.</p>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="rd-progress-chart" role="img" aria-label="Recent curve error trend">
-        <line x1="34" x2={width - 34} y1={height - 36} y2={height - 36} className="rd-grid-line" />
-        <path d={path} className="rd-progress-line" />
-        {points.map((point, index) => {
-          const x = 34 + (index / Math.max(1, points.length - 1)) * (width - 68);
-          const y = 24 + (point.curve_mae! / max) * (height - 68);
-          return <circle key={`${point.index}-${point.event}`} cx={x} cy={y} r="4" className="rd-progress-point"><title>{`${point.event}: ${point.curve_mae}`}</title></circle>;
-        })}
-      </svg>
+      <div><p className="rd-eyebrow">MODEL ERROR</p><h2>Learning progress</h2><p>Lower curve error is better.</p></div>
+      {points.length ? (
+        <svg viewBox={`0 0 ${width} ${height}`} className="rd-progress-chart" role="img" aria-label="Recent curve error trend">
+          <line x1="34" x2={width - 34} y1={height - 36} y2={height - 36} className="rd-grid-line" />
+          <path d={path} className="rd-progress-line" />
+          {points.map((point, index) => {
+            const x = 34 + (index / Math.max(1, points.length - 1)) * (width - 68);
+            const y = 24 + (point.curve_mae! / max) * (height - 68);
+            return <circle key={`${point.index}-${point.event}`} cx={x} cy={y} r="4" className="rd-progress-point"><title>{`${point.event}: ${point.curve_mae}`}</title></circle>;
+          })}
+        </svg>
+      ) : <div className="rd-empty-panel">No completed curves yet.</div>}
     </section>
   );
 }
 
+function fallbackPots(snapshot: RdLabSnapshot): RdPotSummary[] {
+  if (snapshot.pots?.length) return snapshot.pots;
+  const events = [snapshot.current, ...snapshot.history];
+  const byName = new Map<string, RdPotSummary>();
+  for (const event of events) {
+    if (byName.has(event.pairing_name)) continue;
+    byName.set(event.pairing_name, {
+      pairing_name: event.pairing_name,
+      target_vwc: event.target_vwc,
+      current_vwc: event.trigger_vwc,
+      distance_to_target: event.trigger_vwc - event.target_vwc,
+      last_reading_at: event.feature_as_of_device_at,
+      state: event.state,
+      event,
+    });
+  }
+  return [...byName.values()];
+}
+
+function waitingEvent(pot: RdPotSummary, modelVersion: string): RdLabEvent {
+  const now = new Date().toISOString();
+  return {
+    id: `waiting-${pot.pairing_name}`,
+    pairing_name: pot.pairing_name,
+    state: "waiting_threshold",
+    target_vwc: pot.target_vwc,
+    trigger_vwc: pot.current_vwc,
+    committed_at: now,
+    feature_as_of_device_at: pot.last_reading_at ?? now,
+    irrigation_opened_device_at: null,
+    model_version: modelVersion,
+    prediction_lead_seconds: 0,
+    curve: [],
+    score: null,
+    censored: false,
+    confidence: "low_confidence",
+  };
+}
+
 export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot; onBack?: () => void }) {
-  const [tab, setTab] = useState<LabTab>("current");
-  const current = snapshot.current;
+  const [tab, setTab] = useState<LabTab>("pots");
+  const pots = useMemo(() => fallbackPots(snapshot), [snapshot]);
+  const [selectedName, setSelectedName] = useState(snapshot.current.pairing_name);
+  const selectedPot = pots.find((pot) => pot.pairing_name === selectedName) ?? pots[0];
+  const current = selectedPot?.event ?? (selectedPot ? waitingEvent(selectedPot, snapshot.champion_version) : snapshot.current);
+  const selectedHistory = snapshot.history.filter((event) => event.pairing_name === current.pairing_name);
+
   return (
     <section className="rd-lab-main" aria-label="ExactH2O response curve laboratory">
       <header className="rd-lab-header">
-        <div className="rd-lab-heading-row">
-          <div>
-            {onBack ? <button type="button" className="support-back-button" onClick={onBack}><ArrowLeft size={14} /> Home</button> : null}
-            <p className="rd-eyebrow"><FlaskConical size={14} /> EXACTH2O R&amp;D</p>
-            <h1>Response Curve Lab</h1>
-            <p>Watch the shadow model predict, observe, score, and learn from eligible irrigation episodes.</p>
-          </div>
-          <div className="rd-shadow-badge"><ShieldCheck size={16} /><span><strong>SHADOW MODE</strong>No irrigation control</span></div>
+        {onBack ? <button type="button" className="support-back-button" onClick={onBack}><ArrowLeft size={14} /> Home</button> : null}
+        <div className="rd-lab-title-row">
+          <div><p className="rd-eyebrow">EXACTH2O R&amp;D · {pots.length} POTS</p><h1>Response Curve Lab</h1></div>
+          <div className="rd-lab-summary"><strong>{snapshot.clean_events_learned}</strong><span>clean events</span></div>
         </div>
         <nav className="rd-tabs" aria-label="R&D views">
-          {(["current", "history", "progress"] as const).map((item) => (
+          {(["pots", "history", "progress"] as const).map((item) => (
             <button key={item} type="button" className={tab === item ? "is-active" : ""} onClick={() => setTab(item)}>
-              {item === "current" ? "Current Event" : item === "history" ? "Event History" : "Model Progress"}
+              {item === "pots" ? "Live Pots" : item === "history" ? "Event History" : "Model Learning"}
             </button>
           ))}
         </nav>
       </header>
 
-      {tab === "current" ? (
+      <section className="rd-pot-panel" aria-label="Select a pot">
+        {pots.map((pot) => (
+          <button key={pot.pairing_name} type="button" className={`rd-pot-button ${pot.pairing_name === current.pairing_name ? "is-active" : ""}`} onClick={() => setSelectedName(pot.pairing_name)}>
+            <span><strong>{pot.pairing_name}</strong><small>{stateLabel(pot.state)}</small></span>
+            <span><strong>{formatNumber(pot.current_vwc)}</strong><small>target {formatNumber(pot.target_vwc, 0)}</small></span>
+          </button>
+        ))}
+      </section>
+
+      {tab === "pots" ? (
         <>
           <section className="rd-event-banner">
             <div className="rd-event-icon"><BrainCircuit size={22} /></div>
             <div><p>{current.pairing_name}</p><h2>{stateLabel(current.state)}</h2></div>
             <div className="rd-event-banner-facts">
+              <span>Current<strong>{formatNumber(selectedPot?.current_vwc)}%</strong></span>
               <span>Target<strong>{current.target_vwc.toFixed(1)}%</strong></span>
-              <span>Armed at<strong>{current.trigger_vwc.toFixed(2)}%</strong></span>
-              <span>Lead time<strong>{current.irrigation_opened_device_at ? `${Math.round(current.prediction_lead_seconds / 60)} min` : "Pending"}</strong></span>
+              <span>Distance<strong>{formatNumber(selectedPot?.distance_to_target)}%</strong></span>
               <span>Model<strong>{current.model_version}</strong></span>
             </div>
           </section>
           <div className="rd-current-grid">
             <section className="rd-chart-card">
-              <div className="rd-chart-title"><div><p className="rd-eyebrow">IRRIGATION RESPONSE</p><h2>Prediction vs. reality</h2></div><span className="rd-status-chip"><span className="rd-live-dot" /> SHADOW OBSERVER</span></div>
-              <ResponseCurveChart event={current} />
+              <div className="rd-chart-title"><div><p className="rd-eyebrow">{current.pairing_name}</p><h2>Prediction vs. reality</h2></div><span className="rd-status-chip">{stateLabel(current.state)}</span></div>
+              {current.curve.length ? <ResponseCurveChart event={current} /> : (
+                <div className="rd-empty-chart"><strong>Waiting for threshold</strong><span>Early forecast at target +0.3. Refresh at target +0.1.</span></div>
+              )}
               <div className="rd-causal-strip">
                 <Clock3 size={15} />
-                <span>Features frozen <strong>{formatTime(current.feature_as_of_device_at)}</strong></span>
-                <span>Prediction committed <strong>{formatTime(current.committed_at)}</strong></span>
-                <span>Irrigation opened <strong>{formatTime(current.irrigation_opened_device_at)}</strong></span>
+                <span>Reading <strong>{formatTime(current.feature_as_of_device_at)}</strong></span>
+                <span>Forecast <strong>{formatTime(current.committed_at)}</strong></span>
+                <span>Irrigation <strong>{formatTime(current.irrigation_opened_device_at)}</strong></span>
               </div>
             </section>
             <aside className="rd-side-stack">
               <ScoreCard event={current} />
               <section className="rd-side-card">
-                <div className="rd-card-heading"><Sparkles size={16} /><span>Learning state</span></div>
-                <div className="rd-learning-count"><strong>{snapshot.clean_events_learned}</strong><span>clean events learned</span></div>
+                <div className="rd-card-heading"><span>Model</span></div>
                 <dl className="rd-model-list">
-                  <div><dt>Champion</dt><dd>{snapshot.champion_version}</dd></div>
+                  <div><dt>Baseline</dt><dd>{snapshot.champion_version}</dd></div>
                   <div><dt>Candidate</dt><dd>{snapshot.candidate_version ?? "None"}</dd></div>
-                  <div><dt>Confidence</dt><dd>{current.confidence === "trained_range" ? "Within trained range" : "Low confidence"}</dd></div>
+                  <div><dt>Confidence</dt><dd>{current.confidence === "trained_range" ? "Trained range" : "Low"}</dd></div>
                 </dl>
               </section>
             </aside>
@@ -232,16 +286,16 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
 
       {tab === "history" ? (
         <section className="rd-history-panel">
-          <div className="rd-section-intro"><p className="rd-eyebrow">IMMUTABLE FORECAST RECORD</p><h2>Recent irrigation responses</h2><p>Each score comes from a prediction committed before its valve-open timestamp.</p></div>
+          <div className="rd-section-intro"><p className="rd-eyebrow">{current.pairing_name}</p><h2>Event history</h2></div>
           <div className="rd-history-list">
-            {snapshot.history.map((event) => (
+            {selectedHistory.length ? selectedHistory.map((event) => (
               <article key={event.id}>
                 <span className="rd-history-icon"><BrainCircuit size={16} /></span>
                 <div><strong>{event.pairing_name}</strong><small>{formatTime(event.irrigation_opened_device_at)}</small></div>
-                <span>{event.censored ? "CENSORED" : "COMPLETE"}</span>
+                <span>{stateLabel(event.state)}</span>
                 <dl><div><dt>Curve MAE</dt><dd>{formatNumber(event.score?.curve_mae)}</dd></div><div><dt>Coverage</dt><dd>{event.score?.interval_coverage == null ? "—" : `${Math.round(event.score.interval_coverage * 100)}%`}</dd></div></dl>
               </article>
-            ))}
+            )) : <div className="rd-empty-panel">No completed events for this pot.</div>}
           </div>
         </section>
       ) : null}

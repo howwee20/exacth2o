@@ -1,4 +1,4 @@
-import{r as s1}from"./icon-vendor-BVWJ1Rrp.js";var ai={exports:{}},me={};/**
+import{r as s1}from"./icon-vendor-D6UcOM9F.js";var ai={exports:{}},me={};/**
  * @license React
  * react-jsx-runtime.production.js
  *
