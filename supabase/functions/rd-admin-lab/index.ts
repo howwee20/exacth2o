@@ -155,6 +155,7 @@ function episodeTotalCurve(
   irrigationEvents: Array<Record<string, unknown>>,
   displayByPrediction: Map<string, Record<string, unknown>>,
   readings: Array<Record<string, unknown>>,
+  outcome: Record<string, unknown> | null,
 ) {
   const startedAt = String(episode.first_open_device_at ?? "");
   const startedMs = Date.parse(startedAt);
@@ -176,7 +177,32 @@ function episodeTotalCurve(
       Date.parse(String(left.opened_device_at)) -
       Date.parse(String(right.opened_device_at))
     );
-  return responseMinutes.map((minute) => {
+  const observationEndMs = Date.parse(String(
+    outcome?.observation_end_device_at ?? episode.observation_ends_at ?? "",
+  ));
+  const maximumMinute = Number.isFinite(observationEndMs)
+    ? Math.max(240, Math.floor((observationEndMs - startedMs) / 600_000) * 10)
+    : 240;
+  const minutes = Array.from(
+    { length: Math.floor(maximumMinute / 10) + 1 },
+    (_, index) => index * 10,
+  );
+  const actualAbsolute = record(outcome?.actual_absolute);
+  const actualMinutes = Array.isArray(actualAbsolute.minutes)
+    ? actualAbsolute.minutes.map(Number)
+    : [];
+  const actualValues = Array.isArray(actualAbsolute.values)
+    ? actualAbsolute.values
+    : [];
+  const storedActual = new Map<number, number | null>(
+    actualMinutes.map((minute, index) => [
+      minute,
+      Number.isFinite(Number(actualValues[index]))
+        ? Number(actualValues[index])
+        : null,
+    ]),
+  );
+  return minutes.map((minute) => {
     const totals = {
       p10: baselineVwc,
       predicted: baselineVwc,
@@ -208,10 +234,14 @@ function episodeTotalCurve(
       .sort((left, right) => left.delta - right.delta)[0];
     return {
       minute,
-      p10: totals.p10,
+      // Per-pulse quantiles cannot be added into a calibrated episode-total
+      // interval. Keep the median attribution, but suppress a false band.
+      p10: null,
       predicted: totals.predicted,
-      p90: totals.p90,
-      actual: nearest && nearest.delta <= 6
+      p90: null,
+      actual: storedActual.has(minute)
+        ? storedActual.get(minute) ?? null
+        : nearest && nearest.delta <= 6
         ? Number(nearest.reading.calibrated_value)
         : null,
     };
@@ -430,11 +460,11 @@ Deno.serve(async (request) => {
     ).eq("project_id", projectId).order("opened_device_at", {
       ascending: false,
     }).limit(1000),
-    admin.from("rd_episode_outcomes_v2").select(
-      "id,episode_id,pairing_name,first_open_device_at,observed_horizons,pulse_count,eligible_for_scoring,eligible_for_training,quality_reasons,completed_at",
+    admin.from("rd_episode_outcomes_v3").select(
+      "id,episode_id,pairing_name,first_open_device_at,last_open_device_at,observation_end_device_at,actual_absolute,observed_horizons,pulse_count,sample_interval_minutes,right_censored,eligible_for_scoring,eligible_for_training,quality_reasons,outcome_version,completed_at",
     ).eq("project_id", projectId).order("completed_at", { ascending: false })
       .limit(500),
-    admin.from("rd_episode_scores_v2").select(
+    admin.from("rd_episode_scores_v3").select(
       "episode_id,model_version_id,model_role,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons,created_at",
     ).order("created_at", { ascending: false }).limit(2000),
     admin.from("rd_evaluation_windows_v2").select(
@@ -460,7 +490,12 @@ Deno.serve(async (request) => {
   );
   const models = modelResult.data ?? [];
   const outcomesV2 = outcomeV2Result.data ?? [];
-  const episodeScoresV2 = episodeScoreV2Result.data ?? [];
+  const outcomeEpisodeIds = new Set(
+    outcomesV2.map((outcome) => String(outcome.episode_id)),
+  );
+  const episodeScoresV2 = (episodeScoreV2Result.data ?? []).filter((score) =>
+    outcomeEpisodeIds.has(String(score.episode_id))
+  );
   const evaluationsV2 = evaluationV2Result.data ?? [];
   const trainingRuns = trainingRunResult.data ?? [];
   const scoreByPrediction = new Map(
@@ -469,12 +504,12 @@ Deno.serve(async (request) => {
   const modelById = new Map((models ?? []).map((item) => [item.id, item]));
   const champion = (models ?? []).find((model) =>
     model.status === "champion" &&
-    model.feature_schema_version === "episode-impulse-v2" &&
+    model.feature_schema_version === "episode-response-v3" &&
     model.synthetic_data_only === false
   );
   const candidate = (models ?? []).find((model) =>
     model.status === "candidate" &&
-    model.feature_schema_version === "episode-impulse-v2" &&
+    model.feature_schema_version === "episode-response-v3" &&
     model.synthetic_data_only === false
   );
   const outcomeByEpisode = new Map(
@@ -612,6 +647,7 @@ Deno.serve(async (request) => {
         irrigationEventsV2,
         displayByPrediction,
         readings,
+        outcome,
       ),
       pulses,
       missed_forecasts: pulses.filter((pulse) => !pulse.prediction).length,
@@ -622,6 +658,9 @@ Deno.serve(async (request) => {
           eligible_for_scoring: outcome.eligible_for_scoring,
           eligible_for_training: outcome.eligible_for_training,
           quality_reasons: outcome.quality_reasons,
+          right_censored: outcome.right_censored,
+          sample_interval_minutes: outcome.sample_interval_minutes,
+          outcome_version: outcome.outcome_version,
           completed_at: outcome.completed_at,
         }
         : null,
@@ -753,6 +792,16 @@ Deno.serve(async (request) => {
   const eligibleOutcomes = outcomesV2.filter((outcome) =>
     outcome.eligible_for_training === true
   );
+  const baselineCoverages = episodeScoresV2
+    .filter((score) =>
+      score.model_role === "baseline" &&
+      Number.isFinite(Number(score.interval_coverage))
+    )
+    .map((score) => Number(score.interval_coverage));
+  const currentIntervalCoverage = baselineCoverages.length
+    ? baselineCoverages.reduce((sum, value) => sum + value, 0) /
+      baselineCoverages.length
+    : null;
   const eligiblePots = new Set(
     eligibleOutcomes.map((outcome) => String(outcome.pairing_name)),
   ).size;
@@ -781,7 +830,7 @@ Deno.serve(async (request) => {
   const priorTrainingCount = Math.max(
     0,
     ...models.filter((model) =>
-      model.feature_schema_version === "episode-impulse-v2"
+      model.feature_schema_version === "episode-response-v3"
     ).map((model) => Number(model.training_event_count ?? 0)),
   );
   const nextTrainingAt = priorTrainingCount > 0
@@ -820,8 +869,12 @@ Deno.serve(async (request) => {
         required_calendar_span_days: 7,
         qualified_chronological_windows: qualifiedWindows,
         required_chronological_windows: 2,
-        model_family: "regularized additive impulse",
+        model_family: "shared response + pot gain",
         last_training_at: lastTraining?.completed_at ?? null,
+        scientific_clock: "First irrigation → 240m after final irrigation",
+        current_interval_coverage: currentIntervalCoverage,
+        interval_calibrated: currentIntervalCoverage != null &&
+          currentIntervalCoverage >= 0.65 && currentIntervalCoverage <= 0.95,
         status: champion
           ? "champion_active"
           : candidate

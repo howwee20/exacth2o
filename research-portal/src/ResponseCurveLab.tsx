@@ -78,6 +78,7 @@ function ResponseCurveChart({
   zeroLabel: string;
   pulseMarkers?: Array<{ minute: number; label: string }>;
 }) {
+  const hasRange = event.curve.some((point) => point.p10 != null && point.p90 != null);
   const geometry = useMemo(() => {
     const values = event.curve.flatMap((point) => [point.p10, point.p90, point.actual])
       .filter((value): value is number => value != null && Number.isFinite(value));
@@ -104,7 +105,7 @@ function ResponseCurveChart({
       <div className="rd-chart-legend" aria-label="Chart legend">
         <span><i className="is-predicted" /> {predictedLabel}</span>
         <span><i className="is-actual" /> {measuredLabel}</span>
-        <span><i className="is-band" /> 80% range</span>
+        {hasRange ? <span><i className="is-band" /> {event.confidence === "trained_range" ? "Model range" : "Uncalibrated range"}</span> : null}
       </div>
       <svg className="rd-curve-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label={`${predictedLabel} and ${measuredLabel} for ${event.pairing_name}`}>
         {yTicks.map((tick) => (
@@ -127,7 +128,7 @@ function ResponseCurveChart({
             <text x={geometry.x(pulse.minute) + 4} y={pad.top + 14} className="rd-pulse-label">{pulse.label}</text>
           </g>
         ))}
-        <polygon points={geometry.band} className="rd-confidence-band" />
+        {hasRange ? <polygon points={geometry.band} className="rd-confidence-band" /> : null}
         <path d={predictedPath} className="rd-prediction-line" />
         <path d={actualPath} className="rd-actual-line" />
         {event.curve.map((point) => point.actual == null ? null : (
@@ -172,7 +173,7 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
   return (
     <section className="rd-progress-panel">
       <div className="rd-learning-heading">
-        <div><p className="rd-eyebrow">EPISODE-TOTAL LEARNING</p><h2>Model readiness</h2></div>
+        <div><p className="rd-eyebrow">EPISODE-TOTAL EVIDENCE</p><h2>Training readiness</h2></div>
         <span className="rd-status-chip">{learning.status.replace(/_/g, " ")}</span>
       </div>
       <div className="rd-learning-gates">
@@ -184,6 +185,7 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
       </div>
       <div className="rd-learning-model-row">
         <span>Model<strong>{learning.model_family}</strong></span>
+        <span>Clock<strong>{learning.scientific_clock ?? "First irrigation"}</strong></span>
         <span>Last train<strong>{formatTime(learning.last_training_at)}</strong></span>
         <span>Next batch<strong>{learning.episodes_until_next_training} episodes</strong></span>
       </div>
@@ -259,7 +261,7 @@ function episodeAsEvent(
     prediction_lead_seconds: predictedPulse?.prediction_lead_seconds ?? 0,
     curve: episode.curve,
     score: null,
-    censored: false,
+    censored: episode.outcome?.right_censored ?? false,
     confidence: predictedPulse?.confidence ?? "low_confidence",
   };
 }
@@ -306,7 +308,7 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
         <nav className="rd-tabs" aria-label="R&D views">
           {(["pots", "history", "progress"] as const).map((item) => (
             <button key={item} type="button" className={tab === item ? "is-active" : ""} onClick={() => setTab(item)}>
-              {item === "pots" ? "Live Pots" : item === "history" ? "Episode History" : "Model Learning"}
+              {item === "pots" ? "Live Pots" : item === "history" ? "Episode History" : "Model Evidence"}
             </button>
           ))}
         </nav>
@@ -394,7 +396,11 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
                 <span className="rd-history-icon"><BrainCircuit size={16} /></span>
                 <div><strong>{formatTime(episode.started_at)}</strong><small>{episode.pulse_count} irrigation events</small></div>
                 <span>{stateLabel(`episode_${episode.status}`)}</span>
-                <dl><div><dt>Predicted</dt><dd>{episode.pulse_count - episode.missed_forecasts}</dd></div><div><dt>Missed</dt><dd>{episode.missed_forecasts}</dd></div></dl>
+                <dl>
+                  <div><dt>Predicted</dt><dd>{episode.pulse_count - episode.missed_forecasts}</dd></div>
+                  <div><dt>Eligible</dt><dd>{episode.outcome?.eligible_for_training ? "Yes" : "No"}</dd></div>
+                  <div><dt>Peak complete</dt><dd>{episode.outcome == null ? "—" : episode.outcome.right_censored ? "No" : "Yes"}</dd></div>
+                </dl>
               </article>
             )) : <div className="rd-empty-panel">No correction episodes for this pot.</div>}
           </div>

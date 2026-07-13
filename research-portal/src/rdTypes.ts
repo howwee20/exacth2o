@@ -71,6 +71,9 @@ export type RdCorrectionEpisode = {
     eligible_for_scoring: boolean;
     eligible_for_training: boolean;
     quality_reasons: string[];
+    right_censored: boolean;
+    sample_interval_minutes: number;
+    outcome_version: string;
     completed_at: string;
   } | null;
   score?: (RdPredictionScore & {
@@ -95,6 +98,9 @@ export type RdLearningState = {
   required_chronological_windows: number;
   model_family: string;
   last_training_at: string | null;
+  scientific_clock?: string;
+  current_interval_coverage?: number | null;
+  interval_calibrated?: boolean;
   status: "collecting_evidence" | "candidate_evaluating" | "champion_active";
 };
 
