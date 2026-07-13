@@ -399,6 +399,7 @@ Deno.serve(async (request) => {
   }
 
   const predictionIds = predictions.map((item) => item.id);
+  const predictionIdSet = new Set(predictionIds);
   const [
     stateResult,
     scoreResult,
@@ -412,10 +413,10 @@ Deno.serve(async (request) => {
   ] = await Promise.all([
     admin.from("rd_prediction_events").select(
       "prediction_id,state,details,occurred_at",
-    ).in("prediction_id", predictionIds),
+    ).order("occurred_at", { ascending: false }).limit(10000),
     admin.from("rd_prediction_scores").select(
       "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
-    ).in("prediction_id", predictionIds),
+    ).order("created_at", { ascending: false }).limit(5000),
     admin.from("rd_model_versions").select(
       "id,version,status,metrics,training_event_count,feature_schema_version,synthetic_data_only,created_at",
     ).order("created_at", { ascending: false }).limit(100),
@@ -451,8 +452,12 @@ Deno.serve(async (request) => {
   ) {
     return response({ error: "Could not assemble R&D snapshot" }, 500, origin);
   }
-  const states = stateResult.data ?? [];
-  const scores = scoreResult.data ?? [];
+  const states = (stateResult.data ?? []).filter((item) =>
+    predictionIdSet.has(item.prediction_id)
+  );
+  const scores = (scoreResult.data ?? []).filter((item) =>
+    predictionIdSet.has(item.prediction_id)
+  );
   const models = modelResult.data ?? [];
   const outcomesV2 = outcomeV2Result.data ?? [];
   const episodeScoresV2 = episodeScoreV2Result.data ?? [];
