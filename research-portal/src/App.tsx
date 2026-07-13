@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  BrainCircuit,
   CheckCircle2,
   Database,
   Download,
@@ -3077,16 +3076,9 @@ function PortalAdminHome({
 
           {rdSnapshot ? (
             <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
-              <span className="portal-launch-top">
-                <span className="portal-launch-icon"><BrainCircuit size={20} /></span>
-                <span className="portal-status-pill">LIVE MODEL</span>
-              </span>
-              <span className="portal-launch-copy">
-                <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
-                <strong>{rdSnapshot.current.pairing_name} · {rdSnapshot.current.state.replace(/_/g, " ")}</strong>
-                <em>{rdSnapshot.learning?.eligible_episode_totals ?? rdSnapshot.clean_events_learned} eligible episode totals · {rdSnapshot.champion_version}</em>
-              </span>
-              <span className="portal-launch-action">Open Lab <ArrowRight size={14} /></span>
+              <span className="portal-status-pill">LIVE MODEL</span>
+              <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
+              <span className="portal-launch-action">Open Lab</span>
             </button>
           ) : null}
         </div>

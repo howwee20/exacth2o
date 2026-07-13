@@ -4343,15 +4343,15 @@ select {
   background: linear-gradient(145deg, #ffffff, #faf9ff);
 }
 
-.portal-launch-card.is-rd .portal-launch-icon {
-  background: rgba(103, 84, 217, 0.11);
-  color: var(--rd-purple);
-}
-
 .portal-launch-card.is-rd .portal-status-pill {
+  justify-self: start;
   border-color: rgba(103, 84, 217, 0.18);
   background: rgba(103, 84, 217, 0.09);
   color: #5543c3;
+}
+
+.portal-launch-card.is-rd .portal-launch-title {
+  align-self: center;
 }
 
 .portal-business-stack {
