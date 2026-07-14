@@ -120,8 +120,6 @@ function actualByHorizon(
   return values;
 }
 
-const responseMinutes = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240];
-
 function interpolateCurve(
   curve: Array<Record<string, unknown>>,
   field: "p10" | "predicted" | "p90",
@@ -323,7 +321,7 @@ Deno.serve(async (request) => {
     latestByPairing.set(String(reading.pairing_name ?? ""), reading);
   }
 
-  const { data: predictions, error: predictionError } = await admin
+  const { data: recentPredictions, error: predictionError } = await admin
     .from("rd_curve_predictions")
     .select(
       "id,pairing_name,model_version_id,trigger_vwc,target_vwc_at_issue,feature_as_of_device_at,issued_at,p10,p50,p90,confidence",
@@ -334,7 +332,7 @@ Deno.serve(async (request) => {
   if (predictionError) {
     return response({ error: "Could not load R&D predictions" }, 500, origin);
   }
-  if (!predictions?.length) {
+  if (!recentPredictions?.length) {
     const { error: emptyAuditError } = await admin.from("rd_access_audit")
       .insert({
         project_id: projectId,
@@ -428,8 +426,6 @@ Deno.serve(async (request) => {
     );
   }
 
-  const predictionIds = predictions.map((item) => item.id);
-  const predictionIdSet = new Set(predictionIds);
   const [
     stateResult,
     scoreResult,
@@ -440,6 +436,10 @@ Deno.serve(async (request) => {
     episodeScoreV2Result,
     evaluationV2Result,
     trainingRunResult,
+    finalizationV5Result,
+    channelV5Result,
+    updateV5Result,
+    scoreV5Result,
   ] = await Promise.all([
     admin.from("rd_prediction_events").select(
       "prediction_id,state,details,occurred_at",
@@ -473,22 +473,109 @@ Deno.serve(async (request) => {
     admin.from("rd_training_runs").select(
       "model_version_id,training_event_count,held_out_event_count,result,metrics,completed_at",
     ).order("completed_at", { ascending: false }).limit(50),
+    admin.from("rd_event_finalizations_v5").select(
+      "id,irrigation_event_id,pairing_name,opened_device_at,finalization_revision,evidence_fingerprint,observed_horizons,censored_horizons,duration_source,created_at",
+    ).eq("project_id", projectId).order("opened_device_at", {
+      ascending: false,
+    })
+      .limit(5000),
+    admin.from("rd_shadow_model_channels_v5").select(
+      "champion_model_version_id,evaluation_candidate_model_version_id,latest_challenger_model_version_id,champion_since,evaluation_started_at,updated_at",
+    ).eq("project_id", projectId).eq("device_id", mattDeviceId).limit(1),
+    admin.from("rd_model_updates_v5").select(
+      "model_version_id,training_event_count,training_horizon_count,metrics,parameters,created_at",
+    ).order("created_at", { ascending: false }).limit(100),
+    admin.from("rd_prequential_scores_v5").select(
+      "candidate_model_version_id,champion_model_version_id,irrigation_event_id,event_finalization_id,pairing_name,opened_device_at,duration_source,pulse_sequence_in_episode,curve_mae,peak_error,interval_coverage,scored_horizons,champion_curve_mae,zero_curve_mae,ood_score,created_at",
+    ).order("opened_device_at", { ascending: false }).limit(5000),
   ]);
   if (
     stateResult.error || scoreResult.error || modelResult.error ||
     episodeV2Result.error || irrigationEventV2Result.error ||
     outcomeV2Result.error || episodeScoreV2Result.error ||
-    evaluationV2Result.error || trainingRunResult.error
+    evaluationV2Result.error || trainingRunResult.error ||
+    finalizationV5Result.error || channelV5Result.error ||
+    updateV5Result.error || scoreV5Result.error
   ) {
     return response({ error: "Could not assemble R&D snapshot" }, 500, origin);
   }
+  const irrigationEventsV2 = (irrigationEventV2Result.data ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const recentPredictionIds = new Set(
+    (recentPredictions ?? []).map((prediction) => String(prediction.id)),
+  );
+  const referencedPredictionIds = [
+    ...new Set(
+      irrigationEventsV2
+        .map((event) => event.prediction_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  ];
+  const missingPredictionIds = referencedPredictionIds.filter((id) =>
+    !recentPredictionIds.has(id)
+  );
+  const historicalPredictions: Array<Record<string, unknown>> = [];
+  for (let index = 0; index < missingPredictionIds.length; index += 100) {
+    const { data, error } = await admin.from("rd_curve_predictions").select(
+      "id,pairing_name,model_version_id,trigger_vwc,target_vwc_at_issue,feature_as_of_device_at,issued_at,p10,p50,p90,confidence",
+    ).in("id", missingPredictionIds.slice(index, index + 100));
+    if (error) {
+      return response(
+        { error: "Could not resolve exact forecast lineage" },
+        500,
+        origin,
+      );
+    }
+    historicalPredictions.push(
+      ...((data ?? []) as Array<Record<string, unknown>>),
+    );
+  }
+  const predictions = [
+    ...((recentPredictions ?? []) as Array<Record<string, unknown>>),
+    ...historicalPredictions,
+  ];
+  const predictionIds = predictions.map((item) => String(item.id));
+  const predictionIdSet = new Set(predictionIds);
   const states = (stateResult.data ?? []).filter((item) =>
     predictionIdSet.has(item.prediction_id)
   );
   const scores = (scoreResult.data ?? []).filter((item) =>
     predictionIdSet.has(item.prediction_id)
   );
-  const models = modelResult.data ?? [];
+  const models = [...(modelResult.data ?? [])] as Array<
+    Record<string, unknown>
+  >;
+  const v5Channel = channelV5Result.data?.[0] ?? null;
+  const referencedModelIds = new Set<string>(
+    predictions.map((prediction) => String(prediction.model_version_id)),
+  );
+  for (
+    const value of [
+      v5Channel?.champion_model_version_id,
+      v5Channel?.evaluation_candidate_model_version_id,
+      v5Channel?.latest_challenger_model_version_id,
+    ]
+  ) {
+    if (value) referencedModelIds.add(String(value));
+  }
+  const loadedModelIds = new Set(models.map((model) => String(model.id)));
+  const missingModelIds = [...referencedModelIds].filter((id) =>
+    !loadedModelIds.has(id)
+  );
+  for (let index = 0; index < missingModelIds.length; index += 100) {
+    const { data, error } = await admin.from("rd_model_versions").select(
+      "id,version,status,metrics,training_event_count,feature_schema_version,synthetic_data_only,created_at",
+    ).in("id", missingModelIds.slice(index, index + 100));
+    if (error) {
+      return response(
+        { error: "Could not resolve exact model lineage" },
+        500,
+        origin,
+      );
+    }
+    models.push(...((data ?? []) as Array<Record<string, unknown>>));
+  }
   const outcomesV2 = outcomeV2Result.data ?? [];
   const outcomeEpisodeIds = new Set(
     outcomesV2.map((outcome) => String(outcome.episode_id)),
@@ -499,19 +586,29 @@ Deno.serve(async (request) => {
   const evaluationsV2 = evaluationV2Result.data ?? [];
   const trainingRuns = trainingRunResult.data ?? [];
   const scoreByPrediction = new Map(
-    (scores ?? []).map((item) => [item.prediction_id, item]),
+    (scores ?? []).map((item) => [String(item.prediction_id), item]),
   );
-  const modelById = new Map((models ?? []).map((item) => [item.id, item]));
-  const champion = (models ?? []).find((model) =>
+  const modelById = new Map(
+    (models ?? []).map((item) => [String(item.id), item]),
+  );
+  const legacyChampion = models.find((model) =>
     model.status === "champion" &&
     model.feature_schema_version === "episode-response-v3" &&
     model.synthetic_data_only === false
   );
-  const candidate = (models ?? []).find((model) =>
+  const legacyCandidate = models.find((model) =>
     model.status === "candidate" &&
     model.feature_schema_version === "episode-response-v3" &&
     model.synthetic_data_only === false
   );
+  const champion = v5Channel?.champion_model_version_id
+    ? modelById.get(String(v5Channel.champion_model_version_id)) ??
+      legacyChampion
+    : legacyChampion;
+  const candidate = v5Channel?.evaluation_candidate_model_version_id
+    ? modelById.get(String(v5Channel.evaluation_candidate_model_version_id)) ??
+      legacyCandidate
+    : legacyCandidate;
   const outcomeByEpisode = new Map(
     outcomesV2.map((outcome) => [outcome.episode_id, outcome]),
   );
@@ -525,11 +622,13 @@ Deno.serve(async (request) => {
   }
 
   const displayEvents = predictions.map((prediction) => {
-    const state = latestState(states ?? [], prediction.id);
+    const predictionId = String(prediction.id);
+    const pairing = String(prediction.pairing_name);
+    const state = latestState(states ?? [], predictionId);
     const details = (state?.details ?? {}) as Record<string, unknown>;
     const committedState = (states ?? [])
       .filter((event) =>
-        event.prediction_id === prediction.id && event.state === "committed"
+        event.prediction_id === predictionId && event.state === "committed"
       )
       .sort((left, right) =>
         Date.parse(String(right.occurred_at)) -
@@ -557,7 +656,7 @@ Deno.serve(async (request) => {
     const openedAt = typeof openedValue === "string" ? openedValue : null;
     const liveActual = actualByHorizon(
       readings,
-      prediction.pairing_name,
+      pairing,
       openedAt,
       minutes,
     );
@@ -566,18 +665,22 @@ Deno.serve(async (request) => {
       ? "tracking_response"
       : storedState;
     return {
-      id: prediction.id,
-      pairing_name: prediction.pairing_name,
+      id: predictionId,
+      pairing_name: pairing,
       state: displayState,
-      target_vwc: prediction.target_vwc_at_issue,
-      trigger_vwc: prediction.trigger_vwc,
-      committed_at: prediction.issued_at,
-      feature_as_of_device_at: prediction.feature_as_of_device_at,
+      target_vwc: Number(prediction.target_vwc_at_issue),
+      trigger_vwc: Number(prediction.trigger_vwc),
+      committed_at: String(prediction.issued_at),
+      feature_as_of_device_at: String(prediction.feature_as_of_device_at),
       irrigation_opened_device_at: openedAt,
-      model_version: modelById.get(prediction.model_version_id)?.version ??
-        "unknown",
-      prediction_lead_seconds: details.prediction_lead_seconds ??
-        committedDetails.prediction_lead_seconds ?? 0,
+      model_version: String(
+        modelById.get(String(prediction.model_version_id))?.version ??
+          "unknown",
+      ),
+      prediction_lead_seconds: Number(
+        details.prediction_lead_seconds ??
+          committedDetails.prediction_lead_seconds ?? 0,
+      ),
       curve: minutes.map((minute, index) => ({
         minute,
         p10: p10.values?.[index] ?? null,
@@ -586,7 +689,7 @@ Deno.serve(async (request) => {
         actual: actual.values?.[index] ?? liveActual.get(minute) ?? null,
       })),
       score: (() => {
-        const score = scoreByPrediction.get(prediction.id);
+        const score = scoreByPrediction.get(predictionId);
         if (!score) return null;
         return {
           curve_mae: score.curve_mae,
@@ -598,15 +701,12 @@ Deno.serve(async (request) => {
         };
       })(),
       censored: details.censored === true,
-      confidence: prediction.confidence,
+      confidence: String(prediction.confidence),
     };
   });
   const displayByPrediction = new Map<string, Record<string, unknown>>(
     displayEvents.map((event) => [event.id, event]),
   );
-  const irrigationEventsV2 = (irrigationEventV2Result.data ?? []) as Array<
-    Record<string, unknown>
-  >;
   const episodeDtos = ((episodeV2Result.data ?? []) as Array<
     Record<string, unknown>
   >).map((episode) => {
@@ -630,7 +730,8 @@ Deno.serve(async (request) => {
         quality: event.quality,
       }));
     const outcome = outcomeByEpisode.get(String(episode.id)) ?? null;
-    const learningScore = learningScoreByEpisode.get(String(episode.id)) ?? null;
+    const learningScore = learningScoreByEpisode.get(String(episode.id)) ??
+      null;
     return {
       id: episode.id,
       pairing_name: episode.pairing_name,
@@ -671,8 +772,7 @@ Deno.serve(async (request) => {
           model_role: learningScore.model_role,
           curve_mae: learningScore.curve_mae,
           peak_error: learningScore.peak_error,
-          time_to_peak_error_minutes:
-            learningScore.time_to_peak_error_minutes,
+          time_to_peak_error_minutes: learningScore.time_to_peak_error_minutes,
           integrated_response_error: learningScore.integrated_response_error,
           interval_coverage: learningScore.interval_coverage,
           scored_horizons: learningScore.scored_horizons,
@@ -792,25 +892,102 @@ Deno.serve(async (request) => {
   const eligibleOutcomes = outcomesV2.filter((outcome) =>
     outcome.eligible_for_training === true
   );
+  const latestFinalizationByEvent = new Map<string, Record<string, unknown>>();
+  for (const value of finalizationV5Result.data ?? []) {
+    const finalization = value as Record<string, unknown>;
+    const eventId = String(finalization.irrigation_event_id);
+    const previous = latestFinalizationByEvent.get(eventId);
+    if (
+      !previous ||
+      Number(finalization.finalization_revision) >
+        Number(previous.finalization_revision)
+    ) latestFinalizationByEvent.set(eventId, finalization);
+  }
+  const finalizedEvents = [...latestFinalizationByEvent.values()];
+  const finalizedEventIds = new Set(latestFinalizationByEvent.keys());
+  const v5Scores = (scoreV5Result.data ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const candidateV5Scores = candidate?.id
+    ? v5Scores.filter((score) =>
+      String(score.candidate_model_version_id) === String(candidate.id) &&
+      String(score.event_finalization_id) ===
+        String(
+          latestFinalizationByEvent.get(String(score.irrigation_event_id))
+            ?.id ??
+            "",
+        )
+    )
+    : [];
+  const chronologicalV5Scores = candidateV5Scores
+    .filter((score) =>
+      Number.isFinite(Number(score.curve_mae)) &&
+      Number.isFinite(Number(score.champion_curve_mae))
+    )
+    .sort((left, right) =>
+      Date.parse(String(left.opened_device_at)) -
+      Date.parse(String(right.opened_device_at))
+    );
+  let qualifiedV5Windows = 0;
+  if (chronologicalV5Scores.length >= 40) {
+    const split = Math.floor(chronologicalV5Scores.length / 2);
+    for (
+      const window of [
+        chronologicalV5Scores.slice(0, split),
+        chronologicalV5Scores.slice(split),
+      ]
+    ) {
+      const candidateMae = window.reduce(
+        (sum, score) => sum + Number(score.curve_mae),
+        0,
+      ) / window.length;
+      const championMae = window.reduce(
+        (sum, score) => sum + Number(score.champion_curve_mae),
+        0,
+      ) / window.length;
+      if (candidateMae <= 0.9 * championMae) qualifiedV5Windows += 1;
+    }
+  }
   const baselineCoverages = episodeScoresV2
     .filter((score) =>
       score.model_role === "baseline" &&
       Number.isFinite(Number(score.interval_coverage))
     )
     .map((score) => Number(score.interval_coverage));
-  const currentIntervalCoverage = baselineCoverages.length
-    ? baselineCoverages.reduce((sum, value) => sum + value, 0) /
-      baselineCoverages.length
-    : null;
-  const eligiblePots = new Set(
-    eligibleOutcomes.map((outcome) => String(outcome.pairing_name)),
-  ).size;
-  const multiPulseEpisodes = eligibleOutcomes.filter((outcome) =>
-    Number(outcome.pulse_count) > 1
-  ).length;
-  const eligibleTimes = eligibleOutcomes
-    .map((outcome) => Date.parse(String(outcome.first_open_device_at)))
-    .filter((value) => Number.isFinite(value))
+  const v5Coverages = candidateV5Scores
+    .map((score) => Number(score.interval_coverage))
+    .filter((value) => Number.isFinite(value));
+  const currentIntervalCoverage = v5Channel
+    ? (v5Coverages.length
+      ? v5Coverages.reduce((sum, value) => sum + value, 0) /
+        v5Coverages.length
+      : null)
+    : (baselineCoverages.length
+      ? baselineCoverages.reduce((sum, value) => sum + value, 0) /
+        baselineCoverages.length
+      : null);
+  const eligiblePots = v5Channel
+    ? new Set(finalizedEvents.map((event) => String(event.pairing_name))).size
+    : new Set(
+      eligibleOutcomes.map((outcome) => String(outcome.pairing_name)),
+    ).size;
+  const multiPulseEpisodes = v5Channel
+    ? irrigationEventsV2.filter((event) =>
+      finalizedEventIds.has(String(event.id)) &&
+      Number(event.sequence_in_episode) > 1
+    ).length
+    : eligibleOutcomes.filter((outcome) => Number(outcome.pulse_count) > 1)
+      .length;
+  const eligibleTimes = (v5Channel
+    ? finalizedEvents.map((event) =>
+      Date.parse(String(event.opened_device_at))
+    )
+    : eligibleOutcomes.map((outcome) =>
+      Date.parse(String(outcome.first_open_device_at))
+    ))
+    .filter((value) =>
+      Number.isFinite(value)
+    )
     .sort((left, right) => left - right);
   const calendarSpanDays = eligibleTimes.length > 1
     ? (eligibleTimes.at(-1)! - eligibleTimes[0]) / 86_400_000
@@ -821,63 +998,84 @@ Deno.serve(async (request) => {
       window.model_version_id === activeLearningModel.id
     )
     : [];
-  const qualifiedWindows = activeWindows.filter((window) =>
-    window.passed === true
-  ).length;
-  const lastTraining = trainingRuns.find((run) =>
-    run.result === "succeeded"
-  ) ?? null;
-  const priorTrainingCount = Math.max(
-    0,
-    ...models.filter((model) =>
-      model.feature_schema_version === "episode-response-v3"
-    ).map((model) => Number(model.training_event_count ?? 0)),
-  );
-  const nextTrainingAt = priorTrainingCount > 0
-    ? priorTrainingCount + 10
-    : 40;
-  const progress = episodeDtos
-    .filter((episode) => episode.score?.curve_mae != null)
-    .slice()
-    .reverse()
-    .map((episode, index) => ({
-      event: episode.pairing_name,
+  const qualifiedWindows = v5Channel
+    ? qualifiedV5Windows
+    : activeWindows.filter((window) => window.passed === true).length;
+  const lastTraining = trainingRuns.find((run) => run.result === "succeeded") ??
+    null;
+  const v5Updates = (updateV5Result.data ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const priorTrainingCount = v5Channel
+    ? Math.max(
+      0,
+      ...v5Updates.map((update) => Number(update.training_event_count ?? 0)),
+    )
+    : Math.max(
+      0,
+      ...models.filter((model) =>
+        model.feature_schema_version === "episode-response-v3"
+      ).map((model) => Number(model.training_event_count ?? 0)),
+    );
+  const nextTrainingAt = priorTrainingCount > 0 ? priorTrainingCount + 10 : 40;
+  const progress = chronologicalV5Scores.length
+    ? chronologicalV5Scores.map((score, index) => ({
+      event: String(score.pairing_name),
       index: index + 1,
-      curve_mae: episode.score?.curve_mae ?? null,
-    }));
+      curve_mae: Number(score.curve_mae),
+    }))
+    : episodeDtos
+      .filter((episode) => episode.score?.curve_mae != null)
+      .slice()
+      .reverse()
+      .map((episode, index) => ({
+        event: episode.pairing_name,
+        index: index + 1,
+        curve_mae: episode.score?.curve_mae ?? null,
+      }));
+  const learnedEventCount = v5Channel
+    ? finalizedEvents.length
+    : eligibleOutcomes.length;
   return response(
     {
       generated_at: new Date().toISOString(),
       mode: "shadow",
       champion_version: champion?.version ?? displayEvents[0].model_version,
       candidate_version: candidate?.version ?? null,
-      clean_events_learned: eligibleOutcomes.length,
+      clean_events_learned: learnedEventCount,
       learning: {
-        completed_episode_totals: outcomesV2.length,
-        eligible_episode_totals: eligibleOutcomes.length,
+        completed_episode_totals: v5Channel
+          ? finalizedEvents.length
+          : outcomesV2.length,
+        eligible_episode_totals: learnedEventCount,
         minimum_episode_floor: 40,
         next_training_at: nextTrainingAt,
         episodes_until_next_training: Math.max(
           0,
-          nextTrainingAt - eligibleOutcomes.length,
+          nextTrainingAt - learnedEventCount,
         ),
         represented_control_pots: eligiblePots,
         required_control_pots: 8,
         multi_pulse_episodes: multiPulseEpisodes,
         required_multi_pulse_episodes: 10,
         calendar_span_days: calendarSpanDays,
-        required_calendar_span_days: 7,
+        required_calendar_span_days: v5Channel ? 3 : 7,
         qualified_chronological_windows: qualifiedWindows,
         required_chronological_windows: 2,
-        model_family: "shared response + pot gain",
-        last_training_at: lastTraining?.completed_at ?? null,
-        scientific_clock: "First irrigation → 240m after final irrigation",
+        model_family: v5Channel
+          ? "hierarchical saturating impulse"
+          : "shared response + pot gain",
+        last_training_at: v5Updates[0]?.created_at ??
+          lastTraining?.completed_at ?? null,
+        scientific_clock: v5Channel
+          ? "Valve open → next pulse or 240m"
+          : "First irrigation → 240m after final irrigation",
         current_interval_coverage: currentIntervalCoverage,
         interval_calibrated: currentIntervalCoverage != null &&
-          currentIntervalCoverage >= 0.65 && currentIntervalCoverage <= 0.95,
-        status: champion
+          currentIntervalCoverage >= 0.75 && currentIntervalCoverage <= 0.90,
+        status: champion?.feature_schema_version === "atomic-response-v5"
           ? "champion_active"
-          : candidate
+          : candidate?.feature_schema_version === "atomic-response-v5"
           ? "candidate_evaluating"
           : "collecting_evidence",
       },

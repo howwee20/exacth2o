@@ -155,10 +155,10 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
     multi_pulse_episodes: 0,
     required_multi_pulse_episodes: 10,
     calendar_span_days: 0,
-    required_calendar_span_days: 7,
+    required_calendar_span_days: 3,
     qualified_chronological_windows: 0,
     required_chronological_windows: 2,
-    model_family: "regularized additive impulse",
+    model_family: "hierarchical saturating impulse",
     last_training_at: null,
     status: "collecting_evidence" as const,
   };
@@ -173,13 +173,13 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
   return (
     <section className="rd-progress-panel">
       <div className="rd-learning-heading">
-        <div><p className="rd-eyebrow">EPISODE-TOTAL EVIDENCE</p><h2>Training readiness</h2></div>
+        <div><p className="rd-eyebrow">FINALIZED EVENT EVIDENCE</p><h2>Training readiness</h2></div>
         <span className="rd-status-chip">{learning.status.replace(/_/g, " ")}</span>
       </div>
       <div className="rd-learning-gates">
-        <article><strong>{learning.eligible_episode_totals}</strong><span>eligible totals</span><small>next train at {learning.next_training_at}</small></article>
+        <article><strong>{learning.eligible_episode_totals}</strong><span>finalized events</span><small>next train at {learning.next_training_at}</small></article>
         <article><strong>{learning.represented_control_pots}/{learning.required_control_pots}</strong><span>control pots</span><small>represented</small></article>
-        <article><strong>{learning.multi_pulse_episodes}/{learning.required_multi_pulse_episodes}</strong><span>multi-event totals</span><small>minimum evidence</small></article>
+        <article><strong>{learning.multi_pulse_episodes}/{learning.required_multi_pulse_episodes}</strong><span>later pulses</span><small>saturation evidence</small></article>
         <article><strong>{learning.calendar_span_days.toFixed(1)}/{learning.required_calendar_span_days}</strong><span>calendar days</span><small>minimum span</small></article>
         <article><strong>{learning.qualified_chronological_windows}/{learning.required_chronological_windows}</strong><span>holdout wins</span><small>required to promote</small></article>
       </div>
@@ -187,7 +187,7 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
         <span>Model<strong>{learning.model_family}</strong></span>
         <span>Clock<strong>{learning.scientific_clock ?? "First irrigation"}</strong></span>
         <span>Last train<strong>{formatTime(learning.last_training_at)}</strong></span>
-        <span>Next batch<strong>{learning.episodes_until_next_training} episodes</strong></span>
+        <span>Next batch<strong>{learning.episodes_until_next_training} events or 6h</strong></span>
       </div>
       <div><p className="rd-eyebrow">MEASURED EPISODE ERROR</p><h2>Chronological results</h2></div>
       {points.length ? (
@@ -195,7 +195,7 @@ function ProgressChart({ snapshot }: { snapshot: RdLabSnapshot }) {
           <line x1="34" x2={width - 34} y1={height - 36} y2={height - 36} className="rd-grid-line" />
           <path d={path} className="rd-progress-line" />
         </svg>
-      ) : <div className="rd-empty-panel">No eligible episode-total scores yet.</div>}
+      ) : <div className="rd-empty-panel">No future finalized-event scores yet.</div>}
     </section>
   );
 }
@@ -379,7 +379,7 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
                   <div><dt>Status</dt><dd>{activeEpisode ? stateLabel(`episode_${activeEpisode.status}`) : "—"}</dd></div>
                   <div><dt>Events</dt><dd>{activeEpisode?.pulse_count ?? 0}</dd></div>
                   <div><dt>Missed</dt><dd>{activeEpisode?.missed_forecasts ?? 0}</dd></div>
-                  <div><dt>Model</dt><dd>{snapshot.champion_version}</dd></div>
+                  <div><dt>Model</dt><dd>{selectedPulse?.prediction?.model_version ?? current.model_version}</dd></div>
                 </dl>
               </section>
             </aside>
