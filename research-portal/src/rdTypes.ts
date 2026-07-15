@@ -104,6 +104,28 @@ export type RdLearningState = {
   status: "collecting_evidence" | "candidate_evaluating" | "champion_active";
 };
 
+export type RdModelSegment = {
+  event_count: number;
+  candidate_mae: number | null;
+  champion_mae: number | null;
+  zero_mae: number | null;
+  candidate_signed_bias: number | null;
+  interval_coverage: number | null;
+};
+
+export type RdModelComparison = {
+  champion_version: string;
+  evaluation_candidate_version: string | null;
+  latest_challenger_version: string | null;
+  overall: RdModelSegment | null;
+  first_pulses: RdModelSegment | null;
+  correction_pulses: RdModelSegment | null;
+  first_pulse_pot_count: number;
+  required_first_pulse_pots: number;
+  qualified_windows: number;
+  required_windows: number;
+};
+
 export type RdPotSummary = {
   pairing_name: string;
   target_vwc: number;
@@ -124,6 +146,7 @@ export type RdLabSnapshot = {
   candidate_version: string | null;
   clean_events_learned: number;
   learning?: RdLearningState;
+  model_comparison?: RdModelComparison;
   current: RdLabEvent;
   pots: RdPotSummary[];
   episodes?: RdCorrectionEpisode[];
