@@ -928,6 +928,47 @@ Deno.serve(async (request) => {
       Date.parse(String(left.opened_device_at)) -
       Date.parse(String(right.opened_device_at))
     );
+  const summarizeV5Scores = (rows: Array<Record<string, unknown>>) => {
+    const comparable = rows.filter((score) =>
+      Number.isFinite(Number(score.curve_mae)) &&
+      Number.isFinite(Number(score.champion_curve_mae))
+    );
+    if (!comparable.length) return null;
+    const average = (field: string) => {
+      const values = comparable
+        .map((score) => Number(score[field]))
+        .filter((value) => Number.isFinite(value));
+      return values.length
+        ? values.reduce((sum, value) => sum + value, 0) / values.length
+        : null;
+    };
+    return {
+      event_count: comparable.length,
+      candidate_mae: average("curve_mae"),
+      champion_mae: average("champion_curve_mae"),
+      zero_mae: average("zero_curve_mae"),
+      candidate_signed_bias: null,
+      interval_coverage: average("interval_coverage"),
+    };
+  };
+  const firstPulseV5Scores = chronologicalV5Scores.filter((score) =>
+    Number(score.pulse_sequence_in_episode) === 1
+  );
+  const correctionPulseV5Scores = chronologicalV5Scores.filter((score) =>
+    Number(score.pulse_sequence_in_episode) > 1
+  );
+  const comparisonTimes = chronologicalV5Scores
+    .map((score) => Date.parse(String(score.opened_device_at)))
+    .filter((value) => Number.isFinite(value));
+  const comparisonSpanDays = comparisonTimes.length > 1
+    ? (Math.max(...comparisonTimes) - Math.min(...comparisonTimes)) / 86_400_000
+    : 0;
+  const comparisonPotCount = new Set(
+    chronologicalV5Scores.map((score) => String(score.pairing_name)),
+  ).size;
+  const firstPulsePotCount = new Set(
+    firstPulseV5Scores.map((score) => String(score.pairing_name)),
+  ).size;
   let qualifiedV5Windows = 0;
   if (chronologicalV5Scores.length >= 40) {
     const split = Math.floor(chronologicalV5Scores.length / 2);
@@ -1079,6 +1120,33 @@ Deno.serve(async (request) => {
           ? "candidate_evaluating"
           : "collecting_evidence",
       },
+      model_comparison: v5Channel
+        ? {
+          champion_version: String(
+            champion?.version ?? displayEvents[0].model_version,
+          ),
+          evaluation_candidate_version: candidate?.version
+            ? String(candidate.version)
+            : null,
+          latest_challenger_version:
+            v5Channel.latest_challenger_model_version_id
+              ? String(
+                modelById.get(
+                  String(v5Channel.latest_challenger_model_version_id),
+                )?.version ?? "",
+              ) || null
+              : null,
+          overall: summarizeV5Scores(chronologicalV5Scores),
+          first_pulses: summarizeV5Scores(firstPulseV5Scores),
+          correction_pulses: summarizeV5Scores(correctionPulseV5Scores),
+          pot_count: comparisonPotCount,
+          evaluation_span_days: comparisonSpanDays,
+          first_pulse_pot_count: firstPulsePotCount,
+          required_first_pulse_pots: 8,
+          qualified_windows: qualifiedV5Windows,
+          required_windows: 2,
+        }
+        : undefined,
       current,
       pots,
       episodes: episodeDtos,

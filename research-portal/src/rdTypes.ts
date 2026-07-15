@@ -120,6 +120,8 @@ export type RdModelComparison = {
   overall: RdModelSegment | null;
   first_pulses: RdModelSegment | null;
   correction_pulses: RdModelSegment | null;
+  pot_count: number;
+  evaluation_span_days: number;
   first_pulse_pot_count: number;
   required_first_pulse_pots: number;
   qualified_windows: number;

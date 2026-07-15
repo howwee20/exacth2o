@@ -145,6 +145,10 @@ const previewPots: RdPotSummary[] = [
 
 const previewSnapshot: RdLabSnapshot = {
   ...fixture,
+  learning: fixture.learning ? {
+    ...fixture.learning,
+    required_calendar_span_days: 3,
+  } : undefined,
   champion_version: previewChampion,
   candidate_version: previewCandidate,
   pots: previewPots,
@@ -177,6 +181,8 @@ const previewSnapshot: RdLabSnapshot = {
       candidate_signed_bias: 0.187,
       interval_coverage: 0.83,
     },
+    pot_count: 10,
+    evaluation_span_days: 1.1,
     first_pulse_pot_count: 10,
     required_first_pulse_pots: 8,
     qualified_windows: 0,

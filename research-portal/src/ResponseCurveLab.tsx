@@ -503,117 +503,91 @@ function HistoryView({ pot }: { pot: RdPotSummary }) {
   );
 }
 
-function MetricValue({ value }: { value: number | null }) {
-  return <>{value == null ? "—" : value.toFixed(3)}</>;
+function errorChange(segment: RdModelSegment | null) {
+  if (segment?.candidate_mae == null || segment.champion_mae == null || segment.champion_mae <= 0) return null;
+  return ((segment.candidate_mae / segment.champion_mae) - 1) * 100;
 }
 
-function ComparisonSegment({ title, subtitle, segment }: { title: string; subtitle: string; segment: RdModelSegment }) {
-  const candidateWins = segment.candidate_mae != null && segment.champion_mae != null && segment.candidate_mae < segment.champion_mae;
+function ComparisonResult({ title, segment, candidate, champion }: { title: string; segment: RdModelSegment | null; candidate: string; champion: string }) {
+  const change = errorChange(segment);
+  if (change == null) return <article className="rd-result-card"><span>{title}</span><strong>Waiting for data</strong></article>;
+  const candidateAhead = change < 0;
   return (
-    <article className="rd-comparison-segment">
-      <div className="rd-comparison-segment-title">
-        <div><strong>{title}</strong><small>{subtitle} · {segment.event_count} events</small></div>
-        <span className={candidateWins ? "is-pass" : "is-fail"}>{candidateWins ? "Test model ahead" : "Current model ahead"}</span>
-      </div>
-      <div className="rd-score-compare">
-        <span>Test model MAE<strong><MetricValue value={segment.candidate_mae} /></strong></span>
-        <span>Current model MAE<strong><MetricValue value={segment.champion_mae} /></strong></span>
-        <span>Do-nothing MAE<strong><MetricValue value={segment.zero_mae} /></strong></span>
-      </div>
-      <div className="rd-score-foot">
-        <span>Signed bias <strong>{segment.candidate_signed_bias == null ? "—" : `${segment.candidate_signed_bias > 0 ? "+" : ""}${segment.candidate_signed_bias.toFixed(3)}`}</strong></span>
-        <span>80% range coverage <strong>{segment.interval_coverage == null ? "—" : `${Math.round(segment.interval_coverage * 100)}%`}</strong></span>
-      </div>
+    <article className={`rd-result-card ${candidateAhead ? "is-pass" : "is-fail"}`}>
+      <span>{title}</span>
+      <strong>{Math.abs(Math.round(change))}% {candidateAhead ? "less" : "more"} error</strong>
+      <small>{candidateAhead ? candidate : champion} is better · {segment?.event_count ?? 0} outcomes</small>
     </article>
   );
 }
 
-function CandidateTrend({ snapshot }: { snapshot: RdLabSnapshot }) {
-  const points = snapshot.progress.filter((point) => point.curve_mae != null);
-  if (!points.length) return <div className="rd-empty-panel">No test-model scores yet.</div>;
-  const width = 820;
-  const height = 190;
-  const max = Math.max(...points.map((point) => point.curve_mae!), 0.25);
-  const path = points.map((point, index) => {
-    const x = 46 + (index / Math.max(1, points.length - 1)) * (width - 72);
-    const y = 22 + (1 - point.curve_mae! / max) * (height - 58);
-    return `${index ? "L" : "M"}${x},${y}`;
-  }).join(" ");
+function ExactScore({ title, segment, candidate, champion }: { title: string; segment: RdModelSegment | null; candidate: string; champion: string }) {
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="rd-progress-chart" role="img" aria-label="Test-model error in chronological order">
-      <line x1="46" x2={width - 26} y1={height - 36} y2={height - 36} className="rd-grid-line" />
-      <line x1="46" x2={width - 26} y1="22" y2="22" className="rd-grid-line" />
-      <text x="38" y="26" textAnchor="end" className="rd-axis-label">{max.toFixed(2)}</text>
-      <text x="38" y={height - 32} textAnchor="end" className="rd-axis-label">0</text>
-      <text x="46" y={height - 12} className="rd-axis-label">OLDEST</text>
-      <text x={width - 26} y={height - 12} textAnchor="end" className="rd-axis-label">NEWEST</text>
-      <path d={path} className="rd-progress-line" />
-    </svg>
+    <span>
+      <strong>{title}</strong>
+      <small>{candidate} {formatNumber(segment?.candidate_mae, 3)} · {champion} {formatNumber(segment?.champion_mae, 3)}</small>
+    </span>
   );
 }
 
 function ModelComparison({ snapshot }: { snapshot: RdLabSnapshot }) {
   const learning = snapshot.learning;
   const comparison = snapshot.model_comparison;
-  const correctionLosing = comparison?.correction_pulses?.candidate_mae != null &&
-    comparison.correction_pulses.champion_mae != null &&
-    comparison.correction_pulses.candidate_mae > comparison.correction_pulses.champion_mae;
   const candidate = comparison?.evaluation_candidate_version ?? snapshot.candidate_version;
   const challenger = comparison?.latest_challenger_version ?? null;
-  const summary = `${modelName(snapshot.champion_version)} is the current model.`;
+  const championName = modelName(snapshot.champion_version);
+  const candidateName = modelName(candidate);
+  const challengerName = modelName(challenger);
+  const overallChange = errorChange(comparison?.overall ?? null);
   const decisionDetail = !candidate
-    ? "No test model is active."
-    : correctionLosing
-      ? `${modelName(candidate)} loses on correction pulses${challenger && challenger !== candidate ? ` · ${modelName(challenger)} needs fresh data` : ""}`
-      : `${modelName(candidate)} is still being tested.`;
+    ? "No model is being tested."
+    : overallChange == null
+      ? `${candidateName} does not have a fair comparison yet.`
+      : overallChange < 0
+        ? `${candidateName} is ahead so far, but has not passed both test periods.`
+        : `${candidateName} is not beating ${championName}.`;
 
   return (
     <section className="rd-model-panel">
       <div className="rd-model-verdict">
-        <h2>{summary}</h2>
+        <span>Current result</span>
+        <h2>{championName} stays.</h2>
         <p>{decisionDetail}</p>
       </div>
 
-      <div className="rd-role-grid">
-        <article className="is-champion"><span>Current model</span><strong>{modelName(snapshot.champion_version)}</strong><p>Best verified model</p><details><summary>Full ID</summary><code>{snapshot.champion_version}</code></details></article>
-        <article className="is-candidate"><span>Test model</span><strong>{modelName(candidate)}</strong><p>{candidate ? correctionLosing ? "Worse on correction pulses" : "Still being tested" : "None"}</p>{candidate ? <details><summary>Full ID</summary><code>{candidate}</code></details> : null}</article>
-        <article><span>Next test model</span><strong>{modelName(challenger)}</strong><p>{challenger ? "Needs fresh data" : "None"}</p>{challenger ? <details><summary>Full ID</summary><code>{challenger}</code></details> : null}</article>
-      </div>
-
-      <div className="rd-model-section-heading"><div><p className="rd-eyebrow">MODEL EVIDENCE</p><h2>Does the test model beat the current model?</h2></div><p>Lower mean absolute error (MAE) is better.</p></div>
       {comparison ? (
-        <div className="rd-comparison-grid">
-          {comparison.overall ? <ComparisonSegment title="All pulses" subtitle="Whole evaluation" segment={comparison.overall} /> : null}
-          {comparison.first_pulses ? <ComparisonSegment title="First pulses" subtitle="Initial response" segment={comparison.first_pulses} /> : null}
-          {comparison.correction_pulses ? <ComparisonSegment title="Correction pulses" subtitle="Repeated watering" segment={comparison.correction_pulses} /> : null}
-        </div>
+        <>
+          <div className="rd-result-grid">
+            <ComparisonResult title="Overall" segment={comparison.overall} candidate={candidateName} champion={championName} />
+            <ComparisonResult title="First pulse" segment={comparison.first_pulses} candidate={candidateName} champion={championName} />
+            <ComparisonResult title="Later pulses" segment={comparison.correction_pulses} candidate={candidateName} champion={championName} />
+          </div>
+          <div className="rd-evidence-strip" aria-label="Comparison evidence">
+            <span><strong>{comparison.overall?.event_count ?? 0}</strong> matched outcomes</span>
+            <span><strong>{comparison.pot_count}</strong> pots</span>
+            <span><strong>{formatNumber(comparison.evaluation_span_days, 1)}/{learning?.required_calendar_span_days ?? 3}</strong> days</span>
+            <span><strong>{comparison.qualified_windows}/{comparison.required_windows}</strong> tests passed</span>
+          </div>
+        </>
       ) : (
-        <div className="rd-data-notice"><strong>Comparison scores are not in this snapshot yet.</strong><span>The current API sends test-model error but not matched current-model and do-nothing scores. The UI will not guess.</span></div>
+        <div className="rd-data-notice"><strong>No fair comparison yet.</strong><span>{championName} stays until another model proves it is better.</span></div>
       )}
 
-      <div className="rd-readiness-grid">
-        <section>
-          <div className="rd-card-heading"><span>Ready to replace current model</span></div>
-          <div className="rd-gate-list">
-            <span><i className={(comparison?.qualified_windows ?? learning?.qualified_chronological_windows ?? 0) >= (comparison?.required_windows ?? learning?.required_chronological_windows ?? 2) ? "is-pass" : "is-fail"} />Evaluation windows<strong>{comparison?.qualified_windows ?? learning?.qualified_chronological_windows ?? 0}/{comparison?.required_windows ?? learning?.required_chronological_windows ?? 2}</strong></span>
-            <span><i className={(comparison?.first_pulse_pot_count ?? 0) >= (comparison?.required_first_pulse_pots ?? 8) ? "is-pass" : "is-wait"} />First-pulse pot coverage<strong>{comparison ? `${comparison.first_pulse_pot_count}/${comparison.required_first_pulse_pots}` : "Awaiting API"}</strong></span>
-            <span><i className={learning?.interval_calibrated ? "is-pass" : "is-wait"} />Uncertainty range<strong>{learning?.current_interval_coverage == null ? "Not calibrated" : `${Math.round(learning.current_interval_coverage * 100)}% coverage`}</strong></span>
-          </div>
-        </section>
-        <section>
-          <div className="rd-card-heading"><span>Training readiness</span></div>
-          <div className="rd-gate-list">
-            <span><i className="is-pass" />Outcomes measured<strong>{learning?.eligible_episode_totals ?? snapshot.clean_events_learned}</strong></span>
-            <span><i className={(learning?.represented_control_pots ?? 0) >= (learning?.required_control_pots ?? 8) ? "is-pass" : "is-wait"} />Control pots represented<strong>{learning?.represented_control_pots ?? 0}/{learning?.required_control_pots ?? 8}</strong></span>
-            <span><i className={(learning?.multi_pulse_episodes ?? 0) >= (learning?.required_multi_pulse_episodes ?? 10) ? "is-pass" : "is-wait"} />Correction-pulse evidence<strong>{learning?.multi_pulse_episodes ?? 0}/{learning?.required_multi_pulse_episodes ?? 10}</strong></span>
-            <span><i className={(learning?.calendar_span_days ?? 0) >= (learning?.required_calendar_span_days ?? 3) ? "is-pass" : "is-wait"} />Calendar span<strong>{formatNumber(learning?.calendar_span_days, 1)}/{learning?.required_calendar_span_days ?? 3} days</strong></span>
-          </div>
-        </section>
+      <div className="rd-next-model">
+        <span>Next model</span>
+        <strong>{challenger ? challengerName : "No newer model"}</strong>
+        <p>{challenger ? `${challengerName} is waiting for ${candidateName}'s test to finish.` : "Nothing else is waiting to be tested."}</p>
       </div>
 
-      <details className="rd-trend-details">
-        <summary>Show test-model error over time</summary>
-        <div><p>Each point is one measured outcome in time order. This is diagnostic evidence, not a promotion decision by itself.</p><CandidateTrend snapshot={snapshot} /></div>
+      <details className="rd-exact-details">
+        <summary>Exact scores</summary>
+        <div className="rd-exact-scores">
+          <p>Smaller error is better.</p>
+          <ExactScore title="Overall" segment={comparison?.overall ?? null} candidate={candidateName} champion={championName} />
+          <ExactScore title="First pulse" segment={comparison?.first_pulses ?? null} candidate={candidateName} champion={championName} />
+          <ExactScore title="Later pulses" segment={comparison?.correction_pulses ?? null} candidate={candidateName} champion={championName} />
+          <span><strong>Full model names</strong><small>{snapshot.champion_version}<br />{candidate ?? "No test model"}<br />{challenger ?? "No next model"}</small></span>
+        </div>
       </details>
     </section>
   );
