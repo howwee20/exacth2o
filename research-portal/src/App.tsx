@@ -6363,7 +6363,7 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="/portal" className="portal-logo" aria-label="ExactH2O portal home">
+          <a href="/" className="portal-logo" aria-label="ExactH2O website home">
             <img src={exactH2OLogo} alt="ExactH2O" />
           </a>
           <div className="portal-top-links">
@@ -6550,12 +6550,8 @@ export default function App() {
     <header className="dashboard-header">
       <a
         className="dashboard-logo"
-        href="/portal"
-        aria-label="Portal home"
-        onClick={(event) => {
-          event.preventDefault();
-          setPortalView(isAdmin ? "home" : "experiment");
-        }}
+        href="/"
+        aria-label="ExactH2O website home"
       >
         <img src={exactH2OLogo} alt="ExactH2O" />
       </a>

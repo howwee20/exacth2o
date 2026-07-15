@@ -195,7 +195,7 @@ export default function RdPreview() {
   return (
     <main className="dashboard-shell portal-admin-shell rd-preview-shell">
       <header className="dashboard-header">
-        <a className="dashboard-logo" href="#preview" aria-label="ExactH2O preview home">
+        <a className="dashboard-logo" href="/" aria-label="ExactH2O website home">
           <img src={exactH2OLogo} alt="ExactH2O" />
         </a>
         <div className="rd-preview-label">LOCAL REPLAY · SYNTHETIC DATA</div>
