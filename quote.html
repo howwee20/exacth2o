@@ -104,10 +104,20 @@
   .submit-btn:hover:not(:disabled) { background: var(--water-light); }
   .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+  /* CTA */
+  .btn-primary { background: var(--water); color: #fff; padding: 0.85rem 2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: background 0.2s; }
+  .btn-primary:hover { background: var(--water-light); }
+  .cta-strip { background: var(--bg-dark); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(244,241,235,0.08); }
+  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
+  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
+  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
+
   /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.4); padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; }
-  .footer-logo { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
-  footer a { color: rgba(244,241,235,0.4); text-decoration: none; }
+  footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
+  .footer-logo { color: var(--accent); font-size: 0.85rem; }
+  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
@@ -120,7 +130,8 @@
     .q-sidebar { position: static; }
     .form-row { grid-template-columns: 1fr; }
     .quote-form-wrap { padding: 2rem 1.5rem; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
+    .cta-strip { padding: 4rem 1.5rem; }
+    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
   }
 </style>
 </head>
@@ -156,8 +167,8 @@
       <h2 class="section-title">Custom-fitted<br>to your setup</h2>
       <p class="q-intro">No two irrigation systems are identical. We size each deployment around your substrate, zone count, data requirements, and budget.</p>
       <div class="q-points">
-        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">24-hour Response</div><div class="q-point-desc">We'll get back to you within one business day with questions or a preliminary recommendation.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">Tailored Solutions</div><div class="q-point-desc">From single growth chambers to multi-range greenhouse complexes — every quote is specific to your needs.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Quick Response</div><div class="q-point-desc">We'll respond quickly during business hours with questions or a preliminary recommendation.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">Tailored Solutions</div><div class="q-point-desc">From single-bench research installations to multi-range commercial greenhouse operations — every quote is specific to your needs.</div></div></div>
         <div class="q-point"><span class="q-point-icon">03</span><div><div class="q-point-title">No Obligation</div><div class="q-point-desc">Consultation and quote are completely free. No commitment required.</div></div></div>
       </div>
       <div class="q-direct">
@@ -208,7 +219,7 @@
               <option value="Research Greenhouse Operations">Research Greenhouse Operations</option>
               <option value="High-throughput Phenotyping">High-throughput Phenotyping</option>
               <option value="Controlled Environment Research">Controlled Environment Research</option>
-              <option value="Commercial Agriculture / Field">Commercial Agriculture / Field</option>
+              <option value="Commercial Greenhouse Operations">Commercial Greenhouse Operations</option>
               <option value="Other">Other (describe below)</option>
             </select>
           </div>
@@ -235,9 +246,15 @@
   </div>
 </div>
 
+<div class="cta-strip reveal">
+  <h2>Ready to optimize your irrigation?</h2>
+  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
+  <a href="/quote" class="btn-primary">Get Started Today</a>
+</div>
+
 <footer>
   <div class="footer-logo">exactH2O</div>
-  <div>Get Quote · exacth2o.com</div>
+  <div>© 2026 exactH2O · All rights reserved</div>
   <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
 </footer>
 

@@ -555,87 +555,46 @@
     line-height: 1.6;
   }
 
-  /* ── CONNECT ── */
-  .connect-section {
-    background: var(--bg-dark);
-    color: #f4f1eb;
-    padding: 0 4rem 6rem;
-    position: relative;
-    z-index: 2;
+  /* ── CTA STRIP ── */
+  .btn-primary {
+    background: var(--water); color: #fff; padding: 0.85rem 2rem;
+    font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none; border-radius: 2px;
+    transition: background 0.2s;
   }
-  .connect-inner {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding-top: 4rem;
-    border-top: 1px solid rgba(244,241,235,0.1);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 3rem;
-    align-items: end;
+  .btn-primary:hover { background: var(--water-light); }
+  .cta-strip {
+    background: var(--bg-dark); padding: 5rem 4rem; text-align: center;
+    position: relative; overflow: hidden;
+    border-top: 1px solid rgba(244,241,235,0.08);
   }
-  .connect-section .section-label { color: var(--accent); }
-  .connect-section .section-label::before { background: var(--accent); }
-  .connect-section .section-title {
-    color: #f4f1eb;
-    margin-bottom: 0;
-  }
-  .connect-copy {
-    max-width: 58ch;
-    margin-top: 1rem;
-    color: rgba(244,241,235,0.58);
-    line-height: 1.75;
-  }
-  .connect-actions {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-  }
-  .connect-button {
-    min-width: 10rem;
-    padding: 0.85rem 1.4rem;
-    border: 1px solid rgba(124,191,158,0.45);
-    color: var(--accent);
-    text-decoration: none;
-    text-align: center;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
-  }
-  .connect-button.primary {
-    background: var(--water);
-    border-color: var(--water);
-    color: var(--bg);
-  }
-  .connect-button:hover {
-    background: rgba(124,191,158,0.12);
-    border-color: var(--accent);
-  }
-  .connect-button.primary:hover {
-    background: var(--water-light);
-    border-color: var(--water-light);
-  }
+  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
+  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
+  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
 
   /* ── FOOTER ── */
   footer {
     background: var(--bg-dark);
-    color: rgba(244,241,235,0.4);
-    padding: 3rem 4rem;
+    color: rgba(244,241,235,0.35);
+    padding: 2.5rem 4rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    border-top: 0;
     position: relative;
     z-index: 2;
   }
   .footer-logo {
     color: var(--accent);
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: 0.85rem;
   }
+  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
 
   /* ── ANIMATIONS ── */
   .reveal {
@@ -657,14 +616,12 @@
     .hero-right { display: none; }
     .hero-left { padding: 8rem 2rem 4rem; }
     section, .applications, .why-section { padding: 4rem 2rem; }
-    .connect-section { padding: 0 2rem 4rem; }
+    .cta-strip { padding: 4rem 1.5rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
     .app-cards { grid-template-columns: 1fr; }
     .app-card:nth-child(3) { width: 100%; }
     .why-inner { grid-template-columns: 1fr; gap: 3rem; }
-    .connect-inner { grid-template-columns: 1fr; gap: 2rem; align-items: start; }
-    .connect-actions { flex-direction: column; align-items: stretch; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; }
+    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
   }
 </style>
 </head>
@@ -703,7 +660,7 @@
     <div class="hero-eyebrow">Applications</div>
     <h1 class="hero-title">Where <em>precision</em><br>meets the<br>plant</h1>
     <p class="hero-intro">
-      ExactH2O brings laboratory-grade water measurement into living systems — greenhouses, field plots, and phenotyping chambers — enabling researchers and growers to observe, quantify, and respond to plant water status in real time.
+      ExactH2O brings precise water measurement into research greenhouses, commercial greenhouses, and plant phenotyping facilities — enabling research and greenhouse teams to observe, quantify, and manage plant water status in real time.
     </p>
     <div class="hero-stat-row">
       <div class="hero-stat">
@@ -813,7 +770,7 @@
       <h2 class="section-title">Three domains,<br>one system</h2>
     </div>
     <p style="font-size:1.05rem; line-height:1.8; opacity:0.65; padding-top: 0.5rem;">
-      ExactH2O was engineered for greenhouse research where precise water control matters most—from controlled drought experiments to high-throughput phenotyping. Each deployment can be tailored for sensor configuration, irrigation setpoints, sampling frequency, and data integration, while the ExactH2O platform delivers a unified stream of real-time measurements and irrigation control.
+      ExactH2O was engineered for controlled-environment plant work where precise water control matters most—from research greenhouses and controlled drought experiments to commercial greenhouse operations and high-throughput phenotyping. Each deployment can be tailored for sensor configuration, irrigation setpoints, sampling frequency, and data integration, while the ExactH2O platform delivers a unified stream of real-time measurements and irrigation control.
     </p>
   </div>
 
@@ -925,9 +882,9 @@
         <path d="M14 20 L14 42"/>
         <path d="M34 20 L34 42"/>
       </svg>
-      <h3 class="app-card-title">Research<br>Greenhouses</h3>
+      <h3 class="app-card-title">Research &amp; Commercial<br>Greenhouses</h3>
       <p class="app-card-desc">
-        Deploy sensor networks across greenhouse benches and raised beds to maintain irrigated targets with closed-loop precision. Built for research greenhouse facilities, ExactH2O combines automated irrigation, continuous monitoring, and anomaly detection to support complex experimental workflows. Multi-zone control enables simultaneous experiments within the same facility while preserving independent treatments and data quality.
+        Deploy sensor networks across greenhouse benches and container arrays to maintain defined irrigation targets. Built for research facilities and commercial greenhouse operations, ExactH2O combines automated irrigation, continuous monitoring, and multi-zone control while preserving independent settings and clear data for each zone.
       </p>
       <div class="app-card-image">
         <svg class="scene" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -968,9 +925,9 @@
   <div class="why-inner">
     <div>
       <div class="section-label">Why ExactH2O</div>
-      <h2 class="section-title">Built for scientists,<br>not just growers</h2>
+      <h2 class="section-title">Built for controlled<br>environments</h2>
       <p style="font-size:0.95rem; line-height:1.8; color:rgba(244,241,235,0.55); margin-top:1rem;">
-        Every design decision in ExactH2O was made with experimental rigor as the primary constraint. The result is a system that satisfies both peer-reviewer scrutiny and practical field deployment.
+        Every design decision in ExactH2O was made with experimental rigor as the primary constraint. The result is a system that supports both defensible research and day-to-day greenhouse operation.
       </p>
     </div>
     <ul class="why-bullets">
@@ -999,46 +956,38 @@
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <div>
           <div class="why-bullet-title">Scalable Node Architecture</div>
-          <div class="why-bullet-desc">From 4 sensors in a single-bench experiment to 400 sensors across a greenhouse range — the mesh network scales without additional infrastructure costs.</div>
+          <div class="why-bullet-desc">Start with a single bench and expand across multiple greenhouse zones as the deployment grows.</div>
         </div>
       </li>
       <li class="why-bullet">
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <div>
           <div class="why-bullet-title">Open Data Export</div>
-          <div class="why-bullet-desc">CSV, JSON, and REST API outputs integrate with R, Python, JMP, and all major data analysis workflows without proprietary lock-in.</div>
+          <div class="why-bullet-desc">Export system data for analysis in common research workflows; specific formats and integrations are confirmed during system planning.</div>
         </div>
       </li>
       <li class="why-bullet">
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <div>
-          <div class="why-bullet-title">Alert & Anomaly Detection</div>
-          <div class="why-bullet-desc">Configurable threshold alerts via email or SMS ensure you are notified before a sensor failure or dry zone impacts your experimental block.</div>
+          <div class="why-bullet-title">Continuous System Visibility</div>
+          <div class="why-bullet-desc">Live readings, irrigation history, and sensor status make each zone's behavior clear from the web dashboard.</div>
         </div>
       </li>
     </ul>
   </div>
 </div>
 
-<!-- CONNECT -->
-<section class="connect-section">
-  <div class="connect-inner reveal">
-    <div>
-      <div class="section-label">Connect with us</div>
-      <h2 class="section-title">Plan the right setup<br>for your experiment</h2>
-    </div>
-    <div class="connect-actions">
-      <a class="connect-button primary" href="/quote">Request quote</a>
-      <a class="connect-button" href="mailto:support@exacth2o.com">Email us</a>
-    </div>
-  </div>
-</section>
+<div class="cta-strip reveal">
+  <h2>Ready to optimize your irrigation?</h2>
+  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
+  <a href="/quote" class="btn-primary">Get Started Today</a>
+</div>
 
 <!-- FOOTER -->
 <footer>
   <div class="footer-logo">exactH2O</div>
-  <div>Applications · exacth2o.com</div>
-  <div><a href="mailto:support@exacth2o.com" style="color:rgba(244,241,235,0.35);text-decoration:none;">support@exacth2o.com</a></div>
+  <div>© 2026 exactH2O · All rights reserved</div>
+  <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
 </footer>
 
 <script>

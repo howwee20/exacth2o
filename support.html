@@ -67,7 +67,7 @@
   .contact-section { padding: 6rem 4rem; background: var(--bg); }
   .contact-inner { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 6rem; align-items: start; }
   .contact-desc { font-size: 1rem; line-height: 1.8; opacity: 0.65; margin-top: 0.5rem; }
-  .contact-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
+  .contact-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
   .contact-card { background: var(--bg); padding: 2.2rem; transition: background 0.3s; }
   .contact-card:hover { background: var(--water-pale); }
   .cc-icon { color: var(--water); width: 44px; height: 44px; margin-bottom: 1.2rem; }
@@ -89,33 +89,20 @@
   .faq-answer-inner { padding: 0 0 1.4rem; font-size: 0.88rem; line-height: 1.75; opacity: 0.65; }
   .faq-item.open .faq-answer { max-height: 300px; }
 
-  /* RESOURCES */
-  .resources-section { padding: 6rem 4rem; background: var(--bg-dark); }
-  .resources-inner { max-width: 1400px; margin: 0 auto; }
-  .resources-section .section-label { color: var(--accent); }
-  .resources-section .section-label::before { background: var(--accent); }
-  .resources-section .section-title { color: #f4f1eb; }
-  .resources-header { display: grid; grid-template-columns: 1fr 2fr; gap: 4rem; align-items: end; margin-bottom: 4rem; padding-bottom: 3rem; border-bottom: 1px solid rgba(124,191,158,0.1); }
-  .resources-intro { font-size: 1rem; line-height: 1.8; color: rgba(244,241,235,0.55); padding-top: 0.5rem; }
-  .resources-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; background: rgba(124,191,158,0.1); border: 1px solid rgba(124,191,158,0.1); }
-  .resource-card { background: rgba(255,255,255,0.03); padding: 2.2rem; transition: background 0.3s; }
-  .resource-card:hover { background: rgba(124,191,158,0.08); }
-  .rc-num { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; color: var(--accent); opacity: 0.5; margin-bottom: 1.2rem; }
-  .rc-title { font-family: var(--serif); font-size: 1.25rem; color: #f4f1eb; margin-bottom: 0.8rem; line-height: 1.2; }
-  .rc-desc { font-size: 0.83rem; line-height: 1.65; color: rgba(244,241,235,0.45); }
-
   /* CTA */
-  .cta-strip { background: var(--water); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; }
-  .cta-strip::before { content: ''; position: absolute; top: -80px; right: -80px; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.05); pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(255,255,255,0.75); margin-bottom: 2.5rem; position: relative; }
-  .btn-primary { background: #fff; color: var(--water); padding: 0.85rem 2.2rem; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; display: inline-block; transition: background 0.2s; }
-  .btn-primary:hover { background: rgba(255,255,255,0.9); }
+  .btn-primary { background: var(--water); color: #fff; padding: 0.85rem 2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: background 0.2s; }
+  .btn-primary:hover { background: var(--water-light); }
+  .cta-strip { background: var(--bg-dark); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(244,241,235,0.08); }
+  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
+  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
+  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
 
   /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.4); padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; }
-  .footer-logo { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
-  footer a { color: rgba(244,241,235,0.4); text-decoration: none; }
+  footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
+  .footer-logo { color: var(--accent); font-size: 0.85rem; }
+  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
@@ -123,12 +110,11 @@
 
   @media (max-width: 900px) {
     nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .contact-section, .faq-section, .resources-section, .cta-strip { padding: 4rem 1.5rem; }
+    .page-header, .contact-section, .faq-section, .cta-strip { padding: 4rem 1.5rem; }
     .page-header { padding-top: 7rem; }
     .contact-inner, .faq-inner { grid-template-columns: 1fr; gap: 3rem; }
-    .contact-cards, .resources-grid { grid-template-columns: 1fr; }
-    .resources-header { grid-template-columns: 1fr; gap: 1.5rem; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
+    .contact-cards { grid-template-columns: 1fr; }
+    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
   }
 </style>
 </head>
@@ -167,13 +153,13 @@
     <div>
       <div class="section-label">Get in Touch</div>
       <h2 class="section-title">How can we<br>help you?</h2>
-      <p class="contact-desc">Whether you're troubleshooting an installation, planning a new experiment, or just have a question — reach out. We respond within one business day.</p>
+      <p class="contact-desc">Whether you're troubleshooting an installation, planning a new experiment, or just have a question — reach out. We provide a quick response during business hours.</p>
     </div>
     <div class="contact-cards">
       <div class="contact-card">
         <svg class="cc-icon" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="10" width="36" height="26" rx="3"/><path d="M4 14 L22 26 L40 14"/></svg>
         <h3 class="cc-title">Email Support</h3>
-        <p class="cc-desc">For technical questions, sensor troubleshooting, calibration help, and general inquiries. We aim to respond within 24 hours on business days.</p>
+        <p class="cc-desc">For technical questions, sensor troubleshooting, calibration help, and general inquiries. We provide a quick response during business hours.</p>
         <a href="mailto:support@exacth2o.com" class="cc-link">support@exacth2o.com</a>
       </div>
       <div class="contact-card">
@@ -183,16 +169,10 @@
         <a href="/quote" class="cc-link">Request a free quote →</a>
       </div>
       <div class="contact-card">
-        <svg class="cc-icon" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="22" cy="22" r="18"/><path d="M15 18 C15 14 18 12 22 12 C26 12 29 14 29 18 C29 22 25 24 22 26"/><circle cx="22" cy="32" r="1.5" fill="currentColor" stroke="none"/></svg>
-        <h3 class="cc-title">Technical Docs</h3>
-        <p class="cc-desc">Installation guides, sensor calibration procedures, API documentation, and substrate-specific calibration coefficient tables available on request.</p>
-        <a href="mailto:support@exacth2o.com?subject=Documentation Request" class="cc-link">Request documentation →</a>
-      </div>
-      <div class="contact-card">
         <svg class="cc-icon" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 36 C8 28 36 28 36 36"/><circle cx="22" cy="16" r="8"/><circle cx="10" cy="18" r="5"/><circle cx="34" cy="18" r="5"/></svg>
-        <h3 class="cc-title">On-site Training</h3>
-        <p class="cc-desc">For larger deployments, we offer on-site installation support and staff training to get your team fully operational with exactH2O from day one.</p>
-        <a href="mailto:support@exacth2o.com?subject=On-site Training Inquiry" class="cc-link">Enquire about training →</a>
+        <h3 class="cc-title">Training Included with Purchase</h3>
+        <p class="cc-desc">On-site installation support and staff training are included with your exactH2O system purchase so your team can begin with a clear, working setup.</p>
+        <a href="/quote" class="cc-link">Discuss your installation →</a>
       </div>
     </div>
   </div>
@@ -203,63 +183,46 @@
     <div>
       <div class="section-label">FAQ</div>
       <h2 class="section-title">Common<br>questions</h2>
-      <p style="font-size:0.9rem;line-height:1.75;opacity:0.6;margin-top:0.5rem;">Don't see your question? Email us and we'll answer within 24 hours.</p>
+      <p style="font-size:0.9rem;line-height:1.75;opacity:0.6;margin-top:0.5rem;">Send us your question and our team will respond quickly.</p>
     </div>
     <div class="faq-list">
       <div class="faq-item open">
-        <div class="faq-question" onclick="toggleFAQ(this)">What substrates is exactH2O calibrated for?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">exactH2O sensors work in peat, perlite, rockwool, coco coir, field soil, and custom substrate mixes. Each substrate has distinct dielectric properties, so we provide substrate-specific calibration coefficients that you enter during setup. Custom calibration for novel substrates is available on request.</div></div>
+        <div class="faq-question" onclick="toggleFAQ(this)">Where is exactH2O designed to be used?<span class="faq-toggle">+</span></div>
+        <div class="faq-answer"><div class="faq-answer-inner">exactH2O is designed for controlled-environment plant research, research greenhouses, commercial greenhouses, bench systems, and container-based experiments. We confirm the right sensor and irrigation setup during the quote process.</div></div>
       </div>
       <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">How many sensors and zones can one system support?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">The base system supports up to 16 sensor nodes. The mesh network architecture allows expansion to 400+ sensors by adding gateway nodes — no new wiring infrastructure is needed. Zones can be any logical grouping of sensors with shared irrigation targets.</div></div>
+        <div class="faq-question" onclick="toggleFAQ(this)">How is a system sized for my greenhouse?<span class="faq-toggle">+</span></div>
+        <div class="faq-answer"><div class="faq-answer-inner">System size depends on the number of benches, pots, treatment zones, sensors, and independently controlled irrigation lines. We review the facility and experimental requirements before recommending a configuration.</div></div>
       </div>
       <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">Can I export data for use in R or Python?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">Yes. All sensor data is exportable as CSV or JSON directly from the web dashboard. A REST API is also available for live data integration into custom pipelines, enabling real-time connection to R, Python, JMP, or any data analysis environment.</div></div>
+        <div class="faq-question" onclick="toggleFAQ(this)">Can I review and export my data?<span class="faq-toggle">+</span></div>
+        <div class="faq-answer"><div class="faq-answer-inner">The web portal provides live readings, historical views, irrigation history, and data export for analysis. We confirm any required formats or integrations while planning the system.</div></div>
       </div>
       <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">What happens if a sensor fails during an experiment?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">The system monitors sensor health continuously and triggers configurable email or SMS alerts when a reading falls outside expected bounds or a sensor stops reporting. Failed sensors can be hot-swapped without interrupting other zones.</div></div>
+        <div class="faq-question" onclick="toggleFAQ(this)">What happens if a sensor stops reporting?<span class="faq-toggle">+</span></div>
+        <div class="faq-answer"><div class="faq-answer-inner">The portal shows sensor status and identifies missing or stale readings so the team can investigate the affected location. exactH2O support can help troubleshoot the sensor, connection, or replacement path.</div></div>
       </div>
       <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">Is exactH2O compatible with existing fertigation controllers?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">Yes. exactH2O outputs standard control signals (relay-switched or 0–10V) compatible with most commercial fertigation controllers and solenoid valves. We can advise on integration with your existing equipment during the quote process.</div></div>
+        <div class="faq-question" onclick="toggleFAQ(this)">Can exactH2O work with my existing irrigation equipment?<span class="faq-toggle">+</span></div>
+        <div class="faq-answer"><div class="faq-answer-inner">Compatibility depends on the installed valves, controller, wiring, and zone layout. We review the existing equipment during the quote process and confirm compatibility before purchase.</div></div>
       </div>
       <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">How long does installation typically take?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">A standard 16-sensor greenhouse deployment typically takes 4–8 hours including sensor placement, network configuration, and dashboard setup. Larger deployments are usually completed over 1–2 days. We provide installation guides and offer on-site support for complex setups.</div></div>
+        <div class="faq-question" onclick="toggleFAQ(this)">What is included with installation?<span class="faq-toggle">+</span></div>
+        <div class="faq-answer"><div class="faq-answer-inner">Installation planning, on-site setup, and on-site staff training are included with purchase. The schedule depends on the system size and facility, and is confirmed before delivery.</div></div>
       </div>
-    </div>
-  </div>
-</div>
-
-<div class="resources-section reveal">
-  <div class="resources-inner">
-    <div class="resources-header">
-      <div><div class="section-label">Resources</div><h2 class="section-title">Documentation<br>&amp; guides</h2></div>
-      <p class="resources-intro">All technical documentation is available to customers on request. New guides are added as the system evolves.</p>
-    </div>
-    <div class="resources-grid">
-      <div class="resource-card"><div class="rc-num">01 —</div><h3 class="rc-title">Installation Guide</h3><p class="rc-desc">Step-by-step hardware installation for greenhouse benches, pot arrays, raised beds, and field plots. Includes sensor placement best practices for each substrate type.</p></div>
-      <div class="resource-card"><div class="rc-num">02 —</div><h3 class="rc-title">Calibration Handbook</h3><p class="rc-desc">Substrate-specific VWC calibration coefficients, field calibration procedures, and guidance for validating sensor accuracy against gravimetric reference measurements.</p></div>
-      <div class="resource-card"><div class="rc-num">03 —</div><h3 class="rc-title">Dashboard User Guide</h3><p class="rc-desc">Complete reference for the web dashboard: zone setup, irrigation scheduling, threshold alerts, data export, and multi-user access management.</p></div>
-      <div class="resource-card"><div class="rc-num">04 —</div><h3 class="rc-title">REST API Reference</h3><p class="rc-desc">Full API documentation for integrating exactH2O live data streams into custom analysis pipelines, automated reporting systems, or third-party platforms.</p></div>
-      <div class="resource-card"><div class="rc-num">05 —</div><h3 class="rc-title">Troubleshooting Guide</h3><p class="rc-desc">Diagnosis and resolution procedures for common sensor issues, network connectivity problems, irrigation valve faults, and data anomalies.</p></div>
-      <div class="resource-card"><div class="rc-num">06 —</div><h3 class="rc-title">Research Protocol Templates</h3><p class="rc-desc">Ready-to-use methods templates for drought stress experiments, greenhouse trials, and field studies — written to meet peer-review standards for methods reporting.</p></div>
     </div>
   </div>
 </div>
 
 <div class="cta-strip reveal">
-  <h2>Ready to get started?</h2>
-  <p>Contact us today and we'll find the right exactH2O configuration for your needs</p>
-  <a href="/quote" class="btn-primary">Request a Quote</a>
+  <h2>Ready to optimize your irrigation?</h2>
+  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
+  <a href="/quote" class="btn-primary">Get Started Today</a>
 </div>
 
 <footer>
   <div class="footer-logo">exactH2O</div>
-  <div>Support · exacth2o.com</div>
+  <div>© 2026 exactH2O · All rights reserved</div>
   <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
 </footer>
 

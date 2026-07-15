@@ -88,17 +88,19 @@
   .founder-link-icon { width: 28px; height: 28px; background: var(--water-pale); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
 
   /* CTA */
-  .cta-strip { background: var(--water); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; }
-  .cta-strip::before { content: ''; position: absolute; top: -80px; right: -80px; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.05); pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(255,255,255,0.75); margin-bottom: 2.5rem; position: relative; }
-  .btn-primary { background: #fff; color: var(--water); padding: 0.85rem 2.2rem; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; display: inline-block; transition: background 0.2s; }
-  .btn-primary:hover { background: rgba(255,255,255,0.9); }
+  .btn-primary { background: var(--water); color: #fff; padding: 0.85rem 2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: background 0.2s; }
+  .btn-primary:hover { background: var(--water-light); }
+  .cta-strip { background: var(--bg-dark); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(244,241,235,0.08); }
+  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
+  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
+  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
 
   /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.4); padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; }
-  .footer-logo { color: var(--accent); font-size: 0.9rem; font-weight: 500; }
-  footer a { color: rgba(244,241,235,0.4); text-decoration: none; }
+  footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
+  .footer-logo { color: var(--accent); font-size: 0.85rem; }
+  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
@@ -111,7 +113,7 @@
     .team-intro-grid { grid-template-columns: 1fr; gap: 1.5rem; }
     .founders-grid { grid-template-columns: 1fr; }
     .founders-grid-secondary { width: 100%; }
-    footer { flex-direction: column; gap: 1rem; text-align: center; padding: 2rem 1.5rem; }
+    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
   }
 </style>
 </head>
@@ -158,7 +160,7 @@
           <div class="founder-title">Founder and Chief Executive Officer</div>
           <p class="founder-bio">Binod is a plant biologist with over a decade of experience studying plant–water relationships under drought stress. He holds a PhD in Biology and is a Postdoctoral Research Associate at Michigan State University, where his work focuses on soil moisture dynamics, plant physiology, and resilient lignocellulosic biofuel systems. Co-inventor of the exactH2O programmable drought and irrigation control system, he bridges science and practical application.</p>
           <div class="founder-links">
-            <a href="mailto:support@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>support@exacth2o.com</a>
+            <a href="mailto:binod@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>binod@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -172,9 +174,9 @@
           <div class="founder-num">02 —</div>
           <h3 class="founder-name">Berkley Walker</h3>
           <div class="founder-title">Founder and Chief Technology Officer</div>
-          <p class="founder-bio">Berkley leads technical strategy and product development at exactH2O. An Associate Professor at MSU, he teaches plant physiology and researches photosynthesis. His prior role as product manager at METER Group gave him hands-on expertise in sensor-based agricultural technologies. He translates biological insight and engineering rigor into scalable precision water management solutions.</p>
+          <p class="founder-bio">Berkley leads technical strategy and product development at exactH2O. An Associate Professor at MSU, he teaches plant physiology and researches photosynthesis. His prior work as a product manager gave him hands-on expertise in environmental sensing and product development. He brings biological insight and engineering rigor to controlled irrigation systems.</p>
           <div class="founder-links">
-            <a href="mailto:berkley@msu.edu" class="founder-link"><span class="founder-link-icon">✉</span>berkley@msu.edu</a>
+            <a href="mailto:berkley@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>berkley@exacth2o.com</a>
             <a href="https://berkleywalker.org" target="_blank" rel="noopener" class="founder-link"><span class="founder-link-icon">↗</span>berkleywalker.org</a>
           </div>
         </div>
@@ -189,9 +191,9 @@
           <div class="founder-num">03 —</div>
           <h3 class="founder-name">Jacob Hicks</h3>
           <div class="founder-title">Founder and Chief Operating Officer</div>
-          <p class="founder-bio">Jacob is a skilled instrument maker whose expertise lies in troubleshooting, repairing, and optimizing complex scientific instruments. He played an instrumental role in the design and physical development of the exactH2O system — translating conceptual ideas into a functional, robust setup from the ground up. His hands-on problem-solving and technical depth are critical to the system's reliability.</p>
+          <p class="founder-bio">Jacob brings more than 15 years of experience troubleshooting, repairing, and optimizing complex scientific instruments. He played an instrumental role in the design and physical development of the exactH2O system — translating conceptual ideas into a functional, robust setup from the ground up. His hands-on problem-solving and technical depth are critical to the system's reliability.</p>
           <div class="founder-links">
-            <a href="mailto:coo@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>coo@exacth2o.com</a>
+            <a href="mailto:jake@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>jake@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -210,7 +212,7 @@
           <div class="founder-title" aria-hidden="true">&nbsp;</div>
           <p class="founder-bio">EJ is a 2026 graduate of Michigan State University who brings software development and hands-on instrumentation support to exactH2O. He works across the platform's digital tools, sensor systems, and greenhouse deployments, helping turn the technology into a reliable research product.</p>
           <div class="founder-links">
-            <a href="mailto:howeeva1@msu.edu" class="founder-link"><span class="founder-link-icon">✉</span>howeeva1@msu.edu</a>
+            <a href="mailto:ej@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>ej@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -220,14 +222,14 @@
 </div>
 
 <div class="cta-strip reveal">
-  <h2>Let's work together</h2>
-  <p>Discover how exactH2O can transform your irrigation management</p>
+  <h2>Ready to optimize your irrigation?</h2>
+  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
   <a href="/quote" class="btn-primary">Get Started Today</a>
 </div>
 
 <footer>
   <div class="footer-logo">exactH2O</div>
-  <div>About Us · exacth2o.com</div>
+  <div>© 2026 exactH2O · All rights reserved</div>
   <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
 </footer>
 
