@@ -35,6 +35,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { supabase } from "./supabase";
+import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import {
   expiredPortalSessionNotice,
   isSessionAuthorizationError,
@@ -6362,8 +6363,8 @@ export default function App() {
     return (
       <main className="portal-login-shell">
         <header className="portal-topbar">
-          <a href="/portal" className="portal-logo">
-            exact<span>H</span>2<span>O</span>
+          <a href="/portal" className="portal-logo" aria-label="ExactH2O portal home">
+            <img src={exactH2OLogo} alt="ExactH2O" />
           </a>
           <div className="portal-top-links">
             <a href="/support">Support</a>
@@ -6556,7 +6557,7 @@ export default function App() {
           setPortalView(isAdmin ? "home" : "experiment");
         }}
       >
-        exact<span>H</span>2<span>O</span>
+        <img src={exactH2OLogo} alt="ExactH2O" />
       </a>
       <div className="portal-header-right">
         {portalActions}

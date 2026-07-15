@@ -92,7 +92,7 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist/portal-app/assets
 
-          cp CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html site-dist/
+          cp CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html exacth2o-logo.jpeg site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp product1.jpg product2.jpg product3.jpg product4.jpg site-dist/
           cp scheduling.jpg dashboard.jpg sensor.jpg scaling.jpg site-dist/

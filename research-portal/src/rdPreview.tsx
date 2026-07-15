@@ -1,4 +1,5 @@
 import replayFixture from "./rdReplayFixture.json";
+import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import { ResponseCurveLab } from "./ResponseCurveLab";
 import type { RdCorrectionEpisode, RdLabSnapshot, RdPotSummary } from "./rdTypes";
 
@@ -194,7 +195,9 @@ export default function RdPreview() {
   return (
     <main className="dashboard-shell portal-admin-shell rd-preview-shell">
       <header className="dashboard-header">
-        <a className="dashboard-logo" href="#preview">exact<span>H</span>2<span>O</span></a>
+        <a className="dashboard-logo" href="#preview" aria-label="ExactH2O preview home">
+          <img src={exactH2OLogo} alt="ExactH2O" />
+        </a>
         <div className="rd-preview-label">LOCAL REPLAY · SYNTHETIC DATA</div>
       </header>
       <ResponseCurveLab snapshot={previewSnapshot} />

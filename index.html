@@ -49,12 +49,12 @@ nav {
   border-bottom: 1px solid rgba(124,191,158,0.15);
 }
 .nav-logo {
-  font-family: var(--mono); font-size: 1.15rem; font-weight: 500;
-  letter-spacing: -0.02em; color: var(--accent); text-decoration: none;
-  transition: opacity 0.2s;
+  position: relative; display: block; flex: 0 0 auto; width: 168px;
+  aspect-ratio: 4.8 / 1; overflow: hidden; background: #000;
+  text-decoration: none; transition: opacity 0.2s;
 }
 .nav-logo:hover { opacity: 0.75; }
-.nav-logo span { color: rgba(244,241,235,0.5); }
+.nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%); }
 .nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
 .nav-links a {
   font-family: var(--mono); font-size: 0.72rem; font-weight: 400;
@@ -402,7 +402,8 @@ footer {
   font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em;
   border-top: 0;
 }
-.footer-logo { color: var(--accent); font-size: 0.85rem; }
+.footer-logo { position: relative; display: block; width: 126px; aspect-ratio: 4.8 / 1; overflow: hidden; background: #000; }
+.footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%); }
 footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
 footer a:hover { color: var(--accent); }
 
@@ -435,7 +436,7 @@ footer a:hover { color: var(--accent); }
 
 <!-- NAV -->
 <nav>
-  <a href="/" class="nav-logo">exact<span>H</span>2<span>O</span></a>
+  <a href="/" class="nav-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
   <ul class="nav-links">
     <li><a href="/" class="active">Home</a></li>
     <li><a href="/applications">Applications</a></li>
@@ -631,7 +632,7 @@ footer a:hover { color: var(--accent); }
 
 <!-- FOOTER -->
 <footer>
-  <div class="footer-logo">exactH2O</div>
+  <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
   <div>© 2026 exactH2O · All rights reserved</div>
   <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
 </footer>
