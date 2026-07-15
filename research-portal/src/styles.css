@@ -167,7 +167,6 @@ select {
   width: 168px;
   aspect-ratio: 4.8 / 1;
   overflow: hidden;
-  background: #000000;
   text-decoration: none;
 }
 
@@ -178,6 +177,13 @@ select {
   display: block;
   width: 100%;
   height: auto;
+  -webkit-mask-image: url("./assets/exacth2o-logo.jpeg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-image: url("./assets/exacth2o-logo.jpeg");
+  mask-mode: luminance;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
   transform: translateY(-50%);
 }
 
@@ -593,7 +599,6 @@ select {
   width: 168px;
   aspect-ratio: 4.8 / 1;
   overflow: hidden;
-  background: #000000;
   text-decoration: none;
   transition: opacity 0.2s;
 }
@@ -609,6 +614,13 @@ select {
   display: block;
   width: 100%;
   height: auto;
+  -webkit-mask-image: url("./assets/exacth2o-logo.jpeg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-image: url("./assets/exacth2o-logo.jpeg");
+  mask-mode: luminance;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
   transform: translateY(-50%);
 }
 

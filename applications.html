@@ -59,9 +59,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.2rem 4rem;
-    background: var(--bg);
+    background: rgba(14,26,20,0.96);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid rgba(124,191,158,0.15);
   }
   .nav-logo {
     position: relative;
@@ -70,10 +70,9 @@
     width: 168px;
     aspect-ratio: 4.8 / 1;
     overflow: hidden;
-    background: #000;
     text-decoration: none;
   }
-  .nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%); }
+  .nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
   .nav-links {
     display: flex;
     gap: 2.5rem;
@@ -85,16 +84,16 @@
     font-weight: 400;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--ink);
+    color: rgba(244,241,235,0.55);
     text-decoration: none;
-    opacity: 0.55;
+    opacity: 1;
     transition: opacity 0.2s;
   }
-  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--water); }
-  .nav-cta { background: var(--water); color: var(--bg) !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
+  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
+  .nav-cta { background: var(--water); color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
   .nav-cta:hover { background: var(--water-light) !important; }
   .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
-  .hamburger span { width: 100%; height: 2px; background: var(--water); border-radius: 2px; transition: all 0.3s; }
+  .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
   .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
   .hamburger.active span:nth-child(2) { opacity: 0; }
   .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(6px,-6px); }
@@ -597,9 +596,8 @@
     width: 126px;
     aspect-ratio: 4.8 / 1;
     overflow: hidden;
-    background: #000;
   }
-  .footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%); }
+  .footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
   footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 

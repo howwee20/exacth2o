@@ -50,11 +50,11 @@ nav {
 }
 .nav-logo {
   position: relative; display: block; flex: 0 0 auto; width: 168px;
-  aspect-ratio: 4.8 / 1; overflow: hidden; background: #000;
+  aspect-ratio: 4.8 / 1; overflow: hidden;
   text-decoration: none; transition: opacity 0.2s;
 }
 .nav-logo:hover { opacity: 0.75; }
-.nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%); }
+.nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
 .nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
 .nav-links a {
   font-family: var(--mono); font-size: 0.72rem; font-weight: 400;
@@ -402,8 +402,8 @@ footer {
   font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em;
   border-top: 0;
 }
-.footer-logo { position: relative; display: block; width: 126px; aspect-ratio: 4.8 / 1; overflow: hidden; background: #000; }
-.footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%); }
+.footer-logo { position: relative; display: block; width: 126px; aspect-ratio: 4.8 / 1; overflow: hidden; }
+.footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
 footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
 footer a:hover { color: var(--accent); }
 
