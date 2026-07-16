@@ -4,6 +4,7 @@ import {
   booleanMarker,
   healthEvidenceValue,
   mergeReadings,
+  pairingsFromDeviceConfigState,
   resolveEffectiveMode,
   sumKnownCounts,
   visibleExperimentPairings,
@@ -73,6 +74,41 @@ describe("diagnostic filtering", () => {
     const diagnostic = pairing({ id: 2, sensor_key: "D30GQN2D:t" });
 
     expect(visibleExperimentPairings([visible, diagnostic])).toEqual([visible]);
+  });
+});
+
+describe("authoritative controller pairings", () => {
+  it("normalizes live controller config without using the stale pairings table", () => {
+    const normalized = pairingsFromDeviceConfigState([
+      {
+        name: "Zone2-Pot42",
+        Sensor: { boardSerialId: "D30GQN2D", address: "q" },
+        Valve: { relayAddress: "0x24", address: "42" },
+        sensorId: 713,
+        valveId: 1626,
+        groupId: 2,
+        calibrationId: 4,
+        Calibration: { name: "Corrected Calibration (+10)" },
+        WTCPercentLimit: 5,
+        ValveOpenTime: 2000,
+        MeasurementInterval: 600000,
+      },
+    ], [{ id: 2, name: "Matt's 20 pots" }]);
+
+    expect(normalized).toEqual([
+      expect.objectContaining({
+        name: "Zone2-Pot42",
+        zone: 2,
+        pot_number: 42,
+        sensor_key: "D30GQN2D:q",
+        valve_key: "0x24:42",
+        wtc_percent_limit: 5,
+        valve_open_time_ms: 2000,
+        measurement_interval_ms: 600000,
+        group_name: "Matt's 20 pots",
+        calibration_name: "Corrected Calibration (+10)",
+      }),
+    ]);
   });
 });
 

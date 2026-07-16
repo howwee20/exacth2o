@@ -48,6 +48,92 @@ export function visibleExperimentPairings(pairings: PairingRow[]) {
   return pairings.filter((pairing) => !isIgnoredDiagnosticPairing(pairing));
 }
 
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function finiteNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Convert the controller's mirrored config into the portal's normalized shape.
+ * device_config_state is the authoritative live configuration; public.pairings
+ * is retained only as a legacy fallback because it can drift from the device.
+ */
+export function pairingsFromDeviceConfigState(
+  pairings: unknown,
+  groups: unknown,
+): PairingRow[] {
+  if (!Array.isArray(pairings)) return [];
+
+  const groupNames = new Map<number, string>();
+  if (Array.isArray(groups)) {
+    for (const rawGroup of groups) {
+      const group = recordValue(rawGroup);
+      const id = finiteNumber(group?.id);
+      const name = typeof group?.name === "string" ? group.name.trim() : "";
+      if (id !== null && name) groupNames.set(id, name);
+    }
+  }
+
+  const normalized: PairingRow[] = [];
+  for (const rawPairing of pairings) {
+    const pairing = recordValue(rawPairing);
+    if (!pairing) continue;
+
+    const name = typeof pairing.name === "string" ? pairing.name.trim() : "";
+    const label = /^Zone(\d+)-Pot(\d+)$/i.exec(name);
+    const sensor = recordValue(pairing.Sensor);
+    const valve = recordValue(pairing.Valve);
+    const calibration = recordValue(pairing.Calibration);
+    const sourceSensorId = finiteNumber(pairing.sensorId);
+    const sourceValveId = finiteNumber(pairing.valveId);
+    const zone = label ? Number(label[1]) : null;
+    const potNumber = label ? Number(label[2]) : null;
+    const sensorBoard = typeof sensor?.boardSerialId === "string" ? sensor.boardSerialId.trim() : "";
+    const sensorAddress = typeof sensor?.address === "string" ? sensor.address.trim() : String(sensor?.address ?? "").trim();
+    const relayAddress = typeof valve?.relayAddress === "string" ? valve.relayAddress.trim() : "";
+    const valveAddress = typeof valve?.address === "string" ? valve.address.trim() : String(valve?.address ?? "").trim();
+    const target = finiteNumber(pairing.WTCPercentLimit);
+    const openTime = finiteNumber(pairing.ValveOpenTime);
+    const interval = finiteNumber(pairing.MeasurementInterval);
+
+    if (
+      !name || zone === null || potNumber === null ||
+      sourceSensorId === null || sourceValveId === null ||
+      !sensorBoard || !sensorAddress || !relayAddress || !valveAddress ||
+      target === null || openTime === null || interval === null
+    ) continue;
+
+    const groupId = finiteNumber(pairing.groupId);
+    const groupName = groupId === null ? null : groupNames.get(groupId) ?? null;
+    const calibrationName = typeof calibration?.name === "string" ? calibration.name.trim() : null;
+
+    normalized.push({
+      id: sourceSensorId,
+      name,
+      zone,
+      pot_number: potNumber,
+      group_name: groupName,
+      source_sensor_id: sourceSensorId,
+      sensor_key: `${sensorBoard}:${sensorAddress}`,
+      source_valve_id: sourceValveId,
+      valve_key: `${relayAddress}:${valveAddress}`,
+      wtc_percent_limit: target,
+      valve_open_time_ms: openTime,
+      measurement_interval_ms: interval,
+      calibration_name: calibrationName,
+      calibration_id: finiteNumber(pairing.calibrationId),
+    });
+  }
+
+  return normalized;
+}
+
 export function isIgnoredDiagnosticReading(reading: Partial<SensorReading>) {
   return (
     isIgnoredDiagnosticPairingName(reading.pairing_name) ||

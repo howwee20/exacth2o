@@ -47,6 +47,7 @@ import {
   isIgnoredDiagnosticReading,
   isIgnoredDiagnosticValveEvent,
   mergeReadings,
+  pairingsFromDeviceConfigState,
   resolveEffectiveMode,
   sumKnownCounts,
   visibleExperimentPairings,
@@ -5296,9 +5297,14 @@ export default function App() {
         const loadCoreData = async () => {
           const results = await Promise.all([
             withSupabaseTimeout(
-              supabase.from("pairings").select("*").limit(1000),
+              supabase
+                .from("device_config_state")
+                .select("*")
+                .eq("project_id", mattProjectId)
+                .eq("device_id", mattDeviceId)
+                .maybeSingle(),
               supabaseQueryTimeoutMs,
-              "Pairings",
+              "Controller config",
             ),
             withSupabaseTimeout(
               supabase
@@ -5339,7 +5345,7 @@ export default function App() {
           if (!isSessionAuthorizationError(err) || !(await recoverPortalSession())) throw err;
           coreData = await loadCoreData();
         }
-        const [pairings, latestState, liveAvailability] = coreData;
+        const [controllerConfig, latestState, liveAvailability] = coreData;
 
         const previous = dataRef.current;
         const effectiveMode = resolveEffectiveMode(selectedMode, Boolean(liveAvailability.data?.length));
@@ -5353,7 +5359,24 @@ export default function App() {
 
         if (token !== loadTokenRef.current) return;
 
-        const pairingsData = visibleExperimentPairings((pairings.data ?? []) as PairingRow[]);
+        let pairingsData = pairingsFromDeviceConfigState(
+          controllerConfig.data?.pairings,
+          controllerConfig.data?.groups,
+        );
+        if (pairingsData.length === 0) {
+          const legacyPairings = await withSupabaseTimeout(
+            supabase.from("pairings").select("*").limit(1000),
+            supabaseQueryTimeoutMs,
+            "Legacy pairings",
+          );
+          if (legacyPairings.error) throw legacyPairings.error;
+          pairingsData = (legacyPairings.data ?? []) as PairingRow[];
+        }
+        pairingsData = visibleExperimentPairings(pairingsData);
+
+        if (controllerConfig.data) {
+          setConfigState(controllerConfig.data as DeviceConfigState);
+        }
 
         setData((current) => ({
           ...current,
