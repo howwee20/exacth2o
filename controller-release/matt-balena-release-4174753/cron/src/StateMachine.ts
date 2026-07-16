@@ -8,6 +8,7 @@ import { BullQueueService, StateTransitionEvent } from './services/BullQueueServ
 import { DEFAULT_BOARD_CONFIGS, API_ENDPOINTS, DEFAULT_TIMING } from './config/constants'
 import { BoardConfig } from './controllers/Expand13Manager'
 import { ManualPulseManager, ManualPulseRequest, ManualPulseResult } from './services/ManualPulseManager'
+import { WateringPulseLedger } from './services/WateringPulseLedger'
 import {
   getValveOpenSafetyDecision,
   getWateringBand,
@@ -36,7 +37,9 @@ class StateMachine {
   private rulesEngineService: RulesEngineService
   private eventQueueService: BullQueueService
   private openValvePairId: string | null = null
+  private lastValveClosedAt: number | null = null
   private manualPulseManager: ManualPulseManager
+  private wateringPulseLedger: WateringPulseLedger
 
   constructor(apiURL: string, standardDelayTime: number = DEFAULT_TIMING.STANDARD_DELAY) {
     console.log('Setting up StateMachine')
@@ -55,6 +58,9 @@ class StateMachine {
       () => this.valveService.closeAllValves(),
       Number(process.env.MANUAL_PULSE_MAX_MILLISECONDS || 60_000),
       Number(process.env.MANUAL_PULSE_MAX_COMMAND_VALVE_MILLISECONDS || 120_000),
+    )
+    this.wateringPulseLedger = new WateringPulseLedger(
+      process.env.AUTOMATIC_PULSE_LEDGER_PATH || '/app/config/automatic-pulses.json'
     )
 
     // Set up event processing
@@ -78,6 +84,17 @@ class StateMachine {
     // A previous process may have died while a manual pulse was active. Close
     // that valve before loading pairings or entering RUNNING state.
     await this.manualPulseManager.recover()
+    // Give the shared supply the same recovery time after startup close-all as
+    // it receives between normal automatic pulses.
+    this.lastValveClosedAt = Date.now()
+    // Automatic watering remains fail-closed until the durable per-pot pulse
+    // ledger has been restored. Keep sensing alive if the ledger is damaged;
+    // later watering attempts will be rejected because it is uninitialized.
+    try {
+      await this.wateringPulseLedger.init()
+    } catch (error) {
+      console.error('Automatic watering disabled: durable pulse ledger could not be restored', error)
+    }
 
     if (initializeHardware) {
       console.log('First time hardware initialization')
@@ -185,6 +202,7 @@ class StateMachine {
     })
     this.valveService.closeAllValves()
     this.openValvePairId = null
+    this.lastValveClosedAt = Date.now()
     console.log('All valves closed.')
     await this.apiService.postData(API_ENDPOINTS.LOGS, {
       level: 'info',
@@ -465,6 +483,51 @@ class StateMachine {
         return 'DELAY'
       }
 
+      const now = Date.now()
+      if (
+        DEFAULT_TIMING.VALVE_RECOVERY_DELAY > 0 &&
+        isFiniteNumber(this.lastValveClosedAt) &&
+        now - this.lastValveClosedAt < DEFAULT_TIMING.VALVE_RECOVERY_DELAY
+      ) {
+        const retryDelay = DEFAULT_TIMING.VALVE_RECOVERY_DELAY - (now - this.lastValveClosedAt)
+        await this.logValveOpenBlocked(
+          pairId,
+          `shared water supply is recovering; retrying in ${retryDelay}ms`,
+          'info'
+        )
+        pairing.nextTransitionTime = now + retryDelay
+        return 'DELAY'
+      }
+
+      let durablePulse
+      try {
+        durablePulse = await this.wateringPulseLedger.reserve(
+          pairId,
+          now,
+          DEFAULT_TIMING.WATERING_SETTLE_WINDOW,
+          DEFAULT_TIMING.MAX_WATERING_PULSES_PER_SETTLE_WINDOW,
+          DEFAULT_TIMING.MIN_WATERING_RETRY,
+        )
+      } catch (error) {
+        await this.logValveOpenBlocked(
+          pairId,
+          `durable pulse ledger unavailable; watering failed closed: ${error}`,
+          'error'
+        )
+        pairing.nextTransitionTime = now + pairing.timingRules.intervalTime
+        return 'IDLE'
+      }
+
+      if (!durablePulse.allowed) {
+        await this.logValveOpenBlocked(
+          pairId,
+          `durable per-pot ${durablePulse.reason} guard active; count=${durablePulse.pulseCount} retryAt=${durablePulse.retryAt ? new Date(durablePulse.retryAt).toISOString() : 'unknown'}`,
+          'info'
+        )
+        pairing.nextTransitionTime = now + pairing.timingRules.intervalTime
+        return 'IDLE'
+      }
+
       pairing.nextTransitionTime = Date.now() + pairing.timingRules.valveOpenTime
       await this.apiService.postData(API_ENDPOINTS.LOGS, {
         level: 'info',
@@ -526,6 +589,7 @@ class StateMachine {
       const { column, pin } = this.valveService.calculateColumnAndPin(address)
       this.valveService.operateValve(boardConfigAddress, column, pin, 'CLOSE')
       console.log(`Valve ${pairId} closed successfully`)
+      this.lastValveClosedAt = Date.now()
       if (this.openValvePairId === pairId) {
         this.openValvePairId = null
       }
@@ -663,6 +727,7 @@ class StateMachine {
     this.valveService.operateValve(boardAddress, column, pin, state)
     if (state === 'CLOSE' && this.openValvePairId === `manual:${request.pulseId}`) {
       this.openValvePairId = null
+      this.lastValveClosedAt = Date.now()
     }
   }
 

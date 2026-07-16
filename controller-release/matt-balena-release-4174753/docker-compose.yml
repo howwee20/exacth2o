@@ -78,6 +78,11 @@ services:
       REDIS_HOST: "redis_svc"
       REDIS_PORT: "6379"
       SDI12_CONFIG_PATH: "/app/config/sdi12-config.json"
+      AUTOMATIC_PULSE_LEDGER_PATH: "/app/config/automatic-pulses.json"
+      WATERING_SETTLE_WINDOW_MS: "3600000"
+      MIN_WATERING_RETRY_MS: "1800000"
+      MAX_WATERING_PULSES_PER_SETTLE_WINDOW: "2"
+      VALVE_RECOVERY_DELAY_MS: "30000"
 
   control_executor:
     build:
