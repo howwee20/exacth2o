@@ -440,7 +440,17 @@ function LiveResponse({
   );
 }
 
-function HistoryView({ pot }: { pot: RdPotSummary }) {
+function HistoryView({
+  pot,
+  historyLoading = false,
+  historyError = null,
+  onLoadMoreHistory,
+}: {
+  pot: RdPotSummary;
+  historyLoading?: boolean;
+  historyError?: string | null;
+  onLoadMoreHistory?: () => void;
+}) {
   const [filter, setFilter] = useState<HistoryFilter>("all");
   const episodes = (pot.episodes ?? []).filter((episode) => {
     if (filter === "training") return episode.outcome?.eligible_for_training === true;
@@ -499,6 +509,16 @@ function HistoryView({ pot }: { pot: RdPotSummary }) {
           );
         }) : <div className="rd-empty-panel">No cycles match this filter for {pot.pairing_name}.</div>}
       </div>
+      {onLoadMoreHistory || historyError ? (
+        <div className="rd-history-pagination">
+          {historyError ? <span role="status">Older cycles could not be loaded.</span> : <span />}
+          {onLoadMoreHistory ? (
+            <button type="button" disabled={historyLoading} onClick={onLoadMoreHistory}>
+              {historyLoading ? "Loading…" : "Load older cycles"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -593,7 +613,19 @@ function ModelComparison({ snapshot }: { snapshot: RdLabSnapshot }) {
   );
 }
 
-export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot; onBack?: () => void }) {
+export function ResponseCurveLab({
+  snapshot,
+  onBack,
+  historyLoading = false,
+  historyError = null,
+  onLoadMoreHistory,
+}: {
+  snapshot: RdLabSnapshot;
+  onBack?: () => void;
+  historyLoading?: boolean;
+  historyError?: string | null;
+  onLoadMoreHistory?: () => void;
+}) {
   const [tab, setTab] = useState<LabTab>("live");
   const pots = useMemo(() => fallbackPots(snapshot), [snapshot]);
   const [selectedName, setSelectedName] = useState(snapshot.current.pairing_name);
@@ -637,7 +669,15 @@ export function ResponseCurveLab({ snapshot, onBack }: { snapshot: RdLabSnapshot
       ) : null}
 
       {tab === "live" ? <LiveResponse pots={pots} selectedPot={selectedPot} current={current} activeEpisode={activeEpisode} nextForecast={nextForecast} selectedPulse={selectedPulse} onSelectPulse={setSelectedPulseId} championVersion={snapshot.champion_version} /> : null}
-      {tab === "history" ? <HistoryView key={selectedPot.pairing_name} pot={selectedPot} /> : null}
+      {tab === "history" ? (
+        <HistoryView
+          key={selectedPot.pairing_name}
+          pot={selectedPot}
+          historyLoading={historyLoading}
+          historyError={historyError}
+          onLoadMoreHistory={onLoadMoreHistory}
+        />
+      ) : null}
       {tab === "models" ? <ModelComparison snapshot={snapshot} /> : null}
     </section>
   );

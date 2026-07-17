@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasExperimentSettingsAccess,
   hasProjectDataReadAccess,
+  hasRdSystemAdminAccess,
   parsePortalRole,
 } from "./portalAccess";
 
@@ -28,5 +29,12 @@ describe("portal role authorization", () => {
     expect(hasProjectDataReadAccess("researcher")).toBe(true);
     expect(hasProjectDataReadAccess("viewer")).toBe(true);
     expect(hasProjectDataReadAccess(null)).toBe(false);
+  });
+
+  it("requires both the admin role and the explicit R&D allowlist", () => {
+    expect(hasRdSystemAdminAccess("admin", true)).toBe(true);
+    expect(hasRdSystemAdminAccess("admin", false)).toBe(false);
+    expect(hasRdSystemAdminAccess("researcher", true)).toBe(false);
+    expect(hasRdSystemAdminAccess("viewer", true)).toBe(false);
   });
 });

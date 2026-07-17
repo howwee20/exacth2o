@@ -1,4 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  parseHistoryPageRequest,
+  takeHistoryPage,
+} from "./pagination-policy.mjs";
 
 const allowedOrigins = new Set<string>([
   "https://exacth2o.com",
@@ -252,6 +256,12 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") {
     return response({ error: "Method not allowed" }, 405, origin);
   }
+  const requestBody = record(await request.json().catch(() => ({})));
+  const action = requestBody.action === "access" ||
+      requestBody.action === "snapshot"
+    ? requestBody.action
+    : null;
+  if (!action) return response({ error: "Unsupported action" }, 400, origin);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -292,6 +302,12 @@ Deno.serve(async (request) => {
       origin,
     );
   }
+  if (action === "access") {
+    return response({ allowed: true }, 200, origin);
+  }
+
+  const { pageSize: historyPageSize, cursor: historyCursor } =
+    parseHistoryPageRequest(requestBody);
 
   const { data: observation, error: observationError } = await admin.rpc(
     "rd_worker_observation",
@@ -328,7 +344,7 @@ Deno.serve(async (request) => {
     )
     .eq("project_id", projectId)
     .order("issued_at", { ascending: false })
-    .limit(500);
+    .limit(100);
   if (predictionError) {
     return response({ error: "Could not load R&D predictions" }, 500, origin);
   }
@@ -418,6 +434,11 @@ Deno.serve(async (request) => {
             state: "waiting_threshold",
             event: null,
           })),
+        pagination: {
+          page_size: historyPageSize,
+          has_more: false,
+          next_cursor: null,
+        },
         history: [],
         progress: [],
       },
@@ -426,11 +447,33 @@ Deno.serve(async (request) => {
     );
   }
 
+  let episodeQuery = admin.from("rd_correction_episodes_v2").select(
+    "id,episode_key,pairing_name,first_open_device_at,last_open_device_at,target_vwc_at_start,pulse_count,status,correction_ended_at,observation_ends_at,completed_at,quality",
+  ).eq("project_id", projectId).order("first_open_device_at", {
+    ascending: false,
+  }).limit(historyPageSize + 1);
+  if (historyCursor) {
+    episodeQuery = episodeQuery.lt("first_open_device_at", historyCursor);
+  }
+  const episodeV2Result = await episodeQuery;
+  if (episodeV2Result.error) {
+    return response({ error: "Could not load R&D history" }, 500, origin);
+  }
+  const historyPage = takeHistoryPage(
+    (episodeV2Result.data ?? []) as Array<Record<string, unknown>>,
+    historyPageSize,
+  );
+  const episodeRows = historyPage.items as Array<Record<string, unknown>>;
+  const episodeIds = episodeRows.map((episode) => String(episode.id));
+  const recentPredictionIds = (recentPredictions ?? []).map((prediction) =>
+    String(prediction.id)
+  );
+  const emptyResult = Promise.resolve({ data: [], error: null });
+
   const [
     stateResult,
     scoreResult,
     modelResult,
-    episodeV2Result,
     irrigationEventV2Result,
     outcomeV2Result,
     episodeScoreV2Result,
@@ -441,57 +484,71 @@ Deno.serve(async (request) => {
     updateV5Result,
     scoreV5Result,
   ] = await Promise.all([
-    admin.from("rd_prediction_events").select(
-      "prediction_id,state,details,occurred_at",
-    ).order("occurred_at", { ascending: false }).limit(10000),
-    admin.from("rd_prediction_scores").select(
-      "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
-    ).order("created_at", { ascending: false }).limit(5000),
+    recentPredictionIds.length
+      ? admin.from("rd_prediction_events").select(
+        "prediction_id,state,details,occurred_at",
+      ).in("prediction_id", recentPredictionIds).order("occurred_at", {
+        ascending: false,
+      }).limit(600)
+      : emptyResult,
+    recentPredictionIds.length
+      ? admin.from("rd_prediction_scores").select(
+        "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
+      ).in("prediction_id", recentPredictionIds).order("created_at", {
+        ascending: false,
+      }).limit(200)
+      : emptyResult,
     admin.from("rd_model_versions").select(
       "id,version,status,metrics,training_event_count,feature_schema_version,synthetic_data_only,created_at",
-    ).order("created_at", { ascending: false }).limit(100),
-    admin.from("rd_correction_episodes_v2").select(
-      "id,episode_key,pairing_name,first_open_device_at,last_open_device_at,target_vwc_at_start,pulse_count,status,correction_ended_at,observation_ends_at,completed_at,quality",
-    ).eq("project_id", projectId).order("first_open_device_at", {
-      ascending: false,
-    }).limit(200),
-    admin.from("rd_irrigation_events_v2").select(
-      "id,valve_event_id,episode_id,pairing_name,sequence_in_episode,prediction_id,prediction_status,opened_device_at,duration_ms,duration_source,evidence_source,prediction_lead_seconds,quality",
-    ).eq("project_id", projectId).order("opened_device_at", {
-      ascending: false,
-    }).limit(1000),
-    admin.from("rd_episode_outcomes_v3").select(
-      "id,episode_id,pairing_name,first_open_device_at,last_open_device_at,observation_end_device_at,actual_absolute,observed_horizons,pulse_count,sample_interval_minutes,right_censored,eligible_for_scoring,eligible_for_training,quality_reasons,outcome_version,completed_at",
-    ).eq("project_id", projectId).order("completed_at", { ascending: false })
-      .limit(500),
-    admin.from("rd_episode_scores_v3").select(
-      "episode_id,model_version_id,model_role,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons,created_at",
-    ).order("created_at", { ascending: false }).limit(2000),
+    ).order("created_at", { ascending: false }).limit(75),
+    episodeIds.length
+      ? admin.from("rd_irrigation_events_v2").select(
+        "id,valve_event_id,episode_id,pairing_name,sequence_in_episode,prediction_id,prediction_status,opened_device_at,duration_ms,duration_source,evidence_source,prediction_lead_seconds,quality",
+      ).eq("project_id", projectId).in("episode_id", episodeIds).order(
+        "opened_device_at",
+        { ascending: false },
+      ).limit(historyPageSize * 12)
+      : emptyResult,
+    episodeIds.length
+      ? admin.from("rd_episode_outcomes_v3").select(
+        "id,episode_id,pairing_name,first_open_device_at,last_open_device_at,observation_end_device_at,actual_absolute,observed_horizons,pulse_count,sample_interval_minutes,right_censored,eligible_for_scoring,eligible_for_training,quality_reasons,outcome_version,completed_at",
+      ).eq("project_id", projectId).in("episode_id", episodeIds).order(
+        "completed_at",
+        { ascending: false },
+      ).limit(historyPageSize)
+      : emptyResult,
+    episodeIds.length
+      ? admin.from("rd_episode_scores_v3").select(
+        "episode_id,model_version_id,model_role,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons,created_at",
+      ).in("episode_id", episodeIds).order("created_at", {
+        ascending: false,
+      }).limit(historyPageSize * 4)
+      : emptyResult,
     admin.from("rd_evaluation_windows_v2").select(
       "model_version_id,window_number,episode_count,multi_pulse_episode_count,pot_count,baseline_curve_mae,candidate_curve_mae,improvement_percent,interval_coverage,passed,evaluation_started_at,evaluation_ended_at",
-    ).order("created_at", { ascending: false }).limit(200),
+    ).order("created_at", { ascending: false }).limit(100),
     admin.from("rd_training_runs").select(
       "model_version_id,training_event_count,held_out_event_count,result,metrics,completed_at",
-    ).order("completed_at", { ascending: false }).limit(50),
+    ).order("completed_at", { ascending: false }).limit(25),
     admin.from("rd_event_finalizations_v5").select(
       "id,irrigation_event_id,pairing_name,opened_device_at,finalization_revision,evidence_fingerprint,observed_horizons,censored_horizons,duration_source,created_at",
     ).eq("project_id", projectId).order("opened_device_at", {
       ascending: false,
     })
-      .limit(5000),
+      .limit(750),
     admin.from("rd_shadow_model_channels_v5").select(
       "champion_model_version_id,evaluation_candidate_model_version_id,latest_challenger_model_version_id,champion_since,evaluation_started_at,updated_at",
     ).eq("project_id", projectId).eq("device_id", mattDeviceId).limit(1),
     admin.from("rd_model_updates_v5").select(
       "model_version_id,training_event_count,training_horizon_count,metrics,parameters,created_at",
-    ).order("created_at", { ascending: false }).limit(100),
+    ).order("created_at", { ascending: false }).limit(50),
     admin.from("rd_prequential_scores_v5").select(
       "candidate_model_version_id,champion_model_version_id,irrigation_event_id,event_finalization_id,pairing_name,opened_device_at,duration_source,pulse_sequence_in_episode,curve_mae,peak_error,interval_coverage,scored_horizons,champion_curve_mae,zero_curve_mae,ood_score,created_at",
-    ).order("opened_device_at", { ascending: false }).limit(5000),
+    ).order("opened_device_at", { ascending: false }).limit(750),
   ]);
   if (
     stateResult.error || scoreResult.error || modelResult.error ||
-    episodeV2Result.error || irrigationEventV2Result.error ||
+    irrigationEventV2Result.error ||
     outcomeV2Result.error || episodeScoreV2Result.error ||
     evaluationV2Result.error || trainingRunResult.error ||
     finalizationV5Result.error || channelV5Result.error ||
@@ -502,7 +559,7 @@ Deno.serve(async (request) => {
   const irrigationEventsV2 = (irrigationEventV2Result.data ?? []) as Array<
     Record<string, unknown>
   >;
-  const recentPredictionIds = new Set(
+  const recentPredictionIdSet = new Set(
     (recentPredictions ?? []).map((prediction) => String(prediction.id)),
   );
   const referencedPredictionIds = [
@@ -513,14 +570,25 @@ Deno.serve(async (request) => {
     ),
   ];
   const missingPredictionIds = referencedPredictionIds.filter((id) =>
-    !recentPredictionIds.has(id)
+    !recentPredictionIdSet.has(id)
   );
   const historicalPredictions: Array<Record<string, unknown>> = [];
+  const historicalStates: Array<Record<string, unknown>> = [];
+  const historicalScores: Array<Record<string, unknown>> = [];
   for (let index = 0; index < missingPredictionIds.length; index += 100) {
-    const { data, error } = await admin.from("rd_curve_predictions").select(
-      "id,pairing_name,model_version_id,trigger_vwc,target_vwc_at_issue,feature_as_of_device_at,issued_at,p10,p50,p90,confidence",
-    ).in("id", missingPredictionIds.slice(index, index + 100));
-    if (error) {
+    const chunk = missingPredictionIds.slice(index, index + 100);
+    const [predictionChunk, stateChunk, scoreChunk] = await Promise.all([
+      admin.from("rd_curve_predictions").select(
+        "id,pairing_name,model_version_id,trigger_vwc,target_vwc_at_issue,feature_as_of_device_at,issued_at,p10,p50,p90,confidence",
+      ).in("id", chunk),
+      admin.from("rd_prediction_events").select(
+        "prediction_id,state,details,occurred_at",
+      ).in("prediction_id", chunk).order("occurred_at", { ascending: false }),
+      admin.from("rd_prediction_scores").select(
+        "prediction_id,curve_mae,peak_error,time_to_peak_error_minutes,integrated_response_error,interval_coverage,scored_horizons",
+      ).in("prediction_id", chunk).order("created_at", { ascending: false }),
+    ]);
+    if (predictionChunk.error || stateChunk.error || scoreChunk.error) {
       return response(
         { error: "Could not resolve exact forecast lineage" },
         500,
@@ -528,7 +596,13 @@ Deno.serve(async (request) => {
       );
     }
     historicalPredictions.push(
-      ...((data ?? []) as Array<Record<string, unknown>>),
+      ...((predictionChunk.data ?? []) as Array<Record<string, unknown>>),
+    );
+    historicalStates.push(
+      ...((stateChunk.data ?? []) as Array<Record<string, unknown>>),
+    );
+    historicalScores.push(
+      ...((scoreChunk.data ?? []) as Array<Record<string, unknown>>),
     );
   }
   const predictions = [
@@ -537,12 +611,12 @@ Deno.serve(async (request) => {
   ];
   const predictionIds = predictions.map((item) => String(item.id));
   const predictionIdSet = new Set(predictionIds);
-  const states = (stateResult.data ?? []).filter((item) =>
-    predictionIdSet.has(item.prediction_id)
-  );
-  const scores = (scoreResult.data ?? []).filter((item) =>
-    predictionIdSet.has(item.prediction_id)
-  );
+  const states = [...(stateResult.data ?? []), ...historicalStates].filter((
+    item,
+  ) => predictionIdSet.has(item.prediction_id));
+  const scores = [...(scoreResult.data ?? []), ...historicalScores].filter((
+    item,
+  ) => predictionIdSet.has(item.prediction_id));
   const models = [...(modelResult.data ?? [])] as Array<
     Record<string, unknown>
   >;
@@ -707,9 +781,7 @@ Deno.serve(async (request) => {
   const displayByPrediction = new Map<string, Record<string, unknown>>(
     displayEvents.map((event) => [event.id, event]),
   );
-  const episodeDtos = ((episodeV2Result.data ?? []) as Array<
-    Record<string, unknown>
-  >).map((episode) => {
+  const episodeDtos = episodeRows.map((episode) => {
     const pulses = irrigationEventsV2
       .filter((event) => event.episode_id === episode.id)
       .sort((left, right) =>
@@ -1075,7 +1147,7 @@ Deno.serve(async (request) => {
         curve_mae: episode.score?.curve_mae ?? null,
       }));
   const learnedEventCount = v5Channel
-    ? finalizedEvents.length
+    ? Math.max(finalizedEvents.length, priorTrainingCount)
     : eligibleOutcomes.length;
   return response(
     {
@@ -1086,7 +1158,7 @@ Deno.serve(async (request) => {
       clean_events_learned: learnedEventCount,
       learning: {
         completed_episode_totals: v5Channel
-          ? finalizedEvents.length
+          ? learnedEventCount
           : outcomesV2.length,
         eligible_episode_totals: learnedEventCount,
         minimum_episode_floor: 40,
@@ -1150,6 +1222,7 @@ Deno.serve(async (request) => {
       current,
       pots,
       episodes: episodeDtos,
+      pagination: historyPage.pagination,
       history,
       progress,
     },

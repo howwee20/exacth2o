@@ -152,6 +152,11 @@ export type RdLabSnapshot = {
   current: RdLabEvent;
   pots: RdPotSummary[];
   episodes?: RdCorrectionEpisode[];
+  pagination?: {
+    page_size: number;
+    has_more: boolean;
+    next_cursor: string | null;
+  };
   history: RdLabEvent[];
   progress: RdProgressPoint[];
 };
