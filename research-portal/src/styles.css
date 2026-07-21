@@ -813,39 +813,57 @@ select {
   position: relative;
 }
 
+.portal-experiment-column .portal-experiment-stack::before,
 .portal-experiment-column .portal-experiment-stack::after {
   position: absolute;
   top: calc(16.6667% - 4.67px);
-  right: -20px;
   bottom: -24px;
   z-index: 0;
   width: 2px;
-  border-radius: 999px;
-  background: rgba(26, 107, 74, 0.58);
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(26, 107, 74, 0.78) 0 8px,
+    transparent 8px 15px
+  );
+  background-size: 2px 30px;
+  animation: portal-health-flow-vertical 0.85s linear infinite;
   content: "";
   pointer-events: none;
 }
 
+.portal-experiment-column .portal-experiment-stack::before {
+  left: -20px;
+}
+
+.portal-experiment-column .portal-experiment-stack::after {
+  right: -20px;
+}
+
+.portal-experiment-column .portal-launch-card.is-experiment::before,
 .portal-experiment-column .portal-launch-card.is-experiment::after {
   position: absolute;
   top: 50%;
-  left: 100%;
   z-index: 0;
   width: 20px;
   height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(26, 107, 74, 0.24), rgba(26, 107, 74, 0.72));
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(26, 107, 74, 0.78) 0 8px,
+    transparent 8px 15px
+  );
+  background-size: 30px 2px;
   content: "";
   pointer-events: none;
 }
 
-.portal-experiment-column .portal-launch-card.is-experiment:nth-child(1)::after {
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.26), rgba(26, 107, 74, 0.72));
+.portal-experiment-column .portal-launch-card.is-experiment::before {
+  right: 100%;
+  animation: portal-health-flow-horizontal 0.85s linear infinite reverse;
 }
 
-.portal-experiment-column .portal-launch-card.is-experiment:nth-child(2)::after,
-.portal-experiment-column .portal-launch-card.is-experiment:nth-child(3)::after {
-  background: linear-gradient(90deg, rgba(180, 83, 9, 0.28), rgba(26, 107, 74, 0.72));
+.portal-experiment-column .portal-launch-card.is-experiment::after {
+  left: 100%;
+  animation: portal-health-flow-horizontal 0.85s linear infinite;
 }
 
 .portal-health-link {
@@ -858,30 +876,71 @@ select {
   pointer-events: none;
 }
 
-.portal-health-link::before,
-.portal-health-link::after {
+.portal-health-link-arm,
+.portal-health-link-drop {
   position: absolute;
-  content: "";
   pointer-events: none;
 }
 
-.portal-health-link::before {
+.portal-health-link-arm {
   top: 23px;
-  right: -20px;
-  left: 50%;
   height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(26, 107, 74, 0.76), rgba(26, 107, 74, 0.58));
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(26, 107, 74, 0.82) 0 8px,
+    transparent 8px 15px
+  );
+  background-size: 30px 2px;
 }
 
-.portal-health-link::after {
+.portal-health-link-arm.is-left {
+  right: 50%;
+  left: -20px;
+  animation: portal-health-flow-horizontal 0.85s linear infinite;
+}
+
+.portal-health-link-arm.is-right {
+  right: -20px;
+  left: 50%;
+  animation: portal-health-flow-horizontal 0.85s linear infinite reverse;
+}
+
+.portal-health-link-drop {
   top: 23px;
   bottom: -1px;
   left: 50%;
   width: 2px;
-  border-radius: 999px;
-  background: rgba(26, 107, 74, 0.76);
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(26, 107, 74, 0.82) 0 8px,
+    transparent 8px 15px
+  );
+  background-size: 2px 30px;
+  animation: portal-health-flow-vertical 0.85s linear infinite;
   transform: translateX(-1px);
+}
+
+@keyframes portal-health-flow-horizontal {
+  to {
+    background-position: 30px 0;
+  }
+}
+
+@keyframes portal-health-flow-vertical {
+  to {
+    background-position: 0 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-experiment-column .portal-experiment-stack::before,
+  .portal-experiment-column .portal-experiment-stack::after,
+  .portal-experiment-column .portal-launch-card.is-experiment::before,
+  .portal-experiment-column .portal-launch-card.is-experiment::after,
+  .portal-health-link-arm,
+  .portal-health-link-drop {
+    animation: none;
+  }
 }
 
 .portal-launch-card {
@@ -4477,9 +4536,14 @@ select {
 
   .portal-experiment-column .portal-experiment-stack {
     margin-right: 24px;
+    margin-left: 24px;
   }
 
-  .portal-experiment-column .portal-health-link::before {
+  .portal-experiment-column .portal-health-link-arm.is-left {
+    left: 4px;
+  }
+
+  .portal-experiment-column .portal-health-link-arm.is-right {
     right: 4px;
   }
 

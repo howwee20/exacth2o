@@ -3066,7 +3066,11 @@ function PortalAdminHome({
         <div className="portal-experiment-column">
           <ExperimentLaunchCards data={data} onOpenExperiment={onOpenExperiment} />
 
-          <span className="portal-health-link" aria-hidden="true" />
+          <span className="portal-health-link" aria-hidden="true">
+            <span className="portal-health-link-arm is-left" />
+            <span className="portal-health-link-arm is-right" />
+            <span className="portal-health-link-drop" />
+          </span>
 
           <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
             <span className="portal-launch-top">
