@@ -801,28 +801,60 @@ select {
 }
 
 .portal-experiment-column {
+  position: relative;
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-items: stretch;
+  overflow: visible;
+}
+
+.portal-experiment-column .portal-experiment-stack {
+  position: relative;
+}
+
+.portal-experiment-column .portal-experiment-stack::after {
+  position: absolute;
+  top: calc(16.6667% - 4.67px);
+  right: -20px;
+  bottom: -24px;
+  z-index: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(26, 107, 74, 0.58);
+  content: "";
+  pointer-events: none;
+}
+
+.portal-experiment-column .portal-launch-card.is-experiment::after {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  z-index: 0;
+  width: 20px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(26, 107, 74, 0.24), rgba(26, 107, 74, 0.72));
+  content: "";
+  pointer-events: none;
+}
+
+.portal-experiment-column .portal-launch-card.is-experiment:nth-child(1)::after {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.26), rgba(26, 107, 74, 0.72));
+}
+
+.portal-experiment-column .portal-launch-card.is-experiment:nth-child(2)::after,
+.portal-experiment-column .portal-launch-card.is-experiment:nth-child(3)::after {
+  background: linear-gradient(90deg, rgba(180, 83, 9, 0.28), rgba(26, 107, 74, 0.72));
 }
 
 .portal-health-link {
   position: relative;
   z-index: 1;
-  justify-self: center;
-  width: 2px;
-  height: 34px;
-  margin: 8px 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background-image: repeating-linear-gradient(
-    180deg,
-    rgba(26, 107, 74, 0.7) 0 8px,
-    transparent 8px 15px
-  );
-  background-size: 2px 30px;
-  animation: portal-health-flow 0.85s linear infinite;
+  justify-self: stretch;
+  width: auto;
+  height: 48px;
+  overflow: visible;
   pointer-events: none;
 }
 
@@ -830,39 +862,26 @@ select {
 .portal-health-link::after {
   position: absolute;
   content: "";
+  pointer-events: none;
 }
 
 .portal-health-link::before {
-  top: 0;
+  top: 23px;
+  right: -20px;
   left: 50%;
-  width: 5px;
-  height: 5px;
+  height: 2px;
   border-radius: 999px;
-  background: var(--portal-water);
-  transform: translate(-50%, -50%);
+  background: linear-gradient(90deg, rgba(26, 107, 74, 0.76), rgba(26, 107, 74, 0.58));
 }
 
 .portal-health-link::after {
-  bottom: 0;
+  top: 23px;
+  bottom: -1px;
   left: 50%;
-  width: 0;
-  height: 0;
-  border-top: 8px solid var(--portal-water);
-  border-right: 5px solid transparent;
-  border-left: 5px solid transparent;
-  transform: translate(-50%, 42%);
-}
-
-@keyframes portal-health-flow {
-  to {
-    background-position: 0 30px;
-  }
-}
-
-@keyframes portal-health-flow-vertical {
-  to {
-    background-position: 0 30px;
-  }
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(26, 107, 74, 0.76);
+  transform: translateX(-1px);
 }
 
 .portal-launch-card {
@@ -938,6 +957,20 @@ select {
   justify-self: center;
   gap: 10px;
   padding: 16px;
+}
+
+.portal-launch-card.is-health::before {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  border-top: 7px solid rgba(26, 107, 74, 0.82);
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+  content: "";
+  transform: translateX(-50%);
 }
 
 .portal-launch-card.is-health .portal-launch-icon {
@@ -4442,6 +4475,14 @@ select {
     gap: 30px;
   }
 
+  .portal-experiment-column .portal-experiment-stack {
+    margin-right: 24px;
+  }
+
+  .portal-experiment-column .portal-health-link::before {
+    right: 4px;
+  }
+
   .rd-current-grid,
   .rd-progress-panel {
     grid-template-columns: 1fr;
@@ -5263,12 +5304,6 @@ select {
   .rd-exact-scores { grid-template-columns: 1fr; }
   .rd-live-overview-heading { display: grid; align-items: start; }
   .rd-live-overview-grid { grid-template-columns: 1fr; }
-}
-
-@keyframes portal-health-flow-vertical {
-  to {
-    background-position: 0 30px;
-  }
 }
 
 @media (max-width: 720px) {
