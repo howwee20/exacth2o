@@ -36,7 +36,7 @@ const ovenDryPairings = [
 export const portalExperiments: readonly PortalExperiment[] = [
   {
     id: "matt-experiment",
-    name: "Matt Experiment",
+    name: "Matt Experiment 1",
     shortDescription: "Original 20-pot controlled experiment",
     mode: "controlled",
     groupNames: ["Matt's 20 pots"],

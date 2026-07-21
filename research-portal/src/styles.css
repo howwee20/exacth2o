@@ -704,9 +704,32 @@ select {
   color: var(--portal-water);
 }
 
+.experiment-view-title {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding-right: 220px;
+  color: var(--portal-ink);
+  font-family: var(--portal-sans);
+  font-size: 1.08rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.experiment-view-title::before {
+  width: 3px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--portal-water-light);
+  content: "";
+}
+
 .experiment-shell .dashboard-main {
-  min-height: calc(100vh - 38px);
-  padding-top: 46px;
+  min-height: calc(100vh - 60px);
 }
 
 .portal-admin-shell {
@@ -2505,40 +2528,6 @@ select {
   background: #fff1f0;
   color: #9f1f17;
   border: 1px solid #f2b8b5;
-}
-
-.experiment-mode-banner {
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 42px 0 14px;
-  padding: 10px 14px;
-  border: 1px solid rgba(26, 107, 74, 0.18);
-  border-radius: 8px;
-  background: rgba(236, 253, 245, 0.72);
-}
-
-.experiment-mode-banner > div {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.experiment-mode-banner strong {
-  color: #172033;
-  font-size: 0.92rem;
-}
-
-.experiment-mode-banner span:not(.portal-status-pill) {
-  color: #64748b;
-  font-size: 0.76rem;
-}
-
-.experiment-mode-banner.is-observation {
-  border-color: rgba(180, 83, 9, 0.2);
-  background: rgba(255, 251, 235, 0.84);
 }
 
 .dashboard-main {
@@ -4524,11 +4513,6 @@ select {
     grid-template-columns: 1fr;
   }
 
-  .experiment-mode-banner {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .control-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5359,8 +5343,10 @@ select {
     right: 12px;
   }
 
-  .experiment-shell .dashboard-main {
-    padding-top: 44px;
+  .experiment-view-title {
+    min-height: 44px;
+    padding-right: 180px;
+    font-size: 1rem;
   }
 
   .dashboard-header {

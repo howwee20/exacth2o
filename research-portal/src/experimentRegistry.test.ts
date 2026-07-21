@@ -19,6 +19,11 @@ describe("experiment registry", () => {
     expect(isObservationOnlyExperiment(portalExperimentById("oven-dry-experiment"))).toBe(true);
   });
 
+  it("numbers the two Matt experiments consistently in the portal", () => {
+    expect(portalExperimentById("matt-experiment").name).toBe("Matt Experiment 1");
+    expect(portalExperimentById("matt-experiment-2").name).toBe("Matt Experiment 2");
+  });
+
   it("includes Oven-Dry Pot 51 instead of treating it as a diagnostic mapping", () => {
     expect(portalExperimentById("oven-dry-experiment").pairingNames).toContain("Zone3-Pot51");
   });

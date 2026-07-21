@@ -93,6 +93,7 @@ import {
   portalExperiments,
   type ExperimentId,
 } from "./experimentRegistry";
+import { colorForPotNumber } from "./potColors";
 
 const graphReadLimit = 12_000;
 const pageSize = 1000;
@@ -123,32 +124,6 @@ const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
 const controlPots = new Set([41, 43, 45, 47, 49, 91, 93, 95, 97, 99]);
 const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
-
-const zone2Palette = [
-  "#2563eb",
-  "#f97316",
-  "#0891b2",
-  "#dc2626",
-  "#14b8a6",
-  "#7c3aed",
-  "#16a34a",
-  "#db2777",
-  "#6366f1",
-  "#ca8a04",
-];
-
-const zone4Palette = [
-  "#22c55e",
-  "#a855f7",
-  "#84cc16",
-  "#0ea5e9",
-  "#ea580c",
-  "#2563eb",
-  "#c026d3",
-  "#10b981",
-  "#e11d48",
-  "#f59e0b",
-];
 
 type ViewMode = "group" | "traces" | "individual" | "qc";
 type ExperimentGraphMode = "vwc" | "watering" | "overlay";
@@ -646,13 +621,7 @@ function orderedPairings(pairings: PairingRow[]) {
 }
 
 function colorForPairing(pairing: PairingRow) {
-  if (pairing.zone === 2) {
-    return zone2Palette[Math.max(0, pairing.pot_number - 41) % zone2Palette.length];
-  }
-  if (pairing.zone === 4) {
-    return zone4Palette[Math.max(0, pairing.pot_number - 91) % zone4Palette.length];
-  }
-  return "#475569";
+  return colorForPotNumber(pairing.pot_number);
 }
 
 function treatmentForPot(potNumber?: number | null): Treatment {
@@ -6906,17 +6875,7 @@ export default function App() {
         </div>
       ) : null}
 
-      <section className={`experiment-mode-banner ${isObservationOnlyExperiment(selectedExperiment) ? "is-observation" : "is-controlled"}`}>
-        <div>
-          <strong>{selectedExperiment.name}</strong>
-          <span>{selectedExperiment.shortDescription}</span>
-        </div>
-        {isObservationOnlyExperiment(selectedExperiment) ? (
-          <span className="portal-status-pill is-warning">Observation only · ExactH2O will not water these pots</span>
-        ) : (
-          <span className="portal-status-pill is-ok">Controlled experiment</span>
-        )}
-      </section>
+      <h1 className="experiment-view-title">{selectedExperiment.name}</h1>
 
       <section
         ref={dashboardMainRef}
