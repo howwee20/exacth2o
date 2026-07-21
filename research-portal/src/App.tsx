@@ -3068,7 +3068,6 @@ function PortalAdminHome({
 
           <span className="portal-health-link" aria-hidden="true">
             <span className="portal-health-link-arm is-left" />
-            <span className="portal-health-link-arm is-right" />
             <span className="portal-health-link-drop" />
           </span>
 

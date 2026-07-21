@@ -813,10 +813,10 @@ select {
   position: relative;
 }
 
-.portal-experiment-column .portal-experiment-stack::before,
-.portal-experiment-column .portal-experiment-stack::after {
+.portal-experiment-column .portal-experiment-stack::before {
   position: absolute;
   top: calc(16.6667% - 4.67px);
+  left: -20px;
   bottom: -24px;
   z-index: 0;
   width: 2px;
@@ -831,18 +831,10 @@ select {
   pointer-events: none;
 }
 
-.portal-experiment-column .portal-experiment-stack::before {
-  left: -20px;
-}
-
-.portal-experiment-column .portal-experiment-stack::after {
-  right: -20px;
-}
-
-.portal-experiment-column .portal-launch-card.is-experiment::before,
-.portal-experiment-column .portal-launch-card.is-experiment::after {
+.portal-experiment-column .portal-launch-card.is-experiment::before {
   position: absolute;
   top: 50%;
+  right: 100%;
   z-index: 0;
   width: 20px;
   height: 2px;
@@ -852,18 +844,9 @@ select {
     transparent 8px 15px
   );
   background-size: 30px 2px;
+  animation: portal-health-flow-horizontal 0.85s linear infinite reverse;
   content: "";
   pointer-events: none;
-}
-
-.portal-experiment-column .portal-launch-card.is-experiment::before {
-  right: 100%;
-  animation: portal-health-flow-horizontal 0.85s linear infinite reverse;
-}
-
-.portal-experiment-column .portal-launch-card.is-experiment::after {
-  left: 100%;
-  animation: portal-health-flow-horizontal 0.85s linear infinite;
 }
 
 .portal-health-link {
@@ -899,12 +882,6 @@ select {
   animation: portal-health-flow-horizontal 0.85s linear infinite;
 }
 
-.portal-health-link-arm.is-right {
-  right: -20px;
-  left: 50%;
-  animation: portal-health-flow-horizontal 0.85s linear infinite reverse;
-}
-
 .portal-health-link-drop {
   top: 23px;
   bottom: -1px;
@@ -934,9 +911,7 @@ select {
 
 @media (prefers-reduced-motion: reduce) {
   .portal-experiment-column .portal-experiment-stack::before,
-  .portal-experiment-column .portal-experiment-stack::after,
   .portal-experiment-column .portal-launch-card.is-experiment::before,
-  .portal-experiment-column .portal-launch-card.is-experiment::after,
   .portal-health-link-arm,
   .portal-health-link-drop {
     animation: none;
@@ -1016,20 +991,6 @@ select {
   justify-self: center;
   gap: 10px;
   padding: 16px;
-}
-
-.portal-launch-card.is-health::before {
-  position: absolute;
-  top: -7px;
-  left: 50%;
-  z-index: 2;
-  width: 0;
-  height: 0;
-  border-top: 7px solid rgba(26, 107, 74, 0.82);
-  border-right: 5px solid transparent;
-  border-left: 5px solid transparent;
-  content: "";
-  transform: translateX(-50%);
 }
 
 .portal-launch-card.is-health .portal-launch-icon {
@@ -4535,16 +4496,11 @@ select {
   }
 
   .portal-experiment-column .portal-experiment-stack {
-    margin-right: 24px;
     margin-left: 24px;
   }
 
   .portal-experiment-column .portal-health-link-arm.is-left {
     left: 4px;
-  }
-
-  .portal-experiment-column .portal-health-link-arm.is-right {
-    right: 4px;
   }
 
   .rd-current-grid,
