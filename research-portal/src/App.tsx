@@ -6586,20 +6586,15 @@ export default function App() {
       }
     : undefined;
   const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
-  const showSiteControl = isAdmin && portalView === "home";
+  const showHomeActions = isAdmin && portalView === "home";
   const showExperimentHomeControl = isAdmin && portalView === "experiment";
 
   const portalActions = (
     <div className="header-actions">
-      {showSiteControl ? (
-        <>
-          <a className="header-action" href="/">
-            Site
-          </a>
-          <button className="header-action" type="button" onClick={signOut}>
-            Sign out
-          </button>
-        </>
+      {showHomeActions ? (
+        <button className="header-action" type="button" onClick={signOut}>
+          Sign out
+        </button>
       ) : null}
       {showExperimentHomeControl ? (
         <button className="header-action" type="button" onClick={() => setPortalView("home")}>
