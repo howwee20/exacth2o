@@ -84,6 +84,15 @@ import { ResponseCurveLab } from "./ResponseCurveLab";
 import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
 import { mergeRdHistoryPage } from "./rdPagination";
 import type { RdLabSnapshot } from "./rdTypes";
+import {
+  isObservationOnlyExperiment,
+  latestExperimentReading,
+  pairingBelongsToExperiment,
+  pairingsForExperiment,
+  portalExperimentById,
+  portalExperiments,
+  type ExperimentId,
+} from "./experimentRegistry";
 
 const graphReadLimit = 12_000;
 const pageSize = 1000;
@@ -2981,6 +2990,70 @@ function PortalStatusPill({ snapshot }: { snapshot?: DeviceHealthSnapshot | null
   );
 }
 
+function ExperimentLaunchCards({
+  data,
+  onOpenExperiment,
+}: {
+  data: LoadState;
+  onOpenExperiment: (experimentId: ExperimentId) => void;
+}) {
+  return (
+    <div className="portal-experiment-stack" aria-label="Experiments">
+      {portalExperiments.map((experiment) => {
+        const pairings = pairingsForExperiment(data.pairings, experiment);
+        const latestReading = latestExperimentReading(data.readings, experiment);
+        const activeCount = pairings.length;
+        const expectedCount = experiment.pairingNames.length;
+        const configured = activeCount === expectedCount;
+        const observationOnly = isObservationOnlyExperiment(experiment);
+
+        return (
+          <button
+            type="button"
+            className={`portal-launch-card is-experiment ${observationOnly ? "is-observation" : ""}`}
+            key={experiment.id}
+            onClick={() => onOpenExperiment(experiment.id)}
+          >
+            <span className="portal-launch-top">
+              <span className="portal-launch-icon">
+                <Activity size={20} />
+              </span>
+              <span className={`portal-status-pill ${configured ? "is-ok" : "is-warning"}`}>
+                {configured ? (observationOnly ? "OBSERVE" : "OPEN") : "SETUP"}
+              </span>
+            </span>
+            <span className="portal-launch-copy">
+              <span className="portal-launch-title">{experiment.name}</span>
+              <strong>{activeCount} / {expectedCount} pots</strong>
+              <em>{experiment.shortDescription}</em>
+              <em>Updated {formatSettingsTimestamp(latestReading?.device_recorded_at ?? data.latestIngestTime)}</em>
+            </span>
+            <span className="portal-launch-action">
+              Open <ArrowRight size={14} />
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PortalResearcherHome({
+  data,
+  onOpenExperiment,
+}: {
+  data: LoadState;
+  onOpenExperiment: (experimentId: ExperimentId) => void;
+}) {
+  return (
+    <section className="portal-admin-main" aria-label="Research experiments">
+      <div className="portal-launch-grid">
+        <ExperimentLaunchCards data={data} onOpenExperiment={onOpenExperiment} />
+      </div>
+    </section>
+  );
+}
+
 function PortalAdminHome({
   data,
   healthSnapshot,
@@ -2999,13 +3072,12 @@ function PortalAdminHome({
   salesSupportData: SalesSupportData;
   salesSupportLoading: boolean;
   rdAccessAllowed: boolean;
-  onOpenExperiment: () => void;
+  onOpenExperiment: (experimentId: ExperimentId) => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
   onOpenRd: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
-  const experimentUpdated = data.latestIngestTime ?? data.latestState?.updated_at ?? null;
   const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
   const openSupportCount = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
   const newSupportCount = supportThreads.filter((item) => item.status === "new").length;
@@ -3022,22 +3094,8 @@ function PortalAdminHome({
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
       <div className="portal-launch-grid">
-        <div className="portal-experiment-stack">
-          <button type="button" className="portal-launch-card is-experiment" onClick={onOpenExperiment}>
-            <span className="portal-launch-top">
-              <span className="portal-launch-icon">
-                <Activity size={20} />
-              </span>
-              <span className="portal-status-pill is-ok">OPEN</span>
-            </span>
-            <span className="portal-launch-copy">
-              <span className="portal-launch-title">Matt Experiment</span>
-              <em>Updated {formatSettingsTimestamp(experimentUpdated)}</em>
-            </span>
-            <span className="portal-launch-action">
-              Open <ArrowRight size={14} />
-            </span>
-          </button>
+        <div className="portal-experiment-column">
+          <ExperimentLaunchCards data={data} onOpenExperiment={onOpenExperiment} />
 
           <span className="portal-health-link" aria-hidden="true" />
 
@@ -4909,7 +4967,8 @@ export default function App() {
   const [data, setData] = useState<LoadState>(initialLoadState);
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
   const [accessLoading, setAccessLoading] = useState(false);
-  const [portalView, setPortalView] = useState<PortalView>("experiment");
+  const [portalView, setPortalView] = useState<PortalView>("home");
+  const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("matt-experiment");
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
   const [healthHistory, setHealthHistory] = useState<DeviceHealthSnapshot[]>([]);
   const [runtimeState, setRuntimeState] = useState<DeviceRuntimeState | null>(null);
@@ -4957,7 +5016,17 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [settingsOpen]);
 
-  const sortedPairings = useMemo(() => orderedPairings(visibleExperimentPairings(data.pairings)), [data.pairings]);
+  const selectedExperiment = useMemo(
+    () => portalExperimentById(selectedExperimentId),
+    [selectedExperimentId],
+  );
+  const sortedPairings = useMemo(
+    () => orderedPairings(
+      visibleExperimentPairings(data.pairings)
+        .filter((pairing) => pairingBelongsToExperiment(pairing, selectedExperiment)),
+    ),
+    [data.pairings, selectedExperiment],
+  );
   const pairingByName = useMemo(
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
@@ -5004,9 +5073,10 @@ export default function App() {
   ).length;
   const isAdmin = portalAccess?.role === "admin";
   const canReadProjectData = hasProjectDataReadAccess(portalAccess?.role);
-  const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role);
+  const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role) &&
+    !isObservationOnlyExperiment(selectedExperiment);
 
-  const resetPortalSessionUi = useCallback((nextView: PortalView = "experiment") => {
+  const resetPortalSessionUi = useCallback((nextView: PortalView = "home") => {
     setSettingsOpen(false);
     setSettingsSection("overview");
     setControlBusy(false);
@@ -5019,6 +5089,18 @@ export default function App() {
     setExperimentGraphMode("vwc");
     setSelectedWateringDetail(null);
     setPortalView(nextView);
+  }, []);
+
+  const openExperiment = useCallback((experimentId: ExperimentId) => {
+    setSelectedExperimentId(experimentId);
+    setExperimentGraphMode("vwc");
+    setPotPreset("all");
+    setHiddenPots(new Set());
+    setSelectedSeriesName(null);
+    setSelectedWateringDetail(null);
+    setTimeWindow(fullTimeWindow);
+    setSettingsOpen(false);
+    setPortalView("experiment");
   }, []);
 
   const expirePortalSession = useCallback(() => {
@@ -5088,7 +5170,7 @@ export default function App() {
       const role = parsePortalRole(response.data?.role);
       if (!role) {
         setPortalAccess(null);
-        setPortalView("experiment");
+        setPortalView("home");
         return;
       }
       const access: Exclude<PortalAccess, null> = {
@@ -5096,14 +5178,14 @@ export default function App() {
         email: response.data?.email ?? null,
       };
       setPortalAccess(access);
-      setPortalView(role === "admin" ? "home" : "experiment");
+      setPortalView("home");
     } catch (err) {
       if (isSessionAuthorizationError(err)) {
         expirePortalSession();
         return;
       }
       setPortalAccess(null);
-      setPortalView("experiment");
+      setPortalView("home");
     } finally {
       setAccessLoading(false);
     }
@@ -6088,7 +6170,7 @@ export default function App() {
       setPortalAccess(null);
       setSettingsOpen(false);
       setSettingsSection("overview");
-      setPortalView("experiment");
+      setPortalView("home");
       setHealthSnapshot(null);
       setHealthHistory([]);
       setRuntimeState(null);
@@ -6572,10 +6654,14 @@ export default function App() {
     );
   }
 
-  const groupedPairings = {
-    zone2: sortedPairings.filter((pairing) => pairing.zone === 2),
-    zone4: sortedPairings.filter((pairing) => pairing.zone === 4),
-  };
+  const groupedPairings = Array.from(
+    sortedPairings.reduce((groups, pairing) => {
+      const current = groups.get(pairing.zone) ?? [];
+      current.push(pairing);
+      groups.set(pairing.zone, current);
+      return groups;
+    }, new Map<number, PairingRow[]>()),
+  ).sort(([zoneA], [zoneB]) => zoneA - zoneB);
   const controlPanelStyle: CSSProperties | undefined = graphExpanded
     ? {
         width: panelSize.width,
@@ -6586,8 +6672,8 @@ export default function App() {
       }
     : undefined;
   const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
-  const showHomeActions = isAdmin && portalView === "home";
-  const showExperimentHomeControl = isAdmin && portalView === "experiment";
+  const showHomeActions = Boolean(portalAccess) && portalView === "home";
+  const showExperimentHomeControl = Boolean(portalAccess) && portalView === "experiment";
 
   const portalActions = (
     <div className="header-actions">
@@ -6675,7 +6761,7 @@ export default function App() {
           salesSupportData={salesSupportData}
           salesSupportLoading={salesSupportLoading}
           rdAccessAllowed={hasRdSystemAdminAccess(portalAccess.role, rdAccessStatus === "allowed")}
-          onOpenExperiment={() => setPortalView("experiment")}
+          onOpenExperiment={openExperiment}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
           onOpenRd={() => {
@@ -6705,6 +6791,15 @@ export default function App() {
           onQueueCommand={queueControlCommand}
           onSignOut={signOut}
         />
+      </main>
+    );
+  }
+
+  if (!isAdmin && portalView === "home") {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        <PortalResearcherHome data={data} onOpenExperiment={openExperiment} />
       </main>
     );
   }
@@ -6811,6 +6906,18 @@ export default function App() {
         </div>
       ) : null}
 
+      <section className={`experiment-mode-banner ${isObservationOnlyExperiment(selectedExperiment) ? "is-observation" : "is-controlled"}`}>
+        <div>
+          <strong>{selectedExperiment.name}</strong>
+          <span>{selectedExperiment.shortDescription}</span>
+        </div>
+        {isObservationOnlyExperiment(selectedExperiment) ? (
+          <span className="portal-status-pill is-warning">Observation only · ExactH2O will not water these pots</span>
+        ) : (
+          <span className="portal-status-pill is-ok">Controlled experiment</span>
+        )}
+      </section>
+
       <section
         ref={dashboardMainRef}
         className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}
@@ -6828,23 +6935,27 @@ export default function App() {
               >
                 VWC
               </button>
-              <button
-                type="button"
-                className={experimentGraphMode === "watering" ? "is-selected" : ""}
-                onClick={() => setExperimentGraphMode("watering")}
-              >
-                Watering
-              </button>
-              <button
-                type="button"
-                className={experimentGraphMode === "overlay" ? "is-selected" : ""}
-                onClick={() => {
-                  setSelectedWateringDetail(null);
-                  setExperimentGraphMode("overlay");
-                }}
-              >
-                Overlay
-              </button>
+              {!isObservationOnlyExperiment(selectedExperiment) ? (
+                <>
+                  <button
+                    type="button"
+                    className={experimentGraphMode === "watering" ? "is-selected" : ""}
+                    onClick={() => setExperimentGraphMode("watering")}
+                  >
+                    Watering
+                  </button>
+                  <button
+                    type="button"
+                    className={experimentGraphMode === "overlay" ? "is-selected" : ""}
+                    onClick={() => {
+                      setSelectedWateringDetail(null);
+                      setExperimentGraphMode("overlay");
+                    }}
+                  >
+                    Overlay
+                  </button>
+                </>
+              ) : null}
             </div>
             <button
               className="expand-button"
@@ -6920,51 +7031,54 @@ export default function App() {
               >
                 All
               </button>
-              <button
-                type="button"
-                className={`preset-filter preset-control ${potPreset === "control" ? "is-selected" : ""}`}
-                onClick={() => applyPotPreset("control")}
-              >
-                Control
-              </button>
-              <button
-                type="button"
-                className={`preset-filter preset-drought ${potPreset === "drought" ? "is-selected" : ""}`}
-                onClick={() => applyPotPreset("drought")}
-              >
-                Drought
-              </button>
-              <button
-                type="button"
-                className={`preset-filter preset-maize ${potPreset === "maize" ? "is-selected" : ""}`}
-                onClick={() => applyPotPreset("maize")}
-              >
-                Maize
-              </button>
-              <button
-                type="button"
-                className={`preset-filter preset-sorghum ${potPreset === "sorghum" ? "is-selected" : ""}`}
-                onClick={() => applyPotPreset("sorghum")}
-              >
-                Sorghum
-              </button>
+              {!isObservationOnlyExperiment(selectedExperiment) ? (
+                <>
+                  <button
+                    type="button"
+                    className={`preset-filter preset-control ${potPreset === "control" ? "is-selected" : ""}`}
+                    onClick={() => applyPotPreset("control")}
+                  >
+                    Control
+                  </button>
+                  <button
+                    type="button"
+                    className={`preset-filter preset-drought ${potPreset === "drought" ? "is-selected" : ""}`}
+                    onClick={() => applyPotPreset("drought")}
+                  >
+                    Drought
+                  </button>
+                  <button
+                    type="button"
+                    className={`preset-filter preset-maize ${potPreset === "maize" ? "is-selected" : ""}`}
+                    onClick={() => applyPotPreset("maize")}
+                  >
+                    Maize
+                  </button>
+                  <button
+                    type="button"
+                    className={`preset-filter preset-sorghum ${potPreset === "sorghum" ? "is-selected" : ""}`}
+                    onClick={() => applyPotPreset("sorghum")}
+                  >
+                    Sorghum
+                  </button>
+                </>
+              ) : null}
             </div>
           </section>
 
-          {[
-            ["Maize", groupedPairings.zone2],
-            ["Sorghum", groupedPairings.zone4],
-          ].map(([label, pairings]) => {
-            const groupPairings = pairings as PairingRow[];
+          {groupedPairings.map(([zone, groupPairings]) => {
+            const label = !isObservationOnlyExperiment(selectedExperiment)
+              ? (zone === 2 ? "Maize" : zone === 4 ? "Sorghum" : `Zone ${zone}`)
+              : `Zone ${zone}`;
             const allVisible = groupPairings.every((pairing) => !hiddenPots.has(pairing.name));
             return (
-              <section className="pot-group" key={label as string}>
+              <section className="pot-group" key={zone}>
                 <div className="pot-group-head">
-                  <h3>{label as string}</h3>
+                  <h3>{label}</h3>
                   <button
                     type="button"
                     className={`group-toggle ${allVisible ? "is-on" : ""}`}
-                    aria-label={`${allVisible ? "Hide" : "Show"} all ${label as string} pots`}
+                    aria-label={`${allVisible ? "Hide" : "Show"} all ${label} pots`}
                     title={allVisible ? "Hide all" : "Show all"}
                     onClick={() => setGroupVisibility(groupPairings, !allVisible)}
                   >
@@ -6988,9 +7102,11 @@ export default function App() {
                           <b>{pairing.pot_number}</b>
                           <strong>{formatPercent(latestValue)}</strong>
                         </span>
-                        <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
-                          {treatmentForPairing(pairing) === "control" ? "C" : "D"}
-                        </em>
+                        {!isObservationOnlyExperiment(selectedExperiment) ? (
+                          <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
+                            {treatmentForPairing(pairing) === "control" ? "C" : "D"}
+                          </em>
+                        ) : null}
                       </button>
                     );
                   })}

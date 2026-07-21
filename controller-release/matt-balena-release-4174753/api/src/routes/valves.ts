@@ -82,6 +82,16 @@ const operateValve = async (request: FastifyRequest<{ Body: { operation: string,
       return
     }
 
+    // Raw, unauthenticated OPEN requests have no automatic close guarantee.
+    // Automatic irrigation uses the scheduler directly, while portal manual
+    // watering uses the authenticated, duration-bounded /valves/pulse route.
+    if (operation === 'OPEN') {
+      reply.code(410).send({
+        message: 'Legacy valve OPEN is disabled. Use the authenticated timed pulse route.'
+      })
+      return
+    }
+
     //post(`/${pathPrefix}/valves`, async (request: FastifyRequest<{ Body: { relayAddress: string, address: number, state: 'OPEN' | 'CLOSE' } }>
     const response = await fetchWithTimeout(
       `${process.env.CRON_URL}/valves`,

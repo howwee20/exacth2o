@@ -337,8 +337,7 @@ function isIgnoredDiagnosticIssue(value: unknown) {
     "cwd-lowercaset",
     "720-1539",
     "sensor data: 720-1539",
-    "d30gqn2d",
-    "0x20:3",
+    "d30gqn2d:t",
   ].some((needle) => text.includes(needle));
 }
 
@@ -679,10 +678,14 @@ function collectValveEvents(
 }
 
 function isIgnoredDiagnosticValveEvent(event: ValveEventInsert) {
+  if (isIgnoredDiagnosticPairingName(event.pairing_name)) return true;
+  const hasPairingIdentity = typeof event.pairing_name === "string" &&
+    event.pairing_name.trim() !== "" && event.pairing_name !== "unknown";
   return (
-    isIgnoredDiagnosticPairingName(event.pairing_name) ||
-    isIgnoredDiagnosticValveKey(event.valve_key) ||
-    isIgnoredDiagnosticNumber(event.source_valve_id, ignoredDiagnosticValveIds)
+    !hasPairingIdentity && (
+      isIgnoredDiagnosticValveKey(event.valve_key) ||
+      isIgnoredDiagnosticNumber(event.source_valve_id, ignoredDiagnosticValveIds)
+    )
   );
 }
 

@@ -38,9 +38,7 @@ function isIgnoredDiagnosticPairing(pairing: Partial<PairingRow>) {
   return (
     isIgnoredDiagnosticPairingName(pairing.name) ||
     isIgnoredDiagnosticSensorKey(pairing.sensor_key) ||
-    isIgnoredDiagnosticValveKey(pairing.valve_key) ||
-    isIgnoredDiagnosticNumber(pairing.source_sensor_id, ignoredDiagnosticSensorIds) ||
-    isIgnoredDiagnosticNumber(pairing.source_valve_id, ignoredDiagnosticValveIds)
+    isIgnoredDiagnosticNumber(pairing.source_sensor_id, ignoredDiagnosticSensorIds)
   );
 }
 
@@ -148,12 +146,16 @@ export function isIgnoredDiagnosticValveEvent(event: {
   valve?: unknown;
   source_valve_id?: unknown;
 }) {
+  const pairingIdentity = normalizedDiagnosticText(event.pairing_name) ||
+    normalizedDiagnosticText(event.pairing);
   return (
     isIgnoredDiagnosticPairingName(event.pairing_name) ||
     isIgnoredDiagnosticPairingName(event.pairing) ||
-    isIgnoredDiagnosticValveKey(event.valve_key) ||
-    isIgnoredDiagnosticValveKey(event.valve) ||
-    isIgnoredDiagnosticNumber(event.source_valve_id, ignoredDiagnosticValveIds)
+    (!pairingIdentity && (
+      isIgnoredDiagnosticValveKey(event.valve_key) ||
+      isIgnoredDiagnosticValveKey(event.valve) ||
+      isIgnoredDiagnosticNumber(event.source_valve_id, ignoredDiagnosticValveIds)
+    ))
   );
 }
 

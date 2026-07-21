@@ -75,6 +75,19 @@ describe("diagnostic filtering", () => {
 
     expect(visibleExperimentPairings([visible, diagnostic])).toEqual([visible]);
   });
+
+  it("keeps legitimate Oven-Dry Pot 51 even though it reuses valve 1539", () => {
+    const pot51 = pairing({
+      id: 673,
+      name: "Zone3-Pot51",
+      sensor_key: "D30GQN2D:A",
+      source_sensor_id: 673,
+      valve_key: "0x20:3",
+      source_valve_id: 1539,
+    });
+
+    expect(visibleExperimentPairings([pot51])).toEqual([pot51]);
+  });
 });
 
 describe("authoritative controller pairings", () => {

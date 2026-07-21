@@ -773,6 +773,14 @@ select {
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  justify-items: stretch;
+}
+
+.portal-experiment-column {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: stretch;
 }
 
@@ -860,6 +868,16 @@ select {
   border-color: rgba(26, 107, 74, 0.35);
   box-shadow: 0 18px 40px rgba(14, 26, 20, 0.1);
   transform: translateY(-1px);
+}
+
+.portal-launch-card.is-observation {
+  border-color: rgba(180, 83, 9, 0.2);
+  background: linear-gradient(145deg, #ffffff, #fffbeb);
+}
+
+.portal-launch-card.is-observation .portal-launch-icon {
+  background: #fffbeb;
+  color: #b45309;
 }
 
 .portal-launch-card:focus-visible {
@@ -2487,6 +2505,40 @@ select {
   background: #fff1f0;
   color: #9f1f17;
   border: 1px solid #f2b8b5;
+}
+
+.experiment-mode-banner {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 42px 0 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(26, 107, 74, 0.18);
+  border-radius: 8px;
+  background: rgba(236, 253, 245, 0.72);
+}
+
+.experiment-mode-banner > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.experiment-mode-banner strong {
+  color: #172033;
+  font-size: 0.92rem;
+}
+
+.experiment-mode-banner span:not(.portal-status-pill) {
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.experiment-mode-banner.is-observation {
+  border-color: rgba(180, 83, 9, 0.2);
+  background: rgba(255, 251, 235, 0.84);
 }
 
 .dashboard-main {
@@ -4470,6 +4522,11 @@ select {
 
   .dashboard-main {
     grid-template-columns: 1fr;
+  }
+
+  .experiment-mode-banner {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .control-panel {

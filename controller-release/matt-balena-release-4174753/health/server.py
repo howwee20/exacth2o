@@ -1594,6 +1594,42 @@ def compact_reading(reading):
     }
 
 
+def pairing_reading_rows(pairings, readings_response=None, groups=None):
+    """Return every configured pairing with its latest measurement evidence."""
+    if not isinstance(pairings, list):
+        return {"ok": False, "rows": [], "error": "pairings unavailable"}
+    latest = latest_readings_by_sensor(readings_response or {})
+    group_names = {
+        group.get("id"): group.get("name")
+        for group in (groups or [])
+        if isinstance(group, dict)
+    }
+    rows = []
+    for pairing in pairings:
+        if not isinstance(pairing, dict):
+            continue
+        sensor_id = pairing.get("sensorId")
+        valve_id = pairing.get("valveId")
+        rows.append({
+            "ok": bool(pairing.get("name") and sensor_id is not None and valve_id is not None),
+            "actualName": pairing.get("name"),
+            "softwarePairing": pairing.get("name"),
+            "sensorId": sensor_id,
+            "valveId": valve_id,
+            "actualSensor": pairing_sensor_key(pairing),
+            "actualValve": pairing_valve_key(pairing),
+            "groupId": pairing.get("groupId"),
+            "groupName": group_names.get(pairing.get("groupId")),
+            "calibrationId": pairing.get("calibrationId"),
+            "calibrationName": (pairing.get("Calibration") or {}).get("name"),
+            "WTCPercentLimit": pairing.get("WTCPercentLimit"),
+            "ValveOpenTime": pairing.get("ValveOpenTime"),
+            "MeasurementInterval": pairing.get("MeasurementInterval"),
+            "latestReading": compact_reading(latest.get(sensor_id)),
+        })
+    return {"ok": True, "rows": rows}
+
+
 def pairing_auto_config_ok(pairing):
     if not pairing:
         return False
@@ -1924,6 +1960,7 @@ def api_health():
         "pairings": "/v1/pairings",
         "sensors": "/v1/sensors",
         "valves": "/v1/valves",
+        "groups": "/v1/groups",
         "readings": f"/v1/readings?pageSize={READINGS_PAGE_SIZE}",
         "logs": "/v1/logs",
     }
@@ -1944,6 +1981,7 @@ def api_health():
     pairings = results["pairings"]
     sensors = results["sensors"]
     valves = results["valves"]
+    groups = results["groups"]
     readings = results["readings"]
     logs = results["logs"]
     watering_since = datetime.fromtimestamp(
@@ -1986,6 +2024,7 @@ def api_health():
         "pairings": compact_collection(pairings),
         "sensors": compact_collection(sensors),
         "valves": compact_collection(valves),
+        "groups": compact_collection(groups),
         "readings": compact_collection(readings),
         "logs": compact_collection(logs),
         "wateringLogs": compact_collection(watering_logs),
@@ -1997,6 +2036,11 @@ def api_health():
             "ok": all(board in boards for board in EXPECTED_BOARDS),
         },
         "researcherMap": validate_researcher_map(pairings.get("data"), readings),
+        "pairingReadings": pairing_reading_rows(
+            pairings.get("data"),
+            readings,
+            groups.get("data"),
+        ),
     }
 
 

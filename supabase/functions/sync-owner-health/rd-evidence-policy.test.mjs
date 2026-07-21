@@ -54,6 +54,37 @@ test("builds deterministic live reading rows from verified researcher map eviden
   );
 });
 
+test("prefers complete controller pairing evidence for new experiments", () => {
+  const completeHealth = {
+    api: {
+      pairingReadings: {
+        rows: [{
+          ok: true,
+          sensorId: 673,
+          valveId: 1539,
+          actualName: "Zone3-Pot51",
+          actualSensor: "D30GQN2D:A",
+          latestReading: {
+            createdAt: "2026-07-21T18:00:00.000Z",
+            rawValue: 800,
+            calibratedValue: 33.1,
+          },
+        }],
+      },
+      researcherMap: { rows: [] },
+    },
+  };
+  const rows = collectLiveReadingRows(completeHealth, {
+    organizationId: "org",
+    projectId: "project",
+    deviceId: "device",
+    serverReceivedAt: "2026-07-21T18:01:00.000Z",
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].pairing_name, "Zone3-Pot51");
+  assert.equal(resolveEvidencePairing("673-1539;", completeHealth).pairingName, "Zone3-Pot51");
+});
+
 test("prefers direct automatic evidence over a scalar duplicate", () => {
   const base = {
     pairing_name: "Zone4-Pot91",

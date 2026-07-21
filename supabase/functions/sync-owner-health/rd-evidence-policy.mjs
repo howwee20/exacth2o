@@ -8,10 +8,16 @@ function asFiniteNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function pairingReadingRows(health) {
+  const completeRows = health?.api?.pairingReadings?.rows;
+  if (Array.isArray(completeRows)) return completeRows;
+  const legacyRows = health?.api?.researcherMap?.rows;
+  return Array.isArray(legacyRows) ? legacyRows : [];
+}
+
 export function researcherPairingMap(health) {
-  const rows = health?.api?.researcherMap?.rows;
+  const rows = pairingReadingRows(health);
   const result = new Map();
-  if (!Array.isArray(rows)) return result;
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
     const sensorId = asFiniteNumber(row.sensorId);
@@ -41,8 +47,7 @@ export function resolveEvidencePairing(rawPairing, health) {
 }
 
 export function collectLiveReadingRows(health, context) {
-  const rows = health?.api?.researcherMap?.rows;
-  if (!Array.isArray(rows)) return [];
+  const rows = pairingReadingRows(health);
   const readings = [];
   for (const row of rows) {
     if (!row || typeof row !== "object" || row.ok !== true) continue;
