@@ -2,20 +2,20 @@
 
 import { ReactNode, createContext, useContext, useState, useEffect } from 'react';
 import { User } from './lib/types';
-import { getThisUser, getUser } from './server-actions/getUsers';
+import { getThisUser, getUser, logoutUser } from './server-actions/getUsers';
 
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
   login: () => Promise.resolve(false),
-  logout: () => {},
+  logout: () => Promise.resolve(),
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -26,13 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const storedUserId = localStorage.getItem('userid');
-        if (storedUserId) {
-          const user = await getThisUser(storedUserId);
-          setUser(user);
-        }
+        const user = await getThisUser();
+        setUser(user);
       } catch (error) {
-        console.error('Failed to parse user from localStorage', error);
+        console.error('Failed to restore authenticated session', error);
       } finally {
         setIsLoading(false);
       }
@@ -49,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       if (userData) {
-        localStorage.setItem('userid', userData.id);
         setUser(userData);
         setIsLoading(false);
         console.log('returning true');
@@ -65,8 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Logout function - remove from localStorage and update state
-  const logout = () => {
-    localStorage.removeItem('userid');
+  const logout = async () => {
+    await logoutUser();
     setUser(null);
   };
 

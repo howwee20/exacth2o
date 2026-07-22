@@ -5,7 +5,7 @@ import { Valve } from '../models';
 import { createGzip } from 'zlib'
 import { EXPORT_CHUNK_SIZE, formatDateInCentralTime, escapeCsvValue, writeToGzip } from '../utils/csvExportUtils'
 import { CRON_REQUEST_TIMEOUT_MS, fetchWithTimeout, sendApiError, withTimeout } from '../utils/requestTimeout'
-import { timingSafeEqual } from 'crypto'
+import { secretsMatch } from '../utils/controllerMutationAuth'
 
 const getValves = async (request: FastifyRequest<any>, reply: FastifyReply) => {
   try {
@@ -124,11 +124,7 @@ const pulseValve = async (request: FastifyRequest<{
 }>, reply: FastifyReply) => {
   const expectedSecret = String(process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '')
   const suppliedSecret = String(request.headers['x-exacth2o-controller-secret'] || '')
-  const expectedBuffer = Buffer.from(expectedSecret)
-  const suppliedBuffer = Buffer.from(suppliedSecret)
-  const authenticated = Boolean(expectedSecret && suppliedSecret) &&
-    expectedBuffer.length === suppliedBuffer.length &&
-    timingSafeEqual(expectedBuffer, suppliedBuffer)
+  const authenticated = secretsMatch(suppliedSecret, expectedSecret)
   if (!authenticated) {
     reply.code(401).send({ message: 'Controller command authentication required' })
     return

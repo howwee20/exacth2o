@@ -1,19 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import 'server-only'
+
+import { requireUiSession } from './server-auth';
+
 export class ApiClient {
   private baseUrl: string;
   private timeoutMs: number;
+  private allowAnonymous: boolean;
 
-  constructor() {
+  constructor(options: { allowAnonymous?: boolean } = {}) {
     // This will be your internal Docker service URL when running server-side
     this.baseUrl = process.env.API_URL || 'http://api_svc:8888/v1';
     const parsedTimeout = Number.parseInt(process.env.API_REQUEST_TIMEOUT_MS || '', 10);
     this.timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 10000;
+    this.allowAnonymous = options.allowAnonymous === true;
   }
 
   private async fetchWithConfig(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<any> {
+    if (!this.allowAnonymous) await requireUiSession();
     const url = `${this.baseUrl}${endpoint}`;
     console.log('fetching', url);
     const defaultHeaders = {
@@ -28,6 +35,11 @@ export class ApiClient {
         signal: controller.signal,
         headers: {
           ...defaultHeaders,
+          ...(
+            options.method && options.method !== 'GET'
+              ? { 'x-exacth2o-controller-secret': process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '' }
+              : {}
+          ),
           ...options.headers,
         },
       });

@@ -26,7 +26,6 @@ export interface User {
     id: string;
     username: string;
     email: string;
-    password: string;
     firstname: string | null;
     lastname: string | null;
     isAdmin: boolean;

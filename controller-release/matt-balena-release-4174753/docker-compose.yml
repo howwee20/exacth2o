@@ -1,5 +1,3 @@
-version: "2.4"
-
 volumes:
   db_data: {}
   database: {}
@@ -33,8 +31,6 @@ services:
     build:
       context: ./api
       dockerfile: api.dockerfile
-    ports:
-      - "8888:8888/tcp"
     expose:
       - "8888"
     devices:
@@ -47,7 +43,6 @@ services:
     privileged: true
     environment:
       PORT: "8888"
-      DB_CONN: "mariadb://root:walkerlabs@database_svc:3306/walkerlabs"
       CRON_URL: "http://cron_svc:3000/v1"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/v1/healthcheck"]
@@ -107,8 +102,6 @@ services:
 
   redis_svc:
     image: redis:7-alpine
-    ports:
-      - "6379:6379/tcp"
     expose:
       - "6379"
     restart: unless-stopped
@@ -124,8 +117,6 @@ services:
     build:
       context: .
       dockerfile: database.dockerfile
-    ports:
-      - "3306:3306/tcp"
     expose:
       - "3306"
     restart: unless-stopped
@@ -134,13 +125,9 @@ services:
       - "db_data:/var/lib/mysql"
     environment:
       MYSQL_DATABASE: "walkerlabs"
-      MYSQL_PASSWORD: "walkerlabs"
       MARIADB_DATABASE: "walkerlabs"
-      MARIADB_PASSWORD: "walkerlabs"
-      MYSQL_ROOT_PASSWORD: "walkerlabs"
-      MARIADB_ROOT_PASSWORD: "walkerlabs"
     healthcheck:
-      test: ["CMD", "mariadb", "-h", "localhost", "-u", "root", "-pwalkerlabs", "-e", "SELECT 1"]
+      test: ["CMD-SHELL", "mariadb -h localhost -u root -p\"$${MYSQL_ROOT_PASSWORD}\" -e 'SELECT 1'"]
       retries: 5
       timeout: 30s
       interval: 30s

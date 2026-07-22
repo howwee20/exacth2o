@@ -3,25 +3,19 @@
 import 'server-only'
 import { ApiClient } from '@/app/lib/api-client'
 import { User } from '@/app/lib/types';
+import { clearUiSession, createUiSession, requireUiSession } from '@/app/lib/server-auth';
 
 export async function getUser(email: string, password: string): Promise<User | null> {
-  const apiClient = new ApiClient();
-  const user: User | null = await apiClient.get(`/users/email/${encodeURIComponent(email)}`) as User | null;
-
-  if (user) {
-    if (user.password === password) {
-      return user;
-    }
-  }
-  return null;
+  const apiClient = new ApiClient({ allowAnonymous: true });
+  const user = await apiClient.post('/users/authenticate', { email, password }) as User | null;
+  if (!user) return null;
+  await createUiSession(user.id);
+  return user;
 }
 
-export async function getThisUser(userId?: string): Promise<User | null> {
+export async function getThisUser(): Promise<User | null> {
   try {
-    if (!userId) {
-      return null;
-    }
-
+    const userId = await requireUiSession();
     const apiClient = new ApiClient();
     const user: User | undefined = await apiClient.get(`/users/${userId}`) as User | undefined;
 
@@ -34,6 +28,10 @@ export async function getThisUser(userId?: string): Promise<User | null> {
     console.error('Error fetching user:', error);
     throw new Error('Failed to fetch user');
   }
+}
+
+export async function logoutUser(): Promise<void> {
+  await clearUiSession();
 }
 
 export async function getAllUsers(): Promise<User[]> {

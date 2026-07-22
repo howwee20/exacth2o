@@ -79,7 +79,7 @@ const main = async () => {
     console.log('Initialization file saved.')
   } catch (error) {
     console.error('Error initializing state machine:', error)
-    server.log.error('Error initializing state machine:', error)
+    server.log.error({ err: error }, 'Error initializing state machine')
     process.exit(1)
   }
 }

@@ -2973,7 +2973,6 @@ function ExperimentLaunchCards({
         const latestReading = latestExperimentReading(data.readings, experiment);
         const activeCount = pairings.length;
         const expectedCount = experiment.pairingNames.length;
-        const configured = activeCount === expectedCount;
         const observationOnly = isObservationOnlyExperiment(experiment);
 
         return (
@@ -2987,18 +2986,12 @@ function ExperimentLaunchCards({
               <span className="portal-launch-icon">
                 <Activity size={20} />
               </span>
-              <span className={`portal-status-pill ${configured ? "is-ok" : "is-warning"}`}>
-                {configured ? (observationOnly ? "OBSERVE" : "OPEN") : "SETUP"}
-              </span>
             </span>
             <span className="portal-launch-copy">
               <span className="portal-launch-title">{experiment.name}</span>
               <strong>{activeCount} / {expectedCount} pots</strong>
               <em>{experiment.shortDescription}</em>
               <em>Updated {formatSettingsTimestamp(latestReading?.device_recorded_at ?? data.latestIngestTime)}</em>
-            </span>
-            <span className="portal-launch-action">
-              Open <ArrowRight size={14} />
             </span>
           </button>
         );

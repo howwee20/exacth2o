@@ -3,6 +3,11 @@ import {
   parseHistoryPageRequest,
   takeHistoryPage,
 } from "./pagination-policy.mjs";
+import {
+  actualByHorizon,
+  hasRdSystemAdminAccess,
+  isMattControlPairing,
+} from "./response-policy.mjs";
 
 const allowedOrigins = new Set<string>([
   "https://exacth2o.com",
@@ -42,7 +47,6 @@ function latestState(
 }
 
 const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
-const mattControlTargetVwc = 20;
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -84,44 +88,6 @@ function targetVwc(value: unknown) {
   return Number(
     row.WTCPercentLimit ?? row.wtc_percent_limit ?? row.target_vwc ?? 0,
   );
-}
-
-function actualByHorizon(
-  readings: Array<Record<string, unknown>>,
-  pairing: string,
-  openedAt: string | null,
-  minutes: number[],
-) {
-  const values = new Map<number, number>();
-  if (!openedAt) return values;
-  const openedMs = Date.parse(openedAt);
-  if (!Number.isFinite(openedMs)) return values;
-  const rows = readings.filter((reading) =>
-    reading.pairing_name === pairing &&
-    Number.isFinite(Number(reading.calibrated_value))
-  );
-  const baseline = rows
-    .filter((reading) =>
-      Date.parse(String(reading.device_recorded_at ?? "")) <= openedMs
-    )
-    .at(-1);
-  if (baseline) values.set(0, Number(baseline.calibrated_value));
-
-  const candidates = rows.filter((reading) =>
-    Date.parse(String(reading.device_recorded_at ?? "")) > openedMs
-  );
-  for (const reading of candidates) {
-    const elapsed =
-      (Date.parse(String(reading.device_recorded_at)) - openedMs) /
-      60_000;
-    const horizon = minutes
-      .filter((minute) => minute > 0)
-      .map((minute) => ({ minute, delta: Math.abs(minute - elapsed) }))
-      .sort((left, right) => left.delta - right.delta)[0];
-    if (!horizon || horizon.delta > 6) continue;
-    values.set(horizon.minute, Number(reading.calibrated_value));
-  }
-  return values;
 }
 
 function interpolateCurve(
@@ -289,13 +255,28 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
-  const { data: access } = await admin
-    .from("rd_system_admin_access")
-    .select("enabled, revoked_at")
-    .eq("project_id", projectId)
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-  if (!access?.enabled || access.revoked_at) {
+  const [rdAccessResult, portalAccessResult] = await Promise.all([
+    admin
+      .from("rd_system_admin_access")
+      .select("enabled, revoked_at")
+      .eq("project_id", projectId)
+      .eq("user_id", userData.user.id)
+      .maybeSingle(),
+    admin
+      .from("portal_access")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", userData.user.id)
+      .maybeSingle(),
+  ]);
+  if (rdAccessResult.error || portalAccessResult.error) {
+    return response({ error: "Could not verify R&D access" }, 500, origin);
+  }
+  const access = rdAccessResult.data;
+  const explicitlyAllowed = access?.enabled === true && !access.revoked_at;
+  if (
+    !hasRdSystemAdminAccess(portalAccessResult.data?.role, explicitlyAllowed)
+  ) {
     return response(
       { error: "R&D system administrator access required" },
       403,
@@ -324,11 +305,9 @@ Deno.serve(async (request) => {
   const observationRecord = record(observation);
   const config = record(observationRecord.config);
   const pairings = Array.isArray(config.pairings) ? config.pairings : [];
-  const enabledPairings = pairings.filter((item) => {
-    const target = targetVwc(item);
-    return Number.isFinite(target) &&
-      Math.abs(target - mattControlTargetVwc) < 1e-9;
-  });
+  const enabledPairings = pairings.filter((item) =>
+    isMattControlPairing(pairingName(item))
+  );
   const readings = dedupeReadings(
     Array.isArray(observationRecord.readings) ? observationRecord.readings : [],
   );
@@ -381,6 +360,12 @@ Deno.serve(async (request) => {
         mode: "shadow",
         champion_version: "bootstrap pending",
         candidate_version: null,
+        model_readiness: {
+          kind: "bootstrap",
+          label: "Awaiting real Matt Experiment 1 training evidence",
+          synthetic_data_only: false,
+          evidence_count: 0,
+        },
         clean_events_learned: 0,
         learning: {
           completed_episode_totals: 0,
@@ -1149,12 +1134,38 @@ Deno.serve(async (request) => {
   const learnedEventCount = v5Channel
     ? Math.max(finalizedEvents.length, priorTrainingCount)
     : eligibleOutcomes.length;
+  const displayedModel = champion ?? modelById.get(
+    String(predictions[0]?.model_version_id ?? ""),
+  );
+  const modelReadiness = displayedModel?.synthetic_data_only === false
+    ? {
+      kind: "trained",
+      label: "Trained from real Matt Experiment 1 evidence",
+      synthetic_data_only: false,
+      evidence_count: Number(
+        displayedModel.training_event_count ?? learnedEventCount,
+      ),
+    }
+    : displayedModel?.synthetic_data_only === true
+    ? {
+      kind: "synthetic",
+      label: "Synthetic bootstrap only — not a trained live model",
+      synthetic_data_only: true,
+      evidence_count: learnedEventCount,
+    }
+    : {
+      kind: "bootstrap",
+      label: "Awaiting real Matt Experiment 1 training evidence",
+      synthetic_data_only: false,
+      evidence_count: learnedEventCount,
+    };
   return response(
     {
       generated_at: new Date().toISOString(),
       mode: "shadow",
       champion_version: champion?.version ?? displayEvents[0].model_version,
       candidate_version: candidate?.version ?? null,
+      model_readiness: modelReadiness,
       clean_events_learned: learnedEventCount,
       learning: {
         completed_episode_totals: v5Channel

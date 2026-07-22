@@ -659,6 +659,13 @@ export function ResponseCurveLab({
         </nav>
       </header>
 
+      {snapshot.model_readiness && snapshot.model_readiness.kind !== "trained" ? (
+        <div className="rd-data-notice" role="status">
+          <strong>Model readiness</strong>
+          <span>{snapshot.model_readiness.label}</span>
+        </div>
+      ) : null}
+
       {tab !== "models" ? (
         <section className="rd-pot-toolbar" aria-label="Choose a pot">
           <label><span>Pot</span><select value={selectedPot.pairing_name} onChange={(event) => { setSelectedName(event.target.value); setSelectedPulseId(null); }}>{pots.map((pot) => <option key={pot.pairing_name} value={pot.pairing_name}>{pot.pairing_name}</option>)}</select></label>

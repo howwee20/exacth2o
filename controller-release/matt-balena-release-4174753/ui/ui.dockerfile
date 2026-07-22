@@ -34,13 +34,13 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install the application dependencies
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the application code to the working directory
 COPY . .
 
 # Build the app
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
 # start up the app
 CMD ["npm", "start"]

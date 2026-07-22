@@ -35,10 +35,11 @@ function isIgnoredDiagnosticNumber(value: unknown, ignored: Set<number>) {
 }
 
 function isIgnoredDiagnosticPairing(pairing: Partial<PairingRow>) {
+  const pairingIdentity = normalizedDiagnosticText(pairing.name);
   return (
     isIgnoredDiagnosticPairingName(pairing.name) ||
-    isIgnoredDiagnosticSensorKey(pairing.sensor_key) ||
-    isIgnoredDiagnosticNumber(pairing.source_sensor_id, ignoredDiagnosticSensorIds)
+    isIgnoredDiagnosticNumber(pairing.source_sensor_id, ignoredDiagnosticSensorIds) ||
+    (!pairingIdentity && isIgnoredDiagnosticSensorKey(pairing.sensor_key))
   );
 }
 
@@ -133,9 +134,10 @@ export function pairingsFromDeviceConfigState(
 }
 
 export function isIgnoredDiagnosticReading(reading: Partial<SensorReading>) {
+  const pairingIdentity = normalizedDiagnosticText(reading.pairing_name);
   return (
     isIgnoredDiagnosticPairingName(reading.pairing_name) ||
-    isIgnoredDiagnosticSensorKey(reading.sensor_key)
+    (!pairingIdentity && isIgnoredDiagnosticSensorKey(reading.sensor_key))
   );
 }
 

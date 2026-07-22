@@ -146,6 +146,12 @@ export type RdLabSnapshot = {
   mode: "shadow";
   champion_version: string;
   candidate_version: string | null;
+  model_readiness?: {
+    kind: "bootstrap" | "synthetic" | "trained";
+    label: string;
+    synthetic_data_only: boolean;
+    evidence_count: number;
+  };
   clean_events_learned: number;
   learning?: RdLearningState;
   model_comparison?: RdModelComparison;

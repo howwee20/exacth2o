@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUiSession } from '@/app/lib/server-auth'
 
 const API_BASE_URL = process.env.API_URL || 'http://api_svc:8888/v1'
 
@@ -6,6 +7,7 @@ export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
+    await requireUiSession()
     const { searchParams } = request.nextUrl
     const sensorIds = searchParams.get('sensorIds')
     const startDate = searchParams.get('startDate')

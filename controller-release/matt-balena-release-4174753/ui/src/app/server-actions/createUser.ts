@@ -17,7 +17,7 @@ export async function createUser(
   }
 ): Promise<User | null> {
   try {
-    const apiClient = new ApiClient();
+    const apiClient = new ApiClient({ allowAnonymous: true });
     const user = await apiClient.post('/users', userData) as User;
     return user;
   } catch (error) {

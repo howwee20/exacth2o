@@ -71,9 +71,34 @@ describe("reading merge", () => {
 describe("diagnostic filtering", () => {
   it("removes known diagnostic sensor rows without hiding experiment pairings", () => {
     const visible = pairing({ id: 1 });
-    const diagnostic = pairing({ id: 2, sensor_key: "D30GQN2D:t" });
+    const diagnostic = pairing({
+      id: 720,
+      name: "CWD-LowercaseT",
+      source_sensor_id: 720,
+      sensor_key: "D30GQN2D:t",
+    });
 
     expect(visibleExperimentPairings([visible, diagnostic])).toEqual([visible]);
+  });
+
+  it("keeps Matt Experiment 2 Pot 70 and its readings when it reuses sensor address T", () => {
+    const pot70 = pairing({
+      id: 692,
+      name: "Zone3-Pot70",
+      source_sensor_id: 692,
+      sensor_key: "D30GQN2D:T",
+      source_valve_id: 1558,
+      valve_key: "0x20:22",
+    });
+    const pot70Reading = reading({
+      id: 692,
+      event_id: "live-device:pot70",
+      pairing_name: "Zone3-Pot70",
+      sensor_key: "D30GQN2D:T",
+    });
+
+    expect(visibleExperimentPairings([pot70])).toEqual([pot70]);
+    expect(mergeReadings([], [pot70Reading])).toEqual([pot70Reading]);
   });
 
   it("keeps legitimate Oven-Dry Pot 51 even though it reuses valve 1539", () => {

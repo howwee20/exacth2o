@@ -53,7 +53,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install the application dependencies
-RUN npm install
+RUN npm ci
 RUN ls -la
 RUN cat tsconfig.json
 RUN npx tsc --version
@@ -63,7 +63,7 @@ RUN npx tsc --version
 COPY . .
 
 # Build the app
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
 # start up the app
 CMD ["npm", "start"]

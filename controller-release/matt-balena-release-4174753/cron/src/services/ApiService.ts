@@ -18,6 +18,7 @@ export class ApiService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-exacth2o-controller-secret': process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '',
       },
       body: JSON.stringify(data),
     })

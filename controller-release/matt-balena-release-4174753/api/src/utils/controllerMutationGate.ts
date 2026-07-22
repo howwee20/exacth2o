@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { SYSTEM_CRON_TIMEOUT_MS, fetchWithTimeout } from './requestTimeout'
+import { secretsMatch } from './controllerMutationAuth'
 
 let mutationTail: Promise<void> = Promise.resolve()
 
@@ -52,6 +53,20 @@ export async function guardedControllerMutation(
   reply: FastifyReply,
   handler: () => Promise<any> | void,
 ): Promise<any> {
+  const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())
+  if (mutation) {
+    const expected = process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET
+    if (!expected) {
+      return reply.code(503).send({
+        message: 'Controller mutations are disabled because authentication is not configured',
+      })
+    }
+    const supplied = request.headers['x-exacth2o-controller-secret']
+    const suppliedSecret = Array.isArray(supplied) ? supplied[0] : supplied
+    if (!secretsMatch(suppliedSecret, expected)) {
+      return reply.code(403).send({ message: 'Controller mutation authentication required' })
+    }
+  }
   const isStateMutation = method.toUpperCase() === 'POST' && url === '/system/state'
   const requiresStopped = isConfigMutation(method, url)
   if (!isStateMutation && !requiresStopped) return handler()
