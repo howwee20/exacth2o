@@ -42,6 +42,14 @@ test("researchers cannot submit infrastructure-level commands", () => {
   }
 });
 
+test("controller calibration mutations require an administrator", () => {
+  for (const commandType of ["create_calibration", "delete_calibration", "apply_calibration"]) {
+    const researcherDecision = commandAccessDecision("researcher", commandType);
+    assert.equal(researcherDecision.allowed, false, commandType);
+    assert.equal(commandAccessDecision("admin", commandType).allowed, true, commandType);
+  }
+});
+
 test("admins can submit admin and researcher commands", () => {
   for (const commandType of [...researcherCommandTypes, ...adminOnlyCommandTypes]) {
     assert.equal(commandAccessDecision("admin", commandType).allowed, true, commandType);

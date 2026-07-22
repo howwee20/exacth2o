@@ -4,15 +4,15 @@ export const researcherCommandTypes = new Set([
   "create_pairing",
   "create_group",
   "remove_group",
-  "create_calibration",
-  "delete_calibration",
-  "apply_calibration",
   "manual_water",
   "update_system_state",
   "export_data",
 ]);
 
 export const adminOnlyCommandTypes = new Set([
+  "create_calibration",
+  "delete_calibration",
+  "apply_calibration",
   "update_board_config",
 ]);
 

@@ -81,6 +81,7 @@ import {
 } from "./softwareTerms";
 import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
 import { ResponseCurveLab } from "./ResponseCurveLab";
+import { CalibrationStudio } from "./CalibrationStudio";
 import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
 import { mergeRdHistoryPage } from "./rdPagination";
 import type { RdLabSnapshot } from "./rdTypes";
@@ -92,6 +93,7 @@ import {
   portalExperimentById,
   portalExperiments,
   type ExperimentId,
+  type PortalExperiment,
 } from "./experimentRegistry";
 import { colorForPotNumber } from "./potColors";
 
@@ -279,6 +281,9 @@ type ControlCommandType =
   | "export_data";
 
 const adminOnlyControlCommandTypes = new Set<ControlCommandType>([
+  "create_calibration",
+  "delete_calibration",
+  "apply_calibration",
   "update_board_config",
   "initialize_sensors",
 ]);
@@ -557,14 +562,6 @@ const settingsNavItems: SettingsNavItem[] = [
     icon: FileArchive,
   },
 ];
-
-const settingsNavGroups = Array.from(
-  settingsNavItems.reduce((groups, item) => {
-    groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
-    return groups;
-  }, new Map<SettingsNavItem["group"], SettingsNavItem[]>()),
-  ([label, items]) => ({ label, items }),
-);
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -2055,6 +2052,7 @@ function controlCommandLabel(commandType: ControlCommandType) {
 type PortalSettingsPanelProps = {
   open: boolean;
   portalRole: PortalRole;
+  experiment: PortalExperiment;
   activeSection: SettingsSection;
   data: LoadState;
   runtimeState: DeviceRuntimeState | null;
@@ -2078,6 +2076,7 @@ type PortalSettingsPanelProps = {
 function PortalSettingsPanel({
   open,
   portalRole,
+  experiment,
   activeSection,
   data,
   runtimeState,
@@ -2098,13 +2097,21 @@ function PortalSettingsPanel({
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
-  const activeItem = settingsNavItems.find((item) => item.id === activeSection) ?? settingsNavItems[0];
+  const availableSettingsNavItems = isObservationOnlyExperiment(experiment)
+    ? settingsNavItems.filter((item) => ["overview", "calibrations", "exports"].includes(item.id))
+    : settingsNavItems;
+  const availableSettingsNavGroups = Array.from(
+    availableSettingsNavItems.reduce((groups, item) => {
+      groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
+      return groups;
+    }, new Map<SettingsNavItem["group"], SettingsNavItem[]>()),
+    ([label, items]) => ({ label, items }),
+  );
+  const activeItem = availableSettingsNavItems.find((item) => item.id === activeSection) ?? availableSettingsNavItems[0];
   const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
   const mirroredBoardCount = configState?.board_count ?? boardConfigs.length;
   const uniqueSensors = new Set(pairings.map((pairing) => pairing.sensor_key).filter(Boolean));
   const uniqueValves = new Set(pairings.map((pairing) => pairing.valve_key).filter(Boolean));
-  const syncedCalibrations = Array.from(new Set(pairings.map(pairingCalibrationName)))
-    .filter((label) => label !== "Not synced");
   const projectGroups = Array.from(
     pairings.reduce((groups, pairing) => {
       const label = pairingGroupName(pairing);
@@ -2142,11 +2149,6 @@ function PortalSettingsPanel({
   const [manualSeconds, setManualSeconds] = useState("5");
   const [groupName, setGroupName] = useState("");
   const [removeGroupName, setRemoveGroupName] = useState(projectGroups[0]?.label ?? "");
-  const [calibrationName, setCalibrationName] = useState("Corrected Calibration (+10)");
-  const [calibrationFunction, setCalibrationFunction] = useState("f(x) = 110.68 - 0.1289x + 0.00004x^2");
-  const [calibrationMode, setCalibrationMode] = useState("manual");
-  const [applyCalibrationName, setApplyCalibrationName] = useState(syncedCalibrations[0] ?? "Corrected Calibration (+10)");
-  const [applyCalibrationGroup, setApplyCalibrationGroup] = useState("all");
   const [boardAddresses, setBoardAddresses] = useState(
     boardConfigs.length ? boardConfigs.map((config) => config.address).join(", ") : "0x20, 0x24, 0x26",
   );
@@ -2236,29 +2238,6 @@ function PortalSettingsPanel({
     event.preventDefault();
     await onQueueCommand("remove_group", {
       group_name: removeGroupName || groupName,
-    }, { confirm: true });
-  }
-
-  async function submitCalibration(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await onQueueCommand("create_calibration", {
-      name: calibrationName,
-      mode: calibrationMode,
-      function_text: calibrationFunction,
-    });
-  }
-
-  async function submitApplyCalibration(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await onQueueCommand("apply_calibration", {
-      calibration_name: applyCalibrationName,
-      pairing_names: pairingNamesForGroup(applyCalibrationGroup),
-    });
-  }
-
-  async function deleteCalibration(name: string) {
-    await onQueueCommand("delete_calibration", {
-      calibration_name: name,
     }, { confirm: true });
   }
 
@@ -2536,81 +2515,14 @@ function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
-          <div className="settings-grid">
-            <section className="settings-card">
-              <h3>Synced Calibration State</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>Calibrations visible to portal</span>
-                  <strong>{syncedCalibrations.length || "--"}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Applied pairings</span>
-                  <strong>{syncedCalibrations.length ? pairings.length : "--"}</strong>
-                </div>
-              </div>
-            </section>
-            <section className="settings-card">
-              <h3>Calibration Builder</h3>
-              <form className="settings-form" onSubmit={submitCalibration}>
-                <label>
-                  Calibration name
-                  <input value={calibrationName} onChange={(event) => setCalibrationName(event.target.value)} required />
-                </label>
-                <label>
-                  Fit type
-                  <select value={calibrationMode} onChange={(event) => setCalibrationMode(event.target.value)}>
-                    <option value="manual">Manual function</option>
-                    <option value="linear">1st degree (linear)</option>
-                    <option value="polynomial">3rd degree polynomial</option>
-                  </select>
-                </label>
-                <label>
-                  Function
-                  <input value={calibrationFunction} onChange={(event) => setCalibrationFunction(event.target.value)} required />
-                </label>
-                <button type="submit" className="settings-primary-button" disabled={controlBusy}>
-                  Create calibration
-                </button>
-              </form>
-            </section>
-          </div>
-          <section className="settings-card">
-            <h3>Apply Calibration</h3>
-            <form className="settings-form settings-inline-form" onSubmit={submitApplyCalibration}>
-              <label>
-                Calibration
-                <input value={applyCalibrationName} onChange={(event) => setApplyCalibrationName(event.target.value)} required />
-              </label>
-              <label>
-                Group
-                <select value={applyCalibrationGroup} onChange={(event) => setApplyCalibrationGroup(event.target.value)}>
-                  {groupOptions.map((group) => (
-                    <option value={group.value} key={group.value}>
-                      {group.label} ({group.pairings.length})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
-                Apply calibration
-              </button>
-            </form>
-          </section>
-          <div className="settings-list">
-            {(syncedCalibrations.length ? syncedCalibrations : ["No calibration data"]).map((label) => (
-              <div className="settings-list-row" key={label}>
-                <span>{label}</span>
-                {syncedCalibrations.length ? (
-                  <button type="button" className="settings-danger-button" onClick={() => void deleteCalibration(label)} disabled={controlBusy}>
-                    Delete
-                  </button>
-                ) : (
-                  <em>--</em>
-                )}
-              </div>
-            ))}
-          </div>
+          <CalibrationStudio
+            projectId={mattProjectId}
+            experiment={experiment}
+            pairings={pairings}
+            readings={data.readings}
+            portalRole={portalRole}
+            controllerStopped={runtimeStateIsFresh(runtimeState) && runtimeState?.controller_state?.trim().toLowerCase() === "stopped"}
+          />
         </>
       );
     }
@@ -2906,7 +2818,7 @@ function PortalSettingsPanel({
             <span>Search settings...</span>
           </div>
           <nav>
-            {settingsNavGroups.map((group) => (
+            {availableSettingsNavGroups.map((group) => (
               <div className="settings-sidebar-group" key={group.label}>
                 <p className="settings-sidebar-group-label">{group.label}</p>
                 {group.items.map((item) => {
@@ -2933,7 +2845,7 @@ function PortalSettingsPanel({
             </button>
           </div>
         </aside>
-        <section className="settings-content">
+        <section className={`settings-content is-${activeSection}`}>
           <header className="settings-content-header">
             <div>
               <p>{activeItem.description}</p>
@@ -5038,8 +4950,7 @@ export default function App() {
   ).length;
   const isAdmin = portalAccess?.role === "admin";
   const canReadProjectData = hasProjectDataReadAccess(portalAccess?.role);
-  const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role) &&
-    !isObservationOnlyExperiment(selectedExperiment);
+  const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role);
 
   const resetPortalSessionUi = useCallback((nextView: PortalView = "home") => {
     setSettingsOpen(false);
@@ -6737,6 +6648,7 @@ export default function App() {
         <PortalSettingsPanel
           open={settingsOpen}
           portalRole={portalAccess.role}
+          experiment={selectedExperiment}
           activeSection={settingsSection}
           data={data}
           runtimeState={runtimeState}
@@ -6843,6 +6755,7 @@ export default function App() {
         <PortalSettingsPanel
           open={settingsOpen}
           portalRole={portalAccess.role}
+          experiment={selectedExperiment}
           activeSection={settingsSection}
           data={data}
           runtimeState={runtimeState}
