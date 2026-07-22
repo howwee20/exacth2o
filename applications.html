@@ -473,20 +473,12 @@
     overflow: hidden;
     position: relative;
   }
-  .app-card-image-label {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink);
-    opacity: 0.35;
-    position: absolute;
-    bottom: 0.75rem;
-    left: 0.75rem;
+  .app-card-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
-
-  /* Placeholder scene illustrations */
-  .scene { width: 100%; height: 100%; }
 
   /* ── WHY EXACTH2O ── */
   .why-section {
@@ -795,36 +787,7 @@
         Precisely control and measure substrate water content to induce, maintain, and recover from defined drought stress levels. ExactH2O enables researchers to hold volumetric water content at any target percentage across replicated pots simultaneously — eliminating the variability that undermines stress experiment reproducibility. Continuous logging captures the full stress trajectory from imposition through relief, allowing correlation with physiological indicators like stomatal conductance, chlorophyll fluorescence, and biomass accumulation.
       </p>
       <div class="app-card-image">
-        <svg class="scene" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="320" height="160" fill="#e8e3d8"/>
-          <!-- Lab bench -->
-          <rect x="20" y="100" width="280" height="8" fill="#c8b89a"/>
-          <!-- Pots -->
-          <rect x="40" y="75" width="36" height="28" rx="2" fill="#a0886a"/>
-          <rect x="100" y="75" width="36" height="28" rx="2" fill="#a0886a"/>
-          <rect x="160" y="75" width="36" height="28" rx="2" fill="#a0886a"/>
-          <rect x="220" y="75" width="36" height="28" rx="2" fill="#a0886a"/>
-          <!-- Plants (varying stress) -->
-          <path d="M58 75 C58 75 52 55 55 42 C58 55 64 55 58 75Z" fill="#4a8c5c"/>
-          <path d="M118 75 C118 75 112 60 115 50 C118 60 124 62 118 75Z" fill="#6aaa7a" opacity="0.8"/>
-          <path d="M178 75 C178 75 174 65 176 58 C179 65 183 66 178 75Z" fill="#9dbd74" opacity="0.7"/>
-          <path d="M238 75 C238 75 235 70 236 64 C239 70 242 70 238 75Z" fill="#c4c87a" opacity="0.6"/>
-          <!-- Sensor probes -->
-          <line x1="55" y1="96" x2="55" y2="115" stroke="#1a6b4a" stroke-width="1.5"/>
-          <circle cx="55" cy="97" r="2.5" fill="#1a6b4a"/>
-          <line x1="115" y1="96" x2="115" y2="115" stroke="#1a6b4a" stroke-width="1.5"/>
-          <circle cx="115" cy="97" r="2.5" fill="#1a6b4a"/>
-          <line x1="175" y1="96" x2="175" y2="115" stroke="#1a6b4a" stroke-width="1.5"/>
-          <circle cx="175" cy="97" r="2.5" fill="#1a6b4a"/>
-          <line x1="235" y1="96" x2="235" y2="115" stroke="#1a6b4a" stroke-width="1.5"/>
-          <circle cx="235" cy="97" r="2.5" fill="#1a6b4a"/>
-          <!-- VWC labels -->
-          <text x="42" y="140" font-family="monospace" font-size="8" fill="#1a6b4a">32%</text>
-          <text x="102" y="140" font-family="monospace" font-size="8" fill="#1a6b4a">22%</text>
-          <text x="162" y="140" font-family="monospace" font-size="8" fill="#c8853a">14%</text>
-          <text x="222" y="140" font-family="monospace" font-size="8" fill="#c8350a">8%</text>
-        </svg>
-        <span class="app-card-image-label">Replicated Pot Stress Array — 4-level gradient</span>
+        <img src="/applications-plant-stress.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
       </div>
     </div>
 
@@ -844,36 +807,7 @@
         Integrate substrate water data into high-throughput phenotyping pipelines to disentangle genetic variation from environmental noise. When every genotype in a diversity panel experiences a rigorously identical water regime, differences in growth rate, leaf area, transpiration efficiency, and stress tolerance become attributable to genetics — not watering inconsistency. ExactH2O provides the environmental ground truth that makes phenotyping data scientifically defensible.
       </p>
       <div class="app-card-image">
-        <svg class="scene" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="320" height="160" fill="#e8e3d8"/>
-          <!-- Conveyor / track -->
-          <rect x="0" y="115" width="320" height="6" fill="#c8b89a"/>
-          <rect x="0" y="118" width="320" height="3" fill="#b0986a" opacity="0.5"/>
-          <!-- Plants on conveyor -->
-          <rect x="20" y="90" width="30" height="28" rx="1" fill="#a0886a"/>
-          <rect x="80" y="90" width="30" height="28" rx="1" fill="#a0886a"/>
-          <rect x="140" y="90" width="30" height="28" rx="1" fill="#a0886a"/>
-          <rect x="200" y="90" width="30" height="28" rx="1" fill="#a0886a"/>
-          <rect x="260" y="90" width="30" height="28" rx="1" fill="#a0886a"/>
-          <!-- Plants -->
-          <path d="M35 90 C33 70 30 55 35 42 C38 55 42 65 35 90Z" fill="#4a8c5c"/>
-          <path d="M25 90 C28 78 24 68 28 60 C31 68 32 78 25 90Z" fill="#3a7a4a" opacity="0.7"/>
-          <path d="M95 90 C93 73 91 60 95 48 C98 60 102 70 95 90Z" fill="#5a9c6c"/>
-          <path d="M155 90 C152 72 150 58 154 46 C158 58 162 68 155 90Z" fill="#4a8c5c"/>
-          <path d="M215 90 C213 75 211 62 215 50 C218 62 222 72 215 90Z" fill="#6aac7c"/>
-          <path d="M275 90 C272 73 270 60 274 48 C278 60 282 70 275 90Z" fill="#4a8c5c"/>
-          <!-- Scanner/camera rig -->
-          <rect x="130" y="20" width="60" height="40" rx="2" fill="#444" opacity="0.8"/>
-          <circle cx="160" cy="40" r="10" fill="#222" opacity="0.9"/>
-          <circle cx="160" cy="40" r="6" fill="#2e9e6e" opacity="0.6"/>
-          <line x1="160" y1="60" x2="160" y2="80" stroke="#1a6b4a" stroke-width="1.5" stroke-dasharray="2 2"/>
-          <!-- Data readout -->
-          <rect x="220" y="22" width="80" height="36" rx="2" fill="#0e1a14" opacity="0.85"/>
-          <text x="228" y="36" font-family="monospace" font-size="7" fill="#2e9e6e">VWC: 28.7%</text>
-          <text x="228" y="47" font-family="monospace" font-size="7" fill="#7cbf9e">Area: 412cm²</text>
-          <text x="228" y="51" font-family="monospace" font-size="6" fill="#7cbf9e" opacity="0.5">Genotype: PI-0392</text>
-        </svg>
-        <span class="app-card-image-label">High-throughput Phenotyping Platform Integration</span>
+        <img src="/applications-plant-phenotyping.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="LI-COR LI-600 instrument recording plant gas-exchange measurements beside experimental pots">
       </div>
     </div>
 
@@ -892,33 +826,7 @@
         Deploy sensor networks across greenhouse benches and container arrays to maintain defined irrigation targets. Built for research facilities and commercial greenhouse operations, ExactH2O combines automated irrigation, continuous monitoring, and multi-zone control while preserving independent settings and clear data for each zone.
       </p>
       <div class="app-card-image">
-        <svg class="scene" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="320" height="160" fill="#e8e3d8"/>
-          <!-- Greenhouse outline -->
-          <path d="M20 130 L20 70 L160 30 L300 70 L300 130 Z" fill="none" stroke="#aaa" stroke-width="1.5"/>
-          <path d="M20 70 L300 70" stroke="#aaa" stroke-width="1" stroke-dasharray="3 4"/>
-          <!-- Interior plants rows -->
-          <rect x="50" y="90" width="90" height="40" rx="1" fill="#d4ede3"/>
-          <rect x="180" y="90" width="90" height="40" rx="1" fill="#d4ede3"/>
-          <!-- Sensor dots grid -->
-          <circle cx="70" cy="100" r="3" fill="#1a6b4a"/>
-          <circle cx="95" cy="100" r="3" fill="#1a6b4a"/>
-          <circle cx="120" cy="100" r="3" fill="#2e9e6e"/>
-          <circle cx="200" cy="100" r="3" fill="#1a6b4a"/>
-          <circle cx="225" cy="100" r="3" fill="#2e9e6e"/>
-          <circle cx="250" cy="100" r="3" fill="#1a6b4a"/>
-          <!-- Wireless lines -->
-          <path d="M95 100 L160 55" stroke="#1a6b4a" stroke-width="0.8" stroke-dasharray="2 3" opacity="0.5"/>
-          <path d="M225 100 L160 55" stroke="#1a6b4a" stroke-width="0.8" stroke-dasharray="2 3" opacity="0.5"/>
-          <!-- Hub -->
-          <circle cx="160" cy="52" r="6" fill="#1a6b4a"/>
-          <circle cx="160" cy="52" r="10" fill="none" stroke="#1a6b4a" stroke-width="0.8" opacity="0.5"/>
-          <!-- Plants -->
-          <path d="M70 92 C70 92 65 80 68 72 L70 80 L73 72 C75 80 70 90 70 92Z" fill="#4a8c5c"/>
-          <path d="M95 92 C95 92 90 80 93 72 L95 80 L98 72 C100 80 95 90 95 92Z" fill="#4a8c5c"/>
-          <path d="M120 92 C120 92 116 82 118 74 L120 82 L123 74 C125 82 120 90 120 92Z" fill="#4a8c5c"/>
-        </svg>
-        <span class="app-card-image-label">Multi-bench Wireless Sensor Network</span>
+        <img src="/applications-research-greenhouse.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="Glass research greenhouse complex under a blue sky">
       </div>
     </div>
 

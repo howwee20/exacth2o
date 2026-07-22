@@ -117,6 +117,7 @@ jobs:
           cp scheduling.jpg dashboard.jpg sensor.jpg scaling.jpg site-dist/
           cp product1.avif product2.avif product3.avif product4.avif site-dist/
           cp scheduling.avif dashboard.avif sensor.avif scaling.avif site-dist/
+          cp applications-plant-stress.webp applications-plant-phenotyping.webp applications-research-greenhouse.webp site-dist/
 
           cp portal-app/assets/* site-dist/portal-app/assets/
 
