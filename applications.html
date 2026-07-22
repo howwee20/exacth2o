@@ -408,30 +408,39 @@
 
   .app-cards {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    align-items: stretch;
   }
 
   .app-card {
-    background: var(--bg);
+    background: rgba(255, 255, 255, 0.72);
     border: 1px solid var(--rule);
-    margin: -1px 0 0 -1px;
-    padding: 2.5rem;
+    border-radius: 14px;
+    margin: 0;
+    padding: 1.5rem;
     position: relative;
     overflow: hidden;
-    transition: background 0.3s;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 18px 48px rgba(14, 26, 20, 0.07);
+    transition: background 0.3s, border-color 0.3s, transform 0.3s, box-shadow 0.3s;
     cursor: default;
   }
   .app-card:nth-child(3) {
-    grid-column: 1 / -1;
-    justify-self: center;
-    width: 50%;
+    grid-column: auto;
+    width: auto;
   }
   .app-card > * {
     position: relative;
     z-index: 2;
   }
-  .app-card:hover { background: var(--water-pale); }
+  .app-card:hover {
+    background: #fff;
+    border-color: rgba(26, 107, 74, 0.28);
+    transform: translateY(-3px);
+    box-shadow: 0 22px 56px rgba(14, 26, 20, 0.11);
+  }
 
   .app-card-num {
     font-family: var(--mono);
@@ -460,13 +469,18 @@
     line-height: 1.7;
     color: var(--ink);
     opacity: 0.65;
+    flex: 1;
   }
   .app-card-image {
-    margin-top: 2rem;
+    order: -1;
+    margin: 0 0 1.75rem;
     width: 100%;
-    height: 160px;
-    background: var(--mist);
+    height: auto;
+    aspect-ratio: 1;
+    padding: 0.8rem;
+    background: linear-gradient(145deg, #edf2ef, #e5ebe7);
     border: 1px solid var(--rule);
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -477,7 +491,9 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(14, 26, 20, 0.12);
   }
 
   /* ── WHY EXACTH2O ── */
@@ -616,7 +632,7 @@
     .cta-strip { padding: 4rem 1.5rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
     .app-cards { grid-template-columns: 1fr; }
-    .app-card:nth-child(3) { width: 100%; }
+    .app-card:nth-child(3) { width: auto; }
     .why-inner { grid-template-columns: 1fr; gap: 3rem; }
     footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
   }
@@ -787,7 +803,7 @@
         Precisely control and measure substrate water content to induce, maintain, and recover from defined drought stress levels. ExactH2O enables researchers to hold volumetric water content at any target percentage across replicated pots simultaneously — eliminating the variability that undermines stress experiment reproducibility. Continuous logging captures the full stress trajectory from imposition through relief, allowing correlation with physiological indicators like stomatal conductance, chlorophyll fluorescence, and biomass accumulation.
       </p>
       <div class="app-card-image">
-        <img src="/applications-plant-stress.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
+        <img src="/applications-plant-stress.webp?v=2" width="1200" height="1600" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
       </div>
     </div>
 
@@ -807,7 +823,7 @@
         Integrate substrate water data into high-throughput phenotyping pipelines to disentangle genetic variation from environmental noise. When every genotype in a diversity panel experiences a rigorously identical water regime, differences in growth rate, leaf area, transpiration efficiency, and stress tolerance become attributable to genetics — not watering inconsistency. ExactH2O provides the environmental ground truth that makes phenotyping data scientifically defensible.
       </p>
       <div class="app-card-image">
-        <img src="/applications-plant-phenotyping.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="LI-COR LI-600 instrument recording plant gas-exchange measurements beside experimental pots">
+        <img src="/applications-plant-phenotyping.webp?v=2" width="1200" height="1600" loading="lazy" decoding="async" alt="LI-COR LI-600 instrument recording plant gas-exchange measurements beside experimental pots">
       </div>
     </div>
 
@@ -826,7 +842,7 @@
         Deploy sensor networks across greenhouse benches and container arrays to maintain defined irrigation targets. Built for research facilities and commercial greenhouse operations, ExactH2O combines automated irrigation, continuous monitoring, and multi-zone control while preserving independent settings and clear data for each zone.
       </p>
       <div class="app-card-image">
-        <img src="/applications-research-greenhouse.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="Glass research greenhouse complex under a blue sky">
+        <img src="/applications-research-greenhouse.webp?v=2" width="1600" height="1200" loading="lazy" decoding="async" alt="Glass research greenhouse complex under a blue sky">
       </div>
     </div>
 
