@@ -1,23 +1,13 @@
-const mattExperiment2Pairings = [
-  ...Array.from({ length: 10 }, (_, index) => `Zone1-Pot${index + 15}`),
-  "Zone1-Pot25", "Zone2-Pot26",
-  ...Array.from({ length: 11 }, (_, index) => `Zone3-Pot${index + 65}`),
-  "Zone4-Pot76",
-];
-
 const ovenDryPairings = [
   "Zone1-Pot02", "Zone1-Pot04", "Zone1-Pot06",
   ...Array.from({ length: 12 }, (_, index) => `Zone3-Pot${index + 51}`),
 ];
 
 export const observationOnlyPairingNames = new Set([
-  ...mattExperiment2Pairings,
   ...ovenDryPairings,
 ]);
 
 export const observationOnlyGroupNames = new Set([
-  "Matt Experiment 2 - Observation Only",
-  "Matt Experiment 2 — Observation Only",
   "Oven-Dry Experiment - Observation Only",
   "Oven-Dry Experiment — Observation Only",
 ]);

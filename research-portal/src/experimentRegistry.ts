@@ -37,7 +37,7 @@ export const portalExperiments: readonly PortalExperiment[] = [
   {
     id: "matt-experiment",
     name: "Matt Experiment 1",
-    shortDescription: "Original 20-pot controlled experiment",
+    shortDescription: "20 pots · watering off",
     mode: "controlled",
     groupNames: ["Matt's 20 pots"],
     pairingNames: mattExperimentPairings,
@@ -45,8 +45,8 @@ export const portalExperiments: readonly PortalExperiment[] = [
   {
     id: "matt-experiment-2",
     name: "Matt Experiment 2",
-    shortDescription: "24 pots · measurement only",
-    mode: "observation_only",
+    shortDescription: "24 pots · 30% target",
+    mode: "controlled",
     groupNames: ["Matt Experiment 2 - Observation Only", "Matt Experiment 2 — Observation Only"],
     pairingNames: mattExperiment2Pairings,
   },

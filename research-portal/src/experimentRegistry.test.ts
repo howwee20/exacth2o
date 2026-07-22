@@ -13,9 +13,9 @@ describe("experiment registry", () => {
     expect(new Set(allNames).size).toBe(59);
   });
 
-  it("keeps only the original Matt experiment controller-enabled", () => {
+  it("keeps both Matt experiments controller-enabled and Oven-Dry protected", () => {
     expect(isObservationOnlyExperiment(portalExperimentById("matt-experiment"))).toBe(false);
-    expect(isObservationOnlyExperiment(portalExperimentById("matt-experiment-2"))).toBe(true);
+    expect(isObservationOnlyExperiment(portalExperimentById("matt-experiment-2"))).toBe(false);
     expect(isObservationOnlyExperiment(portalExperimentById("oven-dry-experiment"))).toBe(true);
   });
 

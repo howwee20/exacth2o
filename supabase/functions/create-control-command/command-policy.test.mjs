@@ -80,8 +80,8 @@ test("unknown and missing roles fail closed", () => {
   assert.equal(commandAccessDecision(null, "manual_water").allowed, false);
 });
 
-test("all 39 observation-only pairings are protected from watering and settings", () => {
-  assert.equal(observationOnlyPairingNames.size, 39);
+test("all 15 oven-dry pairings remain protected from watering and settings", () => {
+  assert.equal(observationOnlyPairingNames.size, 15);
   for (const pairingName of observationOnlyPairingNames) {
     for (const commandType of ["update_pairing", "manual_water", "apply_calibration"]) {
       const payload = commandType === "update_pairing"
@@ -92,6 +92,13 @@ test("all 39 observation-only pairings are protected from watering and settings"
       assert.equal(decision.status, 409);
     }
   }
+});
+
+test("Matt Experiment 2 pairings can receive controlled target updates", () => {
+  assert.equal(
+    observationOnlyCommandDecision("update_pairing", { pairing_name: "Zone1-Pot15" }).allowed,
+    true,
+  );
 });
 
 test("original Matt pairing controls remain available", () => {
