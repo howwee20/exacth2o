@@ -5,7 +5,6 @@ import {
   controlCommandIntakeEnabled,
   manualWaterIntakeEnabled,
 } from "./command-policy.mjs";
-import { observationOnlyCommandDecision } from "./observation-policy.mjs";
 
 type CommandType =
   | "update_pairing"
@@ -405,18 +404,6 @@ serve(async (request) => {
   const accessDecision = commandAccessDecision(access.role, validated.commandType);
   if (!accessDecision.allowed) {
     return jsonResponse({ error: accessDecision.error }, accessDecision.status, origin);
-  }
-
-  const observationDecision = observationOnlyCommandDecision(
-    validated.commandType,
-    validated.payload,
-  );
-  if (!observationDecision.allowed) {
-    return jsonResponse(
-      { error: observationDecision.error },
-      observationDecision.status ?? 409,
-      origin,
-    );
   }
 
   const now = new Date().toISOString();

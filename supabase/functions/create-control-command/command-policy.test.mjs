@@ -9,10 +9,6 @@ import {
   manualWaterIntakeEnabled,
   researcherCommandTypes,
 } from "./command-policy.mjs";
-import {
-  observationOnlyCommandDecision,
-  observationOnlyPairingNames,
-} from "./observation-policy.mjs";
 
 test("control command intake is a strict fail-closed production gate", () => {
   assert.equal(controlCommandIntakeEnabled("1"), true);
@@ -78,32 +74,4 @@ test("viewers cannot submit any controller command", () => {
 test("unknown and missing roles fail closed", () => {
   assert.equal(commandAccessDecision("researcher", "unknown").allowed, false);
   assert.equal(commandAccessDecision(null, "manual_water").allowed, false);
-});
-
-test("all 15 oven-dry pairings remain protected from watering and settings", () => {
-  assert.equal(observationOnlyPairingNames.size, 15);
-  for (const pairingName of observationOnlyPairingNames) {
-    for (const commandType of ["update_pairing", "manual_water", "apply_calibration"]) {
-      const payload = commandType === "update_pairing"
-        ? { pairing_name: pairingName }
-        : { pairing_names: [pairingName] };
-      const decision = observationOnlyCommandDecision(commandType, payload);
-      assert.equal(decision.allowed, false, `${commandType}:${pairingName}`);
-      assert.equal(decision.status, 409);
-    }
-  }
-});
-
-test("Matt Experiment 2 pairings can receive controlled target updates", () => {
-  assert.equal(
-    observationOnlyCommandDecision("update_pairing", { pairing_name: "Zone1-Pot15" }).allowed,
-    true,
-  );
-});
-
-test("original Matt pairing controls remain available", () => {
-  assert.equal(
-    observationOnlyCommandDecision("manual_water", { pairing_names: ["Zone2-Pot41"] }).allowed,
-    true,
-  );
 });

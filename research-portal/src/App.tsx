@@ -86,12 +86,16 @@ import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
 import { mergeRdHistoryPage } from "./rdPagination";
 import type { RdLabSnapshot } from "./rdTypes";
 import {
+  experimentCardDescription,
+  isCalibrationExperiment,
   isObservationOnlyExperiment,
   latestExperimentReading,
   pairingBelongsToExperiment,
   pairingsForExperiment,
   portalExperimentById,
-  portalExperiments,
+  portalExperimentsForRole,
+  readingsForExperiment,
+  valveEventsForExperiment,
   type ExperimentId,
   type PortalExperiment,
 } from "./experimentRegistry";
@@ -2873,14 +2877,18 @@ function PortalStatusPill({ snapshot }: { snapshot?: DeviceHealthSnapshot | null
 
 function ExperimentLaunchCards({
   data,
+  portalRole,
   onOpenExperiment,
 }: {
   data: LoadState;
+  portalRole: PortalRole;
   onOpenExperiment: (experimentId: ExperimentId) => void;
 }) {
+  const experiments = portalExperimentsForRole(portalRole);
+
   return (
     <div className="portal-experiment-stack" aria-label="Experiments">
-      {portalExperiments.map((experiment) => {
+      {experiments.map((experiment) => {
         const pairings = pairingsForExperiment(data.pairings, experiment);
         const latestReading = latestExperimentReading(data.readings, experiment);
         const activeCount = pairings.length;
@@ -2902,7 +2910,7 @@ function ExperimentLaunchCards({
             <span className="portal-launch-copy">
               <span className="portal-launch-title">{experiment.name}</span>
               <strong>{activeCount} / {expectedCount} pots</strong>
-              <em>{experiment.shortDescription}</em>
+              <em>{experimentCardDescription(experiment, pairings)}</em>
               <em>Updated {formatSettingsTimestamp(latestReading?.device_recorded_at ?? data.latestIngestTime)}</em>
             </span>
           </button>
@@ -2914,15 +2922,17 @@ function ExperimentLaunchCards({
 
 function PortalResearcherHome({
   data,
+  portalRole,
   onOpenExperiment,
 }: {
   data: LoadState;
+  portalRole: PortalRole;
   onOpenExperiment: (experimentId: ExperimentId) => void;
 }) {
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
       <div className="portal-launch-grid">
-        <ExperimentLaunchCards data={data} onOpenExperiment={onOpenExperiment} />
+        <ExperimentLaunchCards data={data} portalRole={portalRole} onOpenExperiment={onOpenExperiment} />
       </div>
     </section>
   );
@@ -2969,7 +2979,7 @@ function PortalAdminHome({
     <section className="portal-admin-main" aria-label="Portal sections">
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">
-          <ExperimentLaunchCards data={data} onOpenExperiment={onOpenExperiment} />
+          <ExperimentLaunchCards data={data} portalRole="admin" onOpenExperiment={onOpenExperiment} />
 
           <span className="portal-health-link" aria-hidden="true">
             <span className="portal-health-link-arm is-left" />
@@ -4908,7 +4918,14 @@ export default function App() {
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
   );
-  const series = useMemo(() => chartSeries(sortedPairings, data.readings), [sortedPairings, data.readings]);
+  const experimentReadings = useMemo(
+    () => readingsForExperiment(data.readings, selectedExperiment),
+    [data.readings, selectedExperiment],
+  );
+  const series = useMemo(
+    () => chartSeries(sortedPairings, experimentReadings),
+    [sortedPairings, experimentReadings],
+  );
   const seriesByName = useMemo(() => new Map(series.map((item) => [item.name, item])), [series]);
   const chartDisplaySeries = useMemo(() => {
     return series.slice().sort((a, b) => {
@@ -4941,8 +4958,14 @@ export default function App() {
     [hiddenPots, sortedPairings],
   );
   const experimentWateringEvents = useMemo(
-    () => resolveHealthWateringEvents(valveEventsToHealthWateringEvents(valveEvents, sortedPairings), sortedPairings),
-    [sortedPairings, valveEvents],
+    () => resolveHealthWateringEvents(
+      valveEventsToHealthWateringEvents(
+        valveEventsForExperiment(valveEvents, selectedExperiment),
+        sortedPairings,
+      ),
+      sortedPairings,
+    ),
+    [selectedExperiment, sortedPairings, valveEvents],
   );
 
   const visiblePotCount = series.filter(
@@ -6676,7 +6699,11 @@ export default function App() {
     return (
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
-        <PortalResearcherHome data={data} onOpenExperiment={openExperiment} />
+        <PortalResearcherHome
+          data={data}
+          portalRole={portalAccess.role}
+          onOpenExperiment={openExperiment}
+        />
       </main>
     );
   }
@@ -6899,7 +6926,7 @@ export default function App() {
               >
                 All
               </button>
-              {!isObservationOnlyExperiment(selectedExperiment) ? (
+              {!isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment) ? (
                 <>
                   <button
                     type="button"
@@ -6935,7 +6962,7 @@ export default function App() {
           </section>
 
           {groupedPairings.map(([zone, groupPairings]) => {
-            const label = !isObservationOnlyExperiment(selectedExperiment)
+            const label = !isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment)
               ? (zone === 2 ? "Maize" : zone === 4 ? "Sorghum" : `Zone ${zone}`)
               : `Zone ${zone}`;
             const allVisible = groupPairings.every((pairing) => !hiddenPots.has(pairing.name));
@@ -6970,7 +6997,7 @@ export default function App() {
                           <b>{pairing.pot_number}</b>
                           <strong>{formatPercent(latestValue)}</strong>
                         </span>
-                        {!isObservationOnlyExperiment(selectedExperiment) ? (
+                        {!isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment) ? (
                           <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
                             {treatmentForPairing(pairing) === "control" ? "C" : "D"}
                           </em>

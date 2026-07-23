@@ -1,7 +1,8 @@
-import type { PairingRow, SensorReading } from "./types";
+import type { PairingRow, SensorReading, ValveEvent } from "./types";
 
-export type ExperimentId = "matt-experiment" | "matt-experiment-2" | "oven-dry-experiment";
-export type ExperimentMode = "controlled" | "observation_only";
+export type ExperimentId = "matt-experiment" | "matt-experiment-2" | "swc-saturation-calibration";
+export type ExperimentMode = "controlled" | "calibration";
+export type ExperimentPortalRole = "admin" | "researcher" | "viewer";
 
 export type PortalExperiment = {
   id: ExperimentId;
@@ -10,7 +11,11 @@ export type PortalExperiment = {
   mode: ExperimentMode;
   groupNames: readonly string[];
   pairingNames: readonly string[];
+  startedAt?: string;
+  endedAt?: string;
 };
+
+export const swcCalibrationStartedAt = "2026-07-23T14:46:34.000Z";
 
 const mattExperimentPairings = [
   "Zone2-Pot41", "Zone2-Pot42", "Zone2-Pot43", "Zone2-Pot44", "Zone2-Pot45",
@@ -27,43 +32,59 @@ const mattExperiment2Pairings = [
   "Zone3-Pot73", "Zone3-Pot74", "Zone3-Pot75", "Zone4-Pot76",
 ] as const;
 
-const ovenDryPairings = [
-  "Zone1-Pot02", "Zone1-Pot04", "Zone1-Pot06", "Zone3-Pot51", "Zone3-Pot52",
-  "Zone3-Pot53", "Zone3-Pot54", "Zone3-Pot55", "Zone3-Pot56", "Zone3-Pot57",
-  "Zone3-Pot58", "Zone3-Pot59", "Zone3-Pot60", "Zone3-Pot61", "Zone3-Pot62",
+const swcCalibrationPairings = [
+  "Zone2-Pot41", "Zone2-Pot43", "Zone2-Pot45", "Zone2-Pot47", "Zone2-Pot49",
+  "Zone4-Pot91", "Zone4-Pot93", "Zone4-Pot95", "Zone4-Pot97", "Zone4-Pot99",
 ] as const;
 
+const mattExperiment1: PortalExperiment = {
+  id: "matt-experiment",
+  name: "Matt Experiment 1",
+  shortDescription: "Original 20-pot experiment",
+  mode: "controlled",
+  groupNames: ["Matt's 20 pots"],
+  pairingNames: mattExperimentPairings,
+  endedAt: swcCalibrationStartedAt,
+};
+
+const mattExperiment2: PortalExperiment = {
+  id: "matt-experiment-2",
+  name: "Matt Experiment 2",
+  shortDescription: "24 pots · 30% target",
+  mode: "controlled",
+  groupNames: ["Matt Experiment 2 - Observation Only", "Matt Experiment 2 — Observation Only"],
+  pairingNames: mattExperiment2Pairings,
+};
+
+const swcSaturationCalibration: PortalExperiment = {
+  id: "swc-saturation-calibration",
+  name: "SWC Saturation Calibration",
+  shortDescription: "100% target · 10 s / 10 min",
+  mode: "calibration",
+  groupNames: [],
+  pairingNames: swcCalibrationPairings,
+  startedAt: swcCalibrationStartedAt,
+};
+
 export const portalExperiments: readonly PortalExperiment[] = [
-  {
-    id: "matt-experiment",
-    name: "Matt Experiment 1",
-    shortDescription: "20 pots · watering off",
-    mode: "controlled",
-    groupNames: ["Matt's 20 pots"],
-    pairingNames: mattExperimentPairings,
-  },
-  {
-    id: "matt-experiment-2",
-    name: "Matt Experiment 2",
-    shortDescription: "24 pots · 30% target",
-    mode: "controlled",
-    groupNames: ["Matt Experiment 2 - Observation Only", "Matt Experiment 2 — Observation Only"],
-    pairingNames: mattExperiment2Pairings,
-  },
-  {
-    id: "oven-dry-experiment",
-    name: "Oven-Dry Experiment",
-    shortDescription: "15 pots · measurement only",
-    mode: "observation_only",
-    groupNames: ["Oven-Dry Experiment - Observation Only", "Oven-Dry Experiment — Observation Only"],
-    pairingNames: ovenDryPairings,
-  },
+  mattExperiment1,
+  mattExperiment2,
+  swcSaturationCalibration,
+] as const;
+
+const researcherExperiments: readonly PortalExperiment[] = [
+  mattExperiment2,
+  swcSaturationCalibration,
 ] as const;
 
 const experimentById = new Map(portalExperiments.map((experiment) => [experiment.id, experiment]));
 
+export function portalExperimentsForRole(role: ExperimentPortalRole | null | undefined) {
+  return role === "admin" ? portalExperiments : researcherExperiments;
+}
+
 export function portalExperimentById(id: ExperimentId): PortalExperiment {
-  return experimentById.get(id) ?? portalExperiments[0];
+  return experimentById.get(id) ?? mattExperiment2;
 }
 
 export function pairingBelongsToExperiment(pairing: PairingRow, experiment: PortalExperiment) {
@@ -75,9 +96,28 @@ export function pairingsForExperiment(pairings: PairingRow[], experiment: Portal
   return pairings.filter((pairing) => pairingBelongsToExperiment(pairing, experiment));
 }
 
+export function timestampBelongsToExperiment(timestamp: string, experiment: PortalExperiment) {
+  const timestampMs = Date.parse(timestamp);
+  if (!Number.isFinite(timestampMs)) return false;
+  if (experiment.startedAt && timestampMs < Date.parse(experiment.startedAt)) return false;
+  if (experiment.endedAt && timestampMs >= Date.parse(experiment.endedAt)) return false;
+  return true;
+}
+
 export function readingsForExperiment(readings: SensorReading[], experiment: PortalExperiment) {
   const names = new Set<string>(experiment.pairingNames);
-  return readings.filter((reading) => names.has(reading.pairing_name));
+  return readings.filter((reading) =>
+    names.has(reading.pairing_name) &&
+    timestampBelongsToExperiment(reading.device_recorded_at, experiment)
+  );
+}
+
+export function valveEventsForExperiment(events: ValveEvent[], experiment: PortalExperiment) {
+  const names = new Set<string>(experiment.pairingNames);
+  return events.filter((event) =>
+    names.has(event.pairing_name) &&
+    timestampBelongsToExperiment(event.device_recorded_at ?? event.server_received_at, experiment)
+  );
 }
 
 export function latestExperimentReading(readings: SensorReading[], experiment: PortalExperiment) {
@@ -90,5 +130,32 @@ export function latestExperimentReading(readings: SensorReading[], experiment: P
 }
 
 export function isObservationOnlyExperiment(experiment: PortalExperiment) {
-  return experiment.mode === "observation_only";
+  return !["controlled", "calibration"].includes(experiment.mode);
+}
+
+export function isCalibrationExperiment(experiment: PortalExperiment) {
+  return experiment.mode === "calibration";
+}
+
+export function experimentCardDescription(experiment: PortalExperiment, pairings: PairingRow[]) {
+  if (!isCalibrationExperiment(experiment) || pairings.length === 0) return experiment.shortDescription;
+
+  const wateringEnabled = pairings.filter((pairing) =>
+    pairing.valve_open_time_ms > 0 && pairing.wtc_percent_limit > -999_000
+  );
+  if (wateringEnabled.length === 0) return "Sensing only";
+
+  const first = wateringEnabled[0];
+  const sameConfiguration = wateringEnabled.length === pairings.length &&
+    wateringEnabled.every((pairing) =>
+      pairing.wtc_percent_limit === first.wtc_percent_limit &&
+      pairing.valve_open_time_ms === first.valve_open_time_ms &&
+      pairing.measurement_interval_ms === first.measurement_interval_ms
+    );
+
+  if (!sameConfiguration) return "Calibration active";
+
+  const seconds = first.valve_open_time_ms / 1000;
+  const minutes = first.measurement_interval_ms / 60_000;
+  return `${first.wtc_percent_limit}% target · ${seconds} s / ${minutes} min`;
 }
