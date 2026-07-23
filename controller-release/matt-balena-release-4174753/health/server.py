@@ -1810,7 +1810,7 @@ def watering_events_from_logs(logs_response, pairings):
         message = str(log.get("message") or "")
         if not message.startswith("Opened Valve: "):
             continue
-        pair_id = message.split("Opened Valve: ", 1)[1].strip().split()[0]
+        pair_id = message.split("Opened Valve: ", 1)[1].strip().split()[0].rstrip(";,:")
         sensor_text, sep, valve_text = pair_id.partition("-")
         if not sep:
             continue

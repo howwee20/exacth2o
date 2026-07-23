@@ -28,6 +28,16 @@ const stoppedConfigPrefixes = [
   '/system/initialize-sensors',
 ]
 
+const readOnlyPostRoutes = new Set([
+  '/logs/search',
+  '/readings/filtered',
+])
+
+export function isControllerMutation(method: string, url: string): boolean {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) return false
+  return !readOnlyPostRoutes.has(url)
+}
+
 function isConfigMutation(method: string, url: string): boolean {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())) return false
   if (url === '/valves/operate' || url === '/valves/pulse') return false
@@ -53,7 +63,7 @@ export async function guardedControllerMutation(
   reply: FastifyReply,
   handler: () => Promise<any> | void,
 ): Promise<any> {
-  const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase())
+  const mutation = isControllerMutation(method, url)
   if (mutation) {
     const expected = process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET
     if (!expected) {

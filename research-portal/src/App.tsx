@@ -6037,27 +6037,41 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady) return undefined;
 
-    const validateVisibleSession = () => {
+    const validateVisibleSession = async () => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
-      void supabase.auth.getSession().then(({ data: sessionData, error: sessionError }) => {
-        if (sessionError || !sessionData.session) {
-          expirePortalSession();
-          return;
-        }
-        const expiresAtMs = (sessionData.session.expires_at ?? 0) * 1000;
-        if (expiresAtMs <= Date.now() + 60_000) {
-          void recoverPortalSession();
-        }
-      });
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        expirePortalSession();
+        return;
+      }
+      const expiresAtMs = (sessionData.session.expires_at ?? 0) * 1000;
+      if (expiresAtMs <= Date.now() + 60_000) {
+        const recovered = await recoverPortalSession();
+        if (!recovered) return;
+      }
+      await Promise.allSettled([
+        refresh({ incremental: false }),
+        loadValveEvents(),
+      ]);
     };
 
     document.addEventListener("visibilitychange", validateVisibleSession);
     window.addEventListener("online", validateVisibleSession);
+    window.addEventListener("focus", validateVisibleSession);
+    window.addEventListener("pageshow", validateVisibleSession);
     return () => {
       document.removeEventListener("visibilitychange", validateVisibleSession);
       window.removeEventListener("online", validateVisibleSession);
+      window.removeEventListener("focus", validateVisibleSession);
+      window.removeEventListener("pageshow", validateVisibleSession);
     };
-  }, [expirePortalSession, recoverPortalSession, sessionReady]);
+  }, [
+    expirePortalSession,
+    loadValveEvents,
+    recoverPortalSession,
+    refresh,
+    sessionReady,
+  ]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return;
@@ -6099,6 +6113,22 @@ export default function App() {
     if (!sessionReady || !canReadProjectData) return;
     void loadValveEvents();
   }, [canReadProjectData, loadValveEvents, sessionReady]);
+
+  useEffect(() => {
+    if (
+      !sessionReady ||
+      !canReadProjectData ||
+      portalView !== "experiment" ||
+      experimentGraphMode === "vwc"
+    ) return;
+    void loadValveEvents();
+  }, [
+    canReadProjectData,
+    experimentGraphMode,
+    loadValveEvents,
+    portalView,
+    sessionReady,
+  ]);
 
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings) return;
@@ -6357,12 +6387,14 @@ export default function App() {
           setValveEvents((current) => mergeValveEventRows(current, [row]));
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") void loadValveEvents();
+      });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [canReadProjectData, sessionReady]);
+  }, [canReadProjectData, loadValveEvents, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
