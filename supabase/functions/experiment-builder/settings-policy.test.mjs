@@ -54,6 +54,52 @@ test("settings plan normalizes a current pairing update", () => {
   });
 });
 
+test("settings plan validates rename, group assignment, and admin-only deletion", () => {
+  const update = normalizeSettingsPlan({
+    summary: "Organize pot 15",
+    commands: [{
+      command_type: "update_pairing",
+      payload_json: JSON.stringify({
+        pairing_name: "Zone1-Pot15",
+        new_name: "Zone2-Pot15",
+        group_name: "Trial pots",
+      }),
+      effect: "Rename and group pot 15",
+    }],
+    questions: [],
+  }, config, "researcher");
+  assert.deepEqual(update.errors, []);
+  assert.deepEqual(update.plan.commands[0].payload, {
+    pairing_name: "Zone1-Pot15",
+    new_name: "Zone2-Pot15",
+    group_name: "Trial pots",
+  });
+
+  const researcherDelete = normalizeSettingsPlan({
+    summary: "Delete pot 15",
+    commands: [{
+      command_type: "delete_pairing",
+      payload_json: JSON.stringify({ pairing_name: "Zone1-Pot15" }),
+      effect: "Delete pot 15 pairing",
+    }],
+    questions: [],
+  }, config, "researcher");
+  assert.equal(researcherDelete.plan.commands.length, 0);
+  assert.ok(researcherDelete.errors.some((error) => error.includes("administrator")));
+
+  const adminDelete = normalizeSettingsPlan({
+    summary: "Delete pot 15",
+    commands: [{
+      command_type: "delete_pairing",
+      payload_json: JSON.stringify({ pairing_name: "Zone1-Pot15" }),
+      effect: "Delete pot 15 pairing",
+    }],
+    questions: [],
+  }, config, "admin");
+  assert.deepEqual(adminDelete.errors, []);
+  assert.deepEqual(adminDelete.plan.commands[0].payload, { pairing_name: "Zone1-Pot15" });
+});
+
 test("settings plan blocks invented hardware and administrator commands for researchers", () => {
   const result = normalizeSettingsPlan({
     summary: "Unsafe",

@@ -283,6 +283,7 @@ type ControlCommandType =
   | "update_pairing"
   | "bulk_update_pairings"
   | "create_pairing"
+  | "delete_pairing"
   | "create_group"
   | "remove_group"
   | "create_calibration"
@@ -298,6 +299,7 @@ const adminOnlyControlCommandTypes = new Set<ControlCommandType>([
   "create_calibration",
   "delete_calibration",
   "apply_calibration",
+  "delete_pairing",
   "update_board_config",
   "initialize_sensors",
 ]);
@@ -2077,6 +2079,7 @@ function controlCommandLabel(commandType: ControlCommandType) {
     update_pairing: "Update pairing",
     bulk_update_pairings: "Bulk update pairings",
     create_pairing: "Create pairing",
+    delete_pairing: "Delete pairing",
     create_group: "Create group",
     remove_group: "Remove group",
     create_calibration: "Create calibration",
@@ -2177,6 +2180,9 @@ function PortalSettingsPanel({
   const [bulkOpenSeconds, setBulkOpenSeconds] = useState("5");
   const [bulkIntervalSeconds, setBulkIntervalSeconds] = useState("600");
   const [singlePairingName, setSinglePairingName] = useState(pairings[0]?.name ?? "");
+  const [singleNewName, setSingleNewName] = useState(pairings[0]?.name ?? "");
+  const [singleGroupName, setSingleGroupName] = useState(pairings[0] ? pairingGroupName(pairings[0]) : "");
+  const [deletePairingConfirm, setDeletePairingConfirm] = useState(false);
   const [singleTarget, setSingleTarget] = useState(pairings[0] ? numberInputString(pairings[0].wtc_percent_limit) : "20");
   const [singleOpenSeconds, setSingleOpenSeconds] = useState(
     pairings[0] ? numberInputString(pairings[0].valve_open_time_ms / 1000) : "5",
@@ -2192,6 +2198,7 @@ function PortalSettingsPanel({
   const [manualGroup, setManualGroup] = useState("all");
   const [manualSeconds, setManualSeconds] = useState("5");
   const [groupName, setGroupName] = useState("");
+  const [groupType, setGroupType] = useState<"none" | "group" | "block">("none");
   const [removeGroupName, setRemoveGroupName] = useState(projectGroups[0]?.label ?? "");
   const [boardAddresses, setBoardAddresses] = useState(
     boardConfigs.length ? boardConfigs.map((config) => config.address).join(", ") : "0x20, 0x24, 0x26",
@@ -2200,6 +2207,16 @@ function PortalSettingsPanel({
   const [destructiveConfirm, setDestructiveConfirm] = useState(false);
   const [exportDataType, setExportDataType] = useState("readings");
   const selectedPairing = pairings.find((pairing) => pairing.name === singlePairingName) ?? pairings[0] ?? null;
+  const controllerGroupNames = useMemo(() => Array.from(new Set(
+      (configState?.groups ?? [])
+        .map((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return "";
+          const name = (item as Record<string, unknown>).name;
+          return typeof name === "string" ? name.trim() : "";
+        })
+        .filter(Boolean),
+    )).sort((left, right) => left.localeCompare(right, undefined, { numeric: true })),
+  [configState?.groups]);
   const csvReady = data.readings.length > 0;
 
   useEffect(() => {
@@ -2214,7 +2231,17 @@ function PortalSettingsPanel({
     setSingleTarget(numberInputString(selectedPairing.wtc_percent_limit));
     setSingleOpenSeconds(numberInputString(selectedPairing.valve_open_time_ms / 1000));
     setSingleIntervalSeconds(numberInputString(selectedPairing.measurement_interval_ms / 1000, 0));
+    setSingleNewName(selectedPairing.name);
+    setSingleGroupName(pairingGroupName(selectedPairing));
+    setDeletePairingConfirm(false);
   }, [open, selectedPairing]);
+
+  useEffect(() => {
+    if (!open || controllerGroupNames.length === 0) return;
+    setNewPairingGroup((current) => (
+      controllerGroupNames.includes(current) ? current : controllerGroupNames[0]
+    ));
+  }, [open, controllerGroupNames]);
 
   if (!open) return null;
 
@@ -2244,6 +2271,8 @@ function PortalSettingsPanel({
     event.preventDefault();
     await onQueueCommand("update_pairing", {
       pairing_name: selectedPairing?.name ?? singlePairingName,
+      new_name: singleNewName,
+      group_name: singleGroupName,
       target_vwc: parseNumber(singleTarget),
       open_time_seconds: parseNumber(singleOpenSeconds),
       measurement_interval_seconds: parseNumber(singleIntervalSeconds),
@@ -2275,7 +2304,15 @@ function PortalSettingsPanel({
     event.preventDefault();
     await onQueueCommand("create_group", {
       group_name: groupName,
+      group_type: groupType,
     });
+  }
+
+  async function submitDeletePairing() {
+    if (!selectedPairing) return;
+    await onQueueCommand("delete_pairing", {
+      pairing_name: selectedPairing.name,
+    }, { confirm: true });
   }
 
   async function submitRemoveGroup(event: FormEvent<HTMLFormElement>) {
@@ -2456,6 +2493,24 @@ function PortalSettingsPanel({
                 </label>
                 <div className="settings-field-grid">
                   <label>
+                    Name
+                    <input
+                      value={singleNewName}
+                      onChange={(event) => setSingleNewName(event.target.value)}
+                      pattern="Zone[0-9]+-Pot[0-9]+"
+                      title="Use Zone<number>-Pot<number>"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Group
+                    <select value={singleGroupName} onChange={(event) => setSingleGroupName(event.target.value)} required>
+                      {controllerGroupNames.map((name) => (
+                        <option value={name} key={name}>{name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
                     VWC %
                     <input type="number" min="0" max="80" step="0.1" value={singleTarget} onChange={(event) => setSingleTarget(event.target.value)} required />
                   </label>
@@ -2471,6 +2526,26 @@ function PortalSettingsPanel({
                 <button type="submit" className="settings-primary-button" disabled={controlBusy || !selectedPairing}>
                   Set pairing
                 </button>
+                {isAdmin ? (
+                  <>
+                    <label className="settings-check">
+                      <input
+                        type="checkbox"
+                        checked={deletePairingConfirm}
+                        onChange={(event) => setDeletePairingConfirm(event.target.checked)}
+                      />
+                      <span>Confirm deletion of {selectedPairing?.name}</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="settings-danger-button"
+                      onClick={() => void submitDeletePairing()}
+                      disabled={controlBusy || !selectedPairing || !deletePairingConfirm}
+                    >
+                      Delete pairing
+                    </button>
+                  </>
+                ) : null}
               </form>
             </section>
             <section className="settings-card">
@@ -2511,11 +2586,22 @@ function PortalSettingsPanel({
                 <div className="settings-field-grid is-two">
                   <label>
                     Name
-                    <input value={newPairingName} onChange={(event) => setNewPairingName(event.target.value)} placeholder="Zone4-Pot101" required />
+                    <input
+                      value={newPairingName}
+                      onChange={(event) => setNewPairingName(event.target.value)}
+                      placeholder="Zone4-Pot101"
+                      pattern="Zone[0-9]+-Pot[0-9]+"
+                      title="Use Zone<number>-Pot<number>"
+                      required
+                    />
                   </label>
                   <label>
                     Group
-                    <input value={newPairingGroup} onChange={(event) => setNewPairingGroup(event.target.value)} placeholder="Matt's 20 pots" required />
+                    <select value={newPairingGroup} onChange={(event) => setNewPairingGroup(event.target.value)} required>
+                      {controllerGroupNames.map((name) => (
+                        <option value={name} key={name}>{name}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
                 <div className="settings-field-grid is-two">
@@ -2683,6 +2769,14 @@ function PortalSettingsPanel({
                 <label>
                   Group name
                   <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Matt drought rows" required />
+                </label>
+                <label>
+                  Type
+                  <select value={groupType} onChange={(event) => setGroupType(event.target.value as "none" | "group" | "block")}>
+                    <option value="none">None</option>
+                    <option value="group">Group</option>
+                    <option value="block">Block</option>
+                  </select>
                 </label>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy}>
                   Create group

@@ -114,6 +114,67 @@ test("update_pairing maps portal payload to local controller fields", async () =
   ]);
 });
 
+test("update_pairing can rename and move a pairing using current inventory", async () => {
+  const fixture = apiFixture();
+  const result = await executeCommand(
+    {
+      command_type: "update_pairing",
+      payload: {
+        pairing_name: "Pot 41",
+        new_name: "Zone1-Pot41",
+        group_name: "Bench",
+      },
+    },
+    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+  );
+
+  assert.deepEqual(result.body, {
+    name: "Zone1-Pot41",
+    groupId: 1,
+  });
+  assert.deepEqual(fixture.calls.at(-1), [
+    "PUT",
+    "/pairings/41/141",
+    { name: "Zone1-Pot41", groupId: 1 },
+  ]);
+});
+
+test("delete_pairing deletes the resolved pair only while stopped", async () => {
+  const fixture = apiFixture();
+  await executeCommand(
+    { command_type: "delete_pairing", payload: { pairing_name: "Pot 41" } },
+    { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+  );
+  assert.deepEqual(fixture.calls.at(-1), ["DELETE", "/pairings/41/141"]);
+
+  const runningFixture = apiFixture({ state: "RUNNING" });
+  await assert.rejects(
+    () => executeCommand(
+      { command_type: "delete_pairing", payload: { pairing_name: "Pot 41" } },
+      { api: runningFixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+    ),
+    /requires controller state STOPPED/,
+  );
+});
+
+test("pairing mutations fail closed when a name is ambiguous", async () => {
+  const fixture = apiFixture({
+    data: {
+      pairings: [
+        { name: "Pot 41", sensorId: 41, valveId: 141 },
+        { name: "Pot 41", sensorId: 42, valveId: 142 },
+      ],
+    },
+  });
+  await assert.rejects(
+    () => executeCommand(
+      { command_type: "delete_pairing", payload: { pairing_name: "Pot 41" } },
+      { api: fixture.api, dryRun: false, manualWaterMaxSeconds: 60 },
+    ),
+    /Pairing name is ambiguous/,
+  );
+});
+
 test("update_pairing refuses to edit while controller is running", async () => {
   const fixture = apiFixture({ state: "RUNNING" });
   await assert.rejects(

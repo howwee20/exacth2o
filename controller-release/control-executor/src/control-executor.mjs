@@ -318,7 +318,11 @@ function findByName(items, wanted, label, nameFn = (item) => firstDefined(item?.
 }
 
 function resolvePairing(index, name) {
-  return findByName(index.pairings, name, "Pairing", pairName);
+  const target = normalizeKey(name);
+  const matches = index.pairings.filter((item) => normalizeKey(pairName(item)) === target);
+  if (matches.length === 0) throw new Error(`Pairing not found: ${name}`);
+  if (matches.length > 1) throw new Error(`Pairing name is ambiguous: ${name}`);
+  return matches[0];
 }
 
 function resolveSensor(index, key) {
@@ -453,6 +457,18 @@ export async function executeCommand(command, options) {
     const pairing = resolvePairing(index, payload.pairing_name);
     const ids = pairingIds(pairing);
     const patch = localPairingPatch(payload);
+    if (payload.new_name) {
+      const duplicate = index.pairings.find((candidate) => {
+        const candidateIds = pairingIds(candidate);
+        return (
+          normalizeKey(pairName(candidate)) === normalizeKey(payload.new_name) &&
+          !(sameId(candidateIds.sensorId, ids.sensorId) && sameId(candidateIds.valveId, ids.valveId))
+        );
+      });
+      if (duplicate) throw new Error(`Pairing name already exists: ${payload.new_name}`);
+      patch.name = payload.new_name;
+    }
+    if (payload.group_name) patch.groupId = itemId(resolveGroup(index, payload.group_name));
     if (dryRun) return { dryRun, action: "update_pairing", ids, patch };
     return api.put(`/pairings/${encodeURIComponent(ids.sensorId)}/${encodeURIComponent(ids.valveId)}`, patch);
   }
@@ -461,6 +477,7 @@ export async function executeCommand(command, options) {
     await requireStopped(api, "bulk_update_pairings");
     const index = await loadControllerIndex(api);
     const patch = localPairingPatch(payload);
+    if (payload.group_name) patch.groupId = itemId(resolveGroup(index, payload.group_name));
     const results = [];
     for (const name of payload.pairing_names || []) {
       const ids = pairingIds(resolvePairing(index, name));
@@ -477,10 +494,10 @@ export async function executeCommand(command, options) {
     const index = await loadControllerIndex(api);
     const sensor = resolveSensor(index, payload.sensor_key);
     const valve = resolveValve(index, payload.valve_key);
-    let group = payload.group_name ? index.groups.find((item) => normalizeKey(item.name || item.Name) === normalizeKey(payload.group_name)) : null;
-    if (!group && payload.group_name && !dryRun) {
-      group = await api.post("/groups", { name: payload.group_name });
+    if (index.pairings.some((item) => normalizeKey(pairName(item)) === normalizeKey(payload.name))) {
+      throw new Error(`Pairing name already exists: ${payload.name}`);
     }
+    const group = payload.group_name ? resolveGroup(index, payload.group_name) : null;
     const body = {
       name: payload.name,
       sensorId: firstDefined(sensor.id, sensor.Id),
@@ -492,9 +509,20 @@ export async function executeCommand(command, options) {
     return api.post("/pairings", body);
   }
 
+  if (command.command_type === "delete_pairing") {
+    await requireStopped(api, "delete_pairing");
+    const index = await loadControllerIndex(api);
+    const ids = pairingIds(resolvePairing(index, payload.pairing_name));
+    if (dryRun) return { dryRun, action: "delete_pairing", ids };
+    return api.delete(`/pairings/${encodeURIComponent(ids.sensorId)}/${encodeURIComponent(ids.valveId)}`);
+  }
+
   if (command.command_type === "create_group") {
     await requireStopped(api, "create_group");
-    const body = { name: payload.group_name };
+    const body = {
+      name: payload.group_name,
+      type: payload.group_type === "none" ? "" : payload.group_type,
+    };
     if (dryRun) return { dryRun, action: "create_group", body };
     return api.post("/groups", body);
   }
@@ -618,6 +646,7 @@ const syncAfterCommandTypes = new Set([
   "update_pairing",
   "bulk_update_pairings",
   "create_pairing",
+  "delete_pairing",
   "create_group",
   "remove_group",
   "create_calibration",

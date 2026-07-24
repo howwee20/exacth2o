@@ -10,6 +10,7 @@ export const researcherCommandTypes = new Set([
 ]);
 
 export const adminOnlyCommandTypes = new Set([
+  "delete_pairing",
   "create_calibration",
   "delete_calibration",
   "apply_calibration",

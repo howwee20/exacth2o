@@ -16,6 +16,7 @@ export const settingsPlanSchema = {
               "update_pairing",
               "bulk_update_pairings",
               "create_pairing",
+              "delete_pairing",
               "create_group",
               "remove_group",
               "create_calibration",
@@ -47,6 +48,7 @@ const adminOnlyCommandTypes = new Set([
   "delete_calibration",
   "apply_calibration",
   "update_board_config",
+  "delete_pairing",
 ]);
 const exportTypes = new Set([
   "readings",
@@ -80,6 +82,14 @@ function numberInRange(value, min, max, label) {
 function exactString(value, allowed, label, maxLength = 160) {
   const cleaned = text(value, maxLength);
   if (!cleaned || !allowed.has(cleaned)) throw new Error(`${label} is not in the current controller inventory.`);
+  return cleaned;
+}
+
+function newPairingName(value) {
+  const cleaned = text(value, 120);
+  if (!/^Zone\d+-Pot\d+$/i.test(cleaned)) {
+    throw new Error("Pairing names must use Zone<number>-Pot<number>.");
+  }
   return cleaned;
 }
 
@@ -144,7 +154,6 @@ function targetSettings(payload) {
       "Measurement interval",
     );
   }
-  if (!Object.keys(output).length) throw new Error("A pairing update needs a target, watering state, valve time, or measurement interval.");
   return output;
 }
 
@@ -172,24 +181,45 @@ export function normalizeSettingsPlan(value, configRow, role) {
       let normalized = {};
 
       if (commandType === "update_pairing") {
+        const pairingName = exactString(payload.pairing_name, pairingNames, "Pairing", 120);
+        const newName = "new_name" in payload ? newPairingName(payload.new_name) : "";
+        const pairingSettings = targetSettings(payload);
+        if (newName) {
+          if (newName !== pairingName && pairingNames.has(newName)) {
+            throw new Error("The new pairing name is already in use.");
+          }
+          pairingSettings.new_name = newName;
+        }
+        if ("group_name" in payload) {
+          pairingSettings.group_name = exactString(payload.group_name, groupNames, "Group", 120);
+        }
+        if (!Object.keys(pairingSettings).length) {
+          throw new Error("A pairing update needs a name, group, target, watering state, valve time, or measurement interval.");
+        }
         normalized = {
-          pairing_name: exactString(payload.pairing_name, pairingNames, "Pairing", 120),
-          ...targetSettings(payload),
+          pairing_name: pairingName,
+          ...pairingSettings,
         };
       } else if (commandType === "bulk_update_pairings") {
+        const pairingSettings = targetSettings(payload);
+        if ("group_name" in payload) {
+          pairingSettings.group_name = exactString(payload.group_name, groupNames, "Group", 120);
+        }
+        if (!Object.keys(pairingSettings).length) {
+          throw new Error("A bulk pairing update needs a group, target, watering state, valve time, or measurement interval.");
+        }
         normalized = {
           pairing_names: stringList(payload.pairing_names, pairingNames, "Pairings"),
-          ...targetSettings(payload),
+          ...pairingSettings,
         };
       } else if (commandType === "create_pairing") {
-        const name = text(payload.name, 120);
+        const name = newPairingName(payload.name);
         if (!name || pairingNames.has(name)) throw new Error("New pairing name is missing or already in use.");
-        const groupName = text(payload.group_name, 120);
         normalized = {
           name,
           sensor_key: exactString(payload.sensor_key, sensorKeys, "Sensor", 120),
           valve_key: exactString(payload.valve_key, valveKeys, "Valve", 120),
-          group_name: groupName,
+          group_name: exactString(payload.group_name, groupNames, "Group", 120),
           target_vwc: numberInRange(payload.target_vwc, 0, 80, "Target VWC"),
           open_time_seconds: numberInRange(payload.open_time_seconds, 1, 120, "Valve open time"),
           measurement_interval_seconds: numberInRange(
@@ -199,10 +229,18 @@ export function normalizeSettingsPlan(value, configRow, role) {
             "Measurement interval",
           ),
         };
+      } else if (commandType === "delete_pairing") {
+        normalized = {
+          pairing_name: exactString(payload.pairing_name, pairingNames, "Pairing", 120),
+        };
       } else if (commandType === "create_group") {
         const groupName = text(payload.group_name, 120);
         if (!groupName || groupNames.has(groupName)) throw new Error("New group name is missing or already in use.");
-        normalized = { group_name: groupName };
+        const groupType = text(payload.group_type, 20).toLowerCase() || "none";
+        if (!["none", "group", "block"].includes(groupType)) {
+          throw new Error("Group type must be none, group, or block.");
+        }
+        normalized = { group_name: groupName, group_type: groupType };
       } else if (commandType === "remove_group") {
         normalized = { group_name: exactString(payload.group_name, groupNames, "Group", 120) };
       } else if (commandType === "create_calibration") {
@@ -280,10 +318,11 @@ export function settingsSystemInstructions(role) {
     "Manual valve pulses and sensor initialization are locked and must never be proposed.",
     "Researchers cannot create, delete, or apply calibrations and cannot change board configuration.",
     "Command payload JSON grammar:",
-    'update_pairing: {"pairing_name":string, optional "target_vwc":0..80, "disable_watering":boolean, "open_time_seconds":1..120, "measurement_interval_seconds":30..3600}.',
-    'bulk_update_pairings: {"pairing_names":[string], same optional setting fields}.',
+    'update_pairing: {"pairing_name":string, optional "new_name":string, "group_name":existing string, "target_vwc":0..80, "disable_watering":boolean, "open_time_seconds":1..120, "measurement_interval_seconds":30..3600}.',
+    'bulk_update_pairings: {"pairing_names":[string], optional existing "group_name" and target/watering/time fields}.',
     'create_pairing: {"name":string,"sensor_key":string,"valve_key":string,"group_name":string,"target_vwc":number,"open_time_seconds":number,"measurement_interval_seconds":number}.',
-    'create_group/remove_group: {"group_name":string}.',
+    'delete_pairing: {"pairing_name":string}; administrator only and destructive.',
+    'create_group: {"group_name":string,"group_type":"none"|"group"|"block"}; remove_group: {"group_name":string}.',
     'create_calibration: {"name":string,"function_text":string}.',
     'delete_calibration: {"calibration_name":string}.',
     'apply_calibration: {"calibration_name":string,"pairing_names":[string]}.',

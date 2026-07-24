@@ -3135,6 +3135,20 @@ select {
   line-height: 1.4;
 }
 
+.settings-assistant-command-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.settings-assistant-command-copy code {
+  color: #4e5868;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .settings-assistant-revise {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

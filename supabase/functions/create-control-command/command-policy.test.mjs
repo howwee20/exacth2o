@@ -46,6 +46,11 @@ test("controller calibration mutations require an administrator", () => {
   }
 });
 
+test("pairing deletion requires an administrator", () => {
+  assert.equal(commandAccessDecision("researcher", "delete_pairing").allowed, false);
+  assert.equal(commandAccessDecision("admin", "delete_pairing").allowed, true);
+});
+
 test("admins can submit admin and researcher commands", () => {
   for (const commandType of [...researcherCommandTypes, ...adminOnlyCommandTypes]) {
     assert.equal(commandAccessDecision("admin", commandType).allowed, true, commandType);

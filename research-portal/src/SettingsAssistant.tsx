@@ -89,7 +89,10 @@ export function SettingsAssistant({
             {plan.commands.map((command, index) => (
               <div key={`${command.command_type}-${index}`}>
                 <strong>{settingsCommandLabel(command.command_type)}</strong>
-                <span>{command.effect}</span>
+                <div className="settings-assistant-command-copy">
+                  <span>{command.effect}</span>
+                  <code>{JSON.stringify(command.payload)}</code>
+                </div>
               </div>
             ))}
           </div>

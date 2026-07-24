@@ -10,6 +10,7 @@ type CommandType =
   | "update_pairing"
   | "bulk_update_pairings"
   | "create_pairing"
+  | "delete_pairing"
   | "create_group"
   | "remove_group"
   | "create_calibration"
@@ -64,6 +65,7 @@ const commandTypes = new Set<CommandType>([
   "update_pairing",
   "bulk_update_pairings",
   "create_pairing",
+  "delete_pairing",
   "create_group",
   "remove_group",
   "create_calibration",
@@ -77,6 +79,7 @@ const commandTypes = new Set<CommandType>([
 ]);
 
 const destructiveCommands = new Set<CommandType>([
+  "delete_pairing",
   "manual_water",
   "update_board_config",
   "initialize_sensors",
@@ -86,6 +89,7 @@ const stoppedConfigurationCommands = new Set<CommandType>([
   "update_pairing",
   "bulk_update_pairings",
   "create_pairing",
+  "delete_pairing",
   "create_group",
   "remove_group",
   "create_calibration",
@@ -148,6 +152,14 @@ function stringList(value: unknown, label: string, maxItems = 200) {
   return cleaned;
 }
 
+function pairingName(value: unknown) {
+  const name = clean(value, 120);
+  if (!/^Zone\d+-Pot\d+$/i.test(name)) {
+    throw new Error("Pairing names must use Zone<number>-Pot<number>");
+  }
+  return name;
+}
+
 function validateTargetSettings(payload: Record<string, unknown>) {
   const validated: Record<string, unknown> = {};
   if ("target_vwc" in payload) {
@@ -168,10 +180,6 @@ function validateTargetSettings(payload: Record<string, unknown>) {
     );
   }
 
-  if (Object.keys(validated).length === 0) {
-    throw new Error("At least one target, open-time, or interval setting is required");
-  }
-
   return validated;
 }
 
@@ -190,15 +198,32 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
     payload.pairing_name = clean(rawPayload.pairing_name, 120);
     if (!payload.pairing_name) throw new Error("Pairing name is required");
     Object.assign(payload, validateTargetSettings(rawPayload));
+    if ("new_name" in rawPayload) {
+      payload.new_name = pairingName(rawPayload.new_name);
+    }
+    if ("group_name" in rawPayload) {
+      payload.group_name = clean(rawPayload.group_name, 120);
+      if (!payload.group_name) throw new Error("Group name is invalid");
+    }
+    if (Object.keys(payload).length === 1) {
+      throw new Error("At least one pairing setting is required");
+    }
   }
 
   if (commandType === "bulk_update_pairings") {
     payload.pairing_names = stringList(rawPayload.pairing_names, "Pairings");
     Object.assign(payload, validateTargetSettings(rawPayload));
+    if ("group_name" in rawPayload) {
+      payload.group_name = clean(rawPayload.group_name, 120);
+      if (!payload.group_name) throw new Error("Group name is invalid");
+    }
+    if (Object.keys(payload).length === 1) {
+      throw new Error("At least one pairing setting is required");
+    }
   }
 
   if (commandType === "create_pairing") {
-    payload.name = clean(rawPayload.name, 120);
+    payload.name = pairingName(rawPayload.name);
     payload.sensor_key = clean(rawPayload.sensor_key, 120);
     payload.valve_key = clean(rawPayload.valve_key, 120);
     payload.group_name = clean(rawPayload.group_name, 120);
@@ -215,9 +240,21 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
     }
   }
 
+  if (commandType === "delete_pairing") {
+    payload.pairing_name = clean(rawPayload.pairing_name, 120);
+    if (!payload.pairing_name) throw new Error("Pairing name is required");
+  }
+
   if (commandType === "create_group" || commandType === "remove_group") {
     payload.group_name = clean(rawPayload.group_name, 120);
     if (!payload.group_name) throw new Error("Group name is required");
+    if (commandType === "create_group") {
+      const groupType = clean(rawPayload.group_type, 20).toLowerCase() || "none";
+      if (!["none", "group", "block"].includes(groupType)) {
+        throw new Error("Group type must be none, group, or block");
+      }
+      payload.group_type = groupType;
+    }
     if (commandType === "remove_group") requiresConfirmation = true;
   }
 

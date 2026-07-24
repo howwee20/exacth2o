@@ -2,6 +2,7 @@ export type SettingsCommandType =
   | "update_pairing"
   | "bulk_update_pairings"
   | "create_pairing"
+  | "delete_pairing"
   | "create_group"
   | "remove_group"
   | "create_calibration"
@@ -36,6 +37,7 @@ export const stoppedSettingsCommandTypes = new Set<SettingsCommandType>([
   "update_pairing",
   "bulk_update_pairings",
   "create_pairing",
+  "delete_pairing",
   "create_group",
   "remove_group",
   "create_calibration",
@@ -49,6 +51,7 @@ export function settingsCommandLabel(commandType: SettingsCommandType) {
     update_pairing: "Update pairing",
     bulk_update_pairings: "Update pairings",
     create_pairing: "Create pairing",
+    delete_pairing: "Delete pairing",
     create_group: "Create group",
     remove_group: "Remove group",
     create_calibration: "Create calibration",
