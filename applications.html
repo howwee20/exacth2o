@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Applications — exactH2O</title>
+<meta name="description" content="See how ExactH2O supports controlled plant-stress studies, phenotyping, and research or commercial greenhouse irrigation.">
+<link rel="canonical" href="https://exacth2o.com/applications">
 <script>
 (function () {
   var canonicalPath = "/applications";
@@ -92,7 +94,7 @@
   .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
   .nav-cta { background: var(--water); color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
   .nav-cta:hover { background: var(--water-light) !important; }
-  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
+  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; border: 0; padding: 0; background: transparent; }
   .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
   .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
   .hamburger.active span:nth-child(2) { opacity: 0; }
@@ -101,25 +103,36 @@
   .mobile-menu.active { display: flex; }
   .mobile-menu a { font-family: var(--serif); font-size: 2.2rem; color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
   .mobile-menu a:hover { opacity: 0.7; }
-  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
+  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.72); cursor: pointer; letter-spacing: 0.1em; border: 0; background: transparent; }
+
+  a:focus-visible,
+  button:focus-visible,
+  .experiment-chart:focus-visible {
+    outline: 3px solid var(--water-light);
+    outline-offset: 4px;
+  }
 
   /* ── HERO ── */
   .hero {
-    min-height: 100vh;
+    min-height: 100svh;
     display: grid;
-    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    grid-template-columns: minmax(340px, 0.8fr) minmax(520px, 1.2fr);
+    gap: clamp(2rem, 4vw, 5.5rem);
+    align-items: center;
+    padding: 6rem 4rem 2rem;
     position: relative;
     overflow: hidden;
     z-index: 2;
   }
 
   .hero-left {
-    padding: 10rem 3rem 5rem 4rem;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: center;
     position: relative;
     z-index: 2;
+    max-width: 560px;
   }
 
   .hero-eyebrow {
@@ -128,7 +141,7 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--water);
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     display: flex;
     align-items: center;
     gap: 0.8rem;
@@ -143,11 +156,11 @@
 
   .hero-title {
     font-family: var(--serif);
-    font-size: clamp(3.5rem, 5vw, 5.5rem);
-    line-height: 1.0;
+    font-size: clamp(3.2rem, 4.6vw, 5.2rem);
+    line-height: 0.98;
     letter-spacing: -0.02em;
     color: var(--ink);
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
   }
   .hero-title em {
     font-style: italic;
@@ -155,68 +168,146 @@
   }
 
   .hero-intro {
-    font-size: 1.05rem;
-    line-height: 1.75;
+    font-size: 1rem;
+    line-height: 1.68;
     color: var(--ink);
-    opacity: 0.7;
+    opacity: 0.76;
     max-width: 44ch;
-    margin-bottom: 3rem;
+    margin-bottom: 1.75rem;
     border-left: 2px solid var(--water-light);
     padding-left: 1.25rem;
   }
 
-  .hero-stat-row {
+  .hero-actions {
     display: flex;
-    gap: 3rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
   }
-  .hero-stat {
-    display: flex;
-    flex-direction: column;
-  }
-  .hero-stat-num {
-    font-family: var(--serif);
-    font-size: 2.2rem;
-    color: var(--water);
-    line-height: 1;
-  }
-  .hero-stat-label {
+  .btn-secondary {
+    color: var(--ink);
+    padding: 0.78rem 1.25rem;
+    border: 1px solid rgba(14,26,20,0.25);
     font-family: var(--mono);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    opacity: 0.5;
-    margin-top: 0.3rem;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .btn-secondary:hover {
+    border-color: var(--water);
+    background: rgba(212,237,227,0.42);
+  }
+  .application-jumps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+  .application-jumps a {
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(14,26,20,0.72);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(14,26,20,0.24);
+    padding: 0.2rem 0;
+  }
+  .application-jumps a:hover {
+    color: var(--water);
+    border-color: var(--water);
   }
 
   .hero-right {
     position: relative;
-    overflow: hidden;
+    min-width: 0;
   }
   .hero-right-inner {
-    position: absolute;
-    inset: 0;
-    background: transparent;
+    width: 100%;
+  }
+  .experiment-shell {
+    width: min(100%, 780px);
+    max-width: min(780px, calc((100svh - 8.5rem) * 0.96));
+    margin-left: auto;
+    background: rgba(255,255,255,0.84);
+    border: 1px solid rgba(14,26,20,0.13);
+    border-radius: 16px;
+    box-shadow: 0 24px 70px rgba(14,26,20,0.1);
+    overflow: hidden;
+  }
+  .experiment-shell-head {
     display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
     align-items: flex-end;
-    justify-content: center;
-    padding: 9rem 4rem 7rem 2rem;
+    padding: 1.3rem 1.5rem 0.9rem;
+    border-bottom: 1px solid rgba(14,26,20,0.09);
+  }
+  .experiment-kicker {
+    display: block;
+    font-family: var(--mono);
+    color: var(--water);
+    font-size: 0.62rem;
+    line-height: 1.4;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  .experiment-shell h2 {
+    font-family: var(--serif);
+    font-size: clamp(1.25rem, 2vw, 1.65rem);
+    line-height: 1.15;
+    font-weight: 400;
+  }
+  .experiment-hint {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    color: rgba(14,26,20,0.62);
+    white-space: nowrap;
+  }
+  .experiment-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    padding: 0.85rem 1.5rem 0;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    color: rgba(14,26,20,0.7);
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .legend-line {
+    width: 1.8rem;
+    height: 2px;
+    background: var(--water);
+  }
+  .legend-line.is-dashed {
+    background: repeating-linear-gradient(90deg, var(--water) 0 6px, transparent 6px 10px);
+  }
+  .legend-line.is-target {
+    height: 1px;
+    background: repeating-linear-gradient(90deg, rgba(26,107,74,0.5) 0 3px, transparent 3px 7px);
   }
   .experiment-visual {
     position: relative;
-    width: min(96%, 820px);
+    width: 100%;
     aspect-ratio: 760 / 560;
     height: auto;
-    max-height: min(66vh, 604px);
     min-height: 0;
     color: #172033;
+    padding: 0 0.65rem;
   }
   .experiment-visual::before {
-    content: '';
-    position: absolute;
-    inset: -2.5rem;
-    z-index: -1;
-    background: radial-gradient(circle at 52% 48%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.36) 54%, rgba(244,241,235,0) 78%);
-    pointer-events: none;
+    display: none;
   }
   .experiment-chart {
     display: block;
@@ -224,12 +315,7 @@
     height: 100%;
     overflow: visible;
     cursor: crosshair;
-    outline: none;
     -webkit-tap-highlight-color: transparent;
-  }
-  .experiment-chart:focus,
-  .experiment-chart:focus-visible {
-    outline: none;
   }
   .experiment-grid-line {
     stroke: #e7edf5;
@@ -270,6 +356,12 @@
     stroke-width: 1;
     stroke-dasharray: 5 7;
   }
+  .experiment-target-label {
+    fill: rgba(26, 107, 74, 0.72);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
   .experiment-trace {
     fill: none;
     stroke-width: 2.2;
@@ -297,6 +389,12 @@
   }
   .experiment-chart.has-active .experiment-trace:not(.is-active) {
     opacity: 0.18;
+  }
+  .experiment-trace:focus-visible {
+    outline: none;
+    opacity: 1;
+    stroke-width: 3.4;
+    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.2));
   }
   .trace-end {
     opacity: 1;
@@ -346,6 +444,35 @@
   .tooltip-accent {
     fill: #22c55e;
   }
+  .experiment-shell figcaption {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 1.5rem 1.05rem;
+    border-top: 1px solid rgba(14,26,20,0.09);
+    color: rgba(14,26,20,0.68);
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  .experiment-provenance {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(14,26,20,0.62);
+    text-align: right;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
   @media (prefers-reduced-motion: reduce) {
     .experiment-visual.has-motion .trace-end {
       opacity: 1;
@@ -391,6 +518,7 @@
     padding: 6rem 4rem;
     position: relative;
     z-index: 2;
+    scroll-margin-top: 6rem;
   }
 
   .app-intro-grid {
@@ -424,8 +552,8 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 18px 48px rgba(14, 26, 20, 0.07);
-    transition: background 0.3s, border-color 0.3s, transform 0.3s, box-shadow 0.3s;
     cursor: default;
+    scroll-margin-top: 6rem;
   }
   .app-card:nth-child(3) {
     grid-column: auto;
@@ -435,19 +563,12 @@
     position: relative;
     z-index: 2;
   }
-  .app-card:hover {
-    background: #fff;
-    border-color: rgba(26, 107, 74, 0.28);
-    transform: translateY(-3px);
-    box-shadow: 0 22px 56px rgba(14, 26, 20, 0.11);
-  }
-
   .app-card-num {
     font-family: var(--mono);
     font-size: 0.65rem;
     letter-spacing: 0.1em;
     color: var(--water);
-    opacity: 0.5;
+    opacity: 0.72;
     margin-bottom: 1.5rem;
   }
   .app-card-icon {
@@ -468,7 +589,7 @@
     font-size: 0.9rem;
     line-height: 1.7;
     color: var(--ink);
-    opacity: 0.65;
+    opacity: 0.72;
     flex: 1;
   }
   .app-card-image {
@@ -621,13 +742,39 @@
   }
 
   /* ── RESPONSIVE ── */
+  @media (max-width: 1160px) {
+    .hero {
+      grid-template-columns: minmax(310px, 0.75fr) minmax(460px, 1.25fr);
+      gap: 2rem;
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+    .hero-title { font-size: clamp(3rem, 4.6vw, 4.4rem); }
+    .experiment-shell-head { align-items: flex-start; }
+  }
+
+  @media (max-height: 780px) and (min-width: 901px) {
+    .experiment-hint { display: none; }
+    .experiment-shell-head { padding: 0.9rem 1.2rem 0.7rem; }
+    .experiment-shell h2 { font-size: 1.35rem; }
+    .experiment-legend { padding: 0.65rem 1.2rem 0; }
+    .experiment-shell figcaption { padding: 0.65rem 1.2rem 0.8rem; }
+  }
+
   @media (max-width: 900px) {
     nav { padding: 1rem 1.5rem; }
     .nav-links { display: none; }
     .hamburger { display: flex; }
-    .hero { grid-template-columns: 1fr; }
-    .hero-right { display: none; }
-    .hero-left { padding: 8rem 2rem 4rem; }
+    .hero {
+      grid-template-columns: 1fr;
+      min-height: auto;
+      gap: 2.5rem;
+      padding: 7.5rem 2rem 4rem;
+      overflow: visible;
+    }
+    .hero-left { max-width: 650px; }
+    .hero-right { display: block; }
+    .experiment-shell { margin: 0; max-width: 100%; }
     section, .applications, .why-section { padding: 4rem 2rem; }
     .cta-strip { padding: 4rem 1.5rem; }
     .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
@@ -635,6 +782,27 @@
     .app-card:nth-child(3) { width: auto; }
     .why-inner { grid-template-columns: 1fr; gap: 3rem; }
     footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
+  }
+
+  @media (max-width: 540px) {
+    .nav-logo { width: 146px; }
+    .hero { padding: 6.5rem 1rem 3rem; gap: 2rem; }
+    .hero-title { font-size: clamp(2.8rem, 14vw, 4rem); }
+    .hero-intro { font-size: 0.94rem; margin-bottom: 1.35rem; }
+    .hero-actions { align-items: stretch; }
+    .hero-actions a { flex: 1 1 100%; text-align: center; }
+    .application-jumps { gap: 0.45rem 0.8rem; }
+    .experiment-shell { border-radius: 12px; }
+    .experiment-shell-head { padding: 1rem 1rem 0.75rem; }
+    .experiment-hint { display: none; }
+    .experiment-legend { padding: 0.7rem 1rem 0; gap: 0.55rem 0.85rem; }
+    .experiment-visual { padding: 0 0.2rem; }
+    .experiment-shell figcaption { display: block; padding: 0.75rem 1rem 0.9rem; }
+    .experiment-provenance { margin-top: 0.35rem; text-align: left; }
+    section, .applications, .why-section { padding: 3.5rem 1rem; }
+    .app-intro-grid { margin-bottom: 2.5rem; padding-bottom: 2.5rem; }
+    .app-card { padding: 1rem; }
+    .app-card-image { margin-bottom: 1.25rem; }
   }
 </style>
 </head>
@@ -651,14 +819,14 @@
     <li><a href="/quote">Get Quote</a></li>
     <li><a href="/portal" class="nav-cta">Portal</a></li>
   </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()">
+  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()">
     <span></span><span></span><span></span>
-  </div>
+  </button>
 </nav>
 
 <!-- MOBILE MENU -->
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
+<div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+  <button class="mob-close" type="button" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
@@ -671,31 +839,39 @@
 <section class="hero">
   <div class="hero-left">
     <div class="hero-eyebrow">Applications</div>
-    <h1 class="hero-title">Where <em>precision</em><br>meets the<br>plant</h1>
+    <h1 class="hero-title">Make water a<br><em>controlled</em><br>variable</h1>
     <p class="hero-intro">
-      ExactH2O brings precise water measurement into research greenhouses, commercial greenhouses, and plant phenotyping facilities — enabling research and greenhouse teams to observe, quantify, and manage plant water status in real time.
+      ExactH2O connects per-pot water measurement, irrigation control, and a continuous data record for plant stress, phenotyping, and greenhouse work.
     </p>
-    <div class="hero-stat-row">
-      <div class="hero-stat">
-        <span class="hero-stat-num">+4 / -2%</span>
-        <span class="hero-stat-label">VWC Accuracy</span>
-      </div>
-      <div class="hero-stat">
-        <span class="hero-stat-num">24/7</span>
-        <span class="hero-stat-label">Live Monitoring</span>
-      </div>
-      <div class="hero-stat">
-        <span class="hero-stat-num">100</span>
-        <span class="hero-stat-label">Individually Controlled Pots</span>
-      </div>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#application-areas">Explore application areas</a>
+      <a class="btn-secondary" href="/quote">Request a setup</a>
+    </div>
+    <div class="application-jumps" aria-label="Application areas">
+      <a href="#plant-stress">Plant stress</a>
+      <a href="#plant-phenotyping">Phenotyping</a>
+      <a href="#greenhouses">Greenhouses</a>
     </div>
   </div>
   <div class="hero-right">
     <div class="hero-right-inner">
-      <div class="experiment-visual" aria-label="Interactive VWC response chart">
-        <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" tabindex="0" xmlns="http://www.w3.org/2000/svg">
-          <title id="experimentChartTitle">exactH2O chart</title>
-          <desc id="experimentChartDesc">A white portal-style chart with colored irrigation lines that can be selected.</desc>
+      <figure class="experiment-shell">
+        <header class="experiment-shell-head">
+          <div>
+            <span class="experiment-kicker">Interactive experiment explorer</span>
+            <h2>72-hour irrigation response</h2>
+          </div>
+          <span class="experiment-hint">Hover or click a run · Arrow keys also work</span>
+        </header>
+        <div class="experiment-legend" aria-label="Chart legend">
+          <span class="legend-item"><span class="legend-line"></span>Control</span>
+          <span class="legend-item"><span class="legend-line is-dashed"></span>Treatment</span>
+          <span class="legend-item"><span class="legend-line is-target"></span>Target guide</span>
+        </div>
+        <div class="experiment-visual" aria-label="Interactive VWC response chart">
+          <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" tabindex="0" xmlns="http://www.w3.org/2000/svg">
+          <title id="experimentChartTitle">Representative 72-hour VWC response chart</title>
+          <desc id="experimentChartDesc">Eleven representative control and treatment runs. Hover or click a line, or use the left and right arrow keys, to inspect it.</desc>
           <defs>
             <clipPath id="experimentTraceReveal">
               <rect class="experiment-wipe" x="64" y="48" width="660" height="444" />
@@ -703,9 +879,10 @@
           </defs>
 
           <rect x="0" y="0" width="760" height="560" fill="#fff" />
-          <text class="experiment-caption" x="64" y="34">exactH2O</text>
+          <text class="experiment-caption" x="64" y="34">Representative runs 41–51</text>
 
           <line class="experiment-target" x1="64" y1="258" x2="724" y2="258" />
+          <text class="experiment-target-label" x="716" y="249" text-anchor="end">Target guide</text>
 
           <line class="experiment-grid-line" x1="64" y1="68" x2="724" y2="68" />
           <line class="experiment-grid-line" x1="64" y1="152" x2="724" y2="152" />
@@ -770,20 +947,26 @@
             <text class="tooltip-value" x="474" y="222" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="18" font-weight="800">27.8% VWC</text>
           </g>
         </svg>
-      </div>
+        </div>
+        <figcaption>
+          <span>Select a run to isolate its response and inspect VWC along the curve.</span>
+          <span class="experiment-provenance">Representative visualization · not live experiment data</span>
+        </figcaption>
+        <p class="experiment-status sr-only" aria-live="polite"></p>
+      </figure>
     </div>
   </div>
 </section>
 
 <!-- APPLICATIONS -->
-<div class="applications">
+<div class="applications" id="application-areas">
   <div class="app-intro-grid reveal">
     <div>
       <div class="section-label">Application Areas</div>
       <h2 class="section-title">Three domains,<br>one system</h2>
     </div>
-    <p style="font-size:1.05rem; line-height:1.8; opacity:0.65; padding-top: 0.5rem;">
-      ExactH2O was engineered for controlled-environment plant work where precise water control matters most—from research greenhouses and controlled drought experiments to commercial greenhouse operations and high-throughput phenotyping. Each deployment can be tailored for sensor configuration, irrigation setpoints, sampling frequency, and data integration, while the ExactH2O platform delivers a unified stream of real-time measurements and irrigation control.
+    <p style="font-size:1.05rem; line-height:1.8; opacity:0.72; padding-top: 0.5rem;">
+      ExactH2O is built for controlled-environment work where water must be measured, repeated, and explained. One platform supports configurable sensors, per-pot or per-zone targets, sampling cadence, and a continuous record across stress studies, phenotyping, and greenhouse operations.
     </p>
   </div>
 
@@ -791,7 +974,7 @@
   <div class="app-cards reveal">
 
     <!-- 1: Plant Stress -->
-    <div class="app-card">
+    <div class="app-card" id="plant-stress">
       <div class="app-card-num">01 —</div>
       <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M24 42 C24 42 8 30 8 18 A16 16 0 0 1 40 18 C40 30 24 42 24 42Z"/>
@@ -800,7 +983,7 @@
       </svg>
       <h3 class="app-card-title">Plant Stress<br>Experiments</h3>
       <p class="app-card-desc">
-        Precisely control and measure substrate water content to induce, maintain, and recover from defined drought stress levels. ExactH2O enables researchers to hold volumetric water content at any target percentage across replicated pots simultaneously — eliminating the variability that undermines stress experiment reproducibility. Continuous logging captures the full stress trajectory from imposition through relief, allowing correlation with physiological indicators like stomatal conductance, chlorophyll fluorescence, and biomass accumulation.
+        Set and hold defined substrate-water targets across replicated pots for controlled drought, recovery, and stress-response studies. Continuous readings preserve each pot's water trajectory for comparison with physiological measurements and biomass.
       </p>
       <div class="app-card-image">
         <img src="/applications-plant-stress.webp?v=2" width="1200" height="1600" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
@@ -808,8 +991,8 @@
     </div>
 
      <!-- 2: Plant Phenotyping -->
-    <div class="app-card">
-      <div class="app-card-num">03 —</div>
+    <div class="app-card" id="plant-phenotyping">
+      <div class="app-card-num">02 —</div>
       <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="24" cy="24" r="18"/>
         <circle cx="24" cy="24" r="8"/>
@@ -820,7 +1003,7 @@
       </svg>
       <h3 class="app-card-title">Plant<br>Phenotyping</h3>
       <p class="app-card-desc">
-        Integrate substrate water data into high-throughput phenotyping pipelines to disentangle genetic variation from environmental noise. When every genotype in a diversity panel experiences a rigorously identical water regime, differences in growth rate, leaf area, transpiration efficiency, and stress tolerance become attributable to genetics — not watering inconsistency. ExactH2O provides the environmental ground truth that makes phenotyping data scientifically defensible.
+        Apply consistent water regimes across genotypes so growth and stress-response differences are less confounded by uneven irrigation. Per-pot water histories support phenotyping analysis and environmental-quality review.
       </p>
       <div class="app-card-image">
         <img src="/applications-plant-phenotyping.webp?v=2" width="1200" height="1600" loading="lazy" decoding="async" alt="LI-COR LI-600 instrument recording plant gas-exchange measurements beside experimental pots">
@@ -828,8 +1011,8 @@
     </div>
 
     <!-- 3: Research Greenhouses -->
-    <div class="app-card">
-      <div class="app-card-num">02 —</div>
+    <div class="app-card" id="greenhouses">
+      <div class="app-card-num">03 —</div>
       <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 20 L24 6 L42 20"/>
         <path d="M6 20 L6 42 L42 42 L42 20"/>
@@ -839,7 +1022,7 @@
       </svg>
       <h3 class="app-card-title">Research &amp; Commercial<br>Greenhouses</h3>
       <p class="app-card-desc">
-        Deploy sensor networks across greenhouse benches and container arrays to maintain defined irrigation targets. Built for research facilities and commercial greenhouse operations, ExactH2O combines automated irrigation, continuous monitoring, and multi-zone control while preserving independent settings and clear data for each zone.
+        Monitor and control irrigation across greenhouse benches and container arrays while preserving independent targets and histories by zone. Built for research facilities and commercial greenhouse workflows.
       </p>
       <div class="app-card-image">
         <img src="/applications-research-greenhouse.webp?v=2" width="1600" height="1200" loading="lazy" decoding="async" alt="Glass research greenhouse complex under a blue sky">
@@ -921,8 +1104,13 @@
 
 <script>
   function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
+    const menu = document.getElementById('mobileMenu');
+    const hamburger = document.getElementById('hamburger');
+    const isOpen = menu.classList.toggle('active');
+    hamburger.classList.toggle('active', isOpen);
+    hamburger.setAttribute('aria-expanded', String(isOpen));
+    hamburger.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+    menu.setAttribute('aria-hidden', String(!isOpen));
   }
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -962,9 +1150,19 @@
     const tooltipTitle = svg.querySelector('.tooltip-title');
     const tooltipDetail = svg.querySelector('.tooltip-detail');
     const tooltipValue = svg.querySelector('.tooltip-value');
+    const status = target.closest('.experiment-shell')?.querySelector('.experiment-status');
     const traceById = new Map(traces.map(trace => [trace.dataset.traceId, trace]));
+    const dotById = new Map(dots.map(dot => [dot.dataset.traceId, dot]));
+    const samplesByTrace = new Map(traces.map(trace => {
+      const length = trace.getTotalLength();
+      const samples = Array.from({ length: 97 }, (_, index) =>
+        trace.getPointAtLength((length * index) / 96)
+      );
+      return [trace, samples];
+    }));
     let lockedTraceId = null;
     let hoveredTraceId = null;
+    let keyboardTraceIndex = -1;
 
     function svgPoint(event) {
       const point = svg.createSVGPoint();
@@ -989,19 +1187,17 @@
     }
 
     function nearestPointOnTrace(trace, point) {
-      const length = trace.getTotalLength();
-      let bestPoint = trace.getPointAtLength(0);
+      const samples = samplesByTrace.get(trace) || [];
+      let bestPoint = samples[0] || { x: 64, y: 488 };
       let bestDistance = Infinity;
-      const samples = 96;
 
-      for (let index = 0; index <= samples; index += 1) {
-        const sample = trace.getPointAtLength((length * index) / samples);
+      samples.forEach(sample => {
         const distance = ((sample.x - point.x) ** 2) + ((sample.y - point.y) ** 2);
         if (distance < bestDistance) {
           bestDistance = distance;
           bestPoint = sample;
         }
-      }
+      });
 
       return { point: bestPoint, distance: Math.sqrt(bestDistance) };
     }
@@ -1077,8 +1273,23 @@
 
       const displayId = activeId || hoverId;
       const displayTrace = displayId ? traceById.get(displayId) : null;
-      if (displayTrace && displayPoint) setTooltip(displayTrace, displayPoint);
-      else hideTooltip();
+      if (displayTrace && displayPoint) {
+        setTooltip(displayTrace, displayPoint);
+        if (status) {
+          status.textContent = `${displayTrace.dataset.label}, ${displayTrace.dataset.detail}, ${vwcFromPoint(displayPoint)} percent VWC`;
+        }
+      } else {
+        hideTooltip();
+      }
+    }
+
+    function selectTraceByIndex(index) {
+      keyboardTraceIndex = (index + traces.length) % traces.length;
+      const trace = traces[keyboardTraceIndex];
+      const dot = dotById.get(trace.dataset.traceId);
+      lockedTraceId = trace.dataset.traceId;
+      hoveredTraceId = null;
+      updateTraceClasses(dot ? endpointPoint(dot) : samplesByTrace.get(trace)?.at(-1));
     }
 
     svg.addEventListener('pointermove', event => {
@@ -1133,9 +1344,22 @@
     });
 
     svg.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        selectTraceByIndex(keyboardTraceIndex + 1);
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        selectTraceByIndex(keyboardTraceIndex < 0 ? traces.length - 1 : keyboardTraceIndex - 1);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        selectTraceByIndex(0);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        selectTraceByIndex(traces.length - 1);
+      } else if (event.key === 'Escape') {
         lockedTraceId = null;
         hoveredTraceId = null;
+        keyboardTraceIndex = -1;
         updateTraceClasses(null);
       }
     });
