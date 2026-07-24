@@ -6121,3 +6121,362 @@ select {
     flex-direction: column;
   }
 }
+
+.portal-home-toolbar {
+  width: min(100%, 826px);
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 auto 14px;
+}
+
+.portal-home-toolbar button,
+.experiment-builder .is-primary,
+.experiment-builder .is-secondary {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid rgba(26, 107, 74, 0.2);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--portal-water);
+  cursor: pointer;
+  font-family: var(--portal-mono);
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+}
+
+.portal-home-toolbar button:hover,
+.portal-home-toolbar button:focus-visible,
+.experiment-builder .is-secondary:hover,
+.experiment-builder .is-secondary:focus-visible {
+  border-color: rgba(26, 107, 74, 0.44);
+  outline: none;
+}
+
+.portal-catalog-notice {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  padding: 10px 14px;
+  border: 1px solid rgba(180, 83, 9, 0.16);
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #92400e;
+  font-size: 0.72rem;
+}
+
+.experiment-builder-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(11, 25, 19, 0.46);
+  backdrop-filter: blur(12px);
+}
+
+.experiment-builder {
+  width: min(760px, 100%);
+  max-height: min(860px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(24, 37, 55, 0.1);
+  border-radius: 18px;
+  background: #fff;
+  color: #17231d;
+  box-shadow: 0 30px 90px rgba(8, 24, 17, 0.24);
+}
+
+.experiment-builder-header {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(24, 37, 55, 0.08);
+}
+
+.experiment-builder-header p {
+  margin: 0 0 3px;
+  color: #718096;
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experiment-builder-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.experiment-builder-header > button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(24, 37, 55, 0.1);
+  border-radius: 10px;
+  background: #fff;
+  color: #526071;
+  cursor: pointer;
+}
+
+.experiment-builder-prompt,
+.experiment-builder-review,
+.experiment-builder-complete {
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.experiment-builder-prompt {
+  display: grid;
+  gap: 10px;
+}
+
+.experiment-builder-prompt label,
+.experiment-builder-fields label {
+  display: grid;
+  gap: 7px;
+  color: #415063;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.experiment-builder textarea,
+.experiment-builder input,
+.experiment-builder select {
+  width: 100%;
+  border: 1px solid rgba(24, 37, 55, 0.13);
+  border-radius: 10px;
+  background: #fff;
+  color: #17231d;
+  font: inherit;
+  outline: none;
+}
+
+.experiment-builder textarea:focus,
+.experiment-builder input:focus,
+.experiment-builder select:focus {
+  border-color: rgba(26, 107, 74, 0.5);
+  box-shadow: 0 0 0 3px rgba(26, 107, 74, 0.08);
+}
+
+.experiment-builder textarea {
+  min-height: 190px;
+  resize: vertical;
+  padding: 15px;
+  line-height: 1.55;
+}
+
+.experiment-builder input,
+.experiment-builder select {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.experiment-builder-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 22px;
+  border-top: 1px solid rgba(24, 37, 55, 0.08);
+}
+
+.experiment-builder-prompt .experiment-builder-actions {
+  margin: 8px -24px -24px;
+}
+
+.experiment-builder .is-primary {
+  border-color: var(--portal-water);
+  background: var(--portal-water);
+  color: #fff;
+}
+
+.experiment-builder button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.experiment-builder-review {
+  display: grid;
+  gap: 24px;
+}
+
+.experiment-builder-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.experiment-builder-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.experiment-builder-section-heading h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.experiment-builder-section-heading span {
+  color: #718096;
+  font-size: 0.7rem;
+}
+
+.experiment-builder-pot-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.experiment-builder-pot-grid button {
+  position: relative;
+  min-height: 52px;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 1px solid rgba(24, 37, 55, 0.11);
+  border-radius: 9px;
+  background: #fff;
+  color: #26352d;
+  cursor: pointer;
+  text-align: left;
+}
+
+.experiment-builder-pot-grid button.is-selected {
+  border-color: rgba(26, 107, 74, 0.52);
+  background: rgba(232, 247, 239, 0.7);
+}
+
+.experiment-builder-pot-grid button span {
+  font-size: 0.73rem;
+  font-weight: 760;
+}
+
+.experiment-builder-pot-grid button small {
+  color: #718096;
+  font-size: 0.62rem;
+}
+
+.experiment-builder-pot-grid button svg {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--portal-water);
+}
+
+.experiment-builder-assignment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.experiment-builder-assignment {
+  display: grid;
+  grid-template-columns: 130px repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+}
+
+.experiment-builder-assignment strong {
+  font-family: var(--portal-mono);
+  font-size: 0.66rem;
+}
+
+.experiment-builder-assignment input {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+}
+
+.experiment-builder-safety,
+.experiment-builder-error,
+.experiment-builder-questions p {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.experiment-builder-safety {
+  border: 1px solid rgba(26, 107, 74, 0.14);
+  background: #f3fbf7;
+  color: #266748;
+}
+
+.experiment-builder-error {
+  border: 1px solid rgba(190, 24, 93, 0.12);
+  background: #fff4f6;
+  color: #9f1239;
+}
+
+.experiment-builder-questions {
+  display: grid;
+  gap: 7px;
+}
+
+.experiment-builder-questions p {
+  background: #f7f8fa;
+  color: #415063;
+}
+
+.experiment-builder-complete {
+  min-height: 300px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+}
+
+.experiment-builder-complete > span {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf8f0;
+  color: var(--portal-water);
+}
+
+.experiment-builder-complete h3 {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 720px) {
+  .experiment-builder-backdrop {
+    padding: 10px;
+  }
+
+  .experiment-builder {
+    max-height: calc(100vh - 20px);
+  }
+
+  .experiment-builder-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-builder-pot-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .experiment-builder-assignment {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    border: 1px solid rgba(24, 37, 55, 0.08);
+    border-radius: 10px;
+  }
+}

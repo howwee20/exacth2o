@@ -82,6 +82,8 @@ import {
 import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
 import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
+import { ExperimentBuilder } from "./ExperimentBuilder";
+import { loadPortalExperimentCatalog } from "./experimentClient";
 import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
 import { mergeRdHistoryPage } from "./rdPagination";
 import type { RdLabSnapshot } from "./rdTypes";
@@ -90,6 +92,7 @@ import {
   isCalibrationExperiment,
   isObservationOnlyExperiment,
   latestExperimentReading,
+  mergePortalExperiments,
   pairingBelongsToExperiment,
   pairingsForExperiment,
   portalExperimentById,
@@ -2877,15 +2880,13 @@ function PortalStatusPill({ snapshot }: { snapshot?: DeviceHealthSnapshot | null
 
 function ExperimentLaunchCards({
   data,
-  portalRole,
+  experiments,
   onOpenExperiment,
 }: {
   data: LoadState;
-  portalRole: PortalRole;
+  experiments: readonly PortalExperiment[];
   onOpenExperiment: (experimentId: ExperimentId) => void;
 }) {
-  const experiments = portalExperimentsForRole(portalRole);
-
   return (
     <div className="portal-experiment-stack" aria-label="Experiments">
       {experiments.map((experiment) => {
@@ -2922,17 +2923,26 @@ function ExperimentLaunchCards({
 
 function PortalResearcherHome({
   data,
-  portalRole,
+  experiments,
+  canCreateExperiment,
   onOpenExperiment,
+  onNewExperiment,
 }: {
   data: LoadState;
-  portalRole: PortalRole;
+  experiments: readonly PortalExperiment[];
+  canCreateExperiment: boolean;
   onOpenExperiment: (experimentId: ExperimentId) => void;
+  onNewExperiment: () => void;
 }) {
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
+      {canCreateExperiment ? (
+        <div className="portal-home-toolbar">
+          <button type="button" onClick={onNewExperiment}>New experiment</button>
+        </div>
+      ) : null}
       <div className="portal-launch-grid">
-        <ExperimentLaunchCards data={data} portalRole={portalRole} onOpenExperiment={onOpenExperiment} />
+        <ExperimentLaunchCards data={data} experiments={experiments} onOpenExperiment={onOpenExperiment} />
       </div>
     </section>
   );
@@ -2945,7 +2955,9 @@ function PortalAdminHome({
   salesSupportData,
   salesSupportLoading,
   rdAccessAllowed,
+  experiments,
   onOpenExperiment,
+  onNewExperiment,
   onOpenHealth,
   onOpenSupport,
   onOpenRd,
@@ -2956,7 +2968,9 @@ function PortalAdminHome({
   salesSupportData: SalesSupportData;
   salesSupportLoading: boolean;
   rdAccessAllowed: boolean;
+  experiments: readonly PortalExperiment[];
   onOpenExperiment: (experimentId: ExperimentId) => void;
+  onNewExperiment: () => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
   onOpenRd: () => void;
@@ -2977,9 +2991,12 @@ function PortalAdminHome({
 
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
+      <div className="portal-home-toolbar">
+        <button type="button" onClick={onNewExperiment}>New experiment</button>
+      </div>
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">
-          <ExperimentLaunchCards data={data} portalRole="admin" onOpenExperiment={onOpenExperiment} />
+          <ExperimentLaunchCards data={data} experiments={experiments} onOpenExperiment={onOpenExperiment} />
 
           <span className="portal-health-link" aria-hidden="true">
             <span className="portal-health-link-arm is-left" />
@@ -4856,6 +4873,9 @@ export default function App() {
   const [accessLoading, setAccessLoading] = useState(false);
   const [portalView, setPortalView] = useState<PortalView>("home");
   const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("matt-experiment");
+  const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
+  const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
+  const [experimentCatalogError, setExperimentCatalogError] = useState<string | null>(null);
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
   const [healthHistory, setHealthHistory] = useState<DeviceHealthSnapshot[]>([]);
   const [runtimeState, setRuntimeState] = useState<DeviceRuntimeState | null>(null);
@@ -4903,9 +4923,16 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [settingsOpen]);
 
+  const availableExperiments = useMemo(
+    () => mergePortalExperiments(
+      portalExperimentsForRole(portalAccess?.role),
+      experimentCatalog,
+    ),
+    [experimentCatalog, portalAccess?.role],
+  );
   const selectedExperiment = useMemo(
-    () => portalExperimentById(selectedExperimentId),
-    [selectedExperimentId],
+    () => portalExperimentById(selectedExperimentId, availableExperiments),
+    [availableExperiments, selectedExperimentId],
   );
   const sortedPairings = useMemo(
     () => orderedPairings(
@@ -4974,6 +5001,7 @@ export default function App() {
   const isAdmin = portalAccess?.role === "admin";
   const canReadProjectData = hasProjectDataReadAccess(portalAccess?.role);
   const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role);
+  const canCreateExperiment = portalAccess?.role === "admin" || portalAccess?.role === "researcher";
 
   const resetPortalSessionUi = useCallback((nextView: PortalView = "home") => {
     setSettingsOpen(false);
@@ -5001,6 +5029,20 @@ export default function App() {
     setSettingsOpen(false);
     setPortalView("experiment");
   }, []);
+
+  const loadExperimentCatalog = useCallback(async () => {
+    if (!canReadProjectData) {
+      setExperimentCatalog([]);
+      return;
+    }
+    try {
+      const catalog = await loadPortalExperimentCatalog(mattProjectId);
+      setExperimentCatalog(catalog);
+      setExperimentCatalogError(null);
+    } catch (nextError) {
+      setExperimentCatalogError(errorMessage(nextError));
+    }
+  }, [canReadProjectData]);
 
   const expirePortalSession = useCallback(() => {
     setError(null);
@@ -5084,6 +5126,9 @@ export default function App() {
         return;
       }
       setPortalAccess(null);
+      setExperimentCatalog([]);
+      setExperimentBuilderOpen(false);
+      setExperimentCatalogError(null);
       setPortalView("home");
     } finally {
       setAccessLoading(false);
@@ -6105,6 +6150,11 @@ export default function App() {
   }, [loadPortalAccess, sessionReady]);
 
   useEffect(() => {
+    if (!sessionReady || !canReadProjectData) return;
+    void loadExperimentCatalog();
+  }, [canReadProjectData, loadExperimentCatalog, sessionReady, sessionRevision]);
+
+  useEffect(() => {
     if (!sessionReady || !isAdmin) return;
     void loadHealthSnapshot();
   }, [isAdmin, loadHealthSnapshot, sessionReady]);
@@ -6640,6 +6690,20 @@ export default function App() {
     </div>
   ) : null;
 
+  const experimentBuilder = experimentBuilderOpen && canCreateExperiment ? (
+    <ExperimentBuilder
+      projectId={mattProjectId}
+      pairings={visibleExperimentPairings(data.pairings)}
+      inventoryUpdatedAt={configState?.updated_at ?? null}
+      onClose={() => setExperimentBuilderOpen(false)}
+      onCreated={async (slug) => {
+        await loadExperimentCatalog();
+        setExperimentBuilderOpen(false);
+        openExperiment(slug);
+      }}
+    />
+  ) : null;
+
   const portalHeader = (
     <header className="dashboard-header">
       <a
@@ -6687,12 +6751,14 @@ export default function App() {
         {portalHeader}
         <PortalAdminHome
           data={data}
+          experiments={availableExperiments}
           healthSnapshot={healthSnapshot}
           healthLoading={healthLoading}
           salesSupportData={salesSupportData}
           salesSupportLoading={salesSupportLoading}
           rdAccessAllowed={hasRdSystemAdminAccess(portalAccess.role, rdAccessStatus === "allowed")}
           onOpenExperiment={openExperiment}
+          onNewExperiment={() => setExperimentBuilderOpen(true)}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
           onOpenRd={() => {
@@ -6700,6 +6766,10 @@ export default function App() {
             setPortalView("rd");
           }}
         />
+        {experimentCatalogError ? (
+          <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
+        ) : null}
+        {experimentBuilder}
         <PortalSettingsPanel
           open={settingsOpen}
           portalRole={portalAccess.role}
@@ -6733,9 +6803,15 @@ export default function App() {
         {portalHeader}
         <PortalResearcherHome
           data={data}
-          portalRole={portalAccess.role}
+          experiments={availableExperiments}
+          canCreateExperiment={canCreateExperiment}
           onOpenExperiment={openExperiment}
+          onNewExperiment={() => setExperimentBuilderOpen(true)}
         />
+        {experimentCatalogError ? (
+          <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
+        ) : null}
+        {experimentBuilder}
       </main>
     );
   }

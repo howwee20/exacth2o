@@ -1,16 +1,32 @@
 import type { PairingRow, SensorReading, ValveEvent } from "./types";
 
-export type ExperimentId = "matt-experiment" | "matt-experiment-2" | "swc-saturation-calibration";
-export type ExperimentMode = "controlled" | "calibration";
+export type ExperimentId = string;
+export type ExperimentMode = "controlled" | "observation" | "calibration";
 export type ExperimentPortalRole = "admin" | "researcher" | "viewer";
+
+export type PortalExperimentAssignment = {
+  pairing_name: string;
+  zone: number;
+  pot_number: number;
+  crop: string | null;
+  treatment: string | null;
+  block: string | null;
+  substrate: string | null;
+  target_vwc_percent: number | null;
+  measurement_interval_minutes: number | null;
+};
 
 export type PortalExperiment = {
   id: ExperimentId;
+  databaseId?: string;
   name: string;
   shortDescription: string;
   mode: ExperimentMode;
+  status?: "published_sensing" | "active" | "completed" | "archived";
+  wateringState?: "off" | "controller_managed";
   groupNames: readonly string[];
   pairingNames: readonly string[];
+  assignments?: readonly PortalExperimentAssignment[];
   startedAt?: string;
   endedAt?: string;
 };
@@ -42,6 +58,7 @@ const mattExperiment1: PortalExperiment = {
   name: "Matt Experiment 1",
   shortDescription: "Original 20-pot experiment",
   mode: "controlled",
+  wateringState: "off",
   groupNames: ["Matt's 20 pots"],
   pairingNames: mattExperimentPairings,
   endedAt: swcCalibrationStartedAt,
@@ -52,6 +69,7 @@ const mattExperiment2: PortalExperiment = {
   name: "Matt Experiment 2",
   shortDescription: "24 pots · 30% target",
   mode: "controlled",
+  wateringState: "controller_managed",
   groupNames: ["Matt Experiment 2 - Observation Only", "Matt Experiment 2 — Observation Only"],
   pairingNames: mattExperiment2Pairings,
 };
@@ -61,6 +79,7 @@ const swcSaturationCalibration: PortalExperiment = {
   name: "SWC Saturation Calibration",
   shortDescription: "100% target · 10 s / 10 min",
   mode: "calibration",
+  wateringState: "controller_managed",
   groupNames: [],
   pairingNames: swcCalibrationPairings,
   startedAt: swcCalibrationStartedAt,
@@ -77,14 +96,24 @@ const researcherExperiments: readonly PortalExperiment[] = [
   swcSaturationCalibration,
 ] as const;
 
-const experimentById = new Map(portalExperiments.map((experiment) => [experiment.id, experiment]));
-
 export function portalExperimentsForRole(role: ExperimentPortalRole | null | undefined) {
   return role === "admin" ? portalExperiments : researcherExperiments;
 }
 
-export function portalExperimentById(id: ExperimentId): PortalExperiment {
-  return experimentById.get(id) ?? mattExperiment2;
+export function mergePortalExperiments(
+  fallback: readonly PortalExperiment[],
+  catalog: readonly PortalExperiment[],
+) {
+  const merged = new Map(fallback.map((experiment) => [experiment.id, experiment]));
+  for (const experiment of catalog) merged.set(experiment.id, experiment);
+  return Array.from(merged.values());
+}
+
+export function portalExperimentById(
+  id: ExperimentId,
+  experiments: readonly PortalExperiment[] = portalExperiments,
+): PortalExperiment {
+  return experiments.find((experiment) => experiment.id === id) ?? experiments[0] ?? mattExperiment2;
 }
 
 export function pairingBelongsToExperiment(pairing: PairingRow, experiment: PortalExperiment) {
@@ -130,7 +159,7 @@ export function latestExperimentReading(readings: SensorReading[], experiment: P
 }
 
 export function isObservationOnlyExperiment(experiment: PortalExperiment) {
-  return !["controlled", "calibration"].includes(experiment.mode);
+  return experiment.wateringState === "off" || experiment.mode === "observation";
 }
 
 export function isCalibrationExperiment(experiment: PortalExperiment) {

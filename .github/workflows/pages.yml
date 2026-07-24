@@ -54,6 +54,7 @@ jobs:
           node --test supabase/functions/_shared/abuse-prevention.test.mjs
           node --test supabase/functions/rd-admin-lab/pagination-policy.test.mjs
           node --test supabase/functions/rd-admin-lab/response-policy.test.mjs
+          node --test supabase/functions/experiment-builder/experiment-policy.test.mjs
           node --test supabase/functions/sync-owner-health/config-refresh-policy.test.mjs
           node --test supabase/functions/sync-owner-health/rd-evidence-policy.test.mjs
           node --test supabase/functions/sync-owner-health/uptime-policy.test.mjs
@@ -69,6 +70,7 @@ jobs:
           npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/ui
           deno check supabase/functions/accept-invite/index.ts
           deno check supabase/functions/create-control-command/index.ts
+          deno check supabase/functions/experiment-builder/index.ts
           deno check supabase/functions/rd-admin-lab/index.ts
           deno check supabase/functions/receive-support-email/index.ts
           deno check supabase/functions/sync-owner-health/index.ts

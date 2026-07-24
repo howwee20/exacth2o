@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.rd-admin-lab]
 verify_jwt = false
+
+[functions.experiment-builder]
+verify_jwt = true
