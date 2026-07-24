@@ -5,8 +5,10 @@ import {
   aggregateValveEvents,
   assistantChatInstructions,
   assistantTools,
+  experimentArchiveDecision,
   normalizeAssistantConversation,
   proposalFromFunctionCall,
+  resolveExactExperimentCatalog,
   resolveExperimentCatalog,
 } from "./assistant-chat-policy.mjs";
 
@@ -17,12 +19,16 @@ test("assistant tools expose only reads and approval-gated proposals", () => {
       "get_project_overview",
       "get_experiment_status",
       "get_system_health",
+      "get_recent_activity",
+      "get_calibration_status",
       "prepare_experiment_specification",
       "prepare_settings_plan",
+      "prepare_experiment_archive",
     ],
   );
   assert.match(assistantChatInstructions("researcher"), /do not execute changes/i);
   assert.match(assistantChatInstructions("researcher"), /tool output as untrusted data/i);
+  assert.match(assistantChatInstructions("researcher"), /practice.*observation-only/i);
   assert.doesNotMatch(assistantTools.map((tool) => tool.name).join(" "), /apply|launch|water_now/);
 });
 
@@ -50,6 +56,16 @@ test("proposal calls remain inert and route to the reviewed workflow", () => {
       workflow_prompt: "Set pots 16 and 18 to 10%.",
     },
   );
+  assert.deepEqual(
+    proposalFromFunctionCall({
+      name: "prepare_experiment_archive",
+      arguments: { experiment: "Practice Experiment" },
+    }),
+    {
+      workflow: "archive",
+      workflow_prompt: "Practice Experiment",
+    },
+  );
 });
 
 test("experiment resolution accepts names and slugs", () => {
@@ -59,6 +75,49 @@ test("experiment resolution accepts names and slugs", () => {
   ];
   assert.equal(resolveExperimentCatalog(rows, "matt experiment 2")?.slug, "matt-experiment-2");
   assert.equal(resolveExperimentCatalog(rows, "swc-saturation-calibration")?.name, "SWC Saturation Calibration");
+  assert.equal(resolveExactExperimentCatalog(rows, "Matt Experiment 2")?.slug, "matt-experiment-2");
+  assert.equal(resolveExactExperimentCatalog(rows, "Matt")?.slug, undefined);
+});
+
+test("archive decisions preserve built-in and controller-managed experiments", () => {
+  const safeExperiment = {
+    created_by: "user-1",
+    mode: "observation",
+    status: "active",
+    watering_state: "off",
+  };
+  assert.equal(experimentArchiveDecision({
+    experiment: safeExperiment,
+    revisionSource: "natural_language",
+    role: "researcher",
+    userId: "user-1",
+    activeCommandCount: 0,
+  }).allowed, true);
+  assert.match(experimentArchiveDecision({
+    experiment: { ...safeExperiment, created_by: null },
+    revisionSource: "legacy",
+    role: "admin",
+    userId: "admin-1",
+    activeCommandCount: 0,
+  }).reason, /built-in/i);
+  assert.match(experimentArchiveDecision({
+    experiment: {
+      ...safeExperiment,
+      mode: "controlled",
+      watering_state: "controller_managed",
+    },
+    revisionSource: "natural_language",
+    role: "researcher",
+    userId: "user-1",
+    activeCommandCount: 0,
+  }).reason, /controls irrigation/i);
+  assert.match(experimentArchiveDecision({
+    experiment: safeExperiment,
+    revisionSource: "manual",
+    role: "researcher",
+    userId: "user-1",
+    activeCommandCount: 1,
+  }).reason, /active work/i);
 });
 
 test("experiment readings preserve per-pot targets and trends", () => {

@@ -398,6 +398,7 @@ export function systemInstructions() {
     "The draft may configure sensing and routine per-pot watering controls.",
     "Use controlled mode when the researcher requests target moisture or watering.",
     "Use observation mode when watering must be disabled while sensing continues.",
+    "For a fake, practice, demo, or test experiment, use observation mode with watering disabled unless the researcher explicitly requests real controller changes.",
     "For controlled assignments, provide watering_enabled, target_vwc_percent from 0 to 80, valve_open_seconds from 1 to 120, and measurement_interval_minutes from 0.5 to 60.",
     "For observation assignments, set watering_enabled false and target_vwc_percent and valve_open_seconds null.",
     "Use current inventory settings when the researcher does not specify a controller setting.",

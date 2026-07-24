@@ -85,6 +85,7 @@ import {
 import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
 import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
+import { ExperimentArchiveReview } from "./ExperimentArchiveReview";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
 import {
@@ -3212,6 +3213,7 @@ function PortalAssistantHero({
   controlBusy,
   onApplySettings,
   onExperimentCreated,
+  onExperimentArchived,
 }: {
   projectId: string;
   pairings: PairingRow[];
@@ -3221,13 +3223,14 @@ function PortalAssistantHero({
   controlBusy: boolean;
   onApplySettings: QueueSettingsPlan;
   onExperimentCreated: (slug: string) => Promise<void>;
+  onExperimentArchived: () => Promise<void>;
 }) {
   const [request, setRequest] = useState("");
   const [messages, setMessages] = useState<AssistantConversationMessage[]>([]);
   const [working, setWorking] = useState(false);
   const [assistantError, setAssistantError] = useState<string | null>(null);
   const [workflow, setWorkflow] = useState<{
-    type: "experiment" | "settings";
+    type: "experiment" | "settings" | "archive";
     prompt: string;
     autoStart: boolean;
     key: number;
@@ -3253,7 +3256,11 @@ function PortalAssistantHero({
         { role: "assistant", content: result.reply },
       ]);
       if (
-        (result.workflow === "experiment" || result.workflow === "settings") &&
+        (
+          result.workflow === "experiment" ||
+          result.workflow === "settings" ||
+          result.workflow === "archive"
+        ) &&
         result.workflow_prompt
       ) {
         setWorkflow({
@@ -3372,6 +3379,15 @@ function PortalAssistantHero({
           />
         </section>
       ) : null}
+      {workflow?.type === "archive" ? (
+        <ExperimentArchiveReview
+          key={`archive-${workflow.key}`}
+          projectId={projectId}
+          experiment={workflow.prompt}
+          onClose={() => setWorkflow(null)}
+          onArchived={onExperimentArchived}
+        />
+      ) : null}
       <PortalCommandActivity commands={commands} loading={commandLoading} />
     </div>
   );
@@ -3388,6 +3404,7 @@ function PortalResearcherHome({
   onOpenExperiment,
   onApplySettings,
   onExperimentCreated,
+  onExperimentArchived,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
@@ -3399,6 +3416,7 @@ function PortalResearcherHome({
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onApplySettings: QueueSettingsPlan;
   onExperimentCreated: (slug: string) => Promise<void>;
+  onExperimentArchived: () => Promise<void>;
 }) {
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
@@ -3412,6 +3430,7 @@ function PortalResearcherHome({
           controlBusy={controlBusy}
           onApplySettings={onApplySettings}
           onExperimentCreated={onExperimentCreated}
+          onExperimentArchived={onExperimentArchived}
         />
       ) : null}
       <div className="portal-launch-grid">
@@ -3436,6 +3455,7 @@ function PortalAdminHome({
   onOpenExperiment,
   onApplySettings,
   onExperimentCreated,
+  onExperimentArchived,
   onOpenHealth,
   onOpenSupport,
   onOpenRd,
@@ -3454,6 +3474,7 @@ function PortalAdminHome({
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onApplySettings: QueueSettingsPlan;
   onExperimentCreated: (slug: string) => Promise<void>;
+  onExperimentArchived: () => Promise<void>;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
   onOpenRd: () => void;
@@ -3483,6 +3504,7 @@ function PortalAdminHome({
         controlBusy={controlBusy}
         onApplySettings={onApplySettings}
         onExperimentCreated={onExperimentCreated}
+        onExperimentArchived={onExperimentArchived}
       />
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">
@@ -7554,6 +7576,7 @@ export default function App() {
             await loadExperimentCatalog();
             openExperiment(slug);
           }}
+          onExperimentArchived={loadExperimentCatalog}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
           onOpenRd={() => {
@@ -7612,6 +7635,7 @@ export default function App() {
             await loadExperimentCatalog();
             openExperiment(slug);
           }}
+          onExperimentArchived={loadExperimentCatalog}
         />
         {experimentCatalogError ? (
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>

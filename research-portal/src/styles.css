@@ -6827,6 +6827,57 @@ select {
   background: var(--portal-water);
 }
 
+.experiment-archive-body {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px 20px;
+}
+
+.experiment-archive-loading,
+.experiment-archive-summary,
+.experiment-archive-complete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #526071;
+  font-size: 0.76rem;
+}
+
+.experiment-archive-summary > span,
+.experiment-archive-complete > span {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef7f2;
+  color: var(--portal-water);
+}
+
+.experiment-archive-summary strong,
+.experiment-archive-complete strong {
+  display: block;
+  color: #17231d;
+  font-size: 0.86rem;
+}
+
+.experiment-archive-summary p,
+.experiment-archive-complete p {
+  margin: 3px 0 0;
+  color: #69776f;
+  line-height: 1.45;
+}
+
+.experiment-archive-body > .settings-primary-button,
+.experiment-archive-complete > button {
+  width: fit-content;
+}
+
+.experiment-archive-complete > button {
+  margin-left: auto;
+}
+
 .experiment-builder-backdrop {
   position: fixed;
   inset: 0;

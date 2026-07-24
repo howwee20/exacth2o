@@ -26,8 +26,10 @@ import {
   assistantChatInstructions,
   assistantFunctionCalls,
   assistantTools,
+  experimentArchiveDecision,
   normalizeAssistantConversation,
   proposalFromFunctionCall,
+  resolveExactExperimentCatalog,
   resolveExperimentCatalog,
 } from "./assistant-chat-policy.mjs";
 
@@ -137,7 +139,9 @@ Deno.serve(async (request) => {
       body.action === "route" ||
       body.action === "assistant_chat" ||
       body.action === "settings_draft" ||
-      body.action === "settings_revise"
+      body.action === "settings_revise" ||
+      body.action === "archive_preflight" ||
+      body.action === "archive"
     )
     ? body.action
     : null;
@@ -177,6 +181,157 @@ Deno.serve(async (request) => {
   const inventory = inventoryFromDeviceConfig(configState);
   if (!inventory.length) {
     return response({ error: "Current pot inventory is empty." }, 503, origin);
+  }
+
+  if (action === "archive_preflight" || action === "archive") {
+    const requestedExperiment = clean(body.experiment, 160);
+    if (!requestedExperiment) {
+      return response({ error: "Name the experiment to remove." }, 400, origin);
+    }
+    const { data: experimentRows, error: experimentError } = await admin
+      .from("experiments")
+      .select(
+        "id,project_id,slug,name,description,mode,status,watering_state,started_at,ended_at,current_revision_id,created_by,created_at,updated_at",
+      )
+      .eq("project_id", projectId)
+      .neq("status", "archived");
+    if (experimentError) {
+      return response({ error: "Experiment records are unavailable." }, 503, origin);
+    }
+    const experiment = resolveExactExperimentCatalog(
+      experimentRows ?? [],
+      requestedExperiment,
+    );
+    if (!experiment) {
+      return response({
+        error: "Use the exact experiment name or slug.",
+        available_experiments: (experimentRows ?? []).map((item) => item.name),
+      }, 404, origin);
+    }
+    const requestedExperimentId = clean(body.experiment_id, 80);
+    if (
+      action === "archive" &&
+      (!isUuid(requestedExperimentId) || requestedExperimentId !== experiment.id)
+    ) {
+      return response({ error: "The reviewed experiment no longer matches." }, 409, origin);
+    }
+    const { data: revision, error: revisionError } = await admin
+      .from("experiment_revisions")
+      .select("id,source,created_by,created_at")
+      .eq("id", experiment.current_revision_id)
+      .eq("experiment_id", experiment.id)
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (revisionError || !revision) {
+      return response({ error: "The current experiment revision is unavailable." }, 503, origin);
+    }
+    const { count: activeCommandCount, error: commandError } = await admin
+      .from("project_control_commands")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("experiment_id", experiment.id)
+      .in("status", ["queued", "accepted", "running"]);
+    if (commandError) {
+      return response({ error: "Experiment activity is unavailable." }, 503, origin);
+    }
+    const decision = experimentArchiveDecision({
+      experiment,
+      revisionSource: revision.source,
+      role: access.role,
+      userId: userData.user.id,
+      activeCommandCount: activeCommandCount ?? 0,
+    });
+    const reviewedState = [
+      experiment.id,
+      experiment.slug,
+      experiment.status,
+      experiment.mode,
+      experiment.watering_state,
+      experiment.current_revision_id,
+      experiment.updated_at,
+      revision.source,
+      String(activeCommandCount ?? 0),
+    ].join("|");
+    const reviewToken = await sha256(reviewedState);
+
+    if (action === "archive_preflight") {
+      return response({
+        experiment_id: experiment.id,
+        experiment_slug: experiment.slug,
+        experiment_name: experiment.name,
+        mode: experiment.mode,
+        status: experiment.status,
+        watering_state: experiment.watering_state,
+        history_preserved: true,
+        review_token: reviewToken,
+        can_archive: decision.allowed,
+        reason: decision.reason,
+      }, 200, origin);
+    }
+    if (!decision.allowed) {
+      return response({ error: decision.reason }, 409, origin);
+    }
+    if (body.confirm !== true || clean(body.review_token, 128) !== reviewToken) {
+      return response({ error: "Review this experiment again before removing it." }, 409, origin);
+    }
+
+    const archiveTime = new Date().toISOString();
+    const { data: archived, error: archiveError } = await admin
+      .from("experiments")
+      .update({
+        status: "archived",
+        ended_at: experiment.ended_at ?? archiveTime,
+        updated_at: archiveTime,
+      })
+      .eq("id", experiment.id)
+      .eq("project_id", projectId)
+      .eq("updated_at", experiment.updated_at)
+      .eq("watering_state", "off")
+      .select("id,slug,name,status,updated_at")
+      .maybeSingle();
+    if (archiveError || !archived) {
+      return response({
+        error: "The experiment changed after review. Review it again.",
+      }, 409, origin);
+    }
+    const { error: auditError } = await admin
+      .from("experiment_audit_events")
+      .insert({
+        experiment_id: experiment.id,
+        project_id: projectId,
+        revision_id: experiment.current_revision_id,
+        event_type: "archived",
+        actor_id: userData.user.id,
+        details: {
+          source: "portal_assistant",
+          previous_status: experiment.status,
+          watering_state: experiment.watering_state,
+          history_preserved: true,
+        },
+      });
+    if (auditError) {
+      await admin
+        .from("experiments")
+        .update({
+          status: experiment.status,
+          ended_at: experiment.ended_at,
+          updated_at: experiment.updated_at,
+        })
+        .eq("id", experiment.id)
+        .eq("project_id", projectId)
+        .eq("updated_at", archiveTime)
+        .eq("status", "archived");
+      return response({
+        error: "The removal was not recorded, so the experiment was left unchanged.",
+      }, 500, origin);
+    }
+    return response({
+      experiment_id: archived.id,
+      experiment_slug: archived.slug,
+      experiment_name: archived.name,
+      status: archived.status,
+      history_preserved: true,
+    }, 200, origin);
   }
 
   if (action === "preflight" || action === "launch") {
@@ -398,7 +553,7 @@ Deno.serve(async (request) => {
       let outputTokens = 0;
 
       const loadCatalog = async () => {
-        const { data: catalog, error: catalogError } = await admin
+        const { data: catalog, error: catalogError } = await authClient
           .from("portal_experiment_catalog")
           .select(
             "id,slug,name,description,mode,status,watering_state,started_at,ended_at,pairing_names,assignments",
@@ -410,7 +565,7 @@ Deno.serve(async (request) => {
       };
 
       const loadRuntime = async () => {
-        const { data: runtime, error: runtimeError } = await admin
+        const { data: runtime, error: runtimeError } = await authClient
           .from("device_runtime_state")
           .select(
             "device_name,controller_state,controller_state_updated_at,state_observed_at,state_fresh_until,owner_checked_at,overall_status,api_status,pi_online,public_url_reachable,watering_enabled,watering_disabled,watering_last_event,watering_last_event_at,watering_events_last_24h,scheduler_jobs_loaded,sensors_expected,sensors_current,sensors_stale,sensors_missing,last_sensor_reading_at,updated_at",
@@ -428,7 +583,8 @@ Deno.serve(async (request) => {
       ) => {
         if (
           call.name === "prepare_experiment_specification" ||
-          call.name === "prepare_settings_plan"
+          call.name === "prepare_settings_plan" ||
+          call.name === "prepare_experiment_archive"
         ) {
           const nextProposal = proposalFromFunctionCall(call);
           if (nextProposal && !proposalState.value) proposalState.value = nextProposal;
@@ -498,7 +654,7 @@ Deno.serve(async (request) => {
         if (call.name === "get_system_health") {
           const [runtimeResult, healthResult] = await Promise.all([
             loadRuntime(),
-            admin
+            authClient
               .from("device_health_snapshots")
               .select(
                 "captured_at,owner_checked_at,overall_status,api_status,pi_online,public_url_reachable,ethernet_link,gateway_ping_ms,undervoltage,cpu_temp_c,uptime_seconds,sensors_expected,sensors_current,sensors_stale,sensors_missing,missing_sensors,stale_sensors,last_sensor_reading_at,watering_last_event,watering_last_event_at,watering_events_last_24h,scheduler_jobs_loaded,active_alerts,known_issues,ingest_complete,created_at",
@@ -508,13 +664,145 @@ Deno.serve(async (request) => {
               .limit(1)
               .maybeSingle(),
           ]);
-          if (healthResult.error) throw new Error("Health snapshot is unavailable.");
+          if (healthResult.error) {
+            console.error("assistant_health_read_failed", {
+              request_id: requestRow.id,
+              code: healthResult.error.code,
+            });
+          }
           return {
             observed_at: healthResult.data?.captured_at ??
               runtimeResult?.state_observed_at ??
               configState.updated_at,
             runtime: runtimeResult,
-            health: healthResult.data,
+            health: healthResult.error ? null : healthResult.data,
+            health_snapshot_available: !healthResult.error && Boolean(healthResult.data),
+          };
+        }
+
+        if (call.name === "get_recent_activity") {
+          const hoursValue = Number(call.arguments.hours);
+          const hours = Number.isFinite(hoursValue)
+            ? Math.min(168, Math.max(1, hoursValue))
+            : 24;
+          const since = new Date(Date.now() - hours * 60 * 60 * 1_000).toISOString();
+          const { data: commands, error: commandReadError } = await authClient
+            .from("project_control_commands")
+            .select(
+              "id,experiment_id,command_type,status,requested_at,started_at,completed_at,error,result",
+            )
+            .eq("project_id", projectId)
+            .gte("requested_at", since)
+            .order("requested_at", { ascending: false })
+            .limit(100);
+          if (commandReadError) {
+            console.error("assistant_activity_read_failed", {
+              request_id: requestRow.id,
+              code: commandReadError.code,
+            });
+            return {
+              observed_at: new Date().toISOString(),
+              hours,
+              activity_available: false,
+              error: "Recent activity could not be loaded.",
+            };
+          }
+          const catalog = await loadCatalog();
+          const experimentNameById = new Map(
+            catalog.map((item) => [String(item.id), item.name]),
+          );
+          return {
+            observed_at: new Date().toISOString(),
+            hours,
+            activity_available: true,
+            commands: (commands ?? []).map((item) => ({
+              command_type: item.command_type,
+              status: item.status,
+              experiment: item.experiment_id
+                ? experimentNameById.get(String(item.experiment_id)) ?? null
+                : null,
+              requested_at: item.requested_at,
+              started_at: item.started_at,
+              completed_at: item.completed_at,
+              error: item.error,
+              result: item.result,
+            })),
+          };
+        }
+
+        if (call.name === "get_calibration_status") {
+          const [studyResult, observationResult, candidateResult, setRequestResult] =
+            await Promise.all([
+              authClient
+                .from("calibration_studies")
+                .select(
+                  "id,experiment_id,name,pairing_name,reference_instrument,match_tolerance_seconds,status,created_at,updated_at",
+                )
+                .eq("project_id", projectId)
+                .order("updated_at", { ascending: false })
+                .limit(100),
+              authClient
+                .from("calibration_observations")
+                .select("study_id,match_status,included,reference_recorded_at")
+                .eq("project_id", projectId)
+                .order("reference_recorded_at", { ascending: false })
+                .limit(2_000),
+              authClient
+                .from("calibration_candidates")
+                .select(
+                  "id,study_id,version,fit_type,equation_text,sample_count,rmse,mae,r_squared,max_error,status,created_at",
+                )
+                .eq("project_id", projectId)
+                .order("created_at", { ascending: false })
+                .limit(200),
+              authClient
+                .from("calibration_set_requests")
+                .select(
+                  "study_id,candidate_id,pairing_names,status,requested_at,reviewed_at,notes",
+                )
+                .eq("project_id", projectId)
+                .order("requested_at", { ascending: false })
+                .limit(200),
+            ]);
+          const errors = [
+            studyResult.error,
+            observationResult.error,
+            candidateResult.error,
+            setRequestResult.error,
+          ].filter(Boolean);
+          if (errors.length) {
+            console.error("assistant_calibration_read_failed", {
+              request_id: requestRow.id,
+              codes: errors.map((error) => error?.code),
+            });
+          }
+          const observations = observationResult.data ?? [];
+          return {
+            observed_at: new Date().toISOString(),
+            calibration_data_complete: errors.length === 0,
+            unavailable_sections: [
+              studyResult.error ? "studies" : null,
+              observationResult.error ? "observations" : null,
+              candidateResult.error ? "candidates" : null,
+              setRequestResult.error ? "set requests" : null,
+            ].filter(Boolean),
+            studies: (studyResult.data ?? []).map((study) => {
+              const studyObservations = observations.filter((item) =>
+                item.study_id === study.id
+              );
+              return {
+                ...study,
+                observation_count: studyObservations.length,
+                matched_observation_count: studyObservations.filter((item) =>
+                  item.match_status === "matched"
+                ).length,
+                included_observation_count: studyObservations.filter((item) =>
+                  item.match_status === "matched" && item.included
+                ).length,
+              };
+            }),
+            candidates: candidateResult.data ?? [],
+            set_requests: setRequestResult.data ?? [],
           };
         }
 
@@ -551,7 +839,7 @@ Deno.serve(async (request) => {
             };
           }
           const [readingResult, eventResult, runtime] = await Promise.all([
-            admin
+            authClient
               .from("sensor_readings")
               .select(
                 "pairing_name,calibrated_value,device_recorded_at,server_received_at",
@@ -561,7 +849,7 @@ Deno.serve(async (request) => {
               .gte("device_recorded_at", since)
               .order("device_recorded_at", { ascending: false })
               .limit(5_000),
-            admin
+            authClient
               .from("valve_events")
               .select(
                 "pairing_name,action,duration_ms,device_recorded_at,server_received_at",
@@ -573,8 +861,18 @@ Deno.serve(async (request) => {
               .limit(5_000),
             loadRuntime(),
           ]);
-          if (readingResult.error) throw new Error("Experiment readings are unavailable.");
-          if (eventResult.error) throw new Error("Experiment water events are unavailable.");
+          if (readingResult.error) {
+            console.error("assistant_experiment_readings_failed", {
+              request_id: requestRow.id,
+              code: readingResult.error.code,
+            });
+          }
+          if (eventResult.error) {
+            console.error("assistant_experiment_events_failed", {
+              request_id: requestRow.id,
+              code: eventResult.error.code,
+            });
+          }
           return {
             experiment: {
               name: experiment.name,
@@ -594,12 +892,22 @@ Deno.serve(async (request) => {
               event_limit_reached: (eventResult.data?.length ?? 0) === 5_000,
             },
             controller_observed_at: runtime?.state_observed_at ?? null,
-            readings: aggregateExperimentReadings(
-              readingResult.data ?? [],
-              experiment.assignments,
-              inventory,
-            ),
-            watering: aggregateValveEvents(eventResult.data ?? []),
+            readings_available: !readingResult.error,
+            water_events_available: !eventResult.error,
+            unavailable_evidence: [
+              readingResult.error ? "sensor readings" : null,
+              eventResult.error ? "recorded valve events" : null,
+            ].filter(Boolean),
+            readings: readingResult.error
+              ? null
+              : aggregateExperimentReadings(
+                readingResult.data ?? [],
+                experiment.assignments,
+                inventory,
+              ),
+            watering: eventResult.error
+              ? null
+              : aggregateValveEvents(eventResult.data ?? []),
           };
         }
 

@@ -43,10 +43,31 @@ export type AssistantConversationMessage = {
 
 export type AssistantChatResponse = {
   reply: string;
-  workflow: "answer" | "experiment" | "settings";
+  workflow: "answer" | "experiment" | "settings" | "archive";
   workflow_prompt: string | null;
   model: string | null;
   prompt_fingerprint: string | null;
+};
+
+export type ExperimentArchivePreflight = {
+  experiment_id: string;
+  experiment_slug: string;
+  experiment_name: string;
+  mode: PortalExperiment["mode"];
+  status: PortalExperiment["status"];
+  watering_state: PortalExperiment["wateringState"];
+  history_preserved: true;
+  review_token: string;
+  can_archive: boolean;
+  reason: string;
+};
+
+export type ExperimentArchiveResponse = {
+  experiment_id: string;
+  experiment_slug: string;
+  experiment_name: string;
+  status: "archived";
+  history_preserved: true;
 };
 
 async function invokeExperimentBuilder<T>(body: Record<string, unknown>) {
@@ -126,6 +147,38 @@ export function chatWithAssistant(
     project_id: projectId,
     prompt,
     conversation,
+  });
+}
+
+export function preflightExperimentArchive(
+  projectId: string,
+  experiment: string,
+) {
+  return invokeExperimentBuilder<ExperimentArchivePreflight>({
+    action: "archive_preflight",
+    project_id: projectId,
+    experiment,
+  });
+}
+
+export function archiveExperiment({
+  projectId,
+  experiment,
+  experimentId,
+  reviewToken,
+}: {
+  projectId: string;
+  experiment: string;
+  experimentId: string;
+  reviewToken: string;
+}) {
+  return invokeExperimentBuilder<ExperimentArchiveResponse>({
+    action: "archive",
+    project_id: projectId,
+    experiment,
+    experiment_id: experimentId,
+    review_token: reviewToken,
+    confirm: true,
   });
 }
 
