@@ -36,6 +36,19 @@ export type AssistantRouteResponse = {
   prompt_fingerprint: string | null;
 };
 
+export type AssistantConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AssistantChatResponse = {
+  reply: string;
+  workflow: "answer" | "experiment" | "settings";
+  workflow_prompt: string | null;
+  model: string | null;
+  prompt_fingerprint: string | null;
+};
+
 async function invokeExperimentBuilder<T>(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke<T>("experiment-builder", { body });
   if (error) {
@@ -100,6 +113,19 @@ export function routeAssistantRequest(projectId: string, prompt: string) {
     action: "route",
     project_id: projectId,
     prompt,
+  });
+}
+
+export function chatWithAssistant(
+  projectId: string,
+  prompt: string,
+  conversation: AssistantConversationMessage[],
+) {
+  return invokeExperimentBuilder<AssistantChatResponse>({
+    action: "assistant_chat",
+    project_id: projectId,
+    prompt,
+    conversation,
   });
 }
 

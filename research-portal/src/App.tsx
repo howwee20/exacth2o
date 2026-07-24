@@ -88,8 +88,9 @@ import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
 import {
+  chatWithAssistant,
   loadPortalExperimentCatalog,
-  routeAssistantRequest,
+  type AssistantConversationMessage,
 } from "./experimentClient";
 import {
   activeControlCommandCount,
@@ -581,13 +582,6 @@ const settingsNavItems: SettingsNavItem[] = [
     description: "Live state",
     group: "Live System",
     icon: Gauge,
-  },
-  {
-    id: "assistant",
-    label: "Assistant",
-    description: "Review a request",
-    group: "Controls",
-    icon: MessageSquare,
   },
   {
     id: "pairings",
@@ -2214,7 +2208,7 @@ function PortalSettingsPanel({
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
   const availableSettingsNavItems = isObservationOnlyExperiment(experiment)
-    ? settingsNavItems.filter((item) => ["overview", "assistant", "calibrations", "exports"].includes(item.id))
+    ? settingsNavItems.filter((item) => ["overview", "calibrations", "exports"].includes(item.id))
     : settingsNavItems;
   const availableSettingsNavGroups = Array.from(
     availableSettingsNavItems.reduce((groups, item) => {
@@ -3210,35 +3204,71 @@ function PortalCommandActivity({
 }
 
 function PortalAssistantHero({
+  projectId,
+  pairings,
+  inventoryUpdatedAt,
   commands,
   commandLoading,
-  onNewExperiment,
-  onOpenAssistant,
-  onRouteRequest,
+  controlBusy,
+  onApplySettings,
+  onExperimentCreated,
 }: {
+  projectId: string;
+  pairings: PairingRow[];
+  inventoryUpdatedAt: string | null;
   commands: readonly ControlCommand[];
   commandLoading: boolean;
-  onNewExperiment: () => void;
-  onOpenAssistant: () => void;
-  onRouteRequest: (request: string) => Promise<void>;
+  controlBusy: boolean;
+  onApplySettings: QueueSettingsPlan;
+  onExperimentCreated: (slug: string) => Promise<void>;
 }) {
   const [request, setRequest] = useState("");
-  const [routing, setRouting] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<AssistantConversationMessage[]>([]);
+  const [working, setWorking] = useState(false);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
+  const [workflow, setWorkflow] = useState<{
+    type: "experiment" | "settings";
+    prompt: string;
+    autoStart: boolean;
+    key: number;
+  } | null>(null);
 
-  const routeRequest = async (event: FormEvent<HTMLFormElement>) => {
+  const sendRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!request.trim()) return;
-    setRouting(true);
-    setRouteError(null);
+    const prompt = request.trim();
+    if (!prompt) return;
+    const conversation = messages.slice(-12);
+    const userMessage: AssistantConversationMessage = {
+      role: "user",
+      content: prompt,
+    };
+    setMessages((current) => [...current, userMessage]);
+    setRequest("");
+    setWorking(true);
+    setAssistantError(null);
     try {
-      await onRouteRequest(request.trim());
+      const result = await chatWithAssistant(projectId, prompt, conversation);
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", content: result.reply },
+      ]);
+      if (
+        (result.workflow === "experiment" || result.workflow === "settings") &&
+        result.workflow_prompt
+      ) {
+        setWorkflow({
+          type: result.workflow,
+          prompt: result.workflow_prompt,
+          autoStart: true,
+          key: Date.now(),
+        });
+      }
     } catch (nextError) {
-      setRouteError(
-        nextError instanceof Error ? nextError.message : "Could not review the request.",
+      setAssistantError(
+        nextError instanceof Error ? nextError.message : "Could not answer the request.",
       );
     } finally {
-      setRouting(false);
+      setWorking(false);
     }
   };
 
@@ -3246,32 +3276,102 @@ function PortalAssistantHero({
     <div className="portal-workspace-intro">
       <section className="portal-assistant-hero">
         <div className="portal-assistant-copy">
-          <form className="portal-assistant-request" onSubmit={(event) => void routeRequest(event)}>
+          {messages.length ? (
+            <div className="portal-assistant-thread" aria-live="polite">
+              {messages.map((message, index) => (
+                <article
+                  className={`is-${message.role}`}
+                  key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
+                >
+                  <strong>{message.role === "user" ? "You" : "ExactH2O"}</strong>
+                  {message.content.split(/\n+/).filter(Boolean).map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </article>
+              ))}
+              {working ? (
+                <article className="is-assistant is-working">
+                  <Loader2 className="chart-loading-spinner" size={16} />
+                  <p>Checking the system</p>
+                </article>
+              ) : null}
+            </div>
+          ) : null}
+          <form className="portal-assistant-request" onSubmit={(event) => void sendRequest(event)}>
             <textarea
               value={request}
               onChange={(event) => setRequest(event.target.value)}
               maxLength={4_000}
-              placeholder="Create a maize trial with pots 15–26 at a 30% target, measured every 10 minutes."
-              aria-label="Describe what you want ExactH2O to do"
+              placeholder="Ask about an experiment or describe a change."
+              aria-label="Ask ExactH2O or describe a change"
             />
-            <button type="submit" disabled={routing || !request.trim()}>
-              {routing ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
-              Review request
+            <button type="submit" disabled={working || !request.trim()}>
+              {working ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
+              Send
             </button>
           </form>
-          {routeError ? <span className="portal-assistant-error" role="alert">{routeError}</span> : null}
+          {assistantError ? (
+            <span className="portal-assistant-error" role="alert">{assistantError}</span>
+          ) : null}
           <div className="portal-assistant-actions">
-            <button type="button" onClick={onNewExperiment}>
+            <button
+              type="button"
+              onClick={() => setWorkflow({
+                type: "experiment",
+                prompt: "",
+                autoStart: false,
+                key: Date.now(),
+              })}
+            >
               <Sparkles size={16} />
               New experiment
             </button>
-            <button type="button" onClick={onOpenAssistant}>
+            <button
+              type="button"
+              onClick={() => setWorkflow({
+                type: "settings",
+                prompt: "",
+                autoStart: false,
+                key: Date.now(),
+              })}
+            >
               <MessageSquare size={16} />
               System settings
             </button>
           </div>
         </div>
       </section>
+      {workflow?.type === "experiment" ? (
+        <ExperimentBuilder
+          key={`experiment-${workflow.key}`}
+          projectId={projectId}
+          pairings={pairings}
+          inventoryUpdatedAt={inventoryUpdatedAt}
+          initialPrompt={workflow.prompt}
+          autoGenerate={workflow.autoStart}
+          presentation="inline"
+          onClose={() => setWorkflow(null)}
+          onCreated={onExperimentCreated}
+        />
+      ) : null}
+      {workflow?.type === "settings" ? (
+        <section className="portal-inline-settings" key={`settings-${workflow.key}`}>
+          <header>
+            <h2>Review settings</h2>
+            <button type="button" onClick={() => setWorkflow(null)} aria-label="Close settings plan">
+              <X size={17} />
+            </button>
+          </header>
+          <SettingsAssistant
+            projectId={projectId}
+            initialPrompt={workflow.prompt}
+            autoReview={workflow.autoStart}
+            embedded
+            controlBusy={controlBusy}
+            onApply={onApplySettings}
+          />
+        </section>
+      ) : null}
       <PortalCommandActivity commands={commands} loading={commandLoading} />
     </div>
   );
@@ -3283,30 +3383,35 @@ function PortalResearcherHome({
   canCreateExperiment,
   controlCommands,
   controlCommandsLoading,
+  controlBusy,
+  inventoryUpdatedAt,
   onOpenExperiment,
-  onNewExperiment,
-  onOpenAssistant,
-  onRouteRequest,
+  onApplySettings,
+  onExperimentCreated,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
   canCreateExperiment: boolean;
   controlCommands: readonly ControlCommand[];
   controlCommandsLoading: boolean;
+  controlBusy: boolean;
+  inventoryUpdatedAt: string | null;
   onOpenExperiment: (experimentId: ExperimentId) => void;
-  onNewExperiment: () => void;
-  onOpenAssistant: () => void;
-  onRouteRequest: (request: string) => Promise<void>;
+  onApplySettings: QueueSettingsPlan;
+  onExperimentCreated: (slug: string) => Promise<void>;
 }) {
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
       {canCreateExperiment ? (
         <PortalAssistantHero
+          projectId={mattProjectId}
+          pairings={visibleExperimentPairings(data.pairings)}
+          inventoryUpdatedAt={inventoryUpdatedAt}
           commands={controlCommands}
           commandLoading={controlCommandsLoading}
-          onNewExperiment={onNewExperiment}
-          onOpenAssistant={onOpenAssistant}
-          onRouteRequest={onRouteRequest}
+          controlBusy={controlBusy}
+          onApplySettings={onApplySettings}
+          onExperimentCreated={onExperimentCreated}
         />
       ) : null}
       <div className="portal-launch-grid">
@@ -3326,10 +3431,11 @@ function PortalAdminHome({
   experiments,
   controlCommands,
   controlCommandsLoading,
+  controlBusy,
+  inventoryUpdatedAt,
   onOpenExperiment,
-  onNewExperiment,
-  onOpenAssistant,
-  onRouteRequest,
+  onApplySettings,
+  onExperimentCreated,
   onOpenHealth,
   onOpenSupport,
   onOpenRd,
@@ -3343,10 +3449,11 @@ function PortalAdminHome({
   experiments: readonly PortalExperiment[];
   controlCommands: readonly ControlCommand[];
   controlCommandsLoading: boolean;
+  controlBusy: boolean;
+  inventoryUpdatedAt: string | null;
   onOpenExperiment: (experimentId: ExperimentId) => void;
-  onNewExperiment: () => void;
-  onOpenAssistant: () => void;
-  onRouteRequest: (request: string) => Promise<void>;
+  onApplySettings: QueueSettingsPlan;
+  onExperimentCreated: (slug: string) => Promise<void>;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
   onOpenRd: () => void;
@@ -3368,11 +3475,14 @@ function PortalAdminHome({
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
       <PortalAssistantHero
+        projectId={mattProjectId}
+        pairings={visibleExperimentPairings(data.pairings)}
+        inventoryUpdatedAt={inventoryUpdatedAt}
         commands={controlCommands}
         commandLoading={controlCommandsLoading}
-        onNewExperiment={onNewExperiment}
-        onOpenAssistant={onOpenAssistant}
-        onRouteRequest={onRouteRequest}
+        controlBusy={controlBusy}
+        onApplySettings={onApplySettings}
+        onExperimentCreated={onExperimentCreated}
       />
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">
@@ -5422,20 +5532,6 @@ export default function App() {
     setPortalView("experiment");
   }, []);
 
-  const routePortalAssistantRequest = useCallback(async (request: string) => {
-    const route = await routeAssistantRequest(mattProjectId, request);
-    if (route.intent === "settings") {
-      setExperimentBuilderOpen(false);
-      setSettingsAssistantPrompt(request);
-      setSettingsSection("assistant");
-      setSettingsOpen(true);
-      return;
-    }
-    setSettingsOpen(false);
-    setExperimentBuilderPrompt(request);
-    setExperimentBuilderOpen(true);
-  }, []);
-
   const loadExperimentCatalog = useCallback(async () => {
     if (!canReadProjectData) {
       setExperimentCatalog([]);
@@ -7450,17 +7546,14 @@ export default function App() {
           rdAccessAllowed={hasRdSystemAdminAccess(portalAccess.role, rdAccessStatus === "allowed")}
           controlCommands={controlCommands}
           controlCommandsLoading={controlCommandsLoading}
+          controlBusy={controlBusy}
+          inventoryUpdatedAt={configState?.updated_at ?? null}
           onOpenExperiment={openExperiment}
-          onNewExperiment={() => {
-            setExperimentBuilderPrompt("");
-            setExperimentBuilderOpen(true);
+          onApplySettings={queueSettingsPlan}
+          onExperimentCreated={async (slug) => {
+            await loadExperimentCatalog();
+            openExperiment(slug);
           }}
-          onOpenAssistant={() => {
-            setSettingsAssistantPrompt("");
-            setSettingsSection("assistant");
-            setSettingsOpen(true);
-          }}
-          onRouteRequest={routePortalAssistantRequest}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
           onOpenRd={() => {
@@ -7511,17 +7604,14 @@ export default function App() {
           canCreateExperiment={canCreateExperiment}
           controlCommands={controlCommands}
           controlCommandsLoading={controlCommandsLoading}
+          controlBusy={controlBusy}
+          inventoryUpdatedAt={configState?.updated_at ?? null}
           onOpenExperiment={openExperiment}
-          onNewExperiment={() => {
-            setExperimentBuilderPrompt("");
-            setExperimentBuilderOpen(true);
+          onApplySettings={queueSettingsPlan}
+          onExperimentCreated={async (slug) => {
+            await loadExperimentCatalog();
+            openExperiment(slug);
           }}
-          onOpenAssistant={() => {
-            setSettingsAssistantPrompt("");
-            setSettingsSection("assistant");
-            setSettingsOpen(true);
-          }}
-          onRouteRequest={routePortalAssistantRequest}
         />
         {experimentCatalogError ? (
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>

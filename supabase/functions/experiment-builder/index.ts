@@ -20,6 +20,16 @@ import {
   assistantIntentSchema,
   normalizeAssistantIntent,
 } from "./assistant-policy.mjs";
+import {
+  aggregateExperimentReadings,
+  aggregateValveEvents,
+  assistantChatInstructions,
+  assistantFunctionCalls,
+  assistantTools,
+  normalizeAssistantConversation,
+  proposalFromFunctionCall,
+  resolveExperimentCatalog,
+} from "./assistant-chat-policy.mjs";
 
 const allowedOrigins = new Set([
   "https://exacth2o.com",
@@ -28,7 +38,8 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5173",
   "http://localhost:5173",
 ]);
-const requestLimitPerDay = 20;
+const draftRequestLimitPerDay = 20;
+const chatRequestLimitPerDay = 100;
 const promptLimit = 4_000;
 
 function response(body: unknown, status: number, origin: string | null) {
@@ -124,6 +135,7 @@ Deno.serve(async (request) => {
       body.action === "preflight" ||
       body.action === "launch" ||
       body.action === "route" ||
+      body.action === "assistant_chat" ||
       body.action === "settings_draft" ||
       body.action === "settings_revise"
     )
@@ -312,6 +324,8 @@ Deno.serve(async (request) => {
     return response({
       error: action === "route"
         ? "Describe what you want ExactH2O to do."
+        : action === "assistant_chat"
+        ? "Ask ExactH2O a question or describe what you want to do."
         : action.startsWith("settings_")
         ? "Describe the setting change."
         : "Describe the experiment.",
@@ -319,15 +333,26 @@ Deno.serve(async (request) => {
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count, error: countError } = await admin
+  let countQuery = admin
     .from("experiment_builder_requests")
     .select("id", { count: "exact", head: true })
     .eq("project_id", projectId)
     .eq("user_id", userData.user.id)
     .gte("created_at", since);
+  countQuery = action === "assistant_chat"
+    ? countQuery.like("model_name", "assistant_chat:%")
+    : countQuery.not("model_name", "like", "assistant_chat:%");
+  const { count, error: countError } = await countQuery;
   if (countError) return response({ error: "Could not check the request limit." }, 500, origin);
-  if ((count ?? 0) >= requestLimitPerDay) {
-    return response({ error: "Daily draft limit reached. Enter the experiment manually." }, 429, origin);
+  const requestLimit = action === "assistant_chat"
+    ? chatRequestLimitPerDay
+    : draftRequestLimitPerDay;
+  if ((count ?? 0) >= requestLimit) {
+    return response({
+      error: action === "assistant_chat"
+        ? "Daily assistant limit reached. Try again tomorrow."
+        : "Daily draft limit reached. Enter the experiment manually.",
+    }, 429, origin);
   }
 
   const promptFingerprint = await sha256(prompt);
@@ -338,7 +363,7 @@ Deno.serve(async (request) => {
       user_id: userData.user.id,
       source: "natural_language",
       status: "started",
-      model_name: model,
+      model_name: action === "assistant_chat" ? `assistant_chat:${model}` : model,
       prompt_fingerprint: promptFingerprint,
     })
     .select("id")
@@ -349,7 +374,303 @@ Deno.serve(async (request) => {
 
   try {
     const routeAction = action === "route";
+    const chatAction = action === "assistant_chat";
     const settingsAction = action === "settings_draft" || action === "settings_revise";
+
+    if (chatAction) {
+      const conversation = normalizeAssistantConversation(body.conversation);
+      const input: unknown[] = [
+        {
+          role: "system",
+          content: assistantChatInstructions(access.role),
+        },
+        ...conversation,
+        {
+          role: "user",
+          content: prompt,
+        },
+      ];
+      const proposalState: {
+        value: { workflow: string; workflow_prompt: string } | null;
+      } = { value: null };
+      let reply = "";
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      const loadCatalog = async () => {
+        const { data: catalog, error: catalogError } = await admin
+          .from("portal_experiment_catalog")
+          .select(
+            "id,slug,name,description,mode,status,watering_state,started_at,ended_at,pairing_names,assignments",
+          )
+          .eq("project_id", projectId)
+          .order("started_at", { ascending: true });
+        if (catalogError) throw new Error("Experiment catalog is unavailable.");
+        return catalog ?? [];
+      };
+
+      const loadRuntime = async () => {
+        const { data: runtime, error: runtimeError } = await admin
+          .from("device_runtime_state")
+          .select(
+            "device_name,controller_state,controller_state_updated_at,state_observed_at,state_fresh_until,owner_checked_at,overall_status,api_status,pi_online,public_url_reachable,watering_enabled,watering_disabled,watering_last_event,watering_last_event_at,watering_events_last_24h,scheduler_jobs_loaded,sensors_expected,sensors_current,sensors_stale,sensors_missing,last_sensor_reading_at,updated_at",
+          )
+          .eq("project_id", projectId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (runtimeError) throw new Error("Controller state is unavailable.");
+        return runtime;
+      };
+
+      const executeAssistantTool = async (
+        call: { name: string; arguments: Record<string, unknown> },
+      ) => {
+        if (
+          call.name === "prepare_experiment_specification" ||
+          call.name === "prepare_settings_plan"
+        ) {
+          const nextProposal = proposalFromFunctionCall(call);
+          if (nextProposal && !proposalState.value) proposalState.value = nextProposal;
+          return {
+            prepared: Boolean(nextProposal),
+            workflow: nextProposal?.workflow ?? null,
+            safety: "No experiment or controller change has been executed.",
+          };
+        }
+
+        if (call.name === "get_project_overview") {
+          const [catalog, runtime] = await Promise.all([loadCatalog(), loadRuntime()]);
+          return {
+            observed_at: runtime?.state_observed_at ?? configState.updated_at,
+            controller: runtime ?? {
+              status: "Runtime state is unavailable.",
+              config_observed_at: configState.updated_at,
+            },
+            inventory: {
+              configured_pairings: inventory.length,
+              watering_enabled_pairings: inventory.filter((item: {
+                wtc_percent_limit: number;
+              }) =>
+                item.wtc_percent_limit > -1_000
+              ).length,
+              sensing_only_pairings: inventory.filter((item: {
+                wtc_percent_limit: number;
+              }) =>
+                item.wtc_percent_limit <= -1_000
+              ).length,
+              pots: inventory.map((item: {
+                name: string;
+                zone: number;
+                pot_number: number;
+                group_name: string | null;
+                calibration_name: string | null;
+                wtc_percent_limit: number;
+                valve_open_time_ms: number;
+                measurement_interval_ms: number;
+              }) => ({
+                pairing_name: item.name,
+                zone: item.zone,
+                pot_number: item.pot_number,
+                group: item.group_name,
+                calibration: item.calibration_name,
+                watering_enabled: item.wtc_percent_limit > -1_000,
+                target_vwc_percent: item.wtc_percent_limit > -1_000
+                  ? item.wtc_percent_limit
+                  : null,
+                valve_open_seconds: item.valve_open_time_ms / 1_000,
+                measurement_interval_minutes: item.measurement_interval_ms / 60_000,
+              })),
+            },
+            experiments: catalog.map((item) => ({
+              name: item.name,
+              slug: item.slug,
+              mode: item.mode,
+              status: item.status,
+              watering_state: item.watering_state,
+              pot_count: Array.isArray(item.pairing_names) ? item.pairing_names.length : 0,
+              started_at: item.started_at,
+              ended_at: item.ended_at,
+            })),
+          };
+        }
+
+        if (call.name === "get_system_health") {
+          const [runtimeResult, healthResult] = await Promise.all([
+            loadRuntime(),
+            admin
+              .from("device_health_snapshots")
+              .select(
+                "captured_at,owner_checked_at,overall_status,api_status,pi_online,public_url_reachable,ethernet_link,gateway_ping_ms,undervoltage,cpu_temp_c,uptime_seconds,sensors_expected,sensors_current,sensors_stale,sensors_missing,missing_sensors,stale_sensors,last_sensor_reading_at,watering_last_event,watering_last_event_at,watering_events_last_24h,scheduler_jobs_loaded,active_alerts,known_issues,ingest_complete,created_at",
+              )
+              .eq("project_id", projectId)
+              .order("captured_at", { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+          ]);
+          if (healthResult.error) throw new Error("Health snapshot is unavailable.");
+          return {
+            observed_at: healthResult.data?.captured_at ??
+              runtimeResult?.state_observed_at ??
+              configState.updated_at,
+            runtime: runtimeResult,
+            health: healthResult.data,
+          };
+        }
+
+        if (call.name === "get_experiment_status") {
+          const catalog = await loadCatalog();
+          const experiment = resolveExperimentCatalog(
+            catalog,
+            clean(call.arguments.experiment, 160),
+          );
+          if (!experiment) {
+            return {
+              error: "Experiment not found.",
+              available_experiments: catalog.map((item) => item.name),
+            };
+          }
+          const pairingNames = Array.isArray(experiment.pairing_names)
+            ? experiment.pairing_names
+              .map((item: unknown) => clean(item, 120))
+              .filter(Boolean)
+            : [];
+          const hoursValue = Number(call.arguments.hours);
+          const hours = Number.isFinite(hoursValue)
+            ? Math.min(168, Math.max(1, hoursValue))
+            : 24;
+          const since = new Date(Date.now() - hours * 60 * 60 * 1_000).toISOString();
+          if (!pairingNames.length) {
+            return {
+              experiment: {
+                name: experiment.name,
+                slug: experiment.slug,
+                status: experiment.status,
+              },
+              error: "This experiment has no assigned pairings.",
+            };
+          }
+          const [readingResult, eventResult, runtime] = await Promise.all([
+            admin
+              .from("sensor_readings")
+              .select(
+                "pairing_name,calibrated_value,device_recorded_at,server_received_at",
+              )
+              .eq("project_id", projectId)
+              .in("pairing_name", pairingNames)
+              .gte("device_recorded_at", since)
+              .order("device_recorded_at", { ascending: false })
+              .limit(5_000),
+            admin
+              .from("valve_events")
+              .select(
+                "pairing_name,action,duration_ms,device_recorded_at,server_received_at",
+              )
+              .eq("project_id", projectId)
+              .in("pairing_name", pairingNames)
+              .gte("device_recorded_at", since)
+              .order("device_recorded_at", { ascending: false })
+              .limit(5_000),
+            loadRuntime(),
+          ]);
+          if (readingResult.error) throw new Error("Experiment readings are unavailable.");
+          if (eventResult.error) throw new Error("Experiment water events are unavailable.");
+          return {
+            experiment: {
+              name: experiment.name,
+              slug: experiment.slug,
+              description: experiment.description,
+              mode: experiment.mode,
+              status: experiment.status,
+              watering_state: experiment.watering_state,
+              started_at: experiment.started_at,
+              ended_at: experiment.ended_at,
+              expected_pots: pairingNames.length,
+            },
+            window: {
+              hours,
+              since,
+              reading_limit_reached: (readingResult.data?.length ?? 0) === 5_000,
+              event_limit_reached: (eventResult.data?.length ?? 0) === 5_000,
+            },
+            controller_observed_at: runtime?.state_observed_at ?? null,
+            readings: aggregateExperimentReadings(
+              readingResult.data ?? [],
+              experiment.assignments,
+              inventory,
+            ),
+            watering: aggregateValveEvents(eventResult.data ?? []),
+          };
+        }
+
+        return { error: "Unsupported assistant tool." };
+      };
+
+      for (let turn = 0; turn < 5; turn += 1) {
+        const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${openAiKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            store: false,
+            reasoning: { effort: reasoningEffort },
+            input,
+            tools: assistantTools,
+            tool_choice: "auto",
+            parallel_tool_calls: false,
+            max_output_tokens: 1_600,
+          }),
+        });
+        const openAiBody = await openAiResponse.json().catch(() => ({}));
+        if (!openAiResponse.ok) {
+          throw new Error(
+            clean(record(openAiBody.error).message, 300) ||
+              `OpenAI request failed (${openAiResponse.status}).`,
+          );
+        }
+        const usage = openAiUsage(openAiBody.usage);
+        inputTokens += usage.input_tokens ?? 0;
+        outputTokens += usage.output_tokens ?? 0;
+        const calls = assistantFunctionCalls(openAiBody);
+        if (!calls.length) {
+          reply = clean(responseOutputText(openAiBody), 8_000);
+          break;
+        }
+        const output = Array.isArray(record(openAiBody).output)
+          ? record(openAiBody).output as unknown[]
+          : [];
+        input.push(...output);
+        for (const call of calls) {
+          const result = await executeAssistantTool(call);
+          input.push({
+            type: "function_call_output",
+            call_id: call.call_id,
+            output: JSON.stringify(result),
+          });
+        }
+      }
+
+      if (!reply) throw new Error("Assistant did not return an answer.");
+      await admin
+        .from("experiment_builder_requests")
+        .update({
+          status: "completed",
+          input_tokens: inputTokens || null,
+          output_tokens: outputTokens || null,
+        })
+        .eq("id", requestRow.id);
+      return response({
+        reply,
+        workflow: proposalState.value?.workflow ?? "answer",
+        workflow_prompt: proposalState.value?.workflow_prompt ?? null,
+        model,
+        prompt_fingerprint: promptFingerprint,
+      }, 200, origin);
+    }
+
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, Loader2, Send, Sparkles } from "lucide-react";
 import { draftSettings } from "./experimentClient";
 import {
@@ -9,6 +9,8 @@ import {
 type SettingsAssistantProps = {
   projectId: string;
   initialPrompt?: string;
+  autoReview?: boolean;
+  embedded?: boolean;
   controlBusy: boolean;
   onApply: (plan: SettingsPlan, configHash: string) => Promise<void>;
 };
@@ -16,6 +18,8 @@ type SettingsAssistantProps = {
 export function SettingsAssistant({
   projectId,
   initialPrompt = "",
+  autoReview = false,
+  embedded = false,
   controlBusy,
   onApply,
 }: SettingsAssistantProps) {
@@ -26,8 +30,12 @@ export function SettingsAssistant({
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoReviewStarted = useRef(false);
 
-  const requestPlan = async (request: string, currentPlan?: SettingsPlan) => {
+  const requestPlan = useCallback(async (
+    request: string,
+    currentPlan?: SettingsPlan,
+  ) => {
     if (!request.trim()) {
       setError("Describe the setting change.");
       return;
@@ -48,7 +56,17 @@ export function SettingsAssistant({
     } finally {
       setBusy(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (
+      !autoReview ||
+      autoReviewStarted.current ||
+      !initialPrompt.trim()
+    ) return;
+    autoReviewStarted.current = true;
+    void requestPlan(initialPrompt);
+  }, [autoReview, initialPrompt, requestPlan]);
 
   const applyPlan = async () => {
     if (!plan || !configHash || !confirmed || plan.questions.length) return;
@@ -61,11 +79,12 @@ export function SettingsAssistant({
   };
 
   return (
-    <div className="settings-assistant">
-      <section className="settings-card settings-assistant-request">
+    <div className={`settings-assistant ${embedded ? "is-embedded" : ""}`}>
+      {!embedded || !initialPrompt || !plan ? (
+        <section className="settings-card settings-assistant-request">
         <div className="settings-assistant-title">
           <Sparkles size={17} />
-          <h3>Assistant</h3>
+          <h3>{embedded ? "Build a settings plan" : "Assistant"}</h3>
         </div>
         <textarea
           value={prompt}
@@ -82,7 +101,8 @@ export function SettingsAssistant({
           {busy ? <Loader2 className="chart-loading-spinner" size={15} /> : <Send size={15} />}
           Review
         </button>
-      </section>
+        </section>
+      ) : null}
 
       {plan ? (
         <section className="settings-card settings-assistant-review">
@@ -145,9 +165,11 @@ export function SettingsAssistant({
         </section>
       ) : null}
       {error ? <p className="settings-error-line" role="alert">{error}</p> : null}
-      <p className="settings-muted">
-        Manual water and sensor initialization stay locked.
-      </p>
+      {!embedded ? (
+        <p className="settings-muted">
+          Manual water and sensor initialization stay locked.
+        </p>
+      ) : null}
     </div>
   );
 }

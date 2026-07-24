@@ -6409,7 +6409,7 @@ select {
 }
 
 .portal-workspace-intro {
-  width: min(100%, 826px);
+  width: min(100%, 1120px);
   display: grid;
   gap: 12px;
   margin: 0 auto 24px;
@@ -6430,6 +6430,57 @@ select {
 
 .portal-assistant-copy {
   min-width: 0;
+}
+
+.portal-assistant-thread {
+  max-height: 360px;
+  display: grid;
+  gap: 9px;
+  overflow: auto;
+  margin-bottom: 12px;
+  padding: 2px 3px 4px;
+  scrollbar-color: rgba(132, 221, 194, 0.42) transparent;
+}
+
+.portal-assistant-thread article {
+  width: fit-content;
+  max-width: min(88%, 760px);
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 247, 237, 0.13);
+  border-radius: 12px 12px 12px 4px;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.portal-assistant-thread article.is-user {
+  justify-self: end;
+  border-radius: 12px 12px 4px;
+  background: rgba(132, 221, 194, 0.16);
+}
+
+.portal-assistant-thread article.is-working {
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: start;
+}
+
+.portal-assistant-thread strong {
+  color: #84ddc2;
+  font-family: var(--portal-mono);
+  font-size: 0.57rem;
+  letter-spacing: 0.04em;
+}
+
+.portal-assistant-thread article.is-user strong {
+  color: rgba(247, 255, 251, 0.72);
+}
+
+.portal-assistant-thread p {
+  margin: 0;
+  color: #f7fffb;
+  font-size: 0.72rem;
+  line-height: 1.55;
 }
 
 .portal-assistant-request {
@@ -6709,6 +6760,71 @@ select {
   background: #fffaf0;
   color: #92400e;
   font-size: 0.72rem;
+}
+
+.experiment-builder-inline {
+  width: 100%;
+}
+
+.experiment-builder.is-inline {
+  width: 100%;
+  max-height: none;
+  border-radius: 14px;
+  box-shadow: 0 16px 42px rgba(8, 24, 17, 0.1);
+}
+
+.experiment-builder.is-inline .experiment-builder-review-shell {
+  max-height: 720px;
+}
+
+.portal-inline-settings {
+  overflow: hidden;
+  border: 1px solid rgba(24, 37, 55, 0.1);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 42px rgba(8, 24, 17, 0.1);
+}
+
+.portal-inline-settings > header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(24, 37, 55, 0.08);
+}
+
+.portal-inline-settings > header h2 {
+  margin: 0;
+  color: #17231d;
+  font-size: 1rem;
+}
+
+.portal-inline-settings > header button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(24, 37, 55, 0.1);
+  border-radius: 9px;
+  background: #fff;
+  color: #526071;
+  cursor: pointer;
+}
+
+.settings-assistant.is-embedded {
+  max-width: none;
+  padding: 18px;
+}
+
+.settings-assistant.is-embedded .settings-card {
+  box-shadow: none;
+}
+
+.settings-assistant.is-embedded .settings-primary-button {
+  border-color: var(--portal-water);
+  background: var(--portal-water);
 }
 
 .experiment-builder-backdrop {

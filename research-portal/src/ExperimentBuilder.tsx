@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -34,6 +34,8 @@ type ExperimentBuilderProps = {
   pairings: PairingRow[];
   inventoryUpdatedAt: string | null;
   initialPrompt?: string;
+  autoGenerate?: boolean;
+  presentation?: "modal" | "inline";
   onClose: () => void;
   onCreated: (slug: string) => void;
 };
@@ -67,6 +69,8 @@ export function ExperimentBuilder({
   pairings,
   inventoryUpdatedAt,
   initialPrompt = "",
+  autoGenerate = false,
+  presentation = "modal",
   onClose,
   onCreated,
 }: ExperimentBuilderProps) {
@@ -87,6 +91,7 @@ export function ExperimentBuilder({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const autoGenerateStarted = useRef(false);
 
   const sortedPairings = useMemo(
     () => pairings.slice().sort((left, right) =>
@@ -104,7 +109,10 @@ export function ExperimentBuilder({
   );
   const stepIndex = step === "prompt" ? 0 : step === "review" ? 1 : 2;
 
-  const generateDraft = async (request = prompt, currentDraft?: ExperimentDraft) => {
+  const generateDraft = useCallback(async (
+    request: string,
+    currentDraft?: ExperimentDraft,
+  ) => {
     if (!request.trim()) {
       setError("Describe the experiment.");
       return;
@@ -131,7 +139,17 @@ export function ExperimentBuilder({
     } finally {
       setBusy(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (
+      !autoGenerate ||
+      autoGenerateStarted.current ||
+      !initialPrompt.trim()
+    ) return;
+    autoGenerateStarted.current = true;
+    void generateDraft(initialPrompt);
+  }, [autoGenerate, generateDraft, initialPrompt]);
 
   const beginManualDraft = () => {
     setDraft(manualExperimentDraft(pairings));
@@ -268,11 +286,16 @@ export function ExperimentBuilder({
   };
 
   return (
-    <div className="experiment-builder-backdrop" role="presentation">
+    <div
+      className={presentation === "inline"
+        ? "experiment-builder-inline"
+        : "experiment-builder-backdrop"}
+      role="presentation"
+    >
       <section
-        className="experiment-builder"
-        role="dialog"
-        aria-modal="true"
+        className={`experiment-builder ${presentation === "inline" ? "is-inline" : ""}`}
+        role={presentation === "inline" ? "region" : "dialog"}
+        aria-modal={presentation === "modal" ? "true" : undefined}
         aria-labelledby="experiment-builder-title"
       >
         <header className="experiment-builder-header">
@@ -312,7 +335,7 @@ export function ExperimentBuilder({
               <button
                 type="button"
                 className="is-primary"
-                onClick={() => void generateDraft()}
+                onClick={() => void generateDraft(prompt)}
                 disabled={busy || !prompt.trim()}
               >
                 {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
