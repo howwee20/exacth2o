@@ -211,6 +211,15 @@ export function validateDraft(value, inventory) {
   const valveKeys = new Set();
 
   if (!draft.name) messages.push("Name is required.");
+  if (
+    draft.start_date
+    && Number.isFinite(Date.parse(draft.start_date))
+    && Date.parse(draft.start_date) > Date.now() + 5 * 60_000
+  ) {
+    messages.push(
+      "Future execution is not available yet. Create the experiment when it is ready to start.",
+    );
+  }
   if (draft.assignments.length < 1) messages.push("Select at least one pot.");
   if (draft.assignments.length > 100) {
     messages.push("An experiment can include at most 100 pots.");
@@ -394,6 +403,8 @@ export function systemInstructions() {
     "Use current inventory settings when the researcher does not specify a controller setting.",
     "Set controller_changes_requested true when any requested setting differs from current inventory.",
     "Never propose manual valve pulses, board configuration, sensor initialization, pairing rewiring, or calibration mutation.",
+    "start_date records experiment metadata only; it does not schedule controller execution.",
+    "If the request asks for a future start, a time-of-day action, or a one-time watering pulse, leave start_date null and add a concise question explaining that scheduled execution is not available.",
     "Use null only for unspecified descriptive metadata.",
     "Use questions for missing or ambiguous information that materially affects the draft.",
     "Keep the name and description concise.",

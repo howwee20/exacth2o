@@ -15,10 +15,12 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Clock3,
   Database,
   Download,
   FileArchive,
   Gauge,
+  ListChecks,
   Loader2,
   Lock,
   LogOut,
@@ -31,6 +33,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -84,7 +87,16 @@ import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
-import { loadPortalExperimentCatalog } from "./experimentClient";
+import {
+  loadPortalExperimentCatalog,
+  routeAssistantRequest,
+} from "./experimentClient";
+import {
+  activeControlCommandCount,
+  controlActivityStatusLabel,
+  isActiveControlStatus,
+  visibleControlCommands,
+} from "./controlActivity";
 import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
 import { mergeRdHistoryPage } from "./rdPagination";
 import type { RdLabSnapshot } from "./rdTypes";
@@ -118,6 +130,7 @@ const healthSnapshotSelectColumns =
   "id,project_id,device_id,device_name,source,captured_at,owner_checked_at,status_endpoint_ok,history_endpoint_ok,status_http_status,status_elapsed_ms,history_samples,overall_status,api_status,pi_online,public_url_reachable,ethernet_link,ethernet_ip,gateway_ping_ms,undervoltage,cpu_temp_c,uptime_seconds,sensors_expected,sensors_current,sensors_stale,sensors_missing,missing_sensors,stale_sensors,last_sensor_reading_at,watering_last_event,watering_last_event_at,watering_events_last_24h,scheduler_jobs_loaded,active_alerts,known_issues,ingest_complete,created_at";
 const autoRefreshMs = 5 * 60_000;
 const healthSnapshotPollMs = 5 * 60_000;
+const controlActivityPollMs = 15_000;
 const supabaseQueryTimeoutMs = 12_000;
 const portalAccessTimeoutMs = 8_000;
 const supportPollMs = 2 * 60_000;
@@ -2110,6 +2123,7 @@ type PortalSettingsPanelProps = {
   controlBusy: boolean;
   controlNotice: string | null;
   controlError: string | null;
+  assistantInitialPrompt?: string;
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
@@ -2135,6 +2149,7 @@ function PortalSettingsPanel({
   controlBusy,
   controlNotice,
   controlError,
+  assistantInitialPrompt,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
@@ -2466,6 +2481,7 @@ function PortalSettingsPanel({
           {commandStatusPanel}
           <SettingsAssistant
             projectId={mattProjectId}
+            initialPrompt={assistantInitialPrompt}
             controlBusy={controlBusy}
             onApply={onQueueSettingsPlan}
           />
@@ -3059,6 +3075,17 @@ function ExperimentLaunchCards({
               <span className="portal-launch-icon">
                 <Activity size={20} />
               </span>
+              {experiment.status === "activating" ? (
+                <span className="portal-experiment-progress is-running">
+                  <Clock3 size={12} />
+                  Starting
+                </span>
+              ) : experiment.status === "activation_failed" ? (
+                <span className="portal-experiment-progress is-failed">
+                  <AlertTriangle size={12} />
+                  Review
+                </span>
+              ) : null}
             </span>
             <span className="portal-launch-copy">
               <span className="portal-launch-title">{experiment.name}</span>
@@ -3073,25 +3100,183 @@ function ExperimentLaunchCards({
   );
 }
 
+function PortalCommandActivity({
+  commands,
+  loading,
+}: {
+  commands: readonly ControlCommand[];
+  loading: boolean;
+}) {
+  const activeCount = activeControlCommandCount(commands);
+  const visibleCommands = visibleControlCommands(commands);
+
+  return (
+    <section className="portal-command-activity" aria-label="System activity">
+      <header>
+        <div>
+          <ListChecks size={17} />
+          <h2>Activity</h2>
+        </div>
+        <span className={activeCount ? "is-active" : ""}>
+          {activeCount ? `${activeCount} active` : "No active work"}
+        </span>
+      </header>
+      {loading && visibleCommands.length === 0 ? (
+        <div className="portal-command-empty">
+          <Loader2 className="chart-loading-spinner" size={16} />
+          Checking activity
+        </div>
+      ) : visibleCommands.length ? (
+        <div className="portal-command-list">
+          {visibleCommands.map((command) => (
+            <div className="portal-command-row" key={command.id}>
+              <span
+                className={`portal-command-dot ${
+                  isActiveControlStatus(command.status) ? "is-active" : `is-${command.status}`
+                }`}
+                aria-hidden="true"
+              />
+              <strong>{controlCommandLabel(command.command_type)}</strong>
+              <time dateTime={command.requested_at}>
+                {formatSettingsTimestamp(command.requested_at)}
+              </time>
+              <em className={`is-${command.status}`}>
+                {controlActivityStatusLabel(command.status)}
+              </em>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="portal-command-empty">
+          Confirmed work will appear here.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PortalAssistantHero({
+  commands,
+  commandLoading,
+  onNewExperiment,
+  onOpenAssistant,
+  onRouteRequest,
+}: {
+  commands: readonly ControlCommand[];
+  commandLoading: boolean;
+  onNewExperiment: () => void;
+  onOpenAssistant: () => void;
+  onRouteRequest: (request: string) => Promise<void>;
+}) {
+  const [request, setRequest] = useState("");
+  const [routing, setRouting] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+
+  const routeRequest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!request.trim()) return;
+    setRouting(true);
+    setRouteError(null);
+    try {
+      await onRouteRequest(request.trim());
+    } catch (nextError) {
+      setRouteError(
+        nextError instanceof Error ? nextError.message : "Could not review the request.",
+      );
+    } finally {
+      setRouting(false);
+    }
+  };
+
+  return (
+    <div className="portal-workspace-intro">
+      <section className="portal-assistant-hero">
+        <div className="portal-assistant-copy">
+          <span className="portal-assistant-kicker">
+            <Sparkles size={15} />
+            ExactH2O Assistant
+          </span>
+          <h1>Describe what you want to run.</h1>
+          <p>
+            Choose pots, treatments, moisture targets, and measurement timing in plain language.
+            Review every change before it starts.
+          </p>
+          <form className="portal-assistant-request" onSubmit={(event) => void routeRequest(event)}>
+            <textarea
+              value={request}
+              onChange={(event) => setRequest(event.target.value)}
+              maxLength={4_000}
+              placeholder="Create a maize trial with pots 15–26 at a 30% target, measured every 10 minutes."
+              aria-label="Describe what you want ExactH2O to do"
+            />
+            <button type="submit" disabled={routing || !request.trim()}>
+              {routing ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
+              Review request
+            </button>
+          </form>
+          {routeError ? <span className="portal-assistant-error" role="alert">{routeError}</span> : null}
+          <div className="portal-assistant-actions">
+            <button type="button" onClick={onNewExperiment}>
+              <Sparkles size={16} />
+              New experiment
+            </button>
+            <button type="button" onClick={onOpenAssistant}>
+              <MessageSquare size={16} />
+              System settings
+            </button>
+          </div>
+        </div>
+        <ol className="portal-assistant-flow" aria-label="Assistant workflow">
+          <li>
+            <span>1</span>
+            <div><strong>Describe</strong><em>Use normal language</em></div>
+          </li>
+          <li>
+            <span>2</span>
+            <div><strong>Review</strong><em>See the complete specification</em></div>
+          </li>
+          <li>
+            <span>3</span>
+            <div><strong>Confirm</strong><em>Track each approved action</em></div>
+          </li>
+        </ol>
+      </section>
+      <PortalCommandActivity commands={commands} loading={commandLoading} />
+    </div>
+  );
+}
+
 function PortalResearcherHome({
   data,
   experiments,
   canCreateExperiment,
+  controlCommands,
+  controlCommandsLoading,
   onOpenExperiment,
   onNewExperiment,
+  onOpenAssistant,
+  onRouteRequest,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
   canCreateExperiment: boolean;
+  controlCommands: readonly ControlCommand[];
+  controlCommandsLoading: boolean;
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onNewExperiment: () => void;
+  onOpenAssistant: () => void;
+  onRouteRequest: (request: string) => Promise<void>;
 }) {
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
       {canCreateExperiment ? (
-        <div className="portal-home-toolbar">
-          <button type="button" onClick={onNewExperiment}>New experiment</button>
-        </div>
+        <PortalAssistantHero
+          commands={controlCommands}
+          commandLoading={controlCommandsLoading}
+          onNewExperiment={onNewExperiment}
+          onOpenAssistant={onOpenAssistant}
+          onRouteRequest={onRouteRequest}
+        />
       ) : null}
       <div className="portal-launch-grid">
         <ExperimentLaunchCards data={data} experiments={experiments} onOpenExperiment={onOpenExperiment} />
@@ -3108,8 +3293,12 @@ function PortalAdminHome({
   salesSupportLoading,
   rdAccessAllowed,
   experiments,
+  controlCommands,
+  controlCommandsLoading,
   onOpenExperiment,
   onNewExperiment,
+  onOpenAssistant,
+  onRouteRequest,
   onOpenHealth,
   onOpenSupport,
   onOpenRd,
@@ -3121,8 +3310,12 @@ function PortalAdminHome({
   salesSupportLoading: boolean;
   rdAccessAllowed: boolean;
   experiments: readonly PortalExperiment[];
+  controlCommands: readonly ControlCommand[];
+  controlCommandsLoading: boolean;
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onNewExperiment: () => void;
+  onOpenAssistant: () => void;
+  onRouteRequest: (request: string) => Promise<void>;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
   onOpenRd: () => void;
@@ -3143,9 +3336,13 @@ function PortalAdminHome({
 
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
-      <div className="portal-home-toolbar">
-        <button type="button" onClick={onNewExperiment}>New experiment</button>
-      </div>
+      <PortalAssistantHero
+        commands={controlCommands}
+        commandLoading={controlCommandsLoading}
+        onNewExperiment={onNewExperiment}
+        onOpenAssistant={onOpenAssistant}
+        onRouteRequest={onRouteRequest}
+      />
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">
           <ExperimentLaunchCards data={data} experiments={experiments} onOpenExperiment={onOpenExperiment} />
@@ -5027,11 +5224,15 @@ export default function App() {
   const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("matt-experiment");
   const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
   const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
+  const [experimentBuilderPrompt, setExperimentBuilderPrompt] = useState("");
+  const [settingsAssistantPrompt, setSettingsAssistantPrompt] = useState("");
   const [experimentCatalogError, setExperimentCatalogError] = useState<string | null>(null);
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
   const [healthHistory, setHealthHistory] = useState<DeviceHealthSnapshot[]>([]);
   const [runtimeState, setRuntimeState] = useState<DeviceRuntimeState | null>(null);
   const [configState, setConfigState] = useState<DeviceConfigState | null>(null);
+  const [controlCommands, setControlCommands] = useState<ControlCommand[]>([]);
+  const [controlCommandsLoading, setControlCommandsLoading] = useState(false);
   const [valveEvents, setValveEvents] = useState<ValveEvent[]>([]);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -5185,6 +5386,20 @@ export default function App() {
     setTimeWindow(fullTimeWindow);
     setSettingsOpen(false);
     setPortalView("experiment");
+  }, []);
+
+  const routePortalAssistantRequest = useCallback(async (request: string) => {
+    const route = await routeAssistantRequest(mattProjectId, request);
+    if (route.intent === "settings") {
+      setExperimentBuilderOpen(false);
+      setSettingsAssistantPrompt(request);
+      setSettingsSection("assistant");
+      setSettingsOpen(true);
+      return;
+    }
+    setSettingsOpen(false);
+    setExperimentBuilderPrompt(request);
+    setExperimentBuilderOpen(true);
   }, []);
 
   const loadExperimentCatalog = useCallback(async () => {
@@ -5364,6 +5579,36 @@ export default function App() {
       }
     } catch {
       // Keep the last mirrored controller state visible while Supabase catches up.
+    }
+  }, [canUseExperimentSettings]);
+
+  const loadControlCommands = useCallback(async (
+    options: { silent?: boolean } = {},
+  ) => {
+    if (!canUseExperimentSettings) {
+      setControlCommands([]);
+      return;
+    }
+    if (!options.silent) setControlCommandsLoading(true);
+    try {
+      const response = await withSupabaseTimeout(
+        supabase
+          .from("project_control_commands")
+          .select(
+            "id,client_request_id,project_id,device_id,command_type,payload,status,requested_at,expires_at,requires_confirmation,result,error",
+          )
+          .eq("project_id", mattProjectId)
+          .order("requested_at", { ascending: false })
+          .limit(20),
+        supabaseQueryTimeoutMs,
+        "Control activity",
+      );
+      if (response.error) throw response.error;
+      setControlCommands((response.data ?? []) as ControlCommand[]);
+    } catch {
+      // Keep the last known activity visible while the project mirror recovers.
+    } finally {
+      if (!options.silent) setControlCommandsLoading(false);
     }
   }, [canUseExperimentSettings]);
 
@@ -5780,6 +6025,7 @@ export default function App() {
 
         controlRequestIdsRef.current.delete(requestKey);
         setControlNotice(`${controlCommandLabel(commandType)} sent`);
+        void loadControlCommands({ silent: true });
       } catch (err) {
         try {
           const reconciliation = await withSupabaseTimeout(
@@ -5795,6 +6041,7 @@ export default function App() {
           if (!reconciliation.error && reconciliation.data?.id) {
             controlRequestIdsRef.current.delete(requestKey);
             setControlNotice(`${controlCommandLabel(commandType)} received; status refreshed`);
+            void loadControlCommands({ silent: true });
           } else {
             setControlError(`${errorMessage(err)} Safe to retry; the same request ID will be reused.`);
           }
@@ -5805,7 +6052,7 @@ export default function App() {
         setControlBusy(false);
       }
     },
-    [canUseExperimentSettings, isAdmin],
+    [canUseExperimentSettings, isAdmin, loadControlCommands],
   );
 
   const queueSettingsPlan: QueueSettingsPlan = async (plan, reviewedConfigHash) => {
@@ -5935,6 +6182,7 @@ export default function App() {
         if (!response.data?.commands?.length) throw new Error("The complete settings batch was not accepted.");
         settingsBatchIdsRef.current.delete(requestKey);
         setControlNotice("Reviewed settings queued safely");
+        void loadControlCommands({ silent: true });
       } catch (nextError) {
         try {
           const reconciliation = await withSupabaseTimeout(
@@ -5952,6 +6200,7 @@ export default function App() {
           ) {
             settingsBatchIdsRef.current.delete(requestKey);
             setControlNotice("Reviewed settings received; status refreshed");
+            void loadControlCommands({ silent: true });
           } else {
             setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
           }
@@ -6461,11 +6710,16 @@ export default function App() {
       setPortalAccess(null);
       setSettingsOpen(false);
       setSettingsSection("overview");
+      setExperimentBuilderOpen(false);
+      setExperimentBuilderPrompt("");
+      setSettingsAssistantPrompt("");
       setPortalView("home");
       setHealthSnapshot(null);
       setHealthHistory([]);
       setRuntimeState(null);
       setConfigState(null);
+      setControlCommands([]);
+      setControlCommandsLoading(false);
       setValveEvents([]);
       setSalesSupportData(initialSalesSupportData);
       setRdAccessStatus("unknown");
@@ -6519,6 +6773,11 @@ export default function App() {
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return;
+    void loadControlCommands();
+  }, [canUseExperimentSettings, loadControlCommands, sessionReady]);
+
+  useEffect(() => {
     if (!sessionReady || !isAdmin) return;
     void loadSalesSupport();
   }, [isAdmin, loadSalesSupport, sessionReady]);
@@ -6570,6 +6829,14 @@ export default function App() {
     }, healthSnapshotPollMs);
     return () => window.clearInterval(pollId);
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return undefined;
+    const pollId = window.setInterval(() => {
+      void loadControlCommands({ silent: true });
+    }, controlActivityPollMs);
+    return () => window.clearInterval(pollId);
+  }, [canUseExperimentSettings, loadControlCommands, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -6750,6 +7017,36 @@ export default function App() {
       void supabase.removeChannel(channel);
     };
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return undefined;
+
+    const channel = supabase
+      .channel("exacth2o-control-activity-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_control_commands",
+          filter: `project_id=eq.${mattProjectId}`,
+        },
+        () => {
+          void loadControlCommands({ silent: true });
+          void loadExperimentCatalog();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [
+    canUseExperimentSettings,
+    loadControlCommands,
+    loadExperimentCatalog,
+    sessionReady,
+  ]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return undefined;
@@ -7028,10 +7325,15 @@ export default function App() {
       projectId={mattProjectId}
       pairings={visibleExperimentPairings(data.pairings)}
       inventoryUpdatedAt={configState?.updated_at ?? null}
-      onClose={() => setExperimentBuilderOpen(false)}
+      initialPrompt={experimentBuilderPrompt}
+      onClose={() => {
+        setExperimentBuilderOpen(false);
+        setExperimentBuilderPrompt("");
+      }}
       onCreated={async (slug) => {
         await loadExperimentCatalog();
         setExperimentBuilderOpen(false);
+        setExperimentBuilderPrompt("");
         openExperiment(slug);
       }}
     />
@@ -7090,8 +7392,19 @@ export default function App() {
           salesSupportData={salesSupportData}
           salesSupportLoading={salesSupportLoading}
           rdAccessAllowed={hasRdSystemAdminAccess(portalAccess.role, rdAccessStatus === "allowed")}
+          controlCommands={controlCommands}
+          controlCommandsLoading={controlCommandsLoading}
           onOpenExperiment={openExperiment}
-          onNewExperiment={() => setExperimentBuilderOpen(true)}
+          onNewExperiment={() => {
+            setExperimentBuilderPrompt("");
+            setExperimentBuilderOpen(true);
+          }}
+          onOpenAssistant={() => {
+            setSettingsAssistantPrompt("");
+            setSettingsSection("assistant");
+            setSettingsOpen(true);
+          }}
+          onRouteRequest={routePortalAssistantRequest}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
           onOpenRd={() => {
@@ -7119,6 +7432,7 @@ export default function App() {
           controlBusy={controlBusy}
           controlNotice={controlNotice}
           controlError={controlError}
+          assistantInitialPrompt={settingsAssistantPrompt}
           onClose={() => setSettingsOpen(false)}
           onSectionChange={setSettingsSection}
           onPrepareCsvDownload={prepareCsvDownload}
@@ -7139,13 +7453,49 @@ export default function App() {
           data={data}
           experiments={availableExperiments}
           canCreateExperiment={canCreateExperiment}
+          controlCommands={controlCommands}
+          controlCommandsLoading={controlCommandsLoading}
           onOpenExperiment={openExperiment}
-          onNewExperiment={() => setExperimentBuilderOpen(true)}
+          onNewExperiment={() => {
+            setExperimentBuilderPrompt("");
+            setExperimentBuilderOpen(true);
+          }}
+          onOpenAssistant={() => {
+            setSettingsAssistantPrompt("");
+            setSettingsSection("assistant");
+            setSettingsOpen(true);
+          }}
+          onRouteRequest={routePortalAssistantRequest}
         />
         {experimentCatalogError ? (
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
         ) : null}
         {experimentBuilder}
+        <PortalSettingsPanel
+          open={settingsOpen}
+          portalRole={portalAccess.role}
+          experiment={selectedExperiment}
+          activeSection={settingsSection}
+          data={data}
+          runtimeState={runtimeState}
+          configState={configState}
+          pairings={sortedPairings}
+          visiblePotCount={visiblePotCount}
+          csvDownload={csvDownload}
+          csvError={csvError}
+          exportingCsv={exportingCsv}
+          controlBusy={controlBusy}
+          controlNotice={controlNotice}
+          controlError={controlError}
+          assistantInitialPrompt={settingsAssistantPrompt}
+          onClose={() => setSettingsOpen(false)}
+          onSectionChange={setSettingsSection}
+          onPrepareCsvDownload={prepareCsvDownload}
+          onDownloadPairingsCsv={downloadPairingsCsv}
+          onQueueCommand={queueControlCommand}
+          onQueueSettingsPlan={queueSettingsPlan}
+          onSignOut={signOut}
+        />
       </main>
     );
   }

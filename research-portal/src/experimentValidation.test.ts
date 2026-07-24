@@ -98,4 +98,14 @@ describe("experiment validation", () => {
   it("creates stable slugs", () => {
     expect(experimentSlug(" Matt's Calibration #3 ")).toBe("matt-s-calibration-3");
   });
+
+  it("does not treat a future date as scheduled execution", () => {
+    const draft = manualExperimentDraft(inventory, ["Zone1-Pot15"]);
+    draft.name = "Future trial";
+    draft.start_date = "2099-01-01T12:00:00.000Z";
+
+    expect(validateExperimentDraft(draft, inventory).map((issue) => issue.message)).toContain(
+      "Future execution is not available yet. Create the experiment when it is ready to start.",
+    );
+  });
 });

@@ -14,6 +14,12 @@ import {
   settingsSystemInstructions,
   settingsUserInput,
 } from "./settings-policy.mjs";
+import {
+  assistantIntentInput,
+  assistantIntentInstructions,
+  assistantIntentSchema,
+  normalizeAssistantIntent,
+} from "./assistant-policy.mjs";
 
 const allowedOrigins = new Set([
   "https://exacth2o.com",
@@ -117,6 +123,7 @@ Deno.serve(async (request) => {
       body.action === "revise" ||
       body.action === "preflight" ||
       body.action === "launch" ||
+      body.action === "route" ||
       body.action === "settings_draft" ||
       body.action === "settings_revise"
     )
@@ -303,7 +310,9 @@ Deno.serve(async (request) => {
   const prompt = clean(body.prompt, promptLimit);
   if (!prompt) {
     return response({
-      error: action.startsWith("settings_")
+      error: action === "route"
+        ? "Describe what you want ExactH2O to do."
+        : action.startsWith("settings_")
         ? "Describe the setting change."
         : "Describe the experiment.",
     }, 400, origin);
@@ -339,6 +348,7 @@ Deno.serve(async (request) => {
   }
 
   try {
+    const routeAction = action === "route";
     const settingsAction = action === "settings_draft" || action === "settings_revise";
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -353,33 +363,43 @@ Deno.serve(async (request) => {
         input: [
           {
             role: "system",
-            content: settingsAction
-              ? settingsSystemInstructions(access.role)
-              : systemInstructions(),
+            content: routeAction
+              ? assistantIntentInstructions()
+              : settingsAction
+                ? settingsSystemInstructions(access.role)
+                : systemInstructions(),
           },
           {
             role: "user",
-            content: settingsAction
-              ? settingsUserInput(
-                prompt,
-                configState,
-                action === "settings_revise" ? body.current_plan : null,
-              )
-              : userDraftInput(
-                prompt,
-                inventory,
-                action === "revise" ? body.current_draft : null,
-              ),
+            content: routeAction
+              ? assistantIntentInput(prompt)
+              : settingsAction
+                ? settingsUserInput(
+                  prompt,
+                  configState,
+                  action === "settings_revise" ? body.current_plan : null,
+                )
+                : userDraftInput(
+                  prompt,
+                  inventory,
+                  action === "revise" ? body.current_draft : null,
+                ),
           },
         ],
         text: {
           format: {
             type: "json_schema",
-            name: settingsAction
-              ? "exacth2o_settings_plan"
-              : "exacth2o_experiment_draft",
+            name: routeAction
+              ? "exacth2o_assistant_route"
+              : settingsAction
+                ? "exacth2o_settings_plan"
+                : "exacth2o_experiment_draft",
             strict: true,
-            schema: settingsAction ? settingsPlanSchema : experimentDraftSchema,
+            schema: routeAction
+              ? assistantIntentSchema
+              : settingsAction
+                ? settingsPlanSchema
+                : experimentDraftSchema,
           },
         },
         max_output_tokens: 2_000,
@@ -395,6 +415,18 @@ Deno.serve(async (request) => {
 
     const parsed = JSON.parse(responseOutputText(openAiBody));
     const usage = openAiUsage(openAiBody.usage);
+    if (routeAction) {
+      const route = normalizeAssistantIntent(parsed);
+      await admin
+        .from("experiment_builder_requests")
+        .update({ status: "completed", ...usage })
+        .eq("id", requestRow.id);
+      return response({
+        ...route,
+        model,
+        prompt_fingerprint: promptFingerprint,
+      }, 200, origin);
+    }
     if (settingsAction) {
       const { plan, errors } = normalizeSettingsPlan(parsed, configState, access.role);
       await admin

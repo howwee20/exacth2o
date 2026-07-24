@@ -8,16 +8,18 @@ import {
 
 type SettingsAssistantProps = {
   projectId: string;
+  initialPrompt?: string;
   controlBusy: boolean;
   onApply: (plan: SettingsPlan, configHash: string) => Promise<void>;
 };
 
 export function SettingsAssistant({
   projectId,
+  initialPrompt = "",
   controlBusy,
   onApply,
 }: SettingsAssistantProps) {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [revision, setRevision] = useState("");
   const [plan, setPlan] = useState<SettingsPlan | null>(null);
   const [configHash, setConfigHash] = useState<string | null>(null);

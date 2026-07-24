@@ -155,6 +155,34 @@ test("observation plan disables watering while preserving sensing", () => {
   });
 });
 
+test("future starts cannot be mistaken for scheduled controller execution", () => {
+  const inventory = inventoryFromDeviceConfig(config);
+  const result = compileControlPlan({
+    name: "Future trial",
+    description: "",
+    mode: "controlled",
+    start_date: "2099-01-01T12:00:00.000Z",
+    assignments: [{
+      pairing_name: "Zone1-Pot15",
+      crop: null,
+      treatment: null,
+      block: null,
+      substrate: null,
+      watering_enabled: true,
+      target_vwc_percent: 35,
+      valve_open_seconds: 8,
+      measurement_interval_minutes: 10,
+      notes: null,
+    }],
+    visibility_roles: ["admin", "researcher"],
+    controller_changes_requested: true,
+    questions: [],
+  }, inventory);
+
+  assert.equal(result.plan, null);
+  assert.ok(result.messages.some((message) => message.includes("Future execution")));
+});
+
 test("response parser handles Responses API content", () => {
   assert.equal(responseOutputText({
     output: [{ content: [{ type: "output_text", text: "{\"name\":\"Trial\"}" }] }],

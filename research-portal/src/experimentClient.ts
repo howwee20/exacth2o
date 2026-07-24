@@ -29,6 +29,13 @@ type CatalogRow = {
   assignments: PortalExperimentAssignment[] | null;
 };
 
+export type AssistantRouteResponse = {
+  intent: "experiment" | "settings";
+  reason: string;
+  model: string | null;
+  prompt_fingerprint: string | null;
+};
+
 async function invokeExperimentBuilder<T>(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke<T>("experiment-builder", { body });
   if (error) {
@@ -85,6 +92,14 @@ export function draftExperiment(
     project_id: projectId,
     prompt,
     current_draft: currentDraft,
+  });
+}
+
+export function routeAssistantRequest(projectId: string, prompt: string) {
+  return invokeExperimentBuilder<AssistantRouteResponse>({
+    action: "route",
+    project_id: projectId,
+    prompt,
   });
 }
 

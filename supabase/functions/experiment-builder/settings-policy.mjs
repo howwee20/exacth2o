@@ -316,6 +316,7 @@ export function settingsSystemInstructions(role) {
     "Return no commands and ask a concise question when a material value or target is missing.",
     "Do not create an experiment tile; these commands modify existing system settings.",
     "Manual valve pulses and sensor initialization are locked and must never be proposed.",
+    "Future-time and time-of-day command scheduling are not available; return no commands and explain that limitation in questions.",
     "Researchers cannot create, delete, or apply calibrations and cannot change board configuration.",
     "Command payload JSON grammar:",
     'update_pairing: {"pairing_name":string, optional "new_name":string, "group_name":existing string, "target_vwc":0..80, "disable_watering":boolean, "open_time_seconds":1..120, "measurement_interval_seconds":30..3600}.',

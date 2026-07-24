@@ -137,5 +137,6 @@ test("settings plan blocks invented hardware and administrator commands for rese
 test("assistant prompt keeps manual watering and sensor initialization locked", () => {
   const instructions = settingsSystemInstructions("admin");
   assert.match(instructions, /Manual valve pulses and sensor initialization are locked/);
+  assert.match(instructions, /time-of-day command scheduling are not available/);
   assert.doesNotMatch(instructions, /manual_water:/);
 });

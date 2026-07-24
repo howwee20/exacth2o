@@ -62,6 +62,17 @@ export function validateExperimentDraft(
     issues.push({ path: "name", message: "Name is required." });
   }
 
+  if (
+    normalized.start_date
+    && Number.isFinite(Date.parse(normalized.start_date))
+    && Date.parse(normalized.start_date) > Date.now() + 5 * 60_000
+  ) {
+    issues.push({
+      path: "start_date",
+      message: "Future execution is not available yet. Create the experiment when it is ready to start.",
+    });
+  }
+
   if (normalized.assignments.length < 1) {
     issues.push({ path: "assignments", message: "Select at least one pot." });
   }

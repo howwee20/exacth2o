@@ -33,6 +33,7 @@ type ExperimentBuilderProps = {
   projectId: string;
   pairings: PairingRow[];
   inventoryUpdatedAt: string | null;
+  initialPrompt?: string;
   onClose: () => void;
   onCreated: (slug: string) => void;
 };
@@ -65,11 +66,12 @@ export function ExperimentBuilder({
   projectId,
   pairings,
   inventoryUpdatedAt,
+  initialPrompt = "",
   onClose,
   onCreated,
 }: ExperimentBuilderProps) {
   const [step, setStep] = useState<BuilderStep>("prompt");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [draft, setDraft] = useState<ExperimentDraft>(() => emptyExperimentDraft());
   const [source, setSource] = useState<ExperimentDraftSource>("manual");
   const [draftInventoryUpdatedAt, setDraftInventoryUpdatedAt] = useState<string | null>(
@@ -100,6 +102,7 @@ export function ExperimentBuilder({
     () => new Set(draft.assignments.map((assignment) => assignment.pairing_name)),
     [draft.assignments],
   );
+  const stepIndex = step === "prompt" ? 0 : step === "review" ? 1 : 2;
 
   const generateDraft = async (request = prompt, currentDraft?: ExperimentDraft) => {
     if (!request.trim()) {
@@ -274,9 +277,17 @@ export function ExperimentBuilder({
       >
         <header className="experiment-builder-header">
           <div>
-            <p>Experiments</p>
-            <h2 id="experiment-builder-title">New experiment</h2>
+            <p>ExactH2O Assistant</p>
+            <h2 id="experiment-builder-title">Build an experiment</h2>
           </div>
+          <ol className="experiment-builder-steps" aria-label="Experiment workflow">
+            {["Describe", "Review", "Create"].map((label, index) => (
+              <li className={index <= stepIndex ? "is-current" : ""} key={label}>
+                <span>{index + 1}</span>
+                {label}
+              </li>
+            ))}
+          </ol>
           <button type="button" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
@@ -290,7 +301,7 @@ export function ExperimentBuilder({
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               maxLength={4_000}
-              placeholder="Use pots 15–26 for a maize trial. Label half control and half drought."
+              placeholder="Use pots 15–26 for a maize trial. Set half to 30% and keep half sensing only. Measure every 10 minutes."
               autoFocus
             />
             {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
@@ -305,7 +316,7 @@ export function ExperimentBuilder({
                 disabled={busy || !prompt.trim()}
               >
                 {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
-                Generate draft
+                Build specification
               </button>
             </div>
           </div>
@@ -377,12 +388,13 @@ export function ExperimentBuilder({
                   </select>
                 </label>
                 <label>
-                  Start date
+                  Record start date
                   <input
                     type="date"
                     value={draft.start_date?.slice(0, 10) ?? ""}
                     onChange={(event) => updateDraft("start_date", event.target.value || null)}
                   />
+                  <small>Confirmed changes apply immediately.</small>
                 </label>
               </div>
 
@@ -607,7 +619,7 @@ export function ExperimentBuilder({
                   {busy
                     ? <Loader2 className="chart-loading-spinner" size={16} />
                     : <Play size={16} />}
-                  Start experiment
+                  Confirm and create
                 </button>
               ) : (
                 <button
