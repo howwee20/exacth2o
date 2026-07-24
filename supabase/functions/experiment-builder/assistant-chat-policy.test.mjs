@@ -16,14 +16,20 @@ test("assistant tools expose only reads and approval-gated proposals", () => {
   assert.deepEqual(
     assistantTools.map((tool) => tool.name),
     [
+      "get_capabilities",
       "get_project_overview",
       "get_experiment_status",
       "get_system_health",
       "get_recent_activity",
       "get_calibration_status",
+      "get_automation_status",
+      "compare_experiments",
       "prepare_experiment_specification",
       "prepare_settings_plan",
       "prepare_experiment_archive",
+      "prepare_schedule",
+      "prepare_monitor",
+      "prepare_experiment_lifecycle",
     ],
   );
   assert.match(assistantChatInstructions("researcher"), /do not execute changes/i);

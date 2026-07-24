@@ -22,11 +22,24 @@ import {
   normalizeAssistantIntent,
 } from "./assistant-policy.mjs";
 import {
+  automationReviewToken,
+  monitorPlanSchema,
+  monitorSystemInstructions,
+  monitorUserInput,
+  normalizeMonitorPlan,
+  normalizeSchedulePlan,
+  schedulePlanSchema,
+  scheduleSystemInstructions,
+  scheduleUserInput,
+} from "./automation-policy.mjs";
+import {
   aggregateExperimentReadings,
   aggregateValveEvents,
+  assistantCapabilities,
   assistantChatInstructions,
   assistantFunctionCalls,
   assistantTools,
+  compareExperimentAggregates,
   experimentArchiveDecision,
   normalizeAssistantConversation,
   proposalFromFunctionCall,
@@ -98,6 +111,30 @@ function openAiUsage(value: unknown) {
   };
 }
 
+function scheduleInputForNormalization(value: unknown) {
+  const plan = record(value);
+  const settingsPlan = record(plan.settings_plan);
+  const commands = Array.isArray(settingsPlan.commands)
+    ? settingsPlan.commands.map((item) => {
+      const command = record(item);
+      return {
+        command_type: command.command_type,
+        payload_json: typeof command.payload_json === "string"
+          ? command.payload_json
+          : JSON.stringify(record(command.payload)),
+        effect: command.effect,
+      };
+    })
+    : [];
+  return {
+    ...plan,
+    settings_plan: {
+      ...settingsPlan,
+      commands,
+    },
+  };
+}
+
 Deno.serve(async (request) => {
   const origin = request.headers.get("origin");
   if (request.method === "OPTIONS") return response({ ok: true }, 200, origin);
@@ -142,7 +179,14 @@ Deno.serve(async (request) => {
       body.action === "settings_draft" ||
       body.action === "settings_revise" ||
       body.action === "archive_preflight" ||
-      body.action === "archive"
+      body.action === "archive" ||
+      body.action === "schedule_draft" ||
+      body.action === "schedule_create" ||
+      body.action === "monitor_draft" ||
+      body.action === "monitor_create" ||
+      body.action === "lifecycle_preflight" ||
+      body.action === "lifecycle_apply" ||
+      body.action === "automation_cancel"
     )
     ? body.action
     : null;
@@ -335,6 +379,293 @@ Deno.serve(async (request) => {
     }, 200, origin);
   }
 
+  if (action === "lifecycle_preflight" || action === "lifecycle_apply") {
+    const requestedExperiment = clean(body.experiment, 160);
+    const lifecycleAction = body.lifecycle_action === "restore" ? "restore" : "complete";
+    if (!requestedExperiment) {
+      return response({ error: "Name the experiment." }, 400, origin);
+    }
+    const { data: experimentRows, error: experimentError } = await admin
+      .from("experiments")
+      .select(
+        "id,project_id,slug,name,mode,status,watering_state,current_revision_id,created_by,updated_at",
+      )
+      .eq("project_id", projectId);
+    if (experimentError) {
+      return response({ error: "Experiment records are unavailable." }, 503, origin);
+    }
+    const experiment = resolveExactExperimentCatalog(
+      experimentRows ?? [],
+      requestedExperiment,
+    );
+    if (!experiment) {
+      return response({
+        error: "Use the exact experiment name or slug.",
+        available_experiments: (experimentRows ?? []).map((item) => item.name),
+      }, 404, origin);
+    }
+    const { data: revision, error: revisionError } = await admin
+      .from("experiment_revisions")
+      .select("source,created_by")
+      .eq("id", experiment.current_revision_id)
+      .maybeSingle();
+    const { count: activeCommandCount, error: commandError } = await admin
+      .from("project_control_commands")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("experiment_id", experiment.id)
+      .in("status", ["queued", "accepted", "running"]);
+    if (revisionError || !revision || commandError) {
+      return response({ error: "Experiment lifecycle evidence is unavailable." }, 503, origin);
+    }
+
+    let canApply = false;
+    let reason = "";
+    if (lifecycleAction === "complete") {
+      if (experiment.watering_state !== "off") {
+        reason = "Turn watering off through a separate reviewed settings plan first.";
+      } else if ((activeCommandCount ?? 0) > 0) {
+        reason = "Wait for active experiment commands to finish.";
+      } else if (!["published_sensing", "active", "activation_failed"].includes(experiment.status)) {
+        reason = "This experiment cannot be completed from its current state.";
+      } else {
+        canApply = true;
+        reason = "Completion records the end time and preserves the tile, readings, and history.";
+      }
+    } else if (experiment.status !== "archived" || experiment.watering_state !== "off") {
+      reason = "Only a safely archived sensing experiment can be restored.";
+    } else if (
+      !["manual", "natural_language"].includes(revision.source) ||
+      (
+        access.role !== "admin" &&
+        experiment.created_by !== userData.user.id
+      )
+    ) {
+      reason = "Only the creator or an administrator can restore this portal-created experiment.";
+    } else {
+      canApply = true;
+      reason = "Restoration returns the sensing-only tile without changing controller settings.";
+    }
+
+    const reviewedState = JSON.stringify({
+      experiment_id: experiment.id,
+      action: lifecycleAction,
+      status: experiment.status,
+      watering_state: experiment.watering_state,
+      revision_id: experiment.current_revision_id,
+      updated_at: experiment.updated_at,
+      active_commands: activeCommandCount ?? 0,
+      actor_id: userData.user.id,
+    });
+    const reviewToken = await sha256(reviewedState);
+    if (action === "lifecycle_preflight") {
+      return response({
+        experiment_id: experiment.id,
+        experiment_slug: experiment.slug,
+        experiment_name: experiment.name,
+        lifecycle_action: lifecycleAction,
+        status: experiment.status,
+        watering_state: experiment.watering_state,
+        can_apply: canApply,
+        reason,
+        review_token: reviewToken,
+      }, 200, origin);
+    }
+    if (
+      body.confirm !== true ||
+      !canApply ||
+      clean(body.review_token, 128) !== reviewToken ||
+      clean(body.experiment_id, 80) !== experiment.id
+    ) {
+      return response({
+        error: canApply ? "Review this lifecycle action again." : reason,
+      }, 409, origin);
+    }
+    const functionName = lifecycleAction === "restore"
+      ? "restore_assistant_experiment"
+      : "complete_assistant_experiment";
+    const { data: applied, error: applyError } = await authClient.rpc(functionName, {
+      requested_project_id: projectId,
+      requested_experiment_id: experiment.id,
+    });
+    if (applyError) return response({ error: applyError.message }, 409, origin);
+    const appliedRow = Array.isArray(applied) ? applied[0] : applied;
+    return response({
+      experiment_id: appliedRow?.experiment_id ?? experiment.id,
+      experiment_slug: appliedRow?.experiment_slug ?? experiment.slug,
+      status: appliedRow?.experiment_status ??
+        (lifecycleAction === "restore" ? "published_sensing" : "completed"),
+      lifecycle_action: lifecycleAction,
+      history_preserved: true,
+    }, 200, origin);
+  }
+
+  if (action === "automation_cancel") {
+    const automationId = clean(body.automation_id, 80);
+    const automationType = body.automation_type === "monitor" ? "monitor" : "schedule";
+    if (!isUuid(automationId)) {
+      return response({ error: "Choose a valid schedule or monitor." }, 400, origin);
+    }
+    const table = automationType === "monitor"
+      ? "assistant_monitors"
+      : "assistant_schedules";
+    const { data: item, error: itemError } = await admin
+      .from(table)
+      .select("id,project_id,created_by,status")
+      .eq("id", automationId)
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (itemError || !item) {
+      return response({ error: "The schedule or monitor was not found." }, 404, origin);
+    }
+    if (access.role !== "admin" && item.created_by !== userData.user.id) {
+      return response({ error: "Only the creator or an administrator can cancel this." }, 403, origin);
+    }
+    const cancellable = automationType === "monitor"
+      ? ["active", "paused"].includes(item.status)
+      : ["active", "paused", "failed"].includes(item.status);
+    if (!cancellable) {
+      return response({ error: "This item is not in a cancellable state." }, 409, origin);
+    }
+    const { data: canceled, error: cancelError } = await admin
+      .from(table)
+      .update({
+        status: "canceled",
+        updated_at: new Date().toISOString(),
+        ...(automationType === "schedule" ? { lease_until: null } : {}),
+      })
+      .eq("id", automationId)
+      .eq("project_id", projectId)
+      .eq("status", item.status)
+      .select("id,status,updated_at")
+      .maybeSingle();
+    if (cancelError || !canceled) {
+      return response({ error: "The item changed before it could be canceled." }, 409, origin);
+    }
+    return response({ automation_type: automationType, item: canceled }, 200, origin);
+  }
+
+  if (action === "schedule_create") {
+    const { plan } = normalizeSchedulePlan(
+      scheduleInputForNormalization(body.plan),
+      configState,
+      access.role,
+    );
+    if (plan.questions.length || !plan.run_at || !plan.settings_plan.commands.length) {
+      return response({
+        error: "Resolve the schedule before approval.",
+        validation_messages: plan.questions,
+      }, 400, origin);
+    }
+    const reviewState = automationReviewToken(
+      "schedule",
+      userData.user.id,
+      projectId,
+      plan,
+      configState.config_hash,
+    );
+    const reviewToken = await sha256(reviewState);
+    if (body.confirm !== true || clean(body.review_token, 128) !== reviewToken) {
+      return response({ error: "Review this schedule again before creating it." }, 409, origin);
+    }
+    const { data: created, error: createError } = await admin
+      .from("assistant_schedules")
+      .insert({
+        project_id: projectId,
+        created_by: userData.user.id,
+        created_by_role: access.role,
+        name: plan.name,
+        timezone: plan.timezone,
+        recurrence: plan.recurrence,
+        approved_plan: plan,
+        approved_config_hash: configState.config_hash,
+        review_token_hash: reviewToken,
+        status: "active",
+        next_run_at: plan.run_at,
+        confirmed_at: new Date().toISOString(),
+      })
+      .select("id,name,status,next_run_at,recurrence,timezone,created_at")
+      .single();
+    if (createError?.code === "23505") {
+      const { data: existing } = await admin
+        .from("assistant_schedules")
+        .select("id,name,status,next_run_at,recurrence,timezone,created_at")
+        .eq("project_id", projectId)
+        .eq("created_by", userData.user.id)
+        .eq("review_token_hash", reviewToken)
+        .maybeSingle();
+      if (existing) return response({ schedule: existing }, 200, origin);
+    }
+    if (createError || !created) {
+      return response({ error: "The approved schedule could not be saved." }, 500, origin);
+    }
+    return response({ schedule: created }, 200, origin);
+  }
+
+  if (action === "monitor_create") {
+    const { data: catalog, error: catalogError } = await authClient
+      .from("portal_experiment_catalog")
+      .select("id,slug,name,status,pairing_names")
+      .eq("project_id", projectId);
+    if (catalogError) {
+      return response({ error: "Experiment catalog is unavailable." }, 503, origin);
+    }
+    const { plan } = normalizeMonitorPlan(body.plan, catalog ?? []);
+    if (plan.questions.length) {
+      return response({
+        error: "Resolve the monitor before approval.",
+        validation_messages: plan.questions,
+      }, 400, origin);
+    }
+    const reviewToken = await sha256(automationReviewToken(
+      "monitor",
+      userData.user.id,
+      projectId,
+      plan,
+    ));
+    if (body.confirm !== true || clean(body.review_token, 128) !== reviewToken) {
+      return response({ error: "Review this monitor again before creating it." }, 409, origin);
+    }
+    const { data: created, error: createError } = await admin
+      .from("assistant_monitors")
+      .insert({
+        project_id: projectId,
+        experiment_id: plan.experiment_id,
+        created_by: userData.user.id,
+        name: plan.name,
+        metric: plan.metric,
+        comparator: plan.comparator,
+        threshold: plan.threshold,
+        window_minutes: Math.round(plan.window_minutes),
+        pairing_names: plan.pairing_names,
+        check_every_minutes: Math.round(plan.check_every_minutes),
+        cooldown_minutes: Math.round(plan.cooldown_minutes),
+        review_token_hash: reviewToken,
+        status: "active",
+        confirmed_at: new Date().toISOString(),
+      })
+      .select(
+        "id,name,status,metric,comparator,threshold,window_minutes,pairing_names,check_every_minutes,created_at",
+      )
+      .single();
+    if (createError?.code === "23505") {
+      const { data: existing } = await admin
+        .from("assistant_monitors")
+        .select(
+          "id,name,status,metric,comparator,threshold,window_minutes,pairing_names,check_every_minutes,created_at",
+        )
+        .eq("project_id", projectId)
+        .eq("created_by", userData.user.id)
+        .eq("review_token_hash", reviewToken)
+        .maybeSingle();
+      if (existing) return response({ monitor: existing }, 200, origin);
+    }
+    if (createError || !created) {
+      return response({ error: "The approved monitor could not be saved." }, 500, origin);
+    }
+    return response({ monitor: created }, 200, origin);
+  }
+
   if (action === "preflight" || action === "launch") {
     const compiled = compileControlPlan(body.draft, inventory);
     const { draft, messages, plan } = compiled;
@@ -489,6 +820,10 @@ Deno.serve(async (request) => {
         ? "Describe what you want ExactH2O to do."
         : action === "assistant_chat"
         ? "Ask ExactH2O a question or describe what you want to do."
+        : action === "schedule_draft"
+        ? "Describe the future or recurring change."
+        : action === "monitor_draft"
+        ? "Describe what ExactH2O should monitor."
         : action.startsWith("settings_")
         ? "Describe the setting change."
         : "Describe the experiment.",
@@ -539,9 +874,65 @@ Deno.serve(async (request) => {
     const routeAction = action === "route";
     const chatAction = action === "assistant_chat";
     const settingsAction = action === "settings_draft" || action === "settings_revise";
+    const scheduleAction = action === "schedule_draft";
+    const monitorAction = action === "monitor_draft";
 
     if (chatAction) {
-      const conversation = normalizeAssistantConversation(body.conversation);
+      let threadId = clean(body.thread_id, 80);
+      let thread: Record<string, unknown> | null = null;
+      if (isUuid(threadId)) {
+        const { data } = await admin
+          .from("assistant_threads")
+          .select("id,title,status")
+          .eq("id", threadId)
+          .eq("project_id", projectId)
+          .eq("user_id", userData.user.id)
+          .eq("status", "active")
+          .maybeSingle();
+        thread = data;
+      }
+      if (!thread) {
+        const { data, error: threadError } = await admin
+          .from("assistant_threads")
+          .insert({
+            project_id: projectId,
+            user_id: userData.user.id,
+            title: prompt.slice(0, 160),
+            status: "active",
+          })
+          .select("id,title,status")
+          .single();
+        if (threadError || !data) {
+          throw new Error("The assistant conversation could not be saved.");
+        }
+        thread = data;
+        threadId = clean(data.id, 80);
+      }
+      const { data: persistedMessages, error: historyError } = await admin
+        .from("assistant_messages")
+        .select("role,content,created_at")
+        .eq("thread_id", threadId)
+        .eq("project_id", projectId)
+        .eq("user_id", userData.user.id)
+        .order("created_at", { ascending: false })
+        .limit(12);
+      if (historyError) throw new Error("The assistant conversation is unavailable.");
+      const conversation = normalizeAssistantConversation(
+        (persistedMessages ?? []).slice().reverse(),
+      );
+      const { error: userMessageError } = await admin
+        .from("assistant_messages")
+        .insert({
+          thread_id: threadId,
+          project_id: projectId,
+          user_id: userData.user.id,
+          request_id: requestRow.id,
+          role: "user",
+          content: prompt,
+          workflow: "answer",
+          metadata: { prompt_fingerprint: promptFingerprint },
+        });
+      if (userMessageError) throw new Error("The assistant request could not be saved.");
       const input: unknown[] = [
         {
           role: "system",
@@ -592,7 +983,10 @@ Deno.serve(async (request) => {
         if (
           call.name === "prepare_experiment_specification" ||
           call.name === "prepare_settings_plan" ||
-          call.name === "prepare_experiment_archive"
+          call.name === "prepare_experiment_archive" ||
+          call.name === "prepare_schedule" ||
+          call.name === "prepare_monitor" ||
+          call.name === "prepare_experiment_lifecycle"
         ) {
           const nextProposal = proposalFromFunctionCall(call);
           if (nextProposal && !proposalState.value) proposalState.value = nextProposal;
@@ -600,6 +994,15 @@ Deno.serve(async (request) => {
             prepared: Boolean(nextProposal),
             workflow: nextProposal?.workflow ?? null,
             safety: "No experiment or controller change has been executed.",
+          };
+        }
+
+        if (call.name === "get_capabilities") {
+          return {
+            observed_at: new Date().toISOString(),
+            capabilities: assistantCapabilities,
+            execution_model:
+              "Read actions may answer immediately. Write actions open a separate reviewed plan. Hardware changes remain policy-gated.",
           };
         }
 
@@ -814,6 +1217,133 @@ Deno.serve(async (request) => {
           };
         }
 
+        if (call.name === "get_automation_status") {
+          const [scheduleResult, monitorResult, eventResult] = await Promise.all([
+            authClient
+              .from("assistant_schedules")
+              .select(
+                "id,name,status,next_run_at,last_run_at,last_error,recurrence,timezone,created_at,updated_at",
+              )
+              .eq("project_id", projectId)
+              .order("created_at", { ascending: false })
+              .limit(100),
+            authClient
+              .from("assistant_monitors")
+              .select(
+                "id,experiment_id,name,metric,comparator,threshold,window_minutes,pairing_names,status,last_state,last_evaluated_at,last_triggered_at,created_at",
+              )
+              .eq("project_id", projectId)
+              .order("created_at", { ascending: false })
+              .limit(100),
+            authClient
+              .from("assistant_monitor_events")
+              .select(
+                "monitor_id,state,summary,evidence,observed_at,acknowledged_at,created_at",
+              )
+              .eq("project_id", projectId)
+              .order("created_at", { ascending: false })
+              .limit(100),
+          ]);
+          const errors = [
+            scheduleResult.error,
+            monitorResult.error,
+            eventResult.error,
+          ].filter(Boolean);
+          if (errors.length) {
+            console.error("assistant_automation_read_failed", {
+              request_id: requestRow.id,
+              codes: errors.map((error) => error?.code),
+            });
+          }
+          return {
+            observed_at: new Date().toISOString(),
+            data_complete: errors.length === 0,
+            schedules: scheduleResult.data ?? [],
+            monitors: monitorResult.data ?? [],
+            recent_alerts: eventResult.data ?? [],
+          };
+        }
+
+        if (call.name === "compare_experiments") {
+          const requestedExperiments = Array.isArray(call.arguments.experiments)
+            ? call.arguments.experiments
+              .map((item) => clean(item, 160))
+              .filter(Boolean)
+              .slice(0, 6)
+            : [];
+          const hoursValue = Number(call.arguments.hours);
+          const hours = Number.isFinite(hoursValue)
+            ? Math.min(168, Math.max(1, hoursValue))
+            : 24;
+          const catalog = await loadCatalog();
+          const resolved = requestedExperiments
+            .map((name) => resolveExperimentCatalog(catalog, name))
+            .filter(Boolean);
+          const unique = new Map(
+            resolved.map((item) => [String(item.id), item]),
+          );
+          if (unique.size < 2) {
+            return {
+              error: "Choose at least two exact current experiments.",
+              available_experiments: catalog.map((item) => item.name),
+            };
+          }
+          const since = new Date(Date.now() - hours * 60 * 60 * 1_000).toISOString();
+          const evidence = [];
+          for (const experiment of unique.values()) {
+            const pairingNames = Array.isArray(experiment.pairing_names)
+              ? experiment.pairing_names.map((item: unknown) => clean(item, 120)).filter(Boolean)
+              : [];
+            const [readingResult, eventResult] = await Promise.all([
+              authClient
+                .from("sensor_readings")
+                .select(
+                  "pairing_name,calibrated_value,device_recorded_at,server_received_at",
+                )
+                .eq("project_id", projectId)
+                .in("pairing_name", pairingNames)
+                .gte("device_recorded_at", since)
+                .order("device_recorded_at", { ascending: false })
+                .limit(5_000),
+              authClient
+                .from("valve_events")
+                .select(
+                  "pairing_name,action,duration_ms,device_recorded_at,server_received_at",
+                )
+                .eq("project_id", projectId)
+                .in("pairing_name", pairingNames)
+                .gte("device_recorded_at", since)
+                .order("device_recorded_at", { ascending: false })
+                .limit(5_000),
+            ]);
+            evidence.push({
+              experiment: experiment.name,
+              expected_pots: pairingNames.length,
+              readings: readingResult.error
+                ? null
+                : aggregateExperimentReadings(
+                  readingResult.data ?? [],
+                  experiment.assignments,
+                  inventory,
+                ),
+              watering: eventResult.error
+                ? null
+                : aggregateValveEvents(eventResult.data ?? []),
+              unavailable_evidence: [
+                readingResult.error ? "sensor readings" : null,
+                eventResult.error ? "recorded valve events" : null,
+              ].filter(Boolean),
+            });
+          }
+          return {
+            observed_at: new Date().toISOString(),
+            hours,
+            since,
+            comparison: compareExperimentAggregates(evidence),
+            evidence,
+          };
+        }
+
         if (call.name === "get_experiment_status") {
           const catalog = await loadCatalog();
           const experiment = resolveExperimentCatalog(
@@ -970,6 +1500,31 @@ Deno.serve(async (request) => {
       }
 
       if (!reply) throw new Error("Assistant did not return an answer.");
+      const workflow = proposalState.value?.workflow ?? "answer";
+      const { error: assistantMessageError } = await admin
+        .from("assistant_messages")
+        .insert({
+          thread_id: threadId,
+          project_id: projectId,
+          user_id: userData.user.id,
+          request_id: requestRow.id,
+          role: "assistant",
+          content: reply,
+          workflow,
+          metadata: {
+            workflow_prompt: proposalState.value?.workflow_prompt ?? null,
+            model,
+          },
+        });
+      if (assistantMessageError) {
+        throw new Error("The assistant answer could not be saved.");
+      }
+      await admin
+        .from("assistant_threads")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", threadId)
+        .eq("project_id", projectId)
+        .eq("user_id", userData.user.id);
       await admin
         .from("experiment_builder_requests")
         .update({
@@ -980,8 +1535,9 @@ Deno.serve(async (request) => {
         .eq("id", requestRow.id);
       return response({
         reply,
-        workflow: proposalState.value?.workflow ?? "answer",
+        workflow,
         workflow_prompt: proposalState.value?.workflow_prompt ?? null,
+        thread_id: threadId,
         model,
         prompt_fingerprint: promptFingerprint,
       }, 200, origin);
@@ -1004,6 +1560,14 @@ Deno.serve(async (request) => {
               ? assistantIntentInstructions()
               : settingsAction
                 ? settingsSystemInstructions(access.role)
+                : scheduleAction
+                  ? scheduleSystemInstructions(
+                    access.role,
+                    new Date().toISOString(),
+                    clean(body.timezone, 80) || "UTC",
+                  )
+                  : monitorAction
+                    ? monitorSystemInstructions()
                 : systemInstructions(),
           },
           {
@@ -1016,6 +1580,24 @@ Deno.serve(async (request) => {
                   configState,
                   action === "settings_revise" ? body.current_plan : null,
                 )
+                : scheduleAction
+                  ? scheduleUserInput(
+                    prompt,
+                    configState,
+                    clean(body.timezone, 80) || "UTC",
+                    body.current_plan,
+                  )
+                  : monitorAction
+                    ? monitorUserInput(
+                      prompt,
+                      (
+                        await authClient
+                          .from("portal_experiment_catalog")
+                          .select("id,slug,name,status,pairing_names")
+                          .eq("project_id", projectId)
+                      ).data ?? [],
+                      body.current_plan,
+                    )
                 : userDraftInput(
                   prompt,
                   inventory,
@@ -1030,12 +1612,20 @@ Deno.serve(async (request) => {
               ? "exacth2o_assistant_route"
               : settingsAction
                 ? "exacth2o_settings_plan"
+                : scheduleAction
+                  ? "exacth2o_schedule_plan"
+                  : monitorAction
+                    ? "exacth2o_monitor_plan"
                 : "exacth2o_experiment_draft",
             strict: true,
             schema: routeAction
               ? assistantIntentSchema
               : settingsAction
                 ? settingsPlanSchema
+                : scheduleAction
+                  ? schedulePlanSchema
+                  : monitorAction
+                    ? monitorPlanSchema
                 : experimentDraftSchema,
           },
         },
@@ -1077,6 +1667,63 @@ Deno.serve(async (request) => {
         model,
         prompt_fingerprint: promptFingerprint,
         validation_messages: errors,
+      }, 200, origin);
+    }
+    if (scheduleAction) {
+      const { plan } = normalizeSchedulePlan(
+        parsed,
+        configState,
+        access.role,
+      );
+      const reviewToken = await sha256(automationReviewToken(
+        "schedule",
+        userData.user.id,
+        projectId,
+        plan,
+        configState.config_hash,
+      ));
+      await admin
+        .from("experiment_builder_requests")
+        .update({
+          status: plan.questions.length ? "rejected" : "completed",
+          ...usage,
+        })
+        .eq("id", requestRow.id);
+      return response({
+        plan,
+        config_hash: configState.config_hash,
+        review_token: reviewToken,
+        model,
+        prompt_fingerprint: promptFingerprint,
+        validation_messages: plan.questions,
+      }, 200, origin);
+    }
+    if (monitorAction) {
+      const { data: catalog, error: catalogError } = await authClient
+        .from("portal_experiment_catalog")
+        .select("id,slug,name,status,pairing_names")
+        .eq("project_id", projectId);
+      if (catalogError) throw new Error("Experiment catalog is unavailable.");
+      const { plan } = normalizeMonitorPlan(parsed, catalog ?? []);
+      const reviewToken = await sha256(automationReviewToken(
+        "monitor",
+        userData.user.id,
+        projectId,
+        plan,
+      ));
+      await admin
+        .from("experiment_builder_requests")
+        .update({
+          status: plan.questions.length ? "rejected" : "completed",
+          ...usage,
+        })
+        .eq("id", requestRow.id);
+      return response({
+        plan,
+        review_token: reviewToken,
+        model,
+        prompt_fingerprint: promptFingerprint,
+        validation_messages: plan.questions,
       }, 200, origin);
     }
 

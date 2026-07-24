@@ -89,7 +89,15 @@ import { ExperimentArchiveReview } from "./ExperimentArchiveReview";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
 import {
+  AssistantAutomationPanel,
+  AssistantMessageBody,
+  LifecycleReview,
+  MonitorReview,
+  ScheduleReview,
+} from "./AssistantOperations";
+import {
   chatWithAssistant,
+  loadAssistantConversation,
   loadPortalExperimentCatalog,
   type AssistantConversationMessage,
 } from "./experimentClient";
@@ -3227,14 +3235,32 @@ function PortalAssistantHero({
 }) {
   const [request, setRequest] = useState("");
   const [messages, setMessages] = useState<AssistantConversationMessage[]>([]);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [automationRefreshKey, setAutomationRefreshKey] = useState(0);
   const [working, setWorking] = useState(false);
   const [assistantError, setAssistantError] = useState<string | null>(null);
   const [workflow, setWorkflow] = useState<{
-    type: "experiment" | "settings" | "archive";
+    type: "experiment" | "settings" | "archive" | "schedule" | "monitor" | "lifecycle";
     prompt: string;
     autoStart: boolean;
     key: number;
   } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void loadAssistantConversation(projectId)
+      .then((conversation) => {
+        if (!active) return;
+        setThreadId(conversation.threadId);
+        setMessages(conversation.messages.map(({ role, content }) => ({ role, content })));
+      })
+      .catch(() => {
+        // A missing or not-yet-migrated conversation store must not block the portal.
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
 
   const sendRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -3250,7 +3276,8 @@ function PortalAssistantHero({
     setWorking(true);
     setAssistantError(null);
     try {
-      const result = await chatWithAssistant(projectId, prompt, conversation);
+      const result = await chatWithAssistant(projectId, prompt, conversation, threadId);
+      setThreadId(result.thread_id);
       setMessages((current) => [
         ...current,
         { role: "assistant", content: result.reply },
@@ -3259,7 +3286,10 @@ function PortalAssistantHero({
         (
           result.workflow === "experiment" ||
           result.workflow === "settings" ||
-          result.workflow === "archive"
+          result.workflow === "archive" ||
+          result.workflow === "schedule" ||
+          result.workflow === "monitor" ||
+          result.workflow === "lifecycle"
         ) &&
         result.workflow_prompt
       ) {
@@ -3291,9 +3321,7 @@ function PortalAssistantHero({
                   key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
                 >
                   <strong>{message.role === "user" ? "You" : "ExactH2O"}</strong>
-                  {message.content.split(/\n+/).filter(Boolean).map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
+                  <AssistantMessageBody content={message.content} />
                 </article>
               ))}
               {working ? (
@@ -3388,6 +3416,40 @@ function PortalAssistantHero({
           onArchived={onExperimentArchived}
         />
       ) : null}
+      {workflow?.type === "schedule" ? (
+        <ScheduleReview
+          key={`schedule-${workflow.key}`}
+          projectId={projectId}
+          initialPrompt={workflow.prompt}
+          onClose={() => setWorkflow(null)}
+          onChanged={() => setAutomationRefreshKey((current) => current + 1)}
+        />
+      ) : null}
+      {workflow?.type === "monitor" ? (
+        <MonitorReview
+          key={`monitor-${workflow.key}`}
+          projectId={projectId}
+          initialPrompt={workflow.prompt}
+          onClose={() => setWorkflow(null)}
+          onChanged={() => setAutomationRefreshKey((current) => current + 1)}
+        />
+      ) : null}
+      {workflow?.type === "lifecycle" ? (
+        <LifecycleReview
+          key={`lifecycle-${workflow.key}`}
+          projectId={projectId}
+          request={workflow.prompt}
+          onClose={() => setWorkflow(null)}
+          onChanged={() => {
+            setAutomationRefreshKey((current) => current + 1);
+            void onExperimentArchived();
+          }}
+        />
+      ) : null}
+      <AssistantAutomationPanel
+        projectId={projectId}
+        refreshKey={automationRefreshKey}
+      />
       <PortalCommandActivity commands={commands} loading={commandLoading} />
     </div>
   );

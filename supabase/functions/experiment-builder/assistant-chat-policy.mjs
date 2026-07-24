@@ -22,6 +22,19 @@ function isoTime(value) {
 export const assistantTools = [
   {
     type: "function",
+    name: "get_capabilities",
+    description:
+      "Read the exact actions the current ExactH2O assistant can answer, prepare, schedule, monitor, or execute after approval.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: "function",
     name: "get_project_overview",
     description:
       "Read the current ExactH2O project, experiment, controller, sensing, and watering overview. Use this for broad current-status questions.",
@@ -107,6 +120,44 @@ export const assistantTools = [
   },
   {
     type: "function",
+    name: "get_automation_status",
+    description:
+      "Read the signed-in researcher's schedules, monitoring rules, and recent triggered or resolved portal alerts.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "compare_experiments",
+    description:
+      "Compare measurements, trends, targets, and recorded watering activity across two to six current experiments.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        experiments: {
+          type: "array",
+          minItems: 2,
+          maxItems: 6,
+          items: { type: "string", minLength: 1, maxLength: 160 },
+        },
+        hours: {
+          type: "number",
+          minimum: 1,
+          maximum: 168,
+        },
+      },
+      required: ["experiments", "hours"],
+    },
+  },
+  {
+    type: "function",
     name: "prepare_experiment_specification",
     description:
       "Prepare the portal to build an editable new-experiment specification. This does not create an experiment or change the controller.",
@@ -165,6 +216,133 @@ export const assistantTools = [
       required: ["experiment"],
     },
   },
+  {
+    type: "function",
+    name: "prepare_schedule",
+    description:
+      "Prepare an editable, approval-gated future or recurring schedule for supported ExactH2O settings. This does not create or run a schedule.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        request: {
+          type: "string",
+          minLength: 1,
+          maxLength: 4_000,
+        },
+      },
+      required: ["request"],
+    },
+  },
+  {
+    type: "function",
+    name: "prepare_monitor",
+    description:
+      "Prepare an editable monitoring rule for moisture, trend, stale-sensor, or controller-health conditions. This never changes the controller.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        request: {
+          type: "string",
+          minLength: 1,
+          maxLength: 4_000,
+        },
+      },
+      required: ["request"],
+    },
+  },
+  {
+    type: "function",
+    name: "prepare_experiment_lifecycle",
+    description:
+      "Prepare a separate reviewed action to complete a sensing-only experiment or restore a safely archived portal-created experiment.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        experiment: {
+          type: "string",
+          minLength: 1,
+          maxLength: 160,
+        },
+        action: {
+          type: "string",
+          enum: ["complete", "restore"],
+        },
+      },
+      required: ["experiment", "action"],
+    },
+  },
+];
+
+export const assistantCapabilities = [
+  {
+    id: "live_status",
+    label: "Live experiment status",
+    mode: "read",
+    approval: "none",
+    available: true,
+  },
+  {
+    id: "comparison",
+    label: "Experiment comparison",
+    mode: "read",
+    approval: "none",
+    available: true,
+  },
+  {
+    id: "experiment_builder",
+    label: "Create experiments",
+    mode: "write",
+    approval: "review",
+    available: true,
+  },
+  {
+    id: "settings",
+    label: "Change targets, cadence, groups, and supported settings",
+    mode: "write",
+    approval: "review",
+    available: true,
+  },
+  {
+    id: "scheduling",
+    label: "Future and recurring supported settings",
+    mode: "write",
+    approval: "review",
+    available: true,
+  },
+  {
+    id: "monitoring",
+    label: "Moisture, trend, freshness, and health monitoring",
+    mode: "write",
+    approval: "review",
+    available: true,
+  },
+  {
+    id: "lifecycle",
+    label: "Complete, archive, and restore safe experiments",
+    mode: "write",
+    approval: "review",
+    available: true,
+  },
+  {
+    id: "manual_water",
+    label: "Manual watering",
+    mode: "hardware",
+    approval: "physical safety gate",
+    available: false,
+  },
+  {
+    id: "sensor_initialization",
+    label: "Sensor initialization",
+    mode: "hardware",
+    approval: "administrator safety gate",
+    available: false,
+  },
 ];
 
 export function assistantChatInstructions(role) {
@@ -176,7 +354,10 @@ export function assistantChatInstructions(role) {
     "Treat tool timestamps as the evidence boundary. State the observation time when describing current conditions, and say when data is stale or missing.",
     "A recorded valve event is evidence of a controller action, not proof that water physically reached a pot. Never claim physical delivery without physical evidence.",
     "Use get_recent_activity for questions about queued, running, completed, or failed changes. Use get_calibration_status for questions about calibration studies, reference observations, candidate equations, or set requests.",
-    "Use prepare_experiment_specification when the user asks to create or define a new experiment. Use prepare_settings_plan when the user asks to change an existing experiment, watering, sensing, pairings, groups, calibrations, targets, cadence, controller state, or exports. Use prepare_experiment_archive when the user asks to delete, remove, or archive an experiment.",
+    "Use get_automation_status for schedule, monitor, or alert status. Use compare_experiments when a question needs evidence from more than one experiment. Use get_capabilities when asked what ExactH2O can do.",
+    "Use prepare_experiment_specification when the user asks to create or define a new experiment. Use prepare_settings_plan when the user asks to change an existing experiment, watering, sensing, pairings, groups, calibrations, targets, cadence, controller state, or exports.",
+    "Use prepare_schedule for future or recurring supported settings. Use prepare_monitor when the user asks to watch a condition or alert them. Use prepare_experiment_archive when the user asks to delete, remove, or archive an experiment. Use prepare_experiment_lifecycle to complete or restore an experiment.",
+    "A request to pause or resume watering belongs in a reviewed settings plan. Completion and restoration use the lifecycle review.",
     "If an experiment-removal reference is vague, call get_project_overview first and only prepare removal after identifying one exact experiment name.",
     "For fake, practice, demo, or test experiments, propose observation-only sensing with watering off unless the user explicitly requests real controller changes.",
     "Experiment removal is a recoverable archive. It removes the tile but preserves history. Controlled or watering-managed experiments cannot be archived until a separate reviewed stop or revert workflow is complete.",
@@ -227,6 +408,16 @@ export function proposalFromFunctionCall(call) {
       ? { workflow: "archive", workflow_prompt: experiment }
       : null;
   }
+  if (item.name === "prepare_experiment_lifecycle") {
+    const experiment = text(args.experiment, 160);
+    const action = args.action === "restore" ? "restore" : "complete";
+    return experiment
+      ? {
+        workflow: "lifecycle",
+        workflow_prompt: JSON.stringify({ experiment, action }),
+      }
+      : null;
+  }
   const request = text(args.request);
   if (!request) return null;
   if (item.name === "prepare_experiment_specification") {
@@ -234,6 +425,12 @@ export function proposalFromFunctionCall(call) {
   }
   if (item.name === "prepare_settings_plan") {
     return { workflow: "settings", workflow_prompt: request };
+  }
+  if (item.name === "prepare_schedule") {
+    return { workflow: "schedule", workflow_prompt: request };
+  }
+  if (item.name === "prepare_monitor") {
+    return { workflow: "monitor", workflow_prompt: request };
   }
   return null;
 }
@@ -417,4 +614,37 @@ export function aggregateValveEvents(rows) {
     evidence_note:
       "Recorded valve-open events show controller actions; they do not prove physical water delivery.",
   };
+}
+
+export function compareExperimentAggregates(items) {
+  return (Array.isArray(items) ? items : []).map((item) => {
+    const row = record(item);
+    const readings = record(row.readings);
+    const pots = Array.isArray(readings.pots) ? readings.pots.map(record) : [];
+    const currentValues = pots
+      .map((pot) => finiteNumber(pot.current_vwc_percent))
+      .filter((value) => value !== null);
+    const changes = pots
+      .map((pot) => finiteNumber(pot.change_vwc_percent))
+      .filter((value) => value !== null);
+    const average = (values) => values.length
+      ? values.reduce((total, value) => total + value, 0) / values.length
+      : null;
+    return {
+      experiment: text(row.experiment, 160),
+      expected_pots: finiteNumber(row.expected_pots),
+      pots_reporting: finiteNumber(readings.pots_reporting) ?? 0,
+      reading_count: finiteNumber(readings.reading_count) ?? 0,
+      latest_observed_at: isoTime(readings.latest_observed_at),
+      mean_current_vwc_percent: average(currentValues),
+      mean_change_vwc_percent: average(changes),
+      minimum_current_vwc_percent: currentValues.length
+        ? Math.min(...currentValues)
+        : null,
+      maximum_current_vwc_percent: currentValues.length
+        ? Math.max(...currentValues)
+        : null,
+      recorded_open_events: finiteNumber(record(row.watering).recorded_open_events) ?? 0,
+    };
+  });
 }

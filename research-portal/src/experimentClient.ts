@@ -43,10 +43,76 @@ export type AssistantConversationMessage = {
 
 export type AssistantChatResponse = {
   reply: string;
-  workflow: "answer" | "experiment" | "settings" | "archive";
+  workflow:
+    | "answer"
+    | "experiment"
+    | "settings"
+    | "archive"
+    | "schedule"
+    | "monitor"
+    | "lifecycle";
   workflow_prompt: string | null;
+  thread_id: string;
   model: string | null;
   prompt_fingerprint: string | null;
+};
+
+export type AssistantPersistedMessage = AssistantConversationMessage & {
+  id: string;
+  workflow: AssistantChatResponse["workflow"];
+  created_at: string;
+};
+
+export type SchedulePlan = {
+  name: string;
+  run_at: string | null;
+  recurrence: "once" | "daily" | "weekly";
+  timezone: string;
+  settings_plan: SettingsPlan;
+  questions: string[];
+};
+
+export type ScheduleDraftResponse = {
+  plan: SchedulePlan;
+  config_hash: string;
+  review_token: string;
+  model: string | null;
+  prompt_fingerprint: string | null;
+  validation_messages: string[];
+};
+
+export type MonitorPlan = {
+  name: string;
+  experiment_id: string | null;
+  experiment: string | null;
+  metric: "current_vwc" | "change_vwc" | "sensor_stale" | "controller_health";
+  comparator: "above" | "below" | "increase_by" | "decrease_by" | "stale" | "unhealthy";
+  threshold: number | null;
+  window_minutes: number;
+  pairing_names: string[];
+  check_every_minutes: number;
+  cooldown_minutes: number;
+  questions: string[];
+};
+
+export type MonitorDraftResponse = {
+  plan: MonitorPlan;
+  review_token: string;
+  model: string | null;
+  prompt_fingerprint: string | null;
+  validation_messages: string[];
+};
+
+export type LifecyclePreflight = {
+  experiment_id: string;
+  experiment_slug: string;
+  experiment_name: string;
+  lifecycle_action: "complete" | "restore";
+  status: string;
+  watering_state: string;
+  can_apply: boolean;
+  reason: string;
+  review_token: string;
 };
 
 export type ExperimentArchivePreflight = {
@@ -141,12 +207,168 @@ export function chatWithAssistant(
   projectId: string,
   prompt: string,
   conversation: AssistantConversationMessage[],
+  threadId?: string | null,
 ) {
   return invokeExperimentBuilder<AssistantChatResponse>({
     action: "assistant_chat",
     project_id: projectId,
     prompt,
     conversation,
+    thread_id: threadId,
+  });
+}
+
+export async function loadAssistantConversation(projectId: string) {
+  const { data: threads, error: threadError } = await supabase
+    .from("assistant_threads")
+    .select("id,title,updated_at")
+    .eq("project_id", projectId)
+    .eq("status", "active")
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (threadError) throw threadError;
+  const thread = threads?.[0] ?? null;
+  if (!thread) return { threadId: null, messages: [] as AssistantPersistedMessage[] };
+  const { data: messages, error: messageError } = await supabase
+    .from("assistant_messages")
+    .select("id,role,content,workflow,created_at")
+    .eq("project_id", projectId)
+    .eq("thread_id", thread.id)
+    .order("created_at", { ascending: true })
+    .limit(60);
+  if (messageError) throw messageError;
+  return {
+    threadId: thread.id as string,
+    messages: (messages ?? []) as AssistantPersistedMessage[],
+  };
+}
+
+export function draftSchedule(
+  projectId: string,
+  prompt: string,
+  timezone: string,
+  currentPlan?: SchedulePlan,
+) {
+  return invokeExperimentBuilder<ScheduleDraftResponse>({
+    action: "schedule_draft",
+    project_id: projectId,
+    prompt,
+    timezone,
+    current_plan: currentPlan,
+  });
+}
+
+export function createSchedule(
+  projectId: string,
+  plan: SchedulePlan,
+  reviewToken: string,
+) {
+  return invokeExperimentBuilder<{
+    schedule: {
+      id: string;
+      name: string;
+      status: string;
+      next_run_at: string;
+      recurrence: string;
+      timezone: string;
+      created_at: string;
+    };
+  }>({
+    action: "schedule_create",
+    project_id: projectId,
+    plan,
+    review_token: reviewToken,
+    confirm: true,
+  });
+}
+
+export function draftMonitor(
+  projectId: string,
+  prompt: string,
+  currentPlan?: MonitorPlan,
+) {
+  return invokeExperimentBuilder<MonitorDraftResponse>({
+    action: "monitor_draft",
+    project_id: projectId,
+    prompt,
+    current_plan: currentPlan,
+  });
+}
+
+export function createMonitor(
+  projectId: string,
+  plan: MonitorPlan,
+  reviewToken: string,
+) {
+  return invokeExperimentBuilder<{
+    monitor: {
+      id: string;
+      name: string;
+      status: string;
+      metric: string;
+      comparator: string;
+      threshold: number | null;
+      window_minutes: number;
+      pairing_names: string[];
+      check_every_minutes: number;
+      created_at: string;
+    };
+  }>({
+    action: "monitor_create",
+    project_id: projectId,
+    plan,
+    review_token: reviewToken,
+    confirm: true,
+  });
+}
+
+export function preflightLifecycle(
+  projectId: string,
+  experiment: string,
+  lifecycleAction: "complete" | "restore",
+) {
+  return invokeExperimentBuilder<LifecyclePreflight>({
+    action: "lifecycle_preflight",
+    project_id: projectId,
+    experiment,
+    lifecycle_action: lifecycleAction,
+  });
+}
+
+export function applyLifecycle(
+  projectId: string,
+  review: LifecyclePreflight,
+) {
+  return invokeExperimentBuilder<{
+    experiment_id: string;
+    experiment_slug: string;
+    status: string;
+    lifecycle_action: "complete" | "restore";
+    history_preserved: true;
+  }>({
+    action: "lifecycle_apply",
+    project_id: projectId,
+    experiment: review.experiment_slug,
+    experiment_id: review.experiment_id,
+    lifecycle_action: review.lifecycle_action,
+    review_token: review.review_token,
+    confirm: true,
+  });
+}
+
+export function cancelAutomation(
+  projectId: string,
+  automationType: "schedule" | "monitor",
+  automationId: string,
+) {
+  return invokeExperimentBuilder<{
+    automation_type: "schedule" | "monitor";
+    item: { id: string; status: "canceled"; updated_at: string };
+  }>({
+    action: "automation_cancel",
+    project_id: projectId,
+    automation_type: automationType,
+    automation_id: automationId,
   });
 }
 
