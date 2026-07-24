@@ -22,7 +22,13 @@ export type PortalExperiment = {
   name: string;
   shortDescription: string;
   mode: ExperimentMode;
-  status?: "published_sensing" | "active" | "completed" | "archived";
+  status?:
+    | "published_sensing"
+    | "activating"
+    | "active"
+    | "activation_failed"
+    | "completed"
+    | "archived";
   wateringState?: "off" | "controller_managed";
   groupNames: readonly string[];
   pairingNames: readonly string[];

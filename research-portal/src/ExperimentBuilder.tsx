@@ -1,18 +1,22 @@
 import { useMemo, useState } from "react";
 import {
   ArrowLeft,
+  AlertTriangle,
   Check,
   Loader2,
+  Play,
   Sparkles,
   X,
 } from "lucide-react";
 import {
   draftExperiment,
-  publishExperiment,
+  launchExperiment,
+  preflightExperiment,
 } from "./experimentClient";
 import {
   emptyExperimentDraft,
   manualExperimentDraft,
+  type ExperimentControlPlan,
   type ExperimentDraft,
   type ExperimentDraftAssignment,
   type ExperimentDraftSource,
@@ -40,10 +44,14 @@ function assignmentForPairing(pairing: PairingRow): ExperimentDraftAssignment {
     treatment: null,
     block: null,
     substrate: null,
-    target_vwc_percent: null,
+    watering_enabled: pairing.wtc_percent_limit > -1_000,
+    target_vwc_percent: pairing.wtc_percent_limit > -1_000
+      ? pairing.wtc_percent_limit
+      : null,
+    valve_open_seconds: Math.max(1, pairing.valve_open_time_ms / 1_000),
     measurement_interval_minutes: Math.max(
-      1,
-      Math.round(pairing.measurement_interval_ms / 60_000),
+      0.5,
+      pairing.measurement_interval_ms / 60_000,
     ),
     notes: null,
   };
@@ -69,6 +77,11 @@ export function ExperimentBuilder({
   );
   const [model, setModel] = useState<string | null>(null);
   const [promptFingerprint, setPromptFingerprint] = useState<string | null>(null);
+  const [revisionRequest, setRevisionRequest] = useState("");
+  const [controlPlan, setControlPlan] = useState<ExperimentControlPlan | null>(null);
+  const [reviewedConfigHash, setReviewedConfigHash] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [launchStatus, setLaunchStatus] = useState<"active" | "activating" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
@@ -88,20 +101,24 @@ export function ExperimentBuilder({
     [draft.assignments],
   );
 
-  const generateDraft = async () => {
-    if (!prompt.trim()) {
+  const generateDraft = async (request = prompt, currentDraft?: ExperimentDraft) => {
+    if (!request.trim()) {
       setError("Describe the experiment.");
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const result = await draftExperiment(projectId, prompt.trim());
+      const result = await draftExperiment(projectId, request.trim(), currentDraft);
       setDraft(normalizeExperimentDraft(result.draft));
       setSource("natural_language");
       setDraftInventoryUpdatedAt(result.inventory_updated_at);
       setModel(result.model);
       setPromptFingerprint(result.prompt_fingerprint);
+      setControlPlan(null);
+      setReviewedConfigHash(null);
+      setConfirmed(false);
+      setRevisionRequest("");
       setStep("review");
       if (result.validation_messages.length) {
         setError(result.validation_messages.join(" "));
@@ -128,9 +145,33 @@ export function ExperimentBuilder({
     value: ExperimentDraft[Key],
   ) => {
     setDraft((current) => ({ ...current, [key]: value }));
+    setControlPlan(null);
+    setReviewedConfigHash(null);
+    setConfirmed(false);
+  };
+
+  const updateMode = (mode: ExperimentDraft["mode"]) => {
+    setDraft((current) => ({
+      ...current,
+      mode,
+      assignments: mode === "observation"
+        ? current.assignments.map((assignment) => ({
+          ...assignment,
+          watering_enabled: false,
+          target_vwc_percent: null,
+          valve_open_seconds: null,
+        }))
+        : current.assignments,
+    }));
+    setControlPlan(null);
+    setReviewedConfigHash(null);
+    setConfirmed(false);
   };
 
   const togglePairing = (pairing: PairingRow) => {
+    setControlPlan(null);
+    setReviewedConfigHash(null);
+    setConfirmed(false);
     setDraft((current) => {
       const exists = current.assignments.some(
         (assignment) => assignment.pairing_name === pairing.name,
@@ -149,8 +190,11 @@ export function ExperimentBuilder({
   const updateAssignment = (
     pairingName: string,
     key: keyof ExperimentDraftAssignment,
-    value: string | number | null,
+    value: string | number | boolean | null,
   ) => {
+    setControlPlan(null);
+    setReviewedConfigHash(null);
+    setConfirmed(false);
     setDraft((current) => ({
       ...current,
       assignments: current.assignments.map((assignment) =>
@@ -161,7 +205,7 @@ export function ExperimentBuilder({
     }));
   };
 
-  const createExperiment = async () => {
+  const reviewExperiment = async () => {
     const normalized = normalizeExperimentDraft(draft);
     const issues = validateExperimentDraft(normalized, pairings);
     if (issues.length) {
@@ -176,15 +220,42 @@ export function ExperimentBuilder({
     setBusy(true);
     setError(null);
     try {
-      const result = await publishExperiment({
+      const result = await preflightExperiment({
         projectId,
         draft: normalized,
+        inventoryUpdatedAt: draftInventoryUpdatedAt,
+      });
+      setDraft(normalizeExperimentDraft(result.draft));
+      setControlPlan(result.plan);
+      setReviewedConfigHash(result.config_hash);
+      setDraftInventoryUpdatedAt(result.inventory_updated_at);
+      setConfirmed(false);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Could not review the experiment.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startExperiment = async () => {
+    if (!controlPlan || !reviewedConfigHash || !draftInventoryUpdatedAt || !confirmed) {
+      setError("Review and confirm the experiment first.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await launchExperiment({
+        projectId,
+        draft: normalizeExperimentDraft(draft),
         inventoryUpdatedAt: draftInventoryUpdatedAt,
         source,
         model,
         promptFingerprint,
+        reviewedConfigHash,
       });
       setCreatedSlug(result.experiment_slug);
+      setLaunchStatus(result.status);
       setStep("complete");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Could not create the experiment.");
@@ -242,7 +313,34 @@ export function ExperimentBuilder({
 
         {step === "review" ? (
           <>
-            <div className="experiment-builder-review">
+            <div className="experiment-builder-review-shell">
+              <aside className="experiment-builder-conversation">
+                <div>
+                  <p>Request</p>
+                  <strong>{prompt || "Manual experiment"}</strong>
+                </div>
+                <label htmlFor="experiment-revision">Change the draft</label>
+                <textarea
+                  id="experiment-revision"
+                  value={revisionRequest}
+                  onChange={(event) => setRevisionRequest(event.target.value)}
+                  maxLength={4_000}
+                  placeholder="Make pots 15–20 control at 30%. Disable watering for the other pots."
+                />
+                <button
+                  type="button"
+                  className="is-secondary"
+                  disabled={busy || !revisionRequest.trim()}
+                  onClick={() => void generateDraft(revisionRequest, draft)}
+                >
+                  {busy ? <Loader2 className="chart-loading-spinner" size={15} /> : <Sparkles size={15} />}
+                  Update draft
+                </button>
+                <p className="experiment-builder-conversation-note">
+                  ExactH2O validates every setting against the live pot inventory.
+                </p>
+              </aside>
+              <div className="experiment-builder-review">
               <div className="experiment-builder-fields">
                 <label>
                   Name
@@ -265,11 +363,15 @@ export function ExperimentBuilder({
                   <select
                     value={draft.mode}
                     onChange={(event) =>
-                      updateDraft(
-                        "mode",
-                        event.target.value === "calibration" ? "calibration" : "observation",
+                      updateMode(
+                        event.target.value === "controlled"
+                          ? "controlled"
+                          : event.target.value === "calibration"
+                            ? "calibration"
+                            : "observation",
                       )}
                   >
+                    <option value="controlled">Controlled</option>
                     <option value="observation">Observation</option>
                     <option value="calibration">Calibration</option>
                   </select>
@@ -349,6 +451,70 @@ export function ExperimentBuilder({
                             optionalValue(event.target.value),
                           )}
                       />
+                      <label className="experiment-builder-watering-toggle">
+                        <input
+                          type="checkbox"
+                          checked={assignment.watering_enabled}
+                          disabled={draft.mode === "observation"}
+                          onChange={(event) =>
+                            updateAssignment(
+                              assignment.pairing_name,
+                              "watering_enabled",
+                              event.target.checked,
+                            )}
+                        />
+                        Water
+                      </label>
+                      <label>
+                        Target %
+                        <input
+                          type="number"
+                          min="0"
+                          max="80"
+                          step="0.1"
+                          disabled={!assignment.watering_enabled || draft.mode === "observation"}
+                          value={assignment.target_vwc_percent ?? ""}
+                          onChange={(event) =>
+                            updateAssignment(
+                              assignment.pairing_name,
+                              "target_vwc_percent",
+                              event.target.value === "" ? null : Number(event.target.value),
+                            )}
+                        />
+                      </label>
+                      <label>
+                        Valve sec
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          step="0.5"
+                          disabled={!assignment.watering_enabled || draft.mode === "observation"}
+                          value={assignment.valve_open_seconds ?? ""}
+                          onChange={(event) =>
+                            updateAssignment(
+                              assignment.pairing_name,
+                              "valve_open_seconds",
+                              event.target.value === "" ? null : Number(event.target.value),
+                            )}
+                        />
+                      </label>
+                      <label>
+                        Measure min
+                        <input
+                          type="number"
+                          min="0.5"
+                          max="60"
+                          step="0.5"
+                          value={assignment.measurement_interval_minutes ?? ""}
+                          onChange={(event) =>
+                            updateAssignment(
+                              assignment.pairing_name,
+                              "measurement_interval_minutes",
+                              event.target.value === "" ? null : Number(event.target.value),
+                            )}
+                        />
+                      </label>
                     </div>
                   ))}
                 </div>
@@ -359,13 +525,64 @@ export function ExperimentBuilder({
                   {draft.questions.map((question) => <p key={question}>{question}</p>)}
                 </div>
               ) : null}
-              <p className="experiment-builder-safety">Sensing only. Watering will not change.</p>
+              {controlPlan ? (
+                <section className="experiment-builder-preflight">
+                  <div>
+                    <h3>Ready to start</h3>
+                    <span>
+                      {controlPlan.change_count
+                        ? `${controlPlan.change_count} pot setting${controlPlan.change_count === 1 ? "" : "s"} will change`
+                        : "Current controller settings already match"}
+                    </span>
+                  </div>
+                  {controlPlan.changes.map((change) => (
+                    <div className="experiment-builder-change" key={JSON.stringify([
+                      change.watering_enabled,
+                      change.target_vwc_percent,
+                      change.valve_open_seconds,
+                      change.measurement_interval_minutes,
+                    ])}>
+                      <strong>
+                        Pots {change.pairing_names
+                          .map((name) => name.replace(/^Zone\d+-Pot/, ""))
+                          .join(", ")}
+                      </strong>
+                      <span>
+                        {change.watering_enabled
+                          ? `${change.target_vwc_percent}% · ${change.valve_open_seconds}s`
+                          : "Watering off"}
+                        {" · "}
+                        every {change.measurement_interval_minutes} min
+                      </span>
+                    </div>
+                  ))}
+                  {controlPlan.requires_controller_stop ? (
+                    <p>
+                      <AlertTriangle size={15} />
+                      The controller will pause, apply these settings, then resume. If a step fails, it stays stopped.
+                    </p>
+                  ) : null}
+                  <label className="experiment-builder-confirm">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(event) => setConfirmed(event.target.checked)}
+                    />
+                    I reviewed the pots and controller changes.
+                  </label>
+                </section>
+              ) : (
+                <p className="experiment-builder-safety">
+                  Review shows every controller change before anything is sent.
+                </p>
+              )}
               {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
               {!error && validationIssues.length ? (
                 <p className="experiment-builder-error" role="alert">
                   {validationIssues.map((issue) => issue.message).join(" ")}
                 </p>
               ) : null}
+              </div>
             </div>
 
             <footer className="experiment-builder-actions">
@@ -380,15 +597,29 @@ export function ExperimentBuilder({
                 <ArrowLeft size={16} />
                 Back
               </button>
-              <button
-                type="button"
-                className="is-primary"
-                onClick={() => void createExperiment()}
-                disabled={busy || validationIssues.length > 0}
-              >
-                {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
-                Create experiment
-              </button>
+              {controlPlan ? (
+                <button
+                  type="button"
+                  className="is-primary"
+                  onClick={() => void startExperiment()}
+                  disabled={busy || validationIssues.length > 0 || !confirmed}
+                >
+                  {busy
+                    ? <Loader2 className="chart-loading-spinner" size={16} />
+                    : <Play size={16} />}
+                  Start experiment
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="is-primary"
+                  onClick={() => void reviewExperiment()}
+                  disabled={busy || validationIssues.length > 0}
+                >
+                  {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
+                  Review changes
+                </button>
+              )}
             </footer>
           </>
         ) : null}
@@ -396,7 +627,12 @@ export function ExperimentBuilder({
         {step === "complete" ? (
           <div className="experiment-builder-complete">
             <span><Check size={22} /></span>
-            <h3>Experiment created</h3>
+            <h3>{launchStatus === "activating" ? "Experiment starting" : "Experiment created"}</h3>
+            <p>
+              {launchStatus === "activating"
+                ? "The reviewed controller steps are running in order. The tile shows the current status."
+                : "The tile and graph are ready."}
+            </p>
             <button
               type="button"
               className="is-primary"

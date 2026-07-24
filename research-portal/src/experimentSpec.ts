@@ -1,6 +1,6 @@
 import type { PairingRow } from "./types";
 
-export type ExperimentBuilderMode = "observation" | "calibration";
+export type ExperimentBuilderMode = "controlled" | "observation" | "calibration";
 export type ExperimentDraftSource = "manual" | "natural_language";
 
 export type ExperimentDraftAssignment = {
@@ -9,7 +9,9 @@ export type ExperimentDraftAssignment = {
   treatment: string | null;
   block: string | null;
   substrate: string | null;
+  watering_enabled: boolean;
   target_vwc_percent: number | null;
+  valve_open_seconds: number | null;
   measurement_interval_minutes: number | null;
   notes: string | null;
 };
@@ -21,8 +23,55 @@ export type ExperimentDraft = {
   start_date: string | null;
   assignments: ExperimentDraftAssignment[];
   visibility_roles: Array<"admin" | "researcher">;
-  watering_requested: boolean;
+  controller_changes_requested: boolean;
   questions: string[];
+};
+
+export type ExperimentControlChange = {
+  pairing_names: string[];
+  watering_enabled: boolean;
+  target_vwc_percent: number | null;
+  valve_open_seconds: number | null;
+  measurement_interval_minutes: number;
+  previous: Array<{
+    pairing_name: string;
+    watering_enabled: boolean;
+    target_vwc_percent: number | null;
+    valve_open_seconds: number;
+    measurement_interval_minutes: number;
+  }>;
+};
+
+export type ExperimentControlPlan = {
+  requires_controller_stop: boolean;
+  final_controller_state: "running";
+  change_count: number;
+  pairing_count: number;
+  changes: ExperimentControlChange[];
+  commands: Array<{
+    label: string;
+    command_type: "update_system_state" | "bulk_update_pairings";
+    payload: Record<string, unknown>;
+    confirm: boolean;
+    client_request_id: string;
+  }>;
+};
+
+export type ExperimentPreflightResponse = {
+  draft: ExperimentDraft;
+  plan: ExperimentControlPlan;
+  inventory_updated_at: string;
+  config_hash: string;
+  validation_messages: string[];
+};
+
+export type ExperimentLaunchResponse = {
+  experiment_id: string;
+  experiment_slug: string;
+  plan_id: string | null;
+  batch_id: string | null;
+  command_ids: string[];
+  status: "active" | "activating";
 };
 
 export type ExperimentInventoryItem = Pick<
@@ -54,7 +103,7 @@ export const experimentDraftJsonSchema = {
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
     description: { type: "string", maxLength: 300 },
-    mode: { type: "string", enum: ["observation", "calibration"] },
+    mode: { type: "string", enum: ["controlled", "observation", "calibration"] },
     start_date: { type: ["string", "null"], maxLength: 40 },
     assignments: {
       type: "array",
@@ -69,8 +118,10 @@ export const experimentDraftJsonSchema = {
           treatment: { type: ["string", "null"], maxLength: 80 },
           block: { type: ["string", "null"], maxLength: 80 },
           substrate: { type: ["string", "null"], maxLength: 80 },
-          target_vwc_percent: { type: ["number", "null"], minimum: 0, maximum: 100 },
-          measurement_interval_minutes: { type: ["number", "null"], minimum: 1, maximum: 1440 },
+          watering_enabled: { type: "boolean" },
+          target_vwc_percent: { type: ["number", "null"], minimum: 0, maximum: 80 },
+          valve_open_seconds: { type: ["number", "null"], minimum: 1, maximum: 120 },
+          measurement_interval_minutes: { type: ["number", "null"], minimum: 0.5, maximum: 60 },
           notes: { type: ["string", "null"], maxLength: 300 },
         },
         required: [
@@ -79,7 +130,9 @@ export const experimentDraftJsonSchema = {
           "treatment",
           "block",
           "substrate",
+          "watering_enabled",
           "target_vwc_percent",
+          "valve_open_seconds",
           "measurement_interval_minutes",
           "notes",
         ],
@@ -91,7 +144,7 @@ export const experimentDraftJsonSchema = {
       maxItems: 2,
       items: { type: "string", enum: ["admin", "researcher"] },
     },
-    watering_requested: { type: "boolean" },
+    controller_changes_requested: { type: "boolean" },
     questions: {
       type: "array",
       maxItems: 12,
@@ -105,7 +158,7 @@ export const experimentDraftJsonSchema = {
     "start_date",
     "assignments",
     "visibility_roles",
-    "watering_requested",
+    "controller_changes_requested",
     "questions",
   ],
 } as const;
@@ -114,11 +167,11 @@ export function emptyExperimentDraft(): ExperimentDraft {
   return {
     name: "",
     description: "",
-    mode: "observation",
+    mode: "controlled",
     start_date: null,
     assignments: [],
     visibility_roles: ["admin", "researcher"],
-    watering_requested: false,
+    controller_changes_requested: false,
     questions: [],
   };
 }
@@ -136,7 +189,11 @@ export function manualExperimentDraft(
       treatment: null,
       block: null,
       substrate: null,
-      target_vwc_percent: null,
+      watering_enabled: pairing.wtc_percent_limit > -1_000,
+      target_vwc_percent: pairing.wtc_percent_limit > -1_000
+        ? pairing.wtc_percent_limit
+        : null,
+      valve_open_seconds: Math.max(1, pairing.valve_open_time_ms / 1_000),
       measurement_interval_minutes: Math.round(pairing.measurement_interval_ms / 60_000),
       notes: null,
     }));

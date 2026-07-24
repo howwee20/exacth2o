@@ -69,21 +69,30 @@ describe("experiment validation", () => {
     ]);
   });
 
-  it("normalizes visibility and text without activating watering", () => {
+  it("normalizes visibility and preserves reviewed controller intent", () => {
     const draft = manualExperimentDraft(inventory, ["Zone1-Pot16"]);
     draft.name = "  Trial  ";
     draft.visibility_roles = ["researcher", "admin"];
-    draft.watering_requested = true;
+    draft.controller_changes_requested = true;
 
     expect(normalizeExperimentDraft(draft)).toMatchObject({
       name: "Trial",
       visibility_roles: ["admin", "researcher"],
-      watering_requested: true,
+      controller_changes_requested: true,
     });
-    expect(validateExperimentDraft(draft, inventory)).toContainEqual({
-      path: "watering_requested",
-      message: "Watering cannot be enabled by the experiment builder.",
-    });
+    expect(validateExperimentDraft(draft, inventory)).toEqual([]);
+  });
+
+  it("requires complete bounded watering settings", () => {
+    const draft = manualExperimentDraft(inventory, ["Zone1-Pot16"]);
+    draft.name = "Controlled trial";
+    draft.assignments[0].target_vwc_percent = 90;
+    draft.assignments[0].valve_open_seconds = null;
+
+    expect(validateExperimentDraft(draft, inventory).map((issue) => issue.message)).toEqual([
+      "Target must be between 0% and 80%.",
+      "Zone1-Pot16 needs a valve time before watering can be enabled.",
+    ]);
   });
 
   it("creates stable slugs", () => {

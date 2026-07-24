@@ -25,6 +25,9 @@ type ControlCommandPayload = {
   project_id?: string;
   device_id?: string;
   client_request_id?: string;
+  depends_on_command_id?: string | null;
+  batch_id?: string | null;
+  experiment_id?: string | null;
   command_type?: CommandType;
   payload?: unknown;
   confirm?: boolean;
@@ -329,6 +332,9 @@ serve(async (request) => {
   const projectId = clean(body.project_id, 80);
   const deviceId = clean(body.device_id, 200);
   const clientRequestId = clean(body.client_request_id, 80);
+  const dependsOnCommandId = clean(body.depends_on_command_id, 80);
+  const batchId = clean(body.batch_id, 80);
+  const experimentId = clean(body.experiment_id, 80);
   const commandType = body.command_type;
 
   if (!isUuid(projectId)) {
@@ -341,6 +347,18 @@ serve(async (request) => {
 
   if (!isUuid(clientRequestId)) {
     return jsonResponse({ error: "Client request ID is required" }, 400, origin);
+  }
+  if (dependsOnCommandId && !isUuid(dependsOnCommandId)) {
+    return jsonResponse({ error: "Command dependency is invalid" }, 400, origin);
+  }
+  if (batchId && !isUuid(batchId)) {
+    return jsonResponse({ error: "Command batch is invalid" }, 400, origin);
+  }
+  if (experimentId && !isUuid(experimentId)) {
+    return jsonResponse({ error: "Experiment reference is invalid" }, 400, origin);
+  }
+  if ((batchId || experimentId || dependsOnCommandId) && (!batchId || !experimentId)) {
+    return jsonResponse({ error: "Experiment command metadata is incomplete" }, 400, origin);
   }
 
   if (!commandType || !commandTypes.has(commandType)) {
@@ -409,7 +427,7 @@ serve(async (request) => {
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const { data: commandRows, error: insertError } = await admin.rpc(
-    "enqueue_portal_control_command",
+    "enqueue_portal_control_command_v2",
     {
       command_project_id: projectId,
       command_device_id: deviceId,
@@ -420,6 +438,9 @@ serve(async (request) => {
       command_requires_confirmation: validated.requiresConfirmation,
       command_confirmed_at: validated.requiresConfirmation ? now : null,
       command_client_request_id: clientRequestId,
+      command_depends_on_id: dependsOnCommandId || null,
+      command_batch_id: batchId || null,
+      command_experiment_id: experimentId || null,
     },
   );
   const command = Array.isArray(commandRows) ? commandRows[0] : commandRows;

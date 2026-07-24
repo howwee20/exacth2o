@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  compileControlPlan,
   experimentDraftSchema,
   inventoryFromDeviceConfig,
   responseOutputText,
@@ -105,7 +106,12 @@ Deno.serve(async (request) => {
   }
 
   const body = record(await request.json().catch(() => ({})));
-  const action = body.action === "draft" || body.action === "publish"
+  const action = (
+      body.action === "draft" ||
+      body.action === "revise" ||
+      body.action === "preflight" ||
+      body.action === "launch"
+    )
     ? body.action
     : null;
   const projectId = clean(body.project_id, 80);
@@ -131,7 +137,7 @@ Deno.serve(async (request) => {
 
   const { data: configState, error: configError } = await admin
     .from("device_config_state")
-    .select("project_id,pairings,groups,updated_at,config_hash")
+    .select("project_id,device_id,pairings,groups,updated_at,config_hash")
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -144,11 +150,14 @@ Deno.serve(async (request) => {
     return response({ error: "Current pot inventory is empty." }, 503, origin);
   }
 
-  if (action === "publish") {
-    const source = body.source === "natural_language" ? "natural_language" : "manual";
-    const { draft, messages } = validateDraft(body.draft, inventory);
+  if (action === "preflight" || action === "launch") {
+    const compiled = compileControlPlan(body.draft, inventory);
+    const { draft, messages, plan } = compiled;
     if (messages.length) {
       return response({ error: "Review the draft.", validation_messages: messages }, 400, origin);
+    }
+    if (!plan) {
+      return response({ error: "Controller plan could not be compiled." }, 500, origin);
     }
 
     const expectedInventory = clean(body.inventory_updated_at, 80);
@@ -156,11 +165,41 @@ Deno.serve(async (request) => {
       return response({ error: "The pot inventory changed. Review the experiment again." }, 409, origin);
     }
 
+    if (action === "preflight") {
+      return response({
+        draft,
+        plan,
+        inventory_updated_at: configState.updated_at,
+        config_hash: configState.config_hash,
+        validation_messages: [],
+      }, 200, origin);
+    }
+
+    if (body.confirm !== true) {
+      return response({ error: "Review and confirm the controller changes." }, 400, origin);
+    }
+    const reviewedConfigHash = clean(body.reviewed_config_hash, 128);
+    if (!reviewedConfigHash || reviewedConfigHash !== configState.config_hash) {
+      return response({ error: "Controller settings changed. Review the experiment again." }, 409, origin);
+    }
+    if (draft.questions.length) {
+      return response({
+        error: "Resolve the open questions before starting.",
+        validation_messages: draft.questions,
+      }, 400, origin);
+    }
+
+    const source = body.source === "natural_language" ? "natural_language" : "manual";
+    const sensingSpec = {
+      ...draft,
+      mode: draft.mode === "calibration" ? "calibration" : "observation",
+      watering_requested: false,
+    };
     const { data: published, error: publishError } = await authClient.rpc(
       "publish_sensing_experiment",
       {
         requested_project_id: projectId,
-        reviewed_spec: { ...draft, watering_requested: false },
+        reviewed_spec: sensingSpec,
         expected_inventory_updated_at: expectedInventory,
         draft_source: source,
         draft_model_name: source === "natural_language" ? clean(body.model, 120) || model : null,
@@ -169,13 +208,85 @@ Deno.serve(async (request) => {
           : null,
       },
     );
-    if (publishError) {
-      return response({ error: publishError.message }, 400, origin);
+    if (publishError) return response({ error: publishError.message }, 400, origin);
+    const publishedResult = Array.isArray(published) ? published[0] : published;
+    const experimentId = clean(publishedResult?.experiment_id, 80);
+    const experimentSlug = clean(publishedResult?.experiment_slug, 80);
+
+    const { data: attached, error: attachError } = await admin.rpc(
+      "attach_experiment_control_plan",
+      {
+        requested_experiment_id: experimentId,
+        requested_actor_id: userData.user.id,
+        reviewed_spec: draft,
+        compiled_plan: plan,
+        expected_inventory_updated_at: expectedInventory,
+        expected_config_hash: reviewedConfigHash,
+      },
+    );
+    if (attachError) {
+      return response({
+        error: `Experiment was saved with watering off. ${attachError.message}`,
+        experiment_id: experimentId,
+        experiment_slug: experimentSlug,
+      }, 409, origin);
     }
-    const result = Array.isArray(published) ? published[0] : published;
+    const attachedResult = Array.isArray(attached) ? attached[0] : attached;
+    const planId = clean(attachedResult?.plan_id, 80) || null;
+    const batchId = clean(attachedResult?.batch_id, 80) || null;
+    const commandIds: string[] = [];
+    let dependsOnCommandId: string | null = null;
+
+    for (const command of plan.commands) {
+      const commandResponse = await fetch(`${supabaseUrl}/functions/v1/create-control-command`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${jwt}`,
+          apikey: anonKey,
+          "content-type": "application/json",
+          origin: origin && allowedOrigins.has(origin) ? origin : "https://exacth2o.com",
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          device_id: configState.device_id,
+          client_request_id: command.client_request_id,
+          command_type: command.command_type,
+          payload: command.payload,
+          confirm: command.confirm,
+          depends_on_command_id: dependsOnCommandId,
+          batch_id: batchId,
+          experiment_id: experimentId,
+        }),
+      });
+      const commandBody = record(await commandResponse.json().catch(() => ({})));
+      const commandRecord = record(commandBody.command);
+      const commandId = clean(commandRecord.id, 80);
+      if (!commandResponse.ok || !commandId) {
+        const enqueueError = clean(commandBody.error, 300) ||
+          `Controller command could not be queued (${commandResponse.status}).`;
+        if (planId) {
+          await admin.rpc("mark_experiment_activation_enqueue_failed", {
+            requested_plan_id: planId,
+            failure_message: enqueueError,
+          });
+        }
+        return response({
+          error: `Experiment was created but remains safely paused. ${enqueueError}`,
+          experiment_id: experimentId,
+          experiment_slug: experimentSlug,
+        }, 409, origin);
+      }
+      commandIds.push(commandId);
+      dependsOnCommandId = commandId;
+    }
+
     return response({
-      experiment_id: result?.experiment_id,
-      experiment_slug: result?.experiment_slug,
+      experiment_id: experimentId,
+      experiment_slug: experimentSlug,
+      plan_id: planId,
+      batch_id: batchId,
+      command_ids: commandIds,
+      status: plan.commands.length ? "activating" : "active",
     }, 200, origin);
   }
 
@@ -224,7 +335,14 @@ Deno.serve(async (request) => {
         reasoning: { effort: reasoningEffort },
         input: [
           { role: "system", content: systemInstructions() },
-          { role: "user", content: userDraftInput(prompt, inventory) },
+          {
+            role: "user",
+            content: userDraftInput(
+              prompt,
+              inventory,
+              action === "revise" ? body.current_draft : null,
+            ),
+          },
         ],
         text: {
           format: {

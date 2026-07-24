@@ -4,7 +4,7 @@ export const experimentDraftSchema = {
   properties: {
     name: { type: "string", minLength: 1, maxLength: 120 },
     description: { type: "string", maxLength: 300 },
-    mode: { type: "string", enum: ["observation", "calibration"] },
+    mode: { type: "string", enum: ["controlled", "observation", "calibration"] },
     start_date: { type: ["string", "null"], maxLength: 40 },
     assignments: {
       type: "array",
@@ -19,15 +19,21 @@ export const experimentDraftSchema = {
           treatment: { type: ["string", "null"], maxLength: 80 },
           block: { type: ["string", "null"], maxLength: 80 },
           substrate: { type: ["string", "null"], maxLength: 80 },
+          watering_enabled: { type: "boolean" },
           target_vwc_percent: {
             type: ["number", "null"],
             minimum: 0,
-            maximum: 100,
+            maximum: 80,
+          },
+          valve_open_seconds: {
+            type: ["number", "null"],
+            minimum: 1,
+            maximum: 120,
           },
           measurement_interval_minutes: {
             type: ["number", "null"],
-            minimum: 1,
-            maximum: 1440,
+            minimum: 0.5,
+            maximum: 60,
           },
           notes: { type: ["string", "null"], maxLength: 300 },
         },
@@ -37,7 +43,9 @@ export const experimentDraftSchema = {
           "treatment",
           "block",
           "substrate",
+          "watering_enabled",
           "target_vwc_percent",
+          "valve_open_seconds",
           "measurement_interval_minutes",
           "notes",
         ],
@@ -49,7 +57,7 @@ export const experimentDraftSchema = {
       maxItems: 2,
       items: { type: "string", enum: ["admin", "researcher"] },
     },
-    watering_requested: { type: "boolean" },
+    controller_changes_requested: { type: "boolean" },
     questions: {
       type: "array",
       maxItems: 12,
@@ -63,7 +71,7 @@ export const experimentDraftSchema = {
     "start_date",
     "assignments",
     "visibility_roles",
-    "watering_requested",
+    "controller_changes_requested",
     "questions",
   ],
 };
@@ -147,7 +155,9 @@ export function safeInventoryForModel(inventory) {
     pot_number: item.pot_number,
     group: item.group_name,
     calibration: item.calibration_name,
+    current_watering_enabled: item.wtc_percent_limit > -1_000,
     current_target_vwc_percent: item.wtc_percent_limit,
+    current_valve_open_seconds: item.valve_open_time_ms / 1_000,
     current_measurement_interval_minutes: item.measurement_interval_ms / 60_000,
   }));
 }
@@ -160,7 +170,11 @@ export function normalizeDraft(value) {
   return {
     name: text(draft.name, 120),
     description: text(draft.description, 300),
-    mode: draft.mode === "calibration" ? "calibration" : "observation",
+    mode: draft.mode === "controlled"
+      ? "controlled"
+      : draft.mode === "calibration"
+        ? "calibration"
+        : "observation",
     start_date: nullableText(draft.start_date, 40),
     assignments: assignments.slice(0, 100).map((rawAssignment) => {
       const assignment = record(rawAssignment);
@@ -170,7 +184,9 @@ export function normalizeDraft(value) {
         treatment: nullableText(assignment.treatment, 80),
         block: nullableText(assignment.block, 80),
         substrate: nullableText(assignment.substrate, 80),
+        watering_enabled: assignment.watering_enabled === true,
         target_vwc_percent: nullableNumber(assignment.target_vwc_percent),
+        valve_open_seconds: nullableNumber(assignment.valve_open_seconds),
         measurement_interval_minutes: nullableNumber(
           assignment.measurement_interval_minutes,
         ),
@@ -178,7 +194,7 @@ export function normalizeDraft(value) {
       };
     }),
     visibility_roles: ["admin", "researcher"],
-    watering_requested: draft.watering_requested === true,
+    controller_changes_requested: draft.controller_changes_requested === true,
     questions: questions
       .map((question) => text(question, 180))
       .filter(Boolean)
@@ -199,10 +215,6 @@ export function validateDraft(value, inventory) {
   if (draft.assignments.length > 100) {
     messages.push("An experiment can include at most 100 pots.");
   }
-  if (draft.watering_requested) {
-    messages.push("Watering cannot be enabled by the experiment builder.");
-  }
-
   for (const assignment of draft.assignments) {
     const pairing = inventoryByName.get(assignment.pairing_name);
     if (!pairing) {
@@ -224,15 +236,31 @@ export function validateDraft(value, inventory) {
     sensorKeys.add(pairing.sensor_key);
     valveKeys.add(pairing.valve_key);
 
+    if (draft.mode === "observation" && assignment.watering_enabled) {
+      messages.push(`${pairing.name} cannot water in an observation experiment.`);
+    }
+    if (assignment.watering_enabled && assignment.target_vwc_percent === null) {
+      messages.push(`${pairing.name} needs a target before watering can be enabled.`);
+    }
     if (
       assignment.target_vwc_percent !== null &&
-      (assignment.target_vwc_percent < 0 || assignment.target_vwc_percent > 100)
+      (assignment.target_vwc_percent < 0 || assignment.target_vwc_percent > 80)
     ) messages.push(`${pairing.name} has an invalid target.`);
+    if (assignment.watering_enabled && assignment.valve_open_seconds === null) {
+      messages.push(`${pairing.name} needs a valve time before watering can be enabled.`);
+    }
+    if (
+      assignment.valve_open_seconds !== null &&
+      (assignment.valve_open_seconds < 1 || assignment.valve_open_seconds > 120)
+    ) messages.push(`${pairing.name} has an invalid valve time.`);
+    if (assignment.measurement_interval_minutes === null) {
+      messages.push(`${pairing.name} needs a measurement interval.`);
+    }
     if (
       assignment.measurement_interval_minutes !== null &&
       (
-        assignment.measurement_interval_minutes < 1 ||
-        assignment.measurement_interval_minutes > 1440
+        assignment.measurement_interval_minutes < 0.5 ||
+        assignment.measurement_interval_minutes > 60
       )
     ) messages.push(`${pairing.name} has an invalid measurement interval.`);
   }
@@ -240,26 +268,156 @@ export function validateDraft(value, inventory) {
   return { draft, messages: [...new Set(messages)] };
 }
 
+function rounded(value, digits = 4) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function sameNumber(left, right, tolerance = 0.0001) {
+  return Math.abs(Number(left) - Number(right)) <= tolerance;
+}
+
+export function compileControlPlan(value, inventory, idFactory = () => crypto.randomUUID()) {
+  const { draft, messages } = validateDraft(value, inventory);
+  if (messages.length) return { draft, messages, plan: null };
+
+  const inventoryByName = new Map(inventory.map((item) => [item.name, item]));
+  const grouped = new Map();
+
+  for (const assignment of draft.assignments) {
+    const current = inventoryByName.get(assignment.pairing_name);
+    const measurementIntervalMinutes = assignment.measurement_interval_minutes;
+    const wateringEnabled = draft.mode !== "observation" && assignment.watering_enabled;
+    const target = wateringEnabled ? assignment.target_vwc_percent : null;
+    const valveSeconds = wateringEnabled ? assignment.valve_open_seconds : null;
+    const currentWateringEnabled = current.wtc_percent_limit > -1_000;
+    const changed = currentWateringEnabled !== wateringEnabled
+      || (wateringEnabled && !sameNumber(current.wtc_percent_limit, target))
+      || (wateringEnabled && !sameNumber(current.valve_open_time_ms / 1_000, valveSeconds))
+      || !sameNumber(current.measurement_interval_ms / 60_000, measurementIntervalMinutes);
+    if (!changed) continue;
+
+    const settings = {
+      watering_enabled: wateringEnabled,
+      target_vwc_percent: target,
+      valve_open_seconds: valveSeconds,
+      measurement_interval_minutes: measurementIntervalMinutes,
+    };
+    const key = JSON.stringify(settings);
+    const entry = grouped.get(key) ?? {
+      ...settings,
+      pairing_names: [],
+      previous: [],
+    };
+    entry.pairing_names.push(current.name);
+    entry.previous.push({
+      pairing_name: current.name,
+      watering_enabled: currentWateringEnabled,
+      target_vwc_percent: currentWateringEnabled ? current.wtc_percent_limit : null,
+      valve_open_seconds: rounded(current.valve_open_time_ms / 1_000),
+      measurement_interval_minutes: rounded(current.measurement_interval_ms / 60_000),
+    });
+    grouped.set(key, entry);
+  }
+
+  const changes = [...grouped.values()];
+  const commands = [];
+  if (changes.length) {
+    commands.push({
+      label: "Pause controller",
+      command_type: "update_system_state",
+      payload: {
+        state: "stopped",
+        reason: `Apply reviewed settings for ${draft.name}`,
+      },
+      confirm: true,
+      client_request_id: idFactory(),
+    });
+    for (const change of changes) {
+      const payload = {
+        pairing_names: change.pairing_names,
+        measurement_interval_seconds: Math.round(change.measurement_interval_minutes * 60),
+      };
+      if (change.watering_enabled) {
+        payload.target_vwc = change.target_vwc_percent;
+        payload.open_time_seconds = change.valve_open_seconds;
+      } else {
+        payload.disable_watering = true;
+      }
+      commands.push({
+        label: `Update ${change.pairing_names.length} pot${change.pairing_names.length === 1 ? "" : "s"}`,
+        command_type: "bulk_update_pairings",
+        payload,
+        confirm: false,
+        client_request_id: idFactory(),
+      });
+    }
+    commands.push({
+      label: "Resume sensing and control",
+      command_type: "update_system_state",
+      payload: {
+        state: "running",
+        reason: `Start reviewed experiment ${draft.name}`,
+      },
+      confirm: true,
+      client_request_id: idFactory(),
+    });
+  }
+
+  return {
+    draft: {
+      ...draft,
+      controller_changes_requested: changes.length > 0,
+    },
+    messages: [],
+    plan: {
+      requires_controller_stop: changes.length > 0,
+      final_controller_state: "running",
+      change_count: changes.reduce((count, change) => count + change.pairing_names.length, 0),
+      pairing_count: draft.assignments.length,
+      changes,
+      commands,
+    },
+  };
+}
+
 export function systemInstructions() {
   return [
     "Convert the researcher's request into an ExactH2O experiment draft.",
     "Only use pairing_name values from the supplied inventory.",
     "Do not invent pots, sensors, valves, pairings, calibrations, or mappings.",
-    "This builder publishes sensing-only portal experiments.",
-    "Never enable watering or claim that controller settings will change.",
-    "Set watering_requested true if the researcher asks for any watering, target control, valve action, or controller change; the application will block publication.",
-    "Use null for unspecified assignment metadata.",
+    "The draft may configure sensing and routine per-pot watering controls.",
+    "Use controlled mode when the researcher requests target moisture or watering.",
+    "Use observation mode when watering must be disabled while sensing continues.",
+    "For controlled assignments, provide watering_enabled, target_vwc_percent from 0 to 80, valve_open_seconds from 1 to 120, and measurement_interval_minutes from 0.5 to 60.",
+    "For observation assignments, set watering_enabled false and target_vwc_percent and valve_open_seconds null.",
+    "Use current inventory settings when the researcher does not specify a controller setting.",
+    "Set controller_changes_requested true when any requested setting differs from current inventory.",
+    "Never propose manual valve pulses, board configuration, sensor initialization, pairing rewiring, or calibration mutation.",
+    "Use null only for unspecified descriptive metadata.",
     "Use questions for missing or ambiguous information that materially affects the draft.",
     "Keep the name and description concise.",
     "Return only the required structured result.",
   ].join("\n");
 }
 
-export function userDraftInput(prompt, inventory) {
-  return [
+/**
+ * @param {string} prompt
+ * @param {Array<Record<string, unknown>>} inventory
+ * @param {unknown} currentDraft
+ */
+export function userDraftInput(prompt, inventory, currentDraft = null) {
+  const sections = [
     `Researcher request:\n${prompt}`,
     `Current allowed inventory:\n${JSON.stringify(safeInventoryForModel(inventory))}`,
-  ].join("\n\n");
+  ];
+  if (currentDraft) {
+    sections.push(
+      `Current reviewed draft to revise:\n${JSON.stringify(normalizeDraft(currentDraft))}`,
+      "Apply the new request to the current draft. Preserve details that were not changed.",
+    );
+  }
+  return sections.join("\n\n");
 }
 
 export function responseOutputText(response) {

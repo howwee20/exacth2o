@@ -6182,7 +6182,7 @@ select {
 }
 
 .experiment-builder {
-  width: min(760px, 100%);
+  width: min(1180px, 100%);
   max-height: min(860px, calc(100vh - 48px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -6236,6 +6236,69 @@ select {
   min-height: 0;
   overflow: auto;
   padding: 24px;
+}
+
+.experiment-builder-review-shell {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.experiment-builder-conversation {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding: 22px;
+  border-right: 1px solid rgba(24, 37, 55, 0.08);
+  background: #f7f8f5;
+}
+
+.experiment-builder-conversation > div {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid rgba(24, 37, 55, 0.08);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.experiment-builder-conversation p,
+.experiment-builder-conversation strong {
+  margin: 0;
+}
+
+.experiment-builder-conversation > div p,
+.experiment-builder-conversation > label {
+  color: #718096;
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.experiment-builder-conversation > div strong {
+  color: #26352d;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.experiment-builder-conversation textarea {
+  min-height: 140px;
+  background: #fff;
+}
+
+.experiment-builder-conversation .is-secondary {
+  width: 100%;
+}
+
+.experiment-builder-conversation-note {
+  color: #718096;
+  font-size: 0.68rem;
+  line-height: 1.45;
 }
 
 .experiment-builder-prompt {
@@ -6386,9 +6449,12 @@ select {
 
 .experiment-builder-assignment {
   display: grid;
-  grid-template-columns: 130px repeat(3, minmax(0, 1fr));
+  grid-template-columns: 112px repeat(3, minmax(74px, 1fr)) 70px repeat(3, minmax(84px, 0.8fr));
   align-items: center;
   gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(24, 37, 55, 0.07);
+  border-radius: 10px;
 }
 
 .experiment-builder-assignment strong {
@@ -6400,6 +6466,90 @@ select {
   min-height: 36px;
   padding: 0 10px;
   font-size: 0.72rem;
+}
+
+.experiment-builder-assignment > label {
+  display: grid;
+  gap: 4px;
+  color: #718096;
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+.experiment-builder-assignment .experiment-builder-watering-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #415063;
+  font-size: 0.67rem;
+}
+
+.experiment-builder-watering-toggle input,
+.experiment-builder-confirm input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.experiment-builder-preflight {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid rgba(26, 107, 74, 0.18);
+  border-radius: 12px;
+  background: #f3fbf7;
+}
+
+.experiment-builder-preflight > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.experiment-builder-preflight h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.experiment-builder-preflight span {
+  color: #526071;
+  font-size: 0.68rem;
+}
+
+.experiment-builder-change {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.experiment-builder-change strong {
+  font-size: 0.7rem;
+}
+
+.experiment-builder-preflight > p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 2px 0;
+  color: #8a570d;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.experiment-builder-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  color: #194c35;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .experiment-builder-safety,
@@ -6456,6 +6606,15 @@ select {
   margin: 0 0 8px;
 }
 
+.experiment-builder-complete p {
+  max-width: 420px;
+  margin: -4px 0 8px;
+  color: #607083;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 @media (max-width: 720px) {
   .experiment-builder-backdrop {
     padding: 10px;
@@ -6463,6 +6622,21 @@ select {
 
   .experiment-builder {
     max-height: calc(100vh - 20px);
+  }
+
+  .experiment-builder-review-shell {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .experiment-builder-conversation {
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid rgba(24, 37, 55, 0.08);
+  }
+
+  .experiment-builder-review {
+    overflow: visible;
   }
 
   .experiment-builder-fields {

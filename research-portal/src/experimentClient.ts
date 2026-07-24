@@ -3,6 +3,8 @@ import type {
   ExperimentDraft,
   ExperimentDraftResponse,
   ExperimentDraftSource,
+  ExperimentLaunchResponse,
+  ExperimentPreflightResponse,
 } from "./experimentSpec";
 import type {
   PortalExperiment,
@@ -21,11 +23,6 @@ type CatalogRow = {
   ended_at: string | null;
   pairing_names: string[] | null;
   assignments: PortalExperimentAssignment[] | null;
-};
-
-type PublishResponse = {
-  experiment_id: string;
-  experiment_slug: string;
 };
 
 async function invokeExperimentBuilder<T>(body: Record<string, unknown>) {
@@ -74,21 +71,44 @@ export async function loadPortalExperimentCatalog(projectId: string) {
   }));
 }
 
-export function draftExperiment(projectId: string, prompt: string) {
+export function draftExperiment(
+  projectId: string,
+  prompt: string,
+  currentDraft?: ExperimentDraft,
+) {
   return invokeExperimentBuilder<ExperimentDraftResponse>({
-    action: "draft",
+    action: currentDraft ? "revise" : "draft",
     project_id: projectId,
     prompt,
+    current_draft: currentDraft,
   });
 }
 
-export function publishExperiment({
+export function preflightExperiment({
+  projectId,
+  draft,
+  inventoryUpdatedAt,
+}: {
+  projectId: string;
+  draft: ExperimentDraft;
+  inventoryUpdatedAt: string;
+}) {
+  return invokeExperimentBuilder<ExperimentPreflightResponse>({
+    action: "preflight",
+    project_id: projectId,
+    draft,
+    inventory_updated_at: inventoryUpdatedAt,
+  });
+}
+
+export function launchExperiment({
   projectId,
   draft,
   inventoryUpdatedAt,
   source,
   model,
   promptFingerprint,
+  reviewedConfigHash,
 }: {
   projectId: string;
   draft: ExperimentDraft;
@@ -96,14 +116,17 @@ export function publishExperiment({
   source: ExperimentDraftSource;
   model: string | null;
   promptFingerprint: string | null;
+  reviewedConfigHash: string;
 }) {
-  return invokeExperimentBuilder<PublishResponse>({
-    action: "publish",
+  return invokeExperimentBuilder<ExperimentLaunchResponse>({
+    action: "launch",
     project_id: projectId,
     draft,
     inventory_updated_at: inventoryUpdatedAt,
     source,
     model,
     prompt_fingerprint: promptFingerprint,
+    reviewed_config_hash: reviewedConfigHash,
+    confirm: true,
   });
 }
