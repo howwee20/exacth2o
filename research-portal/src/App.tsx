@@ -3192,15 +3192,6 @@ function PortalAssistantHero({
     <div className="portal-workspace-intro">
       <section className="portal-assistant-hero">
         <div className="portal-assistant-copy">
-          <span className="portal-assistant-kicker">
-            <Sparkles size={15} />
-            ExactH2O Assistant
-          </span>
-          <h1>Describe what you want to run.</h1>
-          <p>
-            Choose pots, treatments, moisture targets, and measurement timing in plain language.
-            Review every change before it starts.
-          </p>
           <form className="portal-assistant-request" onSubmit={(event) => void routeRequest(event)}>
             <textarea
               value={request}
@@ -3226,20 +3217,6 @@ function PortalAssistantHero({
             </button>
           </div>
         </div>
-        <ol className="portal-assistant-flow" aria-label="Assistant workflow">
-          <li>
-            <span>1</span>
-            <div><strong>Describe</strong><em>Use normal language</em></div>
-          </li>
-          <li>
-            <span>2</span>
-            <div><strong>Review</strong><em>See the complete specification</em></div>
-          </li>
-          <li>
-            <span>3</span>
-            <div><strong>Confirm</strong><em>Track each approved action</em></div>
-          </li>
-        </ol>
       </section>
       <PortalCommandActivity commands={commands} loading={commandLoading} />
     </div>
