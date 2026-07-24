@@ -286,6 +286,35 @@ function sameNumber(left, right, tolerance = 0.0001) {
   return Math.abs(Number(left) - Number(right)) <= tolerance;
 }
 
+export function validatePracticeDraft(context, value, inventory) {
+  if (!/\b(fake|practice|demo|test)\b/i.test(String(context ?? ""))) return [];
+  const draft = normalizeDraft(value);
+  const inventoryByName = new Map(inventory.map((item) => [item.name, item]));
+  const messages = [];
+
+  for (const assignment of draft.assignments) {
+    const current = inventoryByName.get(assignment.pairing_name);
+    if (!current) continue;
+    if (assignment.watering_enabled || current.wtc_percent_limit > -1_000) {
+      messages.push(
+        `Practice experiment ${assignment.pairing_name} must already be sensing only so no irrigation setting changes.`,
+      );
+    }
+    if (
+      assignment.measurement_interval_minutes !== null &&
+      !sameNumber(
+        assignment.measurement_interval_minutes,
+        current.measurement_interval_ms / 60_000,
+      )
+    ) {
+      messages.push(
+        `Practice experiment ${assignment.pairing_name} must keep its current measurement interval.`,
+      );
+    }
+  }
+  return [...new Set(messages)];
+}
+
 export function compileControlPlan(value, inventory, idFactory = () => crypto.randomUUID()) {
   const { draft, messages } = validateDraft(value, inventory);
   if (messages.length) return { draft, messages, plan: null };
@@ -398,7 +427,7 @@ export function systemInstructions() {
     "The draft may configure sensing and routine per-pot watering controls.",
     "Use controlled mode when the researcher requests target moisture or watering.",
     "Use observation mode when watering must be disabled while sensing continues.",
-    "For a fake, practice, demo, or test experiment, use observation mode with watering disabled unless the researcher explicitly requests real controller changes.",
+    "For a fake, practice, demo, or test experiment, use observation mode, select only pairings that are already sensing only, and preserve their current measurement interval. If the requested pots are currently watered, ask the researcher to choose sensing-only pots instead of changing them.",
     "For controlled assignments, provide watering_enabled, target_vwc_percent from 0 to 80, valve_open_seconds from 1 to 120, and measurement_interval_minutes from 0.5 to 60.",
     "For observation assignments, set watering_enabled false and target_vwc_percent and valve_open_seconds null.",
     "Use current inventory settings when the researcher does not specify a controller setting.",

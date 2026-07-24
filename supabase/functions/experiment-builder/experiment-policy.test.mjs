@@ -7,6 +7,7 @@ import {
   responseOutputText,
   safeInventoryForModel,
   validateDraft,
+  validatePracticeDraft,
 } from "./experiment-policy.mjs";
 
 const config = {
@@ -153,6 +154,61 @@ test("observation plan disables watering while preserving sensing", () => {
     measurement_interval_seconds: 600,
     disable_watering: true,
   });
+});
+
+test("practice experiments cannot change live watering or cadence", () => {
+  const controlledInventory = inventoryFromDeviceConfig(config);
+  const practiceDraft = {
+    name: "Assistant Practice",
+    description: "",
+    mode: "observation",
+    start_date: null,
+    assignments: [{
+      pairing_name: "Zone1-Pot15",
+      crop: null,
+      treatment: null,
+      block: null,
+      substrate: null,
+      watering_enabled: false,
+      target_vwc_percent: null,
+      valve_open_seconds: null,
+      measurement_interval_minutes: 10,
+      notes: null,
+    }],
+    visibility_roles: ["admin", "researcher"],
+    controller_changes_requested: true,
+    questions: [],
+  };
+  assert.match(
+    validatePracticeDraft("practice", practiceDraft, controlledInventory).join(" "),
+    /must already be sensing only/i,
+  );
+
+  const sensingInventory = inventoryFromDeviceConfig({
+    ...config,
+    pairings: [{
+      ...config.pairings[0],
+      WTCPercentLimit: -1001,
+    }],
+  });
+  assert.deepEqual(
+    validatePracticeDraft("practice", practiceDraft, sensingInventory),
+    [],
+  );
+  assert.match(
+    validatePracticeDraft(
+      "practice",
+      {
+        ...practiceDraft,
+        assignments: [{
+          ...practiceDraft.assignments[0],
+          measurement_interval_minutes: 5,
+        }],
+      },
+      sensingInventory,
+    ).join(" "),
+    /keep its current measurement interval/i,
+  );
 });
 
 test("future starts cannot be mistaken for scheduled controller execution", () => {

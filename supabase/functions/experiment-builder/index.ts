@@ -7,6 +7,7 @@ import {
   systemInstructions,
   userDraftInput,
   validateDraft,
+  validatePracticeDraft,
 } from "./experiment-policy.mjs";
 import {
   normalizeSettingsPlan,
@@ -337,8 +338,15 @@ Deno.serve(async (request) => {
   if (action === "preflight" || action === "launch") {
     const compiled = compileControlPlan(body.draft, inventory);
     const { draft, messages, plan } = compiled;
-    if (messages.length) {
-      return response({ error: "Review the draft.", validation_messages: messages }, 400, origin);
+    const preflightMessages = [
+      ...messages,
+      ...validatePracticeDraft(draft.name, draft, inventory),
+    ];
+    if (preflightMessages.length) {
+      return response({
+        error: "Review the draft.",
+        validation_messages: preflightMessages,
+      }, 400, origin);
     }
     if (!plan) {
       return response({ error: "Controller plan could not be compiled." }, 500, origin);
@@ -1073,18 +1081,34 @@ Deno.serve(async (request) => {
     }
 
     const { draft, messages } = validateDraft(parsed, inventory);
+    const currentDraft = record(body.current_draft);
+    const practiceContext = [
+      prompt,
+      clean(currentDraft.name, 120),
+      clean(currentDraft.description, 300),
+      draft.name,
+      draft.description,
+    ].join(" ");
+    const practiceMessages = validatePracticeDraft(practiceContext, draft, inventory);
+    const reviewedDraft = practiceMessages.length
+      ? {
+        ...draft,
+        questions: [...new Set([...draft.questions, ...practiceMessages])],
+      }
+      : draft;
+    const validationMessages = [...new Set([...messages, ...practiceMessages])];
     await admin
       .from("experiment_builder_requests")
-      .update({ status: messages.length ? "rejected" : "completed", ...usage })
+      .update({ status: validationMessages.length ? "rejected" : "completed", ...usage })
       .eq("id", requestRow.id);
 
     return response({
-      draft,
+      draft: reviewedDraft,
       inventory_updated_at: configState.updated_at,
       source: "natural_language",
       model,
       prompt_fingerprint: promptFingerprint,
-      validation_messages: messages,
+      validation_messages: validationMessages,
     }, 200, origin);
   } catch (error) {
     await admin
