@@ -73,7 +73,7 @@ const mattExperiment1: PortalExperiment = {
 const mattExperiment2: PortalExperiment = {
   id: "matt-experiment-2",
   name: "Matt Experiment 2",
-  shortDescription: "24 pots · 30% target",
+  shortDescription: "10% drought · 30% control",
   mode: "controlled",
   wateringState: "controller_managed",
   groupNames: ["Matt Experiment 2 - Observation Only", "Matt Experiment 2 — Observation Only"],

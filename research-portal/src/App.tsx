@@ -152,9 +152,36 @@ const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
 const controlPots = new Set([41, 43, 45, 47, 49, 91, 93, 95, 97, 99]);
 const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
+const mattExperiment2GraphGroups = [
+  {
+    id: "maize-control",
+    label: "Maize Control",
+    target: 30,
+    potNumbers: [15, 17, 19, 21, 23, 25],
+  },
+  {
+    id: "maize-drought",
+    label: "Maize Drought",
+    target: 10,
+    potNumbers: [16, 18, 20, 22, 24, 26],
+  },
+  {
+    id: "sorghum-control",
+    label: "Sorghum Control",
+    target: 30,
+    potNumbers: [65, 67, 69, 71, 73, 75],
+  },
+  {
+    id: "sorghum-drought",
+    label: "Sorghum Drought",
+    target: 10,
+    potNumbers: [66, 68, 70, 72, 74, 76],
+  },
+] as const;
 
 type ViewMode = "group" | "traces" | "individual" | "qc";
 type ExperimentGraphMode = "vwc" | "watering" | "overlay";
+type MattExperiment2GraphGroupId = typeof mattExperiment2GraphGroups[number]["id"];
 
 type LoadState = {
   pairings: PairingRow[];
@@ -664,26 +691,49 @@ function colorForPairing(pairing: PairingRow) {
   return colorForPotNumber(pairing.pot_number);
 }
 
-function treatmentForPot(potNumber?: number | null): Treatment {
+function treatmentForPot(
+  potNumber?: number | null,
+  experiment?: PortalExperiment | null,
+): Treatment {
   if (typeof potNumber !== "number") return "unknown";
+  if (experiment?.id === "matt-experiment-2") {
+    if ((potNumber >= 15 && potNumber <= 26) || (potNumber >= 65 && potNumber <= 76)) {
+      return potNumber % 2 === 0 ? "drought" : "control";
+    }
+    return "unknown";
+  }
   if (controlPots.has(potNumber)) return "control";
   if (droughtPots.has(potNumber)) return "drought";
   return "unknown";
 }
 
-function treatmentForPairing(pairing: PairingRow): Treatment {
-  return treatmentForPot(pairing.pot_number);
+function treatmentForPairing(
+  pairing: PairingRow,
+  experiment?: PortalExperiment | null,
+): Treatment {
+  return treatmentForPot(pairing.pot_number, experiment);
 }
 
-function plantGroupForPot(potNumber?: number | null): PlantGroup {
+function plantGroupForPot(
+  potNumber?: number | null,
+  experiment?: PortalExperiment | null,
+): PlantGroup {
   if (typeof potNumber !== "number") return "unknown";
+  if (experiment?.id === "matt-experiment-2") {
+    if (potNumber >= 15 && potNumber <= 26) return "maize";
+    if (potNumber >= 65 && potNumber <= 76) return "sorghum";
+    return "unknown";
+  }
   if (potNumber >= 41 && potNumber <= 50) return "maize";
   if (potNumber >= 91 && potNumber <= 100) return "sorghum";
   return "unknown";
 }
 
-function plantGroupForPairing(pairing: PairingRow): PlantGroup {
-  return plantGroupForPot(pairing.pot_number);
+function plantGroupForPairing(
+  pairing: PairingRow,
+  experiment?: PortalExperiment | null,
+): PlantGroup {
+  return plantGroupForPot(pairing.pot_number, experiment);
 }
 
 function treatmentLabel(treatment: Treatment) {
@@ -714,7 +764,11 @@ function samplePoints(points: ChartPoint[]) {
   return sampled;
 }
 
-function chartSeries(pairings: PairingRow[], readings: SensorReading[]): ChartSeries[] {
+function chartSeries(
+  pairings: PairingRow[],
+  readings: SensorReading[],
+  experiment?: PortalExperiment | null,
+): ChartSeries[] {
   const grouped = new Map<string, ChartPoint[]>();
 
   for (const reading of readings) {
@@ -739,8 +793,8 @@ function chartSeries(pairings: PairingRow[], readings: SensorReading[]): ChartSe
       kind: "pot",
       zone: pairing.zone,
       potNumber: pairing.pot_number,
-      treatment: treatmentForPairing(pairing),
-      plantGroup: plantGroupForPairing(pairing),
+      treatment: treatmentForPairing(pairing, experiment),
+      plantGroup: plantGroupForPairing(pairing, experiment),
       color: colorForPairing(pairing),
       points: samplePoints(points),
       rawPointCount: points.length,
@@ -5187,6 +5241,8 @@ export default function App() {
   const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
+  const [mattExperiment2GraphGroupId, setMattExperiment2GraphGroupId] =
+    useState<MattExperiment2GraphGroupId>("maize-control");
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -5285,8 +5341,8 @@ export default function App() {
     [data.readings, selectedExperiment],
   );
   const series = useMemo(
-    () => chartSeries(sortedPairings, experimentReadings),
-    [sortedPairings, experimentReadings],
+    () => chartSeries(sortedPairings, experimentReadings, selectedExperiment),
+    [sortedPairings, experimentReadings, selectedExperiment],
   );
   const seriesByName = useMemo(() => new Map(series.map((item) => [item.name, item])), [series]);
   const chartDisplaySeries = useMemo(() => {
@@ -5358,6 +5414,7 @@ export default function App() {
     setExperimentGraphMode("vwc");
     setPotPreset("all");
     setHiddenPots(new Set());
+    setMattExperiment2GraphGroupId("maize-control");
     setSelectedSeriesName(null);
     setSelectedWateringDetail(null);
     setTimeWindow(fullTimeWindow);
@@ -6380,8 +6437,8 @@ export default function App() {
       if (preset === "all") return new Set();
       const hidden = new Set<string>();
       for (const pairing of sortedPairings) {
-        const treatment = treatmentForPairing(pairing);
-        const plantGroup = plantGroupForPairing(pairing);
+        const treatment = treatmentForPairing(pairing, selectedExperiment);
+        const plantGroup = plantGroupForPairing(pairing, selectedExperiment);
         if (preset === "control" && treatment !== "control") hidden.add(pairing.name);
         if (preset === "drought" && treatment !== "drought") hidden.add(pairing.name);
         if (preset === "maize" && plantGroup !== "maize") hidden.add(pairing.name);
@@ -6389,6 +6446,22 @@ export default function App() {
       }
       return hidden;
     });
+  }
+
+  function openMattExperiment2Graph(groupId: MattExperiment2GraphGroupId) {
+    const group = mattExperiment2GraphGroups.find((item) => item.id === groupId);
+    if (!group) return;
+    const includedPots = new Set<number>(group.potNumbers);
+    setMattExperiment2GraphGroupId(groupId);
+    setPotPreset("custom");
+    setSelectedSeriesName(null);
+    setHiddenPots(new Set(
+      sortedPairings
+        .filter((pairing) => !includedPots.has(pairing.pot_number))
+        .map((pairing) => pairing.name),
+    ));
+    setExperimentGraphMode("vwc");
+    setGraphExpanded(true);
   }
 
   function togglePot(name: string) {
@@ -6538,8 +6611,8 @@ export default function App() {
           sourceLabelForReading(reading),
           reading.event_id,
           reading.pairing_name,
-          pairing ? plantGroupLabel(plantGroupForPairing(pairing)) : "",
-          pairing ? treatmentLabel(treatmentForPairing(pairing)) : "",
+          pairing ? plantGroupLabel(plantGroupForPairing(pairing, selectedExperiment)) : "",
+          pairing ? treatmentLabel(treatmentForPairing(pairing, selectedExperiment)) : "",
           pairing?.zone ?? "",
           pairing?.pot_number ?? "",
           reading.sensor_key,
@@ -6584,8 +6657,8 @@ export default function App() {
       pairing.name,
       pairing.zone,
       pairing.pot_number,
-      plantGroupLabel(plantGroupForPairing(pairing)),
-      treatmentLabel(treatmentForPairing(pairing)),
+      plantGroupLabel(plantGroupForPairing(pairing, selectedExperiment)),
+      treatmentLabel(treatmentForPairing(pairing, selectedExperiment)),
       pairing.sensor_key,
       pairing.valve_key,
       formatTargetVwc(pairing.wtc_percent_limit),
@@ -7250,6 +7323,12 @@ export default function App() {
       return groups;
     }, new Map<number, PairingRow[]>()),
   ).sort(([zoneA], [zoneB]) => zoneA - zoneB);
+  const isMattExperiment2 = selectedExperiment.id === "matt-experiment-2";
+  const showMattExperiment2GraphOverview =
+    isMattExperiment2 && experimentGraphMode === "vwc" && !graphExpanded;
+  const activeMattExperiment2GraphGroup = mattExperiment2GraphGroups.find(
+    (group) => group.id === mattExperiment2GraphGroupId,
+  ) ?? mattExperiment2GraphGroups[0];
   const controlPanelStyle: CSSProperties | undefined = graphExpanded
     ? {
         width: panelSize.width,
@@ -7585,99 +7664,176 @@ export default function App() {
 
       <section
         ref={dashboardMainRef}
-        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}
+        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""} ${showMattExperiment2GraphOverview ? "is-matt-experiment-overview" : ""}`}
       >
-        <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
-          <div className="chart-tools">
-            <div className="chart-view-toggle" aria-label="Graph view">
-              <button
-                type="button"
-                className={experimentGraphMode === "vwc" ? "is-selected" : ""}
-                onClick={() => {
-                  setSelectedWateringDetail(null);
-                  setExperimentGraphMode("vwc");
-                }}
-              >
-                VWC
-              </button>
-              {!isObservationOnlyExperiment(selectedExperiment) ? (
-                <>
-                  <button
-                    type="button"
-                    className={experimentGraphMode === "watering" ? "is-selected" : ""}
-                    onClick={() => setExperimentGraphMode("watering")}
-                  >
-                    Watering
-                  </button>
-                  <button
-                    type="button"
-                    className={experimentGraphMode === "overlay" ? "is-selected" : ""}
-                    onClick={() => {
-                      setSelectedWateringDetail(null);
-                      setExperimentGraphMode("overlay");
-                    }}
-                  >
-                    Overlay
-                  </button>
-                </>
-              ) : null}
+        {showMattExperiment2GraphOverview ? (
+          <section className="matt-experiment-graph-overview">
+            <div className="matt-experiment-graph-toolbar">
+              <div className="chart-view-toggle" aria-label="Graph view">
+                <button type="button" className="is-selected">
+                  VWC
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExperimentGraphMode("watering")}
+                >
+                  Watering
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedWateringDetail(null);
+                    setExperimentGraphMode("overlay");
+                  }}
+                >
+                  Overlay
+                </button>
+              </div>
             </div>
-            <button
-              className="expand-button"
-              type="button"
-              aria-label={graphExpanded ? "Close expanded graph" : "Expand graph"}
-              title={graphExpanded ? "Close" : "Expand"}
-              onClick={toggleExpandedGraph}
-            >
-              {graphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-          </div>
-
-          <section
-            className="chart-panel-main"
-            aria-label={
-              experimentGraphMode === "watering"
-                ? "Watering activity chart"
-                : experimentGraphMode === "overlay"
-                  ? "VWC and watering overlay chart"
-                  : "All plants chart"
-            }
-          >
-            {experimentGraphMode === "watering" ? (
-              <ResearchWateringActivity
-                events={experimentWateringEvents}
-                pairings={visibleWateringPairings}
-                onSelectDetail={setSelectedWateringDetail}
-              />
-            ) : (
-              <SensorCanvasChart
-                series={timeFilteredSeries}
-                visibleNames={experimentGraphMode === "overlay" ? overlayVisibleNames : visibleNames}
-                selectedName={selectedSeriesName}
-                viewMode="traces"
-                onSelectSeries={selectPot}
-                loading={loading}
-                xDomain={selectedVwcTimeBounds}
-                wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : []}
-              />
-            )}
-          </section>
-          {experimentGraphMode !== "watering" ? (
-            <div className="chart-bottom-controls">
+            <div className="matt-experiment-graph-grid">
+              {mattExperiment2GraphGroups.map((group) => {
+                const groupPots = new Set<number>(group.potNumbers);
+                const groupVisibleNames = new Set(
+                  sortedPairings
+                    .filter((pairing) => groupPots.has(pairing.pot_number))
+                    .map((pairing) => pairing.name),
+                );
+                return (
+                  <button
+                    type="button"
+                    className="matt-experiment-graph-card"
+                    key={group.id}
+                    aria-label={`Expand ${group.label} graph`}
+                    onClick={() => openMattExperiment2Graph(group.id)}
+                  >
+                    <span className="matt-experiment-graph-card-head">
+                      <strong>{group.label}</strong>
+                      <em>6 pots · {group.target}%</em>
+                      <Maximize2 size={16} aria-hidden="true" />
+                    </span>
+                    <span className="matt-experiment-graph-chart">
+                      <SensorCanvasChart
+                        series={timeFilteredSeries}
+                        visibleNames={groupVisibleNames}
+                        selectedName={null}
+                        viewMode="traces"
+                        onSelectSeries={() => undefined}
+                        loading={loading}
+                        xDomain={selectedVwcTimeBounds}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="matt-experiment-graph-range">
               <TimeRangeControl
                 bounds={timeBounds}
                 value={timeWindow}
                 onChange={setTimeWindow}
               />
             </div>
-          ) : null}
-        </section>
+          </section>
+        ) : (
+          <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
+            {isMattExperiment2 && graphExpanded && experimentGraphMode === "vwc" ? (
+              <div className="expanded-graph-label">
+                <strong>{activeMattExperiment2GraphGroup.label}</strong>
+                <span>6 pots · {activeMattExperiment2GraphGroup.target}%</span>
+              </div>
+            ) : null}
+            <div className="chart-tools">
+              <div className="chart-view-toggle" aria-label="Graph view">
+                <button
+                  type="button"
+                  className={experimentGraphMode === "vwc" ? "is-selected" : ""}
+                  onClick={() => {
+                    setSelectedWateringDetail(null);
+                    setExperimentGraphMode("vwc");
+                  }}
+                >
+                  VWC
+                </button>
+                {!isObservationOnlyExperiment(selectedExperiment) ? (
+                  <>
+                    <button
+                      type="button"
+                      className={experimentGraphMode === "watering" ? "is-selected" : ""}
+                      onClick={() => setExperimentGraphMode("watering")}
+                    >
+                      Watering
+                    </button>
+                    <button
+                      type="button"
+                      className={experimentGraphMode === "overlay" ? "is-selected" : ""}
+                      onClick={() => {
+                        setSelectedWateringDetail(null);
+                        setExperimentGraphMode("overlay");
+                      }}
+                    >
+                      Overlay
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              <button
+                className="expand-button"
+                type="button"
+                aria-label={graphExpanded ? "Close expanded graph" : "Expand graph"}
+                title={graphExpanded ? "Close" : "Expand"}
+                onClick={toggleExpandedGraph}
+              >
+                {graphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+            </div>
 
-        <aside
-          ref={controlPanelRef}
-          className="control-panel"
-          style={controlPanelStyle}
-        >
+            <section
+              className="chart-panel-main"
+              aria-label={
+                experimentGraphMode === "watering"
+                  ? "Watering activity chart"
+                  : experimentGraphMode === "overlay"
+                    ? "VWC and watering overlay chart"
+                    : "All plants chart"
+              }
+            >
+              {experimentGraphMode === "watering" ? (
+                <ResearchWateringActivity
+                  events={experimentWateringEvents}
+                  pairings={visibleWateringPairings}
+                  onSelectDetail={setSelectedWateringDetail}
+                />
+              ) : (
+                <SensorCanvasChart
+                  series={timeFilteredSeries}
+                  visibleNames={experimentGraphMode === "overlay" ? overlayVisibleNames : visibleNames}
+                  selectedName={selectedSeriesName}
+                  viewMode="traces"
+                  onSelectSeries={selectPot}
+                  loading={loading}
+                  xDomain={selectedVwcTimeBounds}
+                  wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : []}
+                />
+              )}
+            </section>
+            {experimentGraphMode !== "watering" ? (
+              <div className="chart-bottom-controls">
+                <TimeRangeControl
+                  bounds={timeBounds}
+                  value={timeWindow}
+                  onChange={setTimeWindow}
+                />
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {!showMattExperiment2GraphOverview ? (
+          <aside
+            ref={controlPanelRef}
+            className="control-panel"
+            style={controlPanelStyle}
+          >
           <section>
             {graphExpanded ? (
               <div
@@ -7732,9 +7888,16 @@ export default function App() {
           </section>
 
           {groupedPairings.map(([zone, groupPairings]) => {
-            const label = !isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment)
-              ? (zone === 2 ? "Maize" : zone === 4 ? "Sorghum" : `Zone ${zone}`)
-              : `Zone ${zone}`;
+            const plantGroups = new Set(
+              groupPairings.map((pairing) => plantGroupForPairing(pairing, selectedExperiment)),
+            );
+            const plantGroup = plantGroups.size === 1 ? Array.from(plantGroups)[0] : "unknown";
+            const label =
+              !isObservationOnlyExperiment(selectedExperiment) &&
+              !isCalibrationExperiment(selectedExperiment) &&
+              plantGroup !== "unknown"
+                ? plantGroupLabel(plantGroup)
+                : `Zone ${zone}`;
             const allVisible = groupPairings.every((pairing) => !hiddenPots.has(pairing.name));
             return (
               <section className="pot-group" key={zone}>
@@ -7768,8 +7931,8 @@ export default function App() {
                           <strong>{formatPercent(latestValue)}</strong>
                         </span>
                         {!isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment) ? (
-                          <em className={`treatment-dot ${treatmentForPairing(pairing)}`}>
-                            {treatmentForPairing(pairing) === "control" ? "C" : "D"}
+                          <em className={`treatment-dot ${treatmentForPairing(pairing, selectedExperiment)}`}>
+                            {treatmentForPairing(pairing, selectedExperiment) === "control" ? "C" : "D"}
                           </em>
                         ) : null}
                       </button>
@@ -7788,7 +7951,8 @@ export default function App() {
               onPointerDown={startPanelResize}
             />
           ) : null}
-        </aside>
+          </aside>
+        ) : null}
       </section>
     </main>
   );
