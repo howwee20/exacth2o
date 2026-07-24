@@ -73,7 +73,7 @@ const formatPolynomialEquation = (coefficients: number[]): string => {
   }).filter(Boolean).join('');
 }
 
-export default function CalibrationPage() {
+function CalibrationContent() {
   const { connectedDevices, isLoading: connectedDevicesLoading } = useConnectedDevices()
   const { calibrations, isLoading: calibrationsLoading, mutate: mutateCalibrations } = useCalibrations()
   const [calibrationFileName, setCalibrationFileName] = useState('')
@@ -530,7 +530,6 @@ export default function CalibrationPage() {
   }
 
   return (
-    <ProtectedLayout>
         <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -877,6 +876,13 @@ export default function CalibrationPage() {
             )}
           </div>
         </div>
+  )
+}
+
+export default function CalibrationPage() {
+  return (
+    <ProtectedLayout>
+      <CalibrationContent />
     </ProtectedLayout>
   )
 }

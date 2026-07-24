@@ -83,6 +83,7 @@ import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types
 import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
+import { SettingsAssistant } from "./SettingsAssistant";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
 import { mergeRdHistoryPage } from "./rdPagination";
@@ -103,6 +104,11 @@ import {
   type PortalExperiment,
 } from "./experimentRegistry";
 import { colorForPotNumber } from "./potColors";
+import {
+  stoppedSettingsCommandTypes,
+  type SettingsCommandDraft,
+  type SettingsPlan,
+} from "./settingsSpec";
 
 const graphReadLimit = 12_000;
 const pageSize = 1000;
@@ -252,6 +258,7 @@ type PanelSize = {
 
 type SettingsSection =
   | "overview"
+  | "assistant"
   | "pairings"
   | "calibrations"
   | "water"
@@ -313,12 +320,19 @@ type ControlCommand = {
 type ControlCommandResponse = {
   ok?: boolean;
   command?: ControlCommand;
+  batch_id?: string;
+  commands?: ControlCommand[];
 };
 
 type QueueControlCommand = (
   commandType: ControlCommandType,
   payload: Record<string, unknown>,
   options?: { confirm?: boolean },
+) => Promise<void>;
+
+type QueueSettingsPlan = (
+  plan: SettingsPlan,
+  configHash: string,
 ) => Promise<void>;
 
 type DeviceHealthSnapshot = {
@@ -525,6 +539,13 @@ const settingsNavItems: SettingsNavItem[] = [
     description: "Live state",
     group: "Live System",
     icon: Gauge,
+  },
+  {
+    id: "assistant",
+    label: "Assistant",
+    description: "Review a request",
+    group: "Controls",
+    icon: MessageSquare,
   },
   {
     id: "pairings",
@@ -1219,6 +1240,20 @@ function sourceLabelForReading(reading: SensorReading) {
 function csvEscape(value: unknown) {
   const text = value == null ? "" : String(value);
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadJsonFile(name: string, value: unknown) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], {
+    type: "application/json;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `exacth2o-${name}-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function niceStep(range: number, targetTicks: number) {
@@ -2077,6 +2112,7 @@ type PortalSettingsPanelProps = {
   onPrepareCsvDownload: () => void;
   onDownloadPairingsCsv: () => void;
   onQueueCommand: QueueControlCommand;
+  onQueueSettingsPlan: QueueSettingsPlan;
   onSignOut: () => void;
 };
 
@@ -2101,11 +2137,12 @@ function PortalSettingsPanel({
   onPrepareCsvDownload,
   onDownloadPairingsCsv,
   onQueueCommand,
+  onQueueSettingsPlan,
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
   const availableSettingsNavItems = isObservationOnlyExperiment(experiment)
-    ? settingsNavItems.filter((item) => ["overview", "calibrations", "exports"].includes(item.id))
+    ? settingsNavItems.filter((item) => ["overview", "assistant", "calibrations", "exports"].includes(item.id))
     : settingsNavItems;
   const availableSettingsNavGroups = Array.from(
     availableSettingsNavItems.reduce((groups, item) => {
@@ -2269,9 +2306,21 @@ function PortalSettingsPanel({
   }
 
   async function queueExportData() {
-    await onQueueCommand("export_data", {
-      data_type: exportDataType,
-    });
+    if (exportDataType === "readings") {
+      onPrepareCsvDownload();
+      return;
+    }
+    if (exportDataType === "pairings") {
+      onDownloadPairingsCsv();
+      return;
+    }
+    const synchronized: Record<string, unknown> = {
+      groups: configState?.groups ?? [],
+      sensors: configState?.sensors ?? [],
+      valves: configState?.valves ?? [],
+      calibrations: configState?.calibrations ?? [],
+    };
+    downloadJsonFile(exportDataType, synchronized[exportDataType] ?? []);
   }
 
   const commandStatusPanel = (
@@ -2370,6 +2419,19 @@ function PortalSettingsPanel({
             </section>
           </div>
           {commandStatusPanel}
+        </>
+      );
+    }
+
+    if (activeSection === "assistant") {
+      return (
+        <>
+          {commandStatusPanel}
+          <SettingsAssistant
+            projectId={mattProjectId}
+            controlBusy={controlBusy}
+            onApply={onQueueSettingsPlan}
+          />
         </>
       );
     }
@@ -2792,10 +2854,6 @@ function PortalSettingsPanel({
                     <option value="valves">Valves</option>
                     <option value="pairings">Pairings</option>
                     <option value="calibrations">Calibrations</option>
-                    <option value="rules">Rules</option>
-                    <option value="logs">Logs</option>
-                    <option value="errors">Errors</option>
-                    <option value="audit">Audit</option>
                     <option value="readings">Readings</option>
                   </select>
                 </label>
@@ -4902,6 +4960,11 @@ export default function App() {
   const authRecoveryInFlightRef = useRef<Promise<boolean> | null>(null);
   const watchdogRefreshCountRef = useRef(0);
   const controlRequestIdsRef = useRef(new Map<string, { id: string; createdAt: number }>());
+  const settingsBatchIdsRef = useRef(new Map<string, {
+    batchId: string;
+    commandIds: string[];
+    createdAt: number;
+  }>());
   const dashboardMainRef = useRef<HTMLElement | null>(null);
   const controlPanelRef = useRef<HTMLElement | null>(null);
   const panelDragOffsetRef = useRef<PanelPosition | null>(null);
@@ -5576,7 +5639,7 @@ export default function App() {
     [refreshLatestReadings, runPortalRefresh],
   );
 
-  const queueControlCommand = useCallback<QueueControlCommand>(
+  const sendSingleControlCommand = useCallback<QueueControlCommand>(
     async (commandType, payload, options) => {
       if (!canUseExperimentSettings) {
         setControlError("Experiment settings access is required for portal controls.");
@@ -5650,6 +5713,182 @@ export default function App() {
     },
     [canUseExperimentSettings, isAdmin],
   );
+
+  const queueSettingsPlan: QueueSettingsPlan = async (plan, reviewedConfigHash) => {
+      if (!canUseExperimentSettings) {
+        setControlError("Experiment settings access is required for portal controls.");
+        return;
+      }
+      if (!plan.commands.length || plan.questions.length) {
+        setControlError("Resolve the request before applying settings.");
+        return;
+      }
+      for (const command of plan.commands) {
+        if (!isAdmin && adminOnlyControlCommandTypes.has(command.command_type)) {
+          setControlError("Administrator access is required for this controller command.");
+          return;
+        }
+      }
+
+      const directCommands = plan.commands.filter(
+        (command) => !stoppedSettingsCommandTypes.has(command.command_type),
+      );
+      if (directCommands.length) {
+        if (plan.commands.length !== 1) {
+          setControlError("System-state and export requests must be reviewed separately.");
+          return;
+        }
+        const direct = directCommands[0];
+        if (direct.command_type === "export_data") {
+          const dataType = String(direct.payload.data_type ?? "");
+          if (dataType === "readings") {
+            await prepareCsvDownload();
+          } else if (dataType === "pairings") {
+            downloadPairingsCsv();
+          } else {
+            const synchronized: Record<string, unknown> = {
+              groups: configState?.groups ?? [],
+              sensors: configState?.sensors ?? [],
+              valves: configState?.valves ?? [],
+              calibrations: configState?.calibrations ?? [],
+            };
+            downloadJsonFile(dataType, synchronized[dataType] ?? []);
+          }
+          setControlNotice("Export ready");
+          return;
+        }
+        await sendSingleControlCommand(
+          direct.command_type,
+          direct.payload,
+          { confirm: direct.command_type === "update_system_state" },
+        );
+        return;
+      }
+
+      setControlBusy(true);
+      setControlNotice(null);
+      setControlError(null);
+
+      const reviewedControllerState = runtimeState?.controller_state?.trim().toLowerCase();
+      if (
+        !runtimeStateIsFresh(runtimeState) ||
+        (reviewedControllerState !== "running" && reviewedControllerState !== "stopped")
+      ) {
+        setControlBusy(false);
+        setControlError("Current controller state is unavailable or stale. Refresh and review again.");
+        return;
+      }
+
+      const requestKey = JSON.stringify([
+        reviewedConfigHash,
+        reviewedControllerState,
+        plan.commands.map((command) => [command.command_type, command.payload]),
+      ]);
+      const nowMs = Date.now();
+      for (const [key, entry] of settingsBatchIdsRef.current) {
+        if (nowMs - entry.createdAt > 10 * 60 * 1000) settingsBatchIdsRef.current.delete(key);
+      }
+      const existing = settingsBatchIdsRef.current.get(requestKey);
+      const batchId = existing?.batchId ?? crypto.randomUUID();
+      const commandIds = existing?.commandIds ?? Array.from(
+        { length: plan.commands.length + 2 },
+        () => crypto.randomUUID(),
+      );
+      settingsBatchIdsRef.current.set(requestKey, { batchId, commandIds, createdAt: nowMs });
+
+      const batchCommands = [
+        {
+          client_request_id: commandIds[0],
+          command_type: "update_system_state",
+          payload: { state: "stopped", reason: `Apply reviewed settings: ${plan.summary}` },
+          confirm: true,
+        },
+        ...plan.commands.map((command, index) => ({
+          client_request_id: commandIds[index + 1],
+          command_type: command.command_type,
+          payload: command.payload,
+          confirm: true,
+        })),
+        {
+          client_request_id: commandIds[commandIds.length - 1],
+          command_type: "update_system_state",
+          payload: {
+            state: reviewedControllerState,
+            reason: `Restore reviewed state after settings: ${plan.summary}`,
+          },
+          confirm: true,
+        },
+      ];
+
+      try {
+        const response = await withSupabaseTimeout(
+          (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
+            body: {
+              project_id: mattProjectId,
+              device_id: dataRef.current.latestState?.device_id ?? mattDeviceId,
+              client_request_id: commandIds[0],
+              batch_id: batchId,
+              expected_config_hash: reviewedConfigHash,
+              expected_controller_state: reviewedControllerState,
+              batch_commands: batchCommands,
+            },
+            signal,
+          }),
+          supabaseQueryTimeoutMs,
+          "Settings batch",
+        );
+        if (response.error) throw new Error(await functionErrorMessage(response.error));
+        if (!response.data?.commands?.length) throw new Error("The complete settings batch was not accepted.");
+        settingsBatchIdsRef.current.delete(requestKey);
+        setControlNotice("Reviewed settings queued safely");
+      } catch (nextError) {
+        try {
+          const reconciliation = await withSupabaseTimeout(
+            supabase
+              .from("project_control_commands")
+              .select("id")
+              .eq("project_id", mattProjectId)
+              .eq("batch_id", batchId),
+            supabaseQueryTimeoutMs,
+            "Settings batch reconciliation",
+          );
+          if (
+            !reconciliation.error &&
+            (reconciliation.data?.length ?? 0) === batchCommands.length
+          ) {
+            settingsBatchIdsRef.current.delete(requestKey);
+            setControlNotice("Reviewed settings received; status refreshed");
+          } else {
+            setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
+          }
+        } catch {
+          setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
+        }
+      } finally {
+        setControlBusy(false);
+      }
+  };
+
+  const queueControlCommand: QueueControlCommand = async (commandType, payload, options) => {
+      if (stoppedSettingsCommandTypes.has(commandType as SettingsCommandDraft["command_type"])) {
+        const configHash = configState?.config_hash?.trim();
+        if (!configHash) {
+          setControlError("Current controller configuration is unavailable. Refresh and try again.");
+          return;
+        }
+        await queueSettingsPlan({
+          summary: controlCommandLabel(commandType),
+          commands: [{
+            command_type: commandType as SettingsCommandDraft["command_type"],
+            payload,
+            effect: controlCommandLabel(commandType),
+          }],
+          questions: [],
+        }, configHash);
+        return;
+      }
+      await sendSingleControlCommand(commandType, payload, options);
+  };
 
   async function signIn(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -6791,6 +7030,7 @@ export default function App() {
           onPrepareCsvDownload={prepareCsvDownload}
           onDownloadPairingsCsv={downloadPairingsCsv}
           onQueueCommand={queueControlCommand}
+          onQueueSettingsPlan={queueSettingsPlan}
           onSignOut={signOut}
         />
       </main>
@@ -6908,6 +7148,7 @@ export default function App() {
           onPrepareCsvDownload={prepareCsvDownload}
           onDownloadPairingsCsv={downloadPairingsCsv}
           onQueueCommand={queueControlCommand}
+          onQueueSettingsPlan={queueSettingsPlan}
           onSignOut={signOut}
         />
       ) : null}

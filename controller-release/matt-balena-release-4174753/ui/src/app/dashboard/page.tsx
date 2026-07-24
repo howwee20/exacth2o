@@ -159,7 +159,7 @@ function getCurrentLocalDateTimeString(): string {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
-export default function SensorDashboard() {
+function SensorDashboardContent() {
   const { isLoading: connectedDevicesLoading } = useConnectedDevices();
   const { pairings } = usePairings() ?? {};
   const { groups } = useGroups();
@@ -506,7 +506,6 @@ export default function SensorDashboard() {
   }
 
   return (
-    <ProtectedLayout>
       <div className="container mx-auto p-6 space-y-6">
         {/* Dashboard Header */}
         <div className="flex flex-row justify-between items-center mb-4">
@@ -1139,6 +1138,13 @@ export default function SensorDashboard() {
         </div>
         <LogSection />
       </div>
+  );
+}
+
+export default function SensorDashboard() {
+  return (
+    <ProtectedLayout>
+      <SensorDashboardContent />
     </ProtectedLayout>
   );
 }

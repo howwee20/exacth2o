@@ -8,6 +8,12 @@ import {
   userDraftInput,
   validateDraft,
 } from "./experiment-policy.mjs";
+import {
+  normalizeSettingsPlan,
+  settingsPlanSchema,
+  settingsSystemInstructions,
+  settingsUserInput,
+} from "./settings-policy.mjs";
 
 const allowedOrigins = new Set([
   "https://exacth2o.com",
@@ -110,7 +116,9 @@ Deno.serve(async (request) => {
       body.action === "draft" ||
       body.action === "revise" ||
       body.action === "preflight" ||
-      body.action === "launch"
+      body.action === "launch" ||
+      body.action === "settings_draft" ||
+      body.action === "settings_revise"
     )
     ? body.action
     : null;
@@ -137,7 +145,9 @@ Deno.serve(async (request) => {
 
   const { data: configState, error: configError } = await admin
     .from("device_config_state")
-    .select("project_id,device_id,pairings,groups,updated_at,config_hash")
+    .select(
+      "project_id,device_id,pairings,groups,calibrations,board_config,sensors,valves,updated_at,config_hash",
+    )
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -291,7 +301,13 @@ Deno.serve(async (request) => {
   }
 
   const prompt = clean(body.prompt, promptLimit);
-  if (!prompt) return response({ error: "Describe the experiment." }, 400, origin);
+  if (!prompt) {
+    return response({
+      error: action.startsWith("settings_")
+        ? "Describe the setting change."
+        : "Describe the experiment.",
+    }, 400, origin);
+  }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { count, error: countError } = await admin
@@ -323,6 +339,7 @@ Deno.serve(async (request) => {
   }
 
   try {
+    const settingsAction = action === "settings_draft" || action === "settings_revise";
     const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -334,22 +351,35 @@ Deno.serve(async (request) => {
         store: false,
         reasoning: { effort: reasoningEffort },
         input: [
-          { role: "system", content: systemInstructions() },
+          {
+            role: "system",
+            content: settingsAction
+              ? settingsSystemInstructions(access.role)
+              : systemInstructions(),
+          },
           {
             role: "user",
-            content: userDraftInput(
-              prompt,
-              inventory,
-              action === "revise" ? body.current_draft : null,
-            ),
+            content: settingsAction
+              ? settingsUserInput(
+                prompt,
+                configState,
+                action === "settings_revise" ? body.current_plan : null,
+              )
+              : userDraftInput(
+                prompt,
+                inventory,
+                action === "revise" ? body.current_draft : null,
+              ),
           },
         ],
         text: {
           format: {
             type: "json_schema",
-            name: "exacth2o_experiment_draft",
+            name: settingsAction
+              ? "exacth2o_settings_plan"
+              : "exacth2o_experiment_draft",
             strict: true,
-            schema: experimentDraftSchema,
+            schema: settingsAction ? settingsPlanSchema : experimentDraftSchema,
           },
         },
         max_output_tokens: 2_000,
@@ -364,8 +394,24 @@ Deno.serve(async (request) => {
     }
 
     const parsed = JSON.parse(responseOutputText(openAiBody));
-    const { draft, messages } = validateDraft(parsed, inventory);
     const usage = openAiUsage(openAiBody.usage);
+    if (settingsAction) {
+      const { plan, errors } = normalizeSettingsPlan(parsed, configState, access.role);
+      await admin
+        .from("experiment_builder_requests")
+        .update({ status: errors.length ? "rejected" : "completed", ...usage })
+        .eq("id", requestRow.id);
+      return response({
+        plan,
+        inventory_updated_at: configState.updated_at,
+        config_hash: configState.config_hash,
+        model,
+        prompt_fingerprint: promptFingerprint,
+        validation_messages: errors,
+      }, 200, origin);
+    }
+
+    const { draft, messages } = validateDraft(parsed, inventory);
     await admin
       .from("experiment_builder_requests")
       .update({ status: messages.length ? "rejected" : "completed", ...usage })

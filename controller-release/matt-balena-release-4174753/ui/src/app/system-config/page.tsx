@@ -29,7 +29,7 @@ const hexToNumber = (hex: string): number | null => {
   return num
 }
 
-export default function SystemConfigPage() {
+function SystemConfigContent() {
   const [boardConfigs, setBoardConfigs] = useState<BoardConfig[]>([{ address: 0 }])
   // State to track hex string values for address inputs
   const [addressHexValues, setAddressHexValues] = useState<string[]>(['0x00'])
@@ -314,7 +314,6 @@ export default function SystemConfigPage() {
 
   return (
     <>
-    <ProtectedLayout>
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -666,7 +665,14 @@ export default function SystemConfigPage() {
           </>
         )}
       </div>
-    </ProtectedLayout>
     </>
+  )
+}
+
+export default function SystemConfigPage() {
+  return (
+    <ProtectedLayout>
+      <SystemConfigContent />
+    </ProtectedLayout>
   )
 }

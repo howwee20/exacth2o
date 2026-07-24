@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../AuthProvider';
 
@@ -15,7 +15,13 @@ export default function LoginPage() {
   }>({});
 
   const router = useRouter();
-  const { login } = useAuth();
+  const { user, isLoading: isSessionLoading, login } = useAuth();
+
+  useEffect(() => {
+    if (!isSessionLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [isSessionLoading, router, user]);
 
   const validateForm = () => {
     const errors: { email?: string; password?: string } = {};

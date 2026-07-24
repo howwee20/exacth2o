@@ -30,6 +30,14 @@ type ControlCommandPayload = {
   experiment_id?: string | null;
   command_type?: CommandType;
   payload?: unknown;
+  batch_commands?: Array<{
+    client_request_id?: string;
+    command_type?: CommandType;
+    payload?: unknown;
+    confirm?: boolean;
+  }>;
+  expected_config_hash?: string;
+  expected_controller_state?: string;
   confirm?: boolean;
   honey?: string;
 };
@@ -73,6 +81,17 @@ const destructiveCommands = new Set<CommandType>([
   "update_board_config",
   "initialize_sensors",
   "update_system_state",
+]);
+const stoppedConfigurationCommands = new Set<CommandType>([
+  "update_pairing",
+  "bulk_update_pairings",
+  "create_pairing",
+  "create_group",
+  "remove_group",
+  "create_calibration",
+  "delete_calibration",
+  "apply_calibration",
+  "update_board_config",
 ]);
 
 function corsHeaders(origin: string | null) {
@@ -336,6 +355,8 @@ serve(async (request) => {
   const batchId = clean(body.batch_id, 80);
   const experimentId = clean(body.experiment_id, 80);
   const commandType = body.command_type;
+  const rawBatchCommands = Array.isArray(body.batch_commands) ? body.batch_commands : [];
+  const isBatchRequest = rawBatchCommands.length > 0;
 
   if (!isUuid(projectId)) {
     return jsonResponse({ error: "Project ID is required" }, 400, origin);
@@ -357,29 +378,41 @@ serve(async (request) => {
   if (experimentId && !isUuid(experimentId)) {
     return jsonResponse({ error: "Experiment reference is invalid" }, 400, origin);
   }
-  if ((batchId || experimentId || dependsOnCommandId) && (!batchId || !experimentId)) {
+  if (
+    !isBatchRequest &&
+    (batchId || experimentId || dependsOnCommandId) &&
+    (!batchId || !experimentId)
+  ) {
     return jsonResponse({ error: "Experiment command metadata is incomplete" }, 400, origin);
   }
+  if (isBatchRequest && (!batchId || experimentId || dependsOnCommandId)) {
+    return jsonResponse({ error: "Settings batch metadata is invalid" }, 400, origin);
+  }
+  if (isBatchRequest && (rawBatchCommands.length < 3 || rawBatchCommands.length > 22)) {
+    return jsonResponse({ error: "Settings batches must contain 3-22 commands" }, 400, origin);
+  }
 
-  if (!commandType || !commandTypes.has(commandType)) {
+  if (!isBatchRequest && (!commandType || !commandTypes.has(commandType))) {
     return jsonResponse({ error: "Unsupported command type" }, 400, origin);
   }
 
-  if (commandType === "manual_water" && !manualWaterIntakeEnabled(Deno.env.get("MANUAL_WATER_INTAKE_ENABLED"))) {
+  if (!isBatchRequest && commandType === "manual_water" && !manualWaterIntakeEnabled(Deno.env.get("MANUAL_WATER_INTAKE_ENABLED"))) {
     return jsonResponse({
       error: "Manual watering remains locked until the physical valve fail-safe check is recorded.",
     }, 503, origin);
   }
 
-  let validated: ValidatedCommand;
-  try {
-    validated = validateCommand(commandType, body.payload);
-  } catch (error) {
-    return jsonResponse({ error: errorMessage(error) }, 400, origin);
-  }
+  let validated: ValidatedCommand | null = null;
+  if (!isBatchRequest && commandType) {
+    try {
+      validated = validateCommand(commandType, body.payload);
+    } catch (error) {
+      return jsonResponse({ error: errorMessage(error) }, 400, origin);
+    }
 
-  if (validated.requiresConfirmation && body.confirm !== true) {
-    return jsonResponse({ error: "This action requires explicit confirmation" }, 400, origin);
+    if (validated.requiresConfirmation && body.confirm !== true) {
+      return jsonResponse({ error: "This action requires explicit confirmation" }, 400, origin);
+    }
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -417,6 +450,102 @@ serve(async (request) => {
 
   if (!access || !["admin", "researcher"].includes(String(access.role))) {
     return jsonResponse({ error: "Experiment settings access is required for portal controls" }, 403, origin);
+  }
+
+  if (isBatchRequest) {
+    const expectedConfigHash = clean(body.expected_config_hash, 128);
+    const expectedControllerState = clean(body.expected_controller_state, 24).toLowerCase();
+    if (!expectedConfigHash) {
+      return jsonResponse({ error: "Review the current controller configuration first" }, 400, origin);
+    }
+    if (expectedControllerState !== "running" && expectedControllerState !== "stopped") {
+      return jsonResponse({ error: "Review the current controller state first" }, 400, origin);
+    }
+
+    const validatedBatch: Array<{
+      client_request_id: string;
+      command_type: CommandType;
+      payload: Record<string, unknown>;
+      requires_confirmation: boolean;
+    }> = [];
+    const seenRequestIds = new Set<string>();
+
+    try {
+      for (const [index, rawCommand] of rawBatchCommands.entries()) {
+        const requestId = clean(rawCommand.client_request_id, 80);
+        const type = rawCommand.command_type;
+        if (!isUuid(requestId) || seenRequestIds.has(requestId)) {
+          throw new Error("Each settings command needs a unique request ID");
+        }
+        if (!type || !commandTypes.has(type)) throw new Error("Unsupported settings command type");
+        const item = validateCommand(type, rawCommand.payload);
+        const decision = commandAccessDecision(access.role, item.commandType);
+        if (!decision.allowed) throw new Error(decision.error || "Settings command is not allowed");
+        if (item.requiresConfirmation && rawCommand.confirm !== true) {
+          throw new Error("Every destructive settings command requires explicit confirmation");
+        }
+
+        const first = index === 0;
+        const last = index === rawBatchCommands.length - 1;
+        if (first || last) {
+          const expectedState = first ? "stopped" : expectedControllerState;
+          if (
+            item.commandType !== "update_system_state" ||
+            item.payload.state !== expectedState ||
+            rawCommand.confirm !== true
+          ) {
+            throw new Error("A settings batch must stop first and restore the reviewed state last");
+          }
+        } else if (!stoppedConfigurationCommands.has(item.commandType)) {
+          throw new Error("Only stopped-state configuration commands may appear inside a settings batch");
+        }
+
+        seenRequestIds.add(requestId);
+        validatedBatch.push({
+          client_request_id: requestId,
+          command_type: item.commandType,
+          payload: item.payload,
+          requires_confirmation: item.requiresConfirmation,
+        });
+      }
+    } catch (error) {
+      return jsonResponse({ error: errorMessage(error) }, 400, origin);
+    }
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const { data: commandRows, error: insertError } = await admin.rpc(
+      "enqueue_portal_control_command_batch",
+      {
+        command_project_id: projectId,
+        command_device_id: deviceId,
+        command_requested_by: userData.user.id,
+        command_batch_id: batchId,
+        command_expires_at: expiresAt,
+        expected_config_hash: expectedConfigHash,
+        expected_controller_state: expectedControllerState,
+        batch_commands: validatedBatch,
+      },
+    );
+    if (insertError || !Array.isArray(commandRows) || commandRows.length !== validatedBatch.length) {
+      if (insertError?.message?.includes("configuration changed")) {
+        return jsonResponse({ error: "Controller settings changed. Review the request again." }, 409, origin);
+      }
+      if (insertError?.message?.includes("Controller state changed")) {
+        return jsonResponse({ error: "Controller state changed or is stale. Refresh and review again." }, 409, origin);
+      }
+      if (insertError?.message?.includes("no enabled executor token")) {
+        return jsonResponse({ error: "Device controls are unavailable until an enabled executor token is provisioned" }, 409, origin);
+      }
+      if (insertError?.message?.includes("disabled or quarantined")) {
+        return jsonResponse({ error: "Device controls are quarantined pending state reconciliation" }, 409, origin);
+      }
+      return jsonResponse({ error: "Could not queue the complete settings batch" }, 500, origin);
+    }
+    return jsonResponse({ ok: true, batch_id: batchId, commands: commandRows }, 200, origin);
+  }
+
+  if (!validated) {
+    return jsonResponse({ error: "Unsupported command type" }, 400, origin);
   }
 
   const accessDecision = commandAccessDecision(access.role, validated.commandType);

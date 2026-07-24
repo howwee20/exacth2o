@@ -10,6 +10,10 @@ import type {
   PortalExperiment,
   PortalExperimentAssignment,
 } from "./experimentRegistry";
+import type {
+  SettingsDraftResponse,
+  SettingsPlan,
+} from "./settingsSpec";
 
 type CatalogRow = {
   id: string;
@@ -128,5 +132,18 @@ export function launchExperiment({
     prompt_fingerprint: promptFingerprint,
     reviewed_config_hash: reviewedConfigHash,
     confirm: true,
+  });
+}
+
+export function draftSettings(
+  projectId: string,
+  prompt: string,
+  currentPlan?: SettingsPlan,
+) {
+  return invokeExperimentBuilder<SettingsDraftResponse>({
+    action: currentPlan ? "settings_revise" : "settings_draft",
+    project_id: projectId,
+    prompt,
+    current_plan: currentPlan,
   });
 }
