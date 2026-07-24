@@ -20,7 +20,6 @@ import {
   Download,
   FileArchive,
   Gauge,
-  ListChecks,
   Loader2,
   Lock,
   LogOut,
@@ -33,7 +32,6 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -66,6 +64,14 @@ import {
 } from "./portalAccess";
 import { withSupabaseTimeout } from "./supabaseTimeout";
 import {
+  OperationActivity,
+  type OperationActivityItem,
+} from "./OperationActivity";
+import {
+  selectPortalAccessRow,
+  selectProjectDevice,
+} from "./portalProjectContext";
+import {
   interpolateOverlayValue,
   overlayTimeBounds,
   partitionOverlayMarkers,
@@ -85,22 +91,12 @@ import {
 import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
 import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
-import { ExperimentArchiveReview } from "./ExperimentArchiveReview";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
 import {
-  AssistantAutomationPanel,
-  AssistantMessageBody,
-  LifecycleReview,
-  MonitorReview,
-  ScheduleReview,
-} from "./AssistantOperations";
-import {
-  chatWithAssistant,
-  loadAssistantConversation,
   loadPortalExperimentCatalog,
-  type AssistantConversationMessage,
 } from "./experimentClient";
+import { PortalAssistantWorkspace } from "./PortalAssistantWorkspace";
 import {
   activeControlCommandCount,
   controlActivityStatusLabel,
@@ -125,6 +121,13 @@ import {
   type ExperimentId,
   type PortalExperiment,
 } from "./experimentRegistry";
+import {
+  experimentGraphGroups,
+  plantGroupForExperimentPairing,
+  treatmentForExperimentPairing,
+  type PlantGroup,
+  type Treatment,
+} from "./experimentPresentation";
 import { colorForPotNumber } from "./potColors";
 import {
   stoppedSettingsCommandTypes,
@@ -160,38 +163,8 @@ const wateringOverlayMaxSampleSpanMs = 30 * 60 * 1000;
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
-const controlPots = new Set([41, 43, 45, 47, 49, 91, 93, 95, 97, 99]);
-const droughtPots = new Set([42, 44, 46, 48, 50, 92, 94, 96, 98, 100]);
-const mattExperiment2GraphGroups = [
-  {
-    id: "maize-control",
-    label: "Maize Control",
-    target: 30,
-    potNumbers: [15, 17, 19, 21, 23, 25],
-  },
-  {
-    id: "maize-drought",
-    label: "Maize Drought",
-    target: 10,
-    potNumbers: [16, 18, 20, 22, 24, 26],
-  },
-  {
-    id: "sorghum-control",
-    label: "Sorghum Control",
-    target: 30,
-    potNumbers: [65, 67, 69, 71, 73, 75],
-  },
-  {
-    id: "sorghum-drought",
-    label: "Sorghum Drought",
-    target: 10,
-    potNumbers: [66, 68, 70, 72, 74, 76],
-  },
-] as const;
-
 type ViewMode = "group" | "traces" | "individual" | "qc";
 type ExperimentGraphMode = "vwc" | "watering" | "overlay";
-type MattExperiment2GraphGroupId = typeof mattExperiment2GraphGroups[number]["id"];
 
 type LoadState = {
   pairings: PairingRow[];
@@ -241,10 +214,6 @@ type WateringOverlayTooltip = WateringOverlayMarker & {
   locked?: boolean;
 };
 
-type Treatment = "control" | "drought" | "unknown";
-
-type PlantGroup = "maize" | "sorghum" | "unknown";
-
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
 type PortalView = "home" | "experiment" | "health" | "support" | "rd";
@@ -253,6 +222,8 @@ type RdAccessStatus = "unknown" | "allowed" | "denied";
 type PortalAccess = {
   role: PortalRole;
   email: string | null;
+  projectId: string;
+  deviceId: string | null;
 } | null;
 
 type InviteAcceptResponse = {
@@ -369,8 +340,30 @@ type ControlCommand = {
   error: string | null;
 };
 
+type PlatformOperation = {
+  id: string;
+  capability_id: string;
+  intent: string;
+  approval_state: string;
+  execution_state:
+    | "planned"
+    | "queued"
+    | "claimed"
+    | "running"
+    | "completed"
+    | "completed_unverified"
+    | "verified"
+    | "failed"
+    | "canceled";
+  verification_state: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+
 type ControlCommandResponse = {
   ok?: boolean;
+  operation_id?: string;
   command?: ControlCommand;
   batch_id?: string;
   commands?: ControlCommand[];
@@ -379,7 +372,7 @@ type ControlCommandResponse = {
 type QueueControlCommand = (
   commandType: ControlCommandType,
   payload: Record<string, unknown>,
-  options?: { confirm?: boolean },
+  options?: { confirm?: boolean; operationIntent?: string },
 ) => Promise<void>;
 
 type QueueSettingsPlan = (
@@ -581,9 +574,6 @@ const fullTimeWindow: TimeWindow = {
   end: 100,
 };
 const minTimeWindowSpan = 3;
-const mattProjectId = "22222222-2222-4222-8222-222222222222";
-const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
-
 const settingsNavItems: SettingsNavItem[] = [
   {
     id: "overview",
@@ -694,49 +684,18 @@ function colorForPairing(pairing: PairingRow) {
   return colorForPotNumber(pairing.pot_number);
 }
 
-function treatmentForPot(
-  potNumber?: number | null,
-  experiment?: PortalExperiment | null,
-): Treatment {
-  if (typeof potNumber !== "number") return "unknown";
-  if (experiment?.id === "matt-experiment-2") {
-    if ((potNumber >= 15 && potNumber <= 26) || (potNumber >= 65 && potNumber <= 76)) {
-      return potNumber % 2 === 0 ? "drought" : "control";
-    }
-    return "unknown";
-  }
-  if (controlPots.has(potNumber)) return "control";
-  if (droughtPots.has(potNumber)) return "drought";
-  return "unknown";
-}
-
 function treatmentForPairing(
   pairing: PairingRow,
   experiment?: PortalExperiment | null,
 ): Treatment {
-  return treatmentForPot(pairing.pot_number, experiment);
-}
-
-function plantGroupForPot(
-  potNumber?: number | null,
-  experiment?: PortalExperiment | null,
-): PlantGroup {
-  if (typeof potNumber !== "number") return "unknown";
-  if (experiment?.id === "matt-experiment-2") {
-    if (potNumber >= 15 && potNumber <= 26) return "maize";
-    if (potNumber >= 65 && potNumber <= 76) return "sorghum";
-    return "unknown";
-  }
-  if (potNumber >= 41 && potNumber <= 50) return "maize";
-  if (potNumber >= 91 && potNumber <= 100) return "sorghum";
-  return "unknown";
+  return treatmentForExperimentPairing(pairing, experiment);
 }
 
 function plantGroupForPairing(
   pairing: PairingRow,
   experiment?: PortalExperiment | null,
 ): PlantGroup {
-  return plantGroupForPot(pairing.pot_number, experiment);
+  return plantGroupForExperimentPairing(pairing, experiment);
 }
 
 function treatmentLabel(treatment: Treatment) {
@@ -1199,6 +1158,8 @@ function dedupeReadingsForExport(readings: SensorReading[]) {
 }
 
 async function fetchReadingsPageByPrefix(
+  projectId: string,
+  deviceId: string,
   prefix: string,
   limit: number,
   options: {
@@ -1210,8 +1171,8 @@ async function fetchReadingsPageByPrefix(
   let query = supabase
     .from("sensor_readings")
     .select(readingSelectColumns)
-    .eq("project_id", mattProjectId)
-    .eq("device_id", mattDeviceId)
+    .eq("project_id", projectId)
+    .eq("device_id", deviceId)
     .like("event_id", prefix)
     .order(orderColumn, { ascending: false })
     .order("id", { ascending: false })
@@ -1233,6 +1194,8 @@ async function fetchReadingsPageByPrefix(
 }
 
 async function fetchReadingsByPrefix(
+  projectId: string,
+  deviceId: string,
   prefix: string,
   maxRows: number,
   newerThan?: string | null,
@@ -1245,6 +1208,8 @@ async function fetchReadingsByPrefix(
   while (readings.length < maxRows) {
     const batchLimit = Math.min(pageSize, maxRows - readings.length);
     const rawBatch = await fetchReadingsPageByPrefix(
+      projectId,
+      deviceId,
       prefix,
       batchLimit,
       { newerThan, before },
@@ -1272,21 +1237,37 @@ async function fetchReadingsByPrefix(
 }
 
 async function fetchReadingsForMode(
+  projectId: string,
+  deviceId: string,
   mode: EffectiveMode,
   newerThan?: string | null,
   onBatch?: (batch: SensorReading[]) => void,
 ) {
   if (mode === "live") {
-    return fetchReadingsByPrefix(livePrefix, graphReadLimit, newerThan, onBatch);
+    return fetchReadingsByPrefix(
+      projectId,
+      deviceId,
+      livePrefix,
+      graphReadLimit,
+      newerThan,
+      onBatch,
+    );
   }
 
   if (mode === "snapshot") {
-    return fetchReadingsByPrefix(importedPrefix, graphReadLimit, newerThan, onBatch);
+    return fetchReadingsByPrefix(
+      projectId,
+      deviceId,
+      importedPrefix,
+      graphReadLimit,
+      newerThan,
+      onBatch,
+    );
   }
 
   const [liveReadings, importedReadings] = await Promise.all([
-    fetchReadingsByPrefix(livePrefix, graphReadLimit, newerThan, onBatch),
-    fetchReadingsByPrefix(importedPrefix, graphReadLimit, newerThan, onBatch),
+    fetchReadingsByPrefix(projectId, deviceId, livePrefix, graphReadLimit, newerThan, onBatch),
+    fetchReadingsByPrefix(projectId, deviceId, importedPrefix, graphReadLimit, newerThan, onBatch),
   ]);
 
   return dedupeReadings([...liveReadings, ...importedReadings]);
@@ -2166,6 +2147,7 @@ function controlCommandLabel(commandType: ControlCommandType) {
 
 type PortalSettingsPanelProps = {
   open: boolean;
+  projectId: string;
   portalRole: PortalRole;
   experiment: PortalExperiment;
   activeSection: SettingsSection;
@@ -2192,6 +2174,7 @@ type PortalSettingsPanelProps = {
 
 function PortalSettingsPanel({
   open,
+  projectId,
   portalRole,
   experiment,
   activeSection,
@@ -2265,7 +2248,7 @@ function PortalSettingsPanel({
   const [newPairingName, setNewPairingName] = useState("");
   const [newPairingSensor, setNewPairingSensor] = useState("");
   const [newPairingValve, setNewPairingValve] = useState("");
-  const [newPairingGroup, setNewPairingGroup] = useState("Matt's 20 pots");
+  const [newPairingGroup, setNewPairingGroup] = useState("Experiment pairings");
   const [newPairingTarget, setNewPairingTarget] = useState("20");
   const [manualGroup, setManualGroup] = useState("all");
   const [manualSeconds, setManualSeconds] = useState("5");
@@ -2537,7 +2520,7 @@ function PortalSettingsPanel({
         <>
           {commandStatusPanel}
           <SettingsAssistant
-            projectId={mattProjectId}
+            projectId={projectId}
             initialPrompt={assistantInitialPrompt}
             controlBusy={controlBusy}
             onApply={onQueueSettingsPlan}
@@ -2744,7 +2727,7 @@ function PortalSettingsPanel({
         <>
           {commandStatusPanel}
           <CalibrationStudio
-            projectId={mattProjectId}
+            projectId={projectId}
             experiment={experiment}
             pairings={pairings}
             readings={data.readings}
@@ -2841,7 +2824,7 @@ function PortalSettingsPanel({
               <form className="settings-form" onSubmit={submitCreateGroup}>
                 <label>
                   Group name
-                  <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Matt drought rows" required />
+                  <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Drought rows" required />
                 </label>
                 <label>
                   Type
@@ -3158,64 +3141,60 @@ function ExperimentLaunchCards({
 }
 
 function PortalCommandActivity({
+  operations,
   commands,
   loading,
 }: {
+  operations: readonly PlatformOperation[];
   commands: readonly ControlCommand[];
   loading: boolean;
 }) {
-  const activeCount = activeControlCommandCount(commands);
+  const visibleOperations = operations.slice(0, 4);
+  const activeOperationStates = new Set([
+    "planned",
+    "queued",
+    "claimed",
+    "running",
+    "completed_unverified",
+  ]);
+  const activeCount = visibleOperations.length
+    ? operations.filter((operation) => activeOperationStates.has(operation.execution_state)).length
+    : activeControlCommandCount(commands);
   const visibleCommands = visibleControlCommands(commands);
+  const operationStatus = (operation: PlatformOperation) => {
+    if (operation.execution_state === "completed_unverified") return "Awaiting verification";
+    if (operation.execution_state === "claimed") return "Claimed";
+    return operation.execution_state.replace(/_/g, " ");
+  };
 
-  return (
-    <section className="portal-command-activity" aria-label="System activity">
-      <header>
-        <div>
-          <ListChecks size={17} />
-          <h2>Activity</h2>
-        </div>
-        <span className={activeCount ? "is-active" : ""}>
-          {activeCount ? `${activeCount} active` : "No active work"}
-        </span>
-      </header>
-      {loading && visibleCommands.length === 0 ? (
-        <div className="portal-command-empty">
-          <Loader2 className="chart-loading-spinner" size={16} />
-          Checking activity
-        </div>
-      ) : visibleCommands.length ? (
-        <div className="portal-command-list">
-          {visibleCommands.map((command) => (
-            <div className="portal-command-row" key={command.id}>
-              <span
-                className={`portal-command-dot ${
-                  isActiveControlStatus(command.status) ? "is-active" : `is-${command.status}`
-                }`}
-                aria-hidden="true"
-              />
-              <strong>{controlCommandLabel(command.command_type)}</strong>
-              <time dateTime={command.requested_at}>
-                {formatSettingsTimestamp(command.requested_at)}
-              </time>
-              <em className={`is-${command.status}`}>
-                {controlActivityStatusLabel(command.status)}
-              </em>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="portal-command-empty">
-          Confirmed work will appear here.
-        </div>
-      )}
-    </section>
-  );
+  const items: OperationActivityItem[] = visibleOperations.length
+    ? visibleOperations.map((operation) => ({
+        id: operation.id,
+        label: operation.intent,
+        status: operation.execution_state,
+        statusLabel: operationStatus(operation),
+        createdAt: operation.created_at,
+        createdAtLabel: formatSettingsTimestamp(operation.created_at),
+        active: activeOperationStates.has(operation.execution_state),
+      }))
+    : visibleCommands.map((command) => ({
+        id: command.id,
+        label: controlCommandLabel(command.command_type),
+        status: command.status,
+        statusLabel: controlActivityStatusLabel(command.status),
+        createdAt: command.requested_at,
+        createdAtLabel: formatSettingsTimestamp(command.requested_at),
+        active: isActiveControlStatus(command.status),
+      }));
+
+  return <OperationActivity items={items} activeCount={activeCount} loading={loading} />;
 }
 
 function PortalAssistantHero({
   projectId,
   pairings,
   inventoryUpdatedAt,
+  operations,
   commands,
   commandLoading,
   controlBusy,
@@ -3226,6 +3205,7 @@ function PortalAssistantHero({
   projectId: string;
   pairings: PairingRow[];
   inventoryUpdatedAt: string | null;
+  operations: readonly PlatformOperation[];
   commands: readonly ControlCommand[];
   commandLoading: boolean;
   controlBusy: boolean;
@@ -3233,232 +3213,32 @@ function PortalAssistantHero({
   onExperimentCreated: (slug: string) => Promise<void>;
   onExperimentArchived: () => Promise<void>;
 }) {
-  const [request, setRequest] = useState("");
-  const [messages, setMessages] = useState<AssistantConversationMessage[]>([]);
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const [automationRefreshKey, setAutomationRefreshKey] = useState(0);
-  const [working, setWorking] = useState(false);
-  const [assistantError, setAssistantError] = useState<string | null>(null);
-  const [workflow, setWorkflow] = useState<{
-    type: "experiment" | "settings" | "archive" | "schedule" | "monitor" | "lifecycle";
-    prompt: string;
-    autoStart: boolean;
-    key: number;
-  } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void loadAssistantConversation(projectId)
-      .then((conversation) => {
-        if (!active) return;
-        setThreadId(conversation.threadId);
-        setMessages(conversation.messages.map(({ role, content }) => ({ role, content })));
-      })
-      .catch(() => {
-        // A missing or not-yet-migrated conversation store must not block the portal.
-      });
-    return () => {
-      active = false;
-    };
-  }, [projectId]);
-
-  const sendRequest = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const prompt = request.trim();
-    if (!prompt) return;
-    const conversation = messages.slice(-12);
-    const userMessage: AssistantConversationMessage = {
-      role: "user",
-      content: prompt,
-    };
-    setMessages((current) => [...current, userMessage]);
-    setRequest("");
-    setWorking(true);
-    setAssistantError(null);
-    try {
-      const result = await chatWithAssistant(projectId, prompt, conversation, threadId);
-      setThreadId(result.thread_id);
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", content: result.reply },
-      ]);
-      if (
-        (
-          result.workflow === "experiment" ||
-          result.workflow === "settings" ||
-          result.workflow === "archive" ||
-          result.workflow === "schedule" ||
-          result.workflow === "monitor" ||
-          result.workflow === "lifecycle"
-        ) &&
-        result.workflow_prompt
-      ) {
-        setWorkflow({
-          type: result.workflow,
-          prompt: result.workflow_prompt,
-          autoStart: true,
-          key: Date.now(),
-        });
-      }
-    } catch (nextError) {
-      setAssistantError(
-        nextError instanceof Error ? nextError.message : "Could not answer the request.",
-      );
-    } finally {
-      setWorking(false);
-    }
-  };
-
   return (
-    <div className="portal-workspace-intro">
-      <section className="portal-assistant-hero">
-        <div className="portal-assistant-copy">
-          {messages.length ? (
-            <div className="portal-assistant-thread" aria-live="polite">
-              {messages.map((message, index) => (
-                <article
-                  className={`is-${message.role}`}
-                  key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
-                >
-                  <strong>{message.role === "user" ? "You" : "ExactH2O"}</strong>
-                  <AssistantMessageBody content={message.content} />
-                </article>
-              ))}
-              {working ? (
-                <article className="is-assistant is-working">
-                  <Loader2 className="chart-loading-spinner" size={16} />
-                  <p>Checking the system</p>
-                </article>
-              ) : null}
-            </div>
-          ) : null}
-          <form className="portal-assistant-request" onSubmit={(event) => void sendRequest(event)}>
-            <textarea
-              value={request}
-              onChange={(event) => setRequest(event.target.value)}
-              maxLength={4_000}
-              placeholder="Ask about an experiment or describe a change."
-              aria-label="Ask ExactH2O or describe a change"
-            />
-            <button type="submit" disabled={working || !request.trim()}>
-              {working ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
-              Send
-            </button>
-          </form>
-          {assistantError ? (
-            <span className="portal-assistant-error" role="alert">{assistantError}</span>
-          ) : null}
-          <div className="portal-assistant-actions">
-            <button
-              type="button"
-              onClick={() => setWorkflow({
-                type: "experiment",
-                prompt: "",
-                autoStart: false,
-                key: Date.now(),
-              })}
-            >
-              <Sparkles size={16} />
-              New experiment
-            </button>
-            <button
-              type="button"
-              onClick={() => setWorkflow({
-                type: "settings",
-                prompt: "",
-                autoStart: false,
-                key: Date.now(),
-              })}
-            >
-              <MessageSquare size={16} />
-              System settings
-            </button>
-          </div>
-        </div>
-      </section>
-      {workflow?.type === "experiment" ? (
-        <ExperimentBuilder
-          key={`experiment-${workflow.key}`}
-          projectId={projectId}
-          pairings={pairings}
-          inventoryUpdatedAt={inventoryUpdatedAt}
-          initialPrompt={workflow.prompt}
-          autoGenerate={workflow.autoStart}
-          presentation="inline"
-          onClose={() => setWorkflow(null)}
-          onCreated={onExperimentCreated}
+    <PortalAssistantWorkspace
+      projectId={projectId}
+      pairings={pairings}
+      inventoryUpdatedAt={inventoryUpdatedAt}
+      controlBusy={controlBusy}
+      onApplySettings={onApplySettings}
+      onExperimentCreated={onExperimentCreated}
+      onExperimentArchived={onExperimentArchived}
+      activity={(
+        <PortalCommandActivity
+          operations={operations}
+          commands={commands}
+          loading={commandLoading}
         />
-      ) : null}
-      {workflow?.type === "settings" ? (
-        <section className="portal-inline-settings" key={`settings-${workflow.key}`}>
-          <header>
-            <h2>Review settings</h2>
-            <button type="button" onClick={() => setWorkflow(null)} aria-label="Close settings plan">
-              <X size={17} />
-            </button>
-          </header>
-          <SettingsAssistant
-            projectId={projectId}
-            initialPrompt={workflow.prompt}
-            autoReview={workflow.autoStart}
-            embedded
-            controlBusy={controlBusy}
-            onApply={onApplySettings}
-          />
-        </section>
-      ) : null}
-      {workflow?.type === "archive" ? (
-        <ExperimentArchiveReview
-          key={`archive-${workflow.key}`}
-          projectId={projectId}
-          experiment={workflow.prompt}
-          onClose={() => setWorkflow(null)}
-          onArchived={onExperimentArchived}
-        />
-      ) : null}
-      {workflow?.type === "schedule" ? (
-        <ScheduleReview
-          key={`schedule-${workflow.key}`}
-          projectId={projectId}
-          initialPrompt={workflow.prompt}
-          onClose={() => setWorkflow(null)}
-          onChanged={() => setAutomationRefreshKey((current) => current + 1)}
-        />
-      ) : null}
-      {workflow?.type === "monitor" ? (
-        <MonitorReview
-          key={`monitor-${workflow.key}`}
-          projectId={projectId}
-          initialPrompt={workflow.prompt}
-          onClose={() => setWorkflow(null)}
-          onChanged={() => setAutomationRefreshKey((current) => current + 1)}
-        />
-      ) : null}
-      {workflow?.type === "lifecycle" ? (
-        <LifecycleReview
-          key={`lifecycle-${workflow.key}`}
-          projectId={projectId}
-          request={workflow.prompt}
-          onClose={() => setWorkflow(null)}
-          onChanged={() => {
-            setAutomationRefreshKey((current) => current + 1);
-            void onExperimentArchived();
-          }}
-        />
-      ) : null}
-      <AssistantAutomationPanel
-        projectId={projectId}
-        refreshKey={automationRefreshKey}
-      />
-      <PortalCommandActivity commands={commands} loading={commandLoading} />
-    </div>
+      )}
+    />
   );
 }
 
 function PortalResearcherHome({
+  projectId,
   data,
   experiments,
   canCreateExperiment,
+  platformOperations,
   controlCommands,
   controlCommandsLoading,
   controlBusy,
@@ -3468,9 +3248,11 @@ function PortalResearcherHome({
   onExperimentCreated,
   onExperimentArchived,
 }: {
+  projectId: string;
   data: LoadState;
   experiments: readonly PortalExperiment[];
   canCreateExperiment: boolean;
+  platformOperations: readonly PlatformOperation[];
   controlCommands: readonly ControlCommand[];
   controlCommandsLoading: boolean;
   controlBusy: boolean;
@@ -3484,9 +3266,10 @@ function PortalResearcherHome({
     <section className="portal-admin-main" aria-label="Research experiments">
       {canCreateExperiment ? (
         <PortalAssistantHero
-          projectId={mattProjectId}
+          projectId={projectId}
           pairings={visibleExperimentPairings(data.pairings)}
           inventoryUpdatedAt={inventoryUpdatedAt}
+          operations={platformOperations}
           commands={controlCommands}
           commandLoading={controlCommandsLoading}
           controlBusy={controlBusy}
@@ -3503,6 +3286,7 @@ function PortalResearcherHome({
 }
 
 function PortalAdminHome({
+  projectId,
   data,
   healthSnapshot,
   healthLoading,
@@ -3510,6 +3294,7 @@ function PortalAdminHome({
   salesSupportLoading,
   rdAccessAllowed,
   experiments,
+  platformOperations,
   controlCommands,
   controlCommandsLoading,
   controlBusy,
@@ -3522,6 +3307,7 @@ function PortalAdminHome({
   onOpenSupport,
   onOpenRd,
 }: {
+  projectId: string;
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
   healthLoading: boolean;
@@ -3529,6 +3315,7 @@ function PortalAdminHome({
   salesSupportLoading: boolean;
   rdAccessAllowed: boolean;
   experiments: readonly PortalExperiment[];
+  platformOperations: readonly PlatformOperation[];
   controlCommands: readonly ControlCommand[];
   controlCommandsLoading: boolean;
   controlBusy: boolean;
@@ -3558,9 +3345,10 @@ function PortalAdminHome({
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
       <PortalAssistantHero
-        projectId={mattProjectId}
+        projectId={projectId}
         pairings={visibleExperimentPairings(data.pairings)}
         inventoryUpdatedAt={inventoryUpdatedAt}
+        operations={platformOperations}
         commands={controlCommands}
         commandLoading={controlCommandsLoading}
         controlBusy={controlBusy}
@@ -5281,7 +5069,7 @@ function SystemHealthView({
         badgeTone={!sensorEvidenceKnown ? "unknown" : staleMissing > 0 ? "warning" : "ok"}
       >
         <div className="health-mini-grid">
-          <HealthMiniFact label="Last Matt read" value={healthDateWithAge(lastSensorReadingAt)} />
+          <HealthMiniFact label="Last sensor read" value={healthDateWithAge(lastSensorReadingAt)} />
           <HealthMiniFact label="Current" value={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)}`} />
           <HealthMiniFact label="Stale/missing" value={formatHealthInteger(staleMissing)} />
           <HealthMiniFact label="Node2" value="Not synced" />
@@ -5435,8 +5223,8 @@ export default function App() {
   const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
-  const [mattExperiment2GraphGroupId, setMattExperiment2GraphGroupId] =
-    useState<MattExperiment2GraphGroupId>("maize-control");
+  const [selectedExperimentGraphGroupId, setSelectedExperimentGraphGroupId] =
+    useState("");
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -5448,7 +5236,7 @@ export default function App() {
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
   const [accessLoading, setAccessLoading] = useState(false);
   const [portalView, setPortalView] = useState<PortalView>("home");
-  const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("matt-experiment");
+  const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("");
   const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
   const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
   const [experimentBuilderPrompt, setExperimentBuilderPrompt] = useState("");
@@ -5458,6 +5246,7 @@ export default function App() {
   const [healthHistory, setHealthHistory] = useState<DeviceHealthSnapshot[]>([]);
   const [runtimeState, setRuntimeState] = useState<DeviceRuntimeState | null>(null);
   const [configState, setConfigState] = useState<DeviceConfigState | null>(null);
+  const [platformOperations, setPlatformOperations] = useState<PlatformOperation[]>([]);
   const [controlCommands, setControlCommands] = useState<ControlCommand[]>([]);
   const [controlCommandsLoading, setControlCommandsLoading] = useState(false);
   const [valveEvents, setValveEvents] = useState<ValveEvent[]>([]);
@@ -5518,6 +5307,10 @@ export default function App() {
   const selectedExperiment = useMemo(
     () => portalExperimentById(selectedExperimentId, availableExperiments),
     [availableExperiments, selectedExperimentId],
+  );
+  const selectedExperimentGraphGroups = useMemo(
+    () => experimentGraphGroups(selectedExperiment),
+    [selectedExperiment],
   );
   const sortedPairings = useMemo(
     () => orderedPairings(
@@ -5587,6 +5380,8 @@ export default function App() {
   const canReadProjectData = hasProjectDataReadAccess(portalAccess?.role);
   const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role);
   const canCreateExperiment = portalAccess?.role === "admin" || portalAccess?.role === "researcher";
+  const activeProjectId = portalAccess?.projectId ?? "";
+  const activeDeviceId = portalAccess?.deviceId ?? "";
 
   const resetPortalSessionUi = useCallback((nextView: PortalView = "home") => {
     setSettingsOpen(false);
@@ -5608,7 +5403,7 @@ export default function App() {
     setExperimentGraphMode("vwc");
     setPotPreset("all");
     setHiddenPots(new Set());
-    setMattExperiment2GraphGroupId("maize-control");
+    setSelectedExperimentGraphGroupId("");
     setSelectedSeriesName(null);
     setSelectedWateringDetail(null);
     setTimeWindow(fullTimeWindow);
@@ -5617,18 +5412,18 @@ export default function App() {
   }, []);
 
   const loadExperimentCatalog = useCallback(async () => {
-    if (!canReadProjectData) {
+    if (!canReadProjectData || !activeProjectId) {
       setExperimentCatalog([]);
       return;
     }
     try {
-      const catalog = await loadPortalExperimentCatalog(mattProjectId);
+      const catalog = await loadPortalExperimentCatalog(activeProjectId);
       setExperimentCatalog(catalog);
       setExperimentCatalogError(null);
     } catch (nextError) {
       setExperimentCatalogError(errorMessage(nextError));
     }
-  }, [canReadProjectData]);
+  }, [activeProjectId, canReadProjectData]);
 
   const expirePortalSession = useCallback(() => {
     setError(null);
@@ -5672,18 +5467,42 @@ export default function App() {
         const userId = userResponse.data.user?.id ?? null;
         if (!userId) throw { status: 401, message: "Portal session is unavailable" };
 
-        const response = await withSupabaseTimeout(
+        const accessResponse = await withSupabaseTimeout(
           supabase
             .from("portal_access")
-            .select("role, email")
-            .eq("project_id", mattProjectId)
+            .select("project_id, role, email, created_at")
             .eq("user_id", userId)
-            .maybeSingle(),
+            .order("created_at", { ascending: true })
+            .limit(20),
           portalAccessTimeoutMs,
           "Portal access",
         );
-        if (response.error) throw response.error;
-        return response;
+        if (accessResponse.error) throw accessResponse.error;
+        const requestedProjectId = new URLSearchParams(window.location.search).get("project");
+        const accessRow = selectPortalAccessRow(
+          accessResponse.data ?? [],
+          requestedProjectId,
+        );
+        if (!accessRow) return { data: null };
+
+        const deviceResponse = await withSupabaseTimeout(
+          supabase
+            .from("device_config_state")
+            .select("device_id, updated_at")
+            .eq("project_id", accessRow.project_id)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          portalAccessTimeoutMs,
+          "Project device",
+        );
+        if (deviceResponse.error) throw deviceResponse.error;
+        return {
+          data: {
+            ...accessRow,
+            device_id: selectProjectDevice(deviceResponse.data ? [deviceResponse.data] : []),
+          },
+        };
       };
 
       let response;
@@ -5703,7 +5522,14 @@ export default function App() {
       const access: Exclude<PortalAccess, null> = {
         role,
         email: response.data?.email ?? null,
+        projectId: response.data?.project_id ?? "",
+        deviceId: response.data?.device_id ?? null,
       };
+      if (!access.projectId) {
+        setPortalAccess(null);
+        setPortalView("home");
+        return;
+      }
       setPortalAccess(access);
       setPortalView("home");
     } catch (err) {
@@ -5722,7 +5548,7 @@ export default function App() {
   }, [expirePortalSession, recoverPortalSession]);
 
   const loadHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
-    if (!isAdmin) return;
+    if (!isAdmin || !activeProjectId || !activeDeviceId) return;
     const silent = options.silent === true;
     if (!silent) {
       setHealthLoading(true);
@@ -5734,8 +5560,8 @@ export default function App() {
         supabase
           .from("device_health_snapshots")
           .select(healthSnapshotSelectColumns)
-          .eq("project_id", mattProjectId)
-          .eq("device_id", mattDeviceId)
+          .eq("project_id", activeProjectId)
+          .eq("device_id", activeDeviceId)
           .eq("ingest_complete", true)
           .order("captured_at", { ascending: false })
           .limit(300),
@@ -5752,10 +5578,10 @@ export default function App() {
     } finally {
       if (!silent) setHealthLoading(false);
     }
-  }, [isAdmin]);
+  }, [activeDeviceId, activeProjectId, isAdmin]);
 
   const loadDeviceSyncState = useCallback(async () => {
-    if (!canUseExperimentSettings) {
+    if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
       setRuntimeState(null);
       setConfigState(null);
       return;
@@ -5767,8 +5593,8 @@ export default function App() {
           supabase
             .from("device_runtime_state")
             .select("*")
-            .eq("project_id", mattProjectId)
-            .eq("device_id", mattDeviceId)
+            .eq("project_id", activeProjectId)
+            .eq("device_id", activeDeviceId)
             .maybeSingle(),
           supabaseQueryTimeoutMs,
           "Runtime state",
@@ -5777,8 +5603,8 @@ export default function App() {
           supabase
             .from("device_config_state")
             .select("*")
-            .eq("project_id", mattProjectId)
-            .eq("device_id", mattDeviceId)
+            .eq("project_id", activeProjectId)
+            .eq("device_id", activeDeviceId)
             .maybeSingle(),
           supabaseQueryTimeoutMs,
           "Config state",
@@ -5794,40 +5620,57 @@ export default function App() {
     } catch {
       // Keep the last mirrored controller state visible while Supabase catches up.
     }
-  }, [canUseExperimentSettings]);
+  }, [activeDeviceId, activeProjectId, canUseExperimentSettings]);
 
   const loadControlCommands = useCallback(async (
     options: { silent?: boolean } = {},
   ) => {
-    if (!canUseExperimentSettings) {
+    if (!canUseExperimentSettings || !activeProjectId) {
+      setPlatformOperations([]);
       setControlCommands([]);
       return;
     }
     if (!options.silent) setControlCommandsLoading(true);
     try {
-      const response = await withSupabaseTimeout(
-        supabase
-          .from("project_control_commands")
-          .select(
-            "id,client_request_id,project_id,device_id,command_type,payload,status,requested_at,expires_at,requires_confirmation,result,error",
-          )
-          .eq("project_id", mattProjectId)
-          .order("requested_at", { ascending: false })
-          .limit(20),
-        supabaseQueryTimeoutMs,
-        "Control activity",
-      );
-      if (response.error) throw response.error;
-      setControlCommands((response.data ?? []) as ControlCommand[]);
+      const [operationResponse, commandResponse] = await Promise.all([
+        withSupabaseTimeout(
+          supabase
+            .from("portal_operation_timeline")
+            .select(
+              "id,capability_id,intent,approval_state,execution_state,verification_state,created_at,updated_at,completed_at",
+            )
+            .eq("project_id", activeProjectId)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabaseQueryTimeoutMs,
+          "Operation activity",
+        ),
+        withSupabaseTimeout(
+          supabase
+            .from("project_control_commands")
+            .select(
+              "id,client_request_id,project_id,device_id,command_type,payload,status,requested_at,expires_at,requires_confirmation,result,error",
+            )
+            .eq("project_id", activeProjectId)
+            .order("requested_at", { ascending: false })
+            .limit(20),
+          supabaseQueryTimeoutMs,
+          "Control activity",
+        ),
+      ]);
+      if (operationResponse.error) throw operationResponse.error;
+      if (commandResponse.error) throw commandResponse.error;
+      setPlatformOperations((operationResponse.data ?? []) as PlatformOperation[]);
+      setControlCommands((commandResponse.data ?? []) as ControlCommand[]);
     } catch {
       // Keep the last known activity visible while the project mirror recovers.
     } finally {
       if (!options.silent) setControlCommandsLoading(false);
     }
-  }, [canUseExperimentSettings]);
+  }, [activeProjectId, canUseExperimentSettings]);
 
   const loadValveEvents = useCallback(async (options: { incremental?: boolean } = {}) => {
-    if (!canReadProjectData) {
+    if (!canReadProjectData || !activeProjectId || !activeDeviceId) {
       setValveEvents([]);
       return;
     }
@@ -5846,8 +5689,8 @@ export default function App() {
         supabase
           .from("valve_events")
           .select("*")
-          .eq("project_id", mattProjectId)
-          .eq("device_id", mattDeviceId)
+          .eq("project_id", activeProjectId)
+          .eq("device_id", activeDeviceId)
           .gte("device_recorded_at", new Date(sinceMs).toISOString())
           .order("device_recorded_at", { ascending: false })
           .limit(incremental ? incrementalValveEventRows : maxValveEventRows),
@@ -5860,10 +5703,10 @@ export default function App() {
     } catch {
       // Keep the last good watering timeline visible until Supabase recovers.
     }
-  }, [canReadProjectData]);
+  }, [activeDeviceId, activeProjectId, canReadProjectData]);
 
   const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
-    if (!isAdmin) {
+    if (!isAdmin || !activeProjectId) {
       setSalesSupportData(initialSalesSupportData);
       return;
     }
@@ -5880,7 +5723,7 @@ export default function App() {
           supabase
             .from("quote_requests")
             .select("id, project_id, created_at, updated_at, name, email, phone, organization, application, timeline, message, source_url, referrer, notification_email, notification_status, notification_error, status, priority")
-            .eq("project_id", mattProjectId)
+            .eq("project_id", activeProjectId)
             .order("created_at", { ascending: false })
             .limit(40),
           supabaseQueryTimeoutMs,
@@ -5890,7 +5733,7 @@ export default function App() {
           supabase
             .from("support_threads")
             .select("id, project_id, created_at, updated_at, last_message_at, source, status, priority, request_type, subject, customer_name, customer_email, customer_phone, customer_organization, quote_request_id, last_message_preview, last_message_from_email, last_message_subject, metadata")
-            .eq("project_id", mattProjectId)
+            .eq("project_id", activeProjectId)
             .order("last_message_at", { ascending: false })
             .limit(40),
           supabaseQueryTimeoutMs,
@@ -5900,7 +5743,7 @@ export default function App() {
           supabase
             .from("support_messages")
             .select("id, thread_id, project_id, created_at, direction, channel, from_email, from_name, to_emails, subject, body_text, body_html, metadata")
-            .eq("project_id", mattProjectId)
+            .eq("project_id", activeProjectId)
             .order("created_at", { ascending: false })
             .limit(80),
           supabaseQueryTimeoutMs,
@@ -5922,7 +5765,7 @@ export default function App() {
     } finally {
       if (!silent) setSalesSupportLoading(false);
     }
-  }, [isAdmin]);
+  }, [activeProjectId, isAdmin]);
 
   const loadRdAccess = useCallback(async () => {
     if (!isAdmin) {
@@ -5973,6 +5816,7 @@ export default function App() {
 
   const runPortalRefresh = useCallback(
     async ({ incremental }: RefreshOptions) => {
+      if (!activeProjectId || !activeDeviceId) return;
       const token = loadTokenRef.current + 1;
       loadTokenRef.current = token;
       setError(null);
@@ -5984,8 +5828,8 @@ export default function App() {
               supabase
                 .from("device_config_state")
                 .select("*")
-                .eq("project_id", mattProjectId)
-                .eq("device_id", mattDeviceId)
+                .eq("project_id", activeProjectId)
+                .eq("device_id", activeDeviceId)
                 .maybeSingle(),
               supabaseQueryTimeoutMs,
               "Controller config",
@@ -5994,7 +5838,7 @@ export default function App() {
               supabase
                 .from("latest_device_state")
                 .select("*")
-                .eq("device_id", mattDeviceId)
+                .eq("device_id", activeDeviceId)
                 .limit(1)
                 .maybeSingle(),
               supabaseQueryTimeoutMs,
@@ -6005,8 +5849,8 @@ export default function App() {
                 supabase
                   .from("sensor_readings")
                   .select("id, server_received_at")
-                  .eq("project_id", mattProjectId)
-                  .eq("device_id", mattDeviceId)
+                  .eq("project_id", activeProjectId)
+                  .eq("device_id", activeDeviceId)
                   .like("event_id", livePrefix)
                   .gte("server_received_at", new Date(Date.now() - staleAfterMs).toISOString())
                   .limit(1),
@@ -6049,7 +5893,12 @@ export default function App() {
         );
         if (pairingsData.length === 0) {
           const legacyPairings = await withSupabaseTimeout(
-            supabase.from("pairings").select("*").limit(1000),
+            supabase
+              .from("pairings")
+              .select("*")
+              .eq("project_id", activeProjectId)
+              .eq("device_id", activeDeviceId)
+              .limit(1000),
             supabaseQueryTimeoutMs,
             "Legacy pairings",
           );
@@ -6095,7 +5944,13 @@ export default function App() {
           });
         };
 
-        await fetchReadingsForMode(effectiveMode, newerThan, applyReadingsBatch);
+        await fetchReadingsForMode(
+          activeProjectId,
+          activeDeviceId,
+          effectiveMode,
+          newerThan,
+          applyReadingsBatch,
+        );
       } catch (err) {
         if (token === loadTokenRef.current) {
           if (isSessionAuthorizationError(err)) {
@@ -6110,11 +5965,17 @@ export default function App() {
         }
       }
     },
-    [expirePortalSession, recoverPortalSession, selectedMode],
+    [
+      activeDeviceId,
+      activeProjectId,
+      expirePortalSession,
+      recoverPortalSession,
+      selectedMode,
+    ],
   );
 
   const refreshLatestReadings = useCallback(async () => {
-    if (realtimeRefreshInFlightRef.current) return;
+    if (realtimeRefreshInFlightRef.current || !activeProjectId || !activeDeviceId) return;
     const currentData = dataRef.current;
     const newerThan = incrementalReadingCursor(currentData.readings);
     if (!newerThan) return;
@@ -6122,7 +5983,12 @@ export default function App() {
     realtimeRefreshInFlightRef.current = true;
     try {
       const effectiveMode = currentData.effectiveMode;
-      const incomingReadings = await fetchReadingsForMode(effectiveMode, newerThan);
+      const incomingReadings = await fetchReadingsForMode(
+        activeProjectId,
+        activeDeviceId,
+        effectiveMode,
+        newerThan,
+      );
       const nowIso = new Date().toISOString();
 
       setData((current) => {
@@ -6158,7 +6024,7 @@ export default function App() {
     } finally {
       realtimeRefreshInFlightRef.current = false;
     }
-  }, []);
+  }, [activeDeviceId, activeProjectId]);
 
   const refresh = useCallback(
     async (options: RefreshOptions) => {
@@ -6194,7 +6060,7 @@ export default function App() {
 
   const sendSingleControlCommand = useCallback<QueueControlCommand>(
     async (commandType, payload, options) => {
-      if (!canUseExperimentSettings) {
+      if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
         setControlError("Experiment settings access is required for portal controls.");
         return;
       }
@@ -6220,12 +6086,13 @@ export default function App() {
         const response = await withSupabaseTimeout(
           (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
             body: {
-              project_id: mattProjectId,
-              device_id: dataRef.current.latestState?.device_id ?? mattDeviceId,
+              project_id: activeProjectId,
+              device_id: dataRef.current.latestState?.device_id ?? activeDeviceId,
               client_request_id: clientRequestId,
               command_type: commandType,
               payload,
               confirm: options?.confirm === true,
+              operation_intent: options?.operationIntent,
             },
             signal,
           }),
@@ -6246,7 +6113,7 @@ export default function App() {
             supabase
               .from("project_control_commands")
               .select("id")
-              .eq("project_id", mattProjectId)
+              .eq("project_id", activeProjectId)
               .eq("client_request_id", clientRequestId)
               .maybeSingle(),
             supabaseQueryTimeoutMs,
@@ -6266,11 +6133,17 @@ export default function App() {
         setControlBusy(false);
       }
     },
-    [canUseExperimentSettings, isAdmin, loadControlCommands],
+    [
+      activeDeviceId,
+      activeProjectId,
+      canUseExperimentSettings,
+      isAdmin,
+      loadControlCommands,
+    ],
   );
 
   const queueSettingsPlan: QueueSettingsPlan = async (plan, reviewedConfigHash) => {
-      if (!canUseExperimentSettings) {
+      if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
         setControlError("Experiment settings access is required for portal controls.");
         return;
       }
@@ -6315,7 +6188,10 @@ export default function App() {
         await sendSingleControlCommand(
           direct.command_type,
           direct.payload,
-          { confirm: direct.command_type === "update_system_state" },
+          {
+            confirm: direct.command_type === "update_system_state",
+            operationIntent: plan.summary,
+          },
         );
         return;
       }
@@ -6379,13 +6255,14 @@ export default function App() {
         const response = await withSupabaseTimeout(
           (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
             body: {
-              project_id: mattProjectId,
-              device_id: dataRef.current.latestState?.device_id ?? mattDeviceId,
+              project_id: activeProjectId,
+              device_id: dataRef.current.latestState?.device_id ?? activeDeviceId,
               client_request_id: commandIds[0],
               batch_id: batchId,
               expected_config_hash: reviewedConfigHash,
               expected_controller_state: reviewedControllerState,
               batch_commands: batchCommands,
+              operation_intent: plan.summary,
             },
             signal,
           }),
@@ -6403,7 +6280,7 @@ export default function App() {
             supabase
               .from("project_control_commands")
               .select("id")
-              .eq("project_id", mattProjectId)
+              .eq("project_id", activeProjectId)
               .eq("batch_id", batchId),
             supabaseQueryTimeoutMs,
             "Settings batch reconciliation",
@@ -6628,16 +6505,16 @@ export default function App() {
     });
   }
 
-  function openMattExperiment2Graph(groupId: MattExperiment2GraphGroupId) {
-    const group = mattExperiment2GraphGroups.find((item) => item.id === groupId);
+  function openExperimentGraphGroup(groupId: string) {
+    const group = selectedExperimentGraphGroups.find((item) => item.id === groupId);
     if (!group) return;
-    const includedPots = new Set<number>(group.potNumbers);
-    setMattExperiment2GraphGroupId(groupId);
+    const includedPairings = new Set(group.pairingNames);
+    setSelectedExperimentGraphGroupId(groupId);
     setPotPreset("custom");
     setSelectedSeriesName(null);
     setHiddenPots(new Set(
       sortedPairings
-        .filter((pairing) => !includedPots.has(pairing.pot_number))
+        .filter((pairing) => !includedPairings.has(pairing.name))
         .map((pairing) => pairing.name),
     ));
     setExperimentGraphMode("vwc");
@@ -6979,7 +6856,13 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return;
     void loadValveEvents();
-  }, [canReadProjectData, loadValveEvents, sessionReady]);
+  }, [
+    activeDeviceId,
+    activeProjectId,
+    canReadProjectData,
+    loadValveEvents,
+    sessionReady,
+  ]);
 
   useEffect(() => {
     if (
@@ -7045,12 +6928,18 @@ export default function App() {
   }, [isAdmin, loadHealthSnapshot, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady || !canReadProjectData) return undefined;
+    if (!sessionReady || !canReadProjectData || !activeProjectId || !activeDeviceId) return undefined;
     const pollId = window.setInterval(() => {
       void loadValveEvents({ incremental: true });
     }, healthSnapshotPollMs);
     return () => window.clearInterval(pollId);
-  }, [canReadProjectData, loadValveEvents, sessionReady]);
+  }, [
+    activeDeviceId,
+    activeProjectId,
+    canReadProjectData,
+    loadValveEvents,
+    sessionReady,
+  ]);
 
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings) return undefined;
@@ -7100,18 +6989,18 @@ export default function App() {
     };
 
     const channel = supabase
-      .channel(`exacth2o-dashboard-live-${selectedMode}-${crypto.randomUUID()}`)
+      .channel(`exacth2o-dashboard-live-${activeProjectId}-${selectedMode}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "sensor_readings",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         (payload) => {
           const row = payload.new as SensorReading & { device_id?: string };
-          if (row.device_id !== mattDeviceId || !shouldApplyReading(row)) return;
+          if (row.device_id !== activeDeviceId || !shouldApplyReading(row)) return;
 
           const nowIso = new Date().toISOString();
           const switchingToLive =
@@ -7145,11 +7034,11 @@ export default function App() {
           event: "UPDATE",
           schema: "public",
           table: "latest_device_state",
-          filter: `device_id=eq.${mattDeviceId}`,
+          filter: `device_id=eq.${activeDeviceId}`,
         },
         (payload) => {
           const row = payload.new as LatestState;
-          if (row.device_id !== mattDeviceId) return;
+          if (row.device_id !== activeDeviceId) return;
           setData((current) => ({
             ...current,
             latestState: row,
@@ -7163,24 +7052,31 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [canReadProjectData, refresh, sessionReady, selectedMode]);
+  }, [
+    activeDeviceId,
+    activeProjectId,
+    canReadProjectData,
+    refresh,
+    sessionReady,
+    selectedMode,
+  ]);
 
   useEffect(() => {
-    if (!sessionReady || !isAdmin) return undefined;
+    if (!sessionReady || !isAdmin || !activeProjectId || !activeDeviceId) return undefined;
 
     const channel = supabase
-      .channel("exacth2o-health-live")
+      .channel(`exacth2o-health-live-${activeProjectId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "device_health_snapshots",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         (payload) => {
           const row = payload.new as Partial<DeviceHealthSnapshot>;
-          if (row.device_id !== mattDeviceId || row.ingest_complete !== true) return;
+          if (row.device_id !== activeDeviceId || row.ingest_complete !== true) return;
           setHealthHistory((current) => {
             const next = row as DeviceHealthSnapshot;
             const byId = new Map(current.map((item) => [item.id, item]));
@@ -7200,24 +7096,24 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isAdmin, loadHealthSnapshot, sessionReady]);
+  }, [activeDeviceId, activeProjectId, isAdmin, loadHealthSnapshot, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return undefined;
+    if (!sessionReady || !canUseExperimentSettings || !activeProjectId || !activeDeviceId) return undefined;
 
     const channel = supabase
-      .channel("exacth2o-device-sync-live")
+      .channel(`exacth2o-device-sync-live-${activeProjectId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "device_runtime_state",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         (payload) => {
           const row = payload.new as Partial<DeviceRuntimeState>;
-          if (row.device_id === mattDeviceId) {
+          if (row.device_id === activeDeviceId) {
             setRuntimeState(row as DeviceRuntimeState);
             return;
           }
@@ -7230,11 +7126,11 @@ export default function App() {
           event: "*",
           schema: "public",
           table: "device_config_state",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         (payload) => {
           const row = payload.new as Partial<DeviceConfigState>;
-          if (row.device_id === mattDeviceId) {
+          if (row.device_id === activeDeviceId) {
             setConfigState(row as DeviceConfigState);
             return;
           }
@@ -7246,20 +7142,26 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
+  }, [
+    activeDeviceId,
+    activeProjectId,
+    canUseExperimentSettings,
+    loadDeviceSyncState,
+    sessionReady,
+  ]);
 
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return undefined;
+    if (!sessionReady || !canUseExperimentSettings || !activeProjectId) return undefined;
 
     const channel = supabase
-      .channel("exacth2o-control-activity-live")
+      .channel(`exacth2o-control-activity-live-${activeProjectId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "project_control_commands",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         () => {
           void loadControlCommands({ silent: true });
@@ -7273,27 +7175,28 @@ export default function App() {
     };
   }, [
     canUseExperimentSettings,
+    activeProjectId,
     loadControlCommands,
     loadExperimentCatalog,
     sessionReady,
   ]);
 
   useEffect(() => {
-    if (!sessionReady || !canReadProjectData) return undefined;
+    if (!sessionReady || !canReadProjectData || !activeProjectId || !activeDeviceId) return undefined;
 
     const channel = supabase
-      .channel("exacth2o-valve-events-live")
+      .channel(`exacth2o-valve-events-live-${activeProjectId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "valve_events",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         (payload) => {
           const row = payload.new as ValveEvent;
-          if (row.device_id !== mattDeviceId || isIgnoredDiagnosticValveEvent(row)) return;
+          if (row.device_id !== activeDeviceId || isIgnoredDiagnosticValveEvent(row)) return;
           setValveEvents((current) => mergeValveEventRows(current, [row]));
         },
       )
@@ -7304,20 +7207,26 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [canReadProjectData, loadValveEvents, sessionReady]);
+  }, [
+    activeDeviceId,
+    activeProjectId,
+    canReadProjectData,
+    loadValveEvents,
+    sessionReady,
+  ]);
 
   useEffect(() => {
-    if (!sessionReady || !isAdmin) return undefined;
+    if (!sessionReady || !isAdmin || !activeProjectId) return undefined;
 
     const channel = supabase
-      .channel("exacth2o-sales-support-live")
+      .channel(`exacth2o-sales-support-live-${activeProjectId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "support_threads",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         () => {
           void loadSalesSupport({ silent: true });
@@ -7329,7 +7238,7 @@ export default function App() {
           event: "*",
           schema: "public",
           table: "quote_requests",
-          filter: `project_id=eq.${mattProjectId}`,
+          filter: `project_id=eq.${activeProjectId}`,
         },
         () => {
           void loadSalesSupport({ silent: true });
@@ -7340,7 +7249,7 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isAdmin, loadSalesSupport, sessionReady]);
+  }, [activeProjectId, isAdmin, loadSalesSupport, sessionReady]);
 
   if (!sessionReady) {
     const isInviteAccept = authMode === "accept-invite";
@@ -7503,12 +7412,12 @@ export default function App() {
       return groups;
     }, new Map<number, PairingRow[]>()),
   ).sort(([zoneA], [zoneB]) => zoneA - zoneB);
-  const isMattExperiment2 = selectedExperiment.id === "matt-experiment-2";
-  const showMattExperiment2GraphOverview =
-    isMattExperiment2 && experimentGraphMode === "vwc" && !graphExpanded;
-  const activeMattExperiment2GraphGroup = mattExperiment2GraphGroups.find(
-    (group) => group.id === mattExperiment2GraphGroupId,
-  ) ?? mattExperiment2GraphGroups[0];
+  const hasExperimentGraphOverview = selectedExperimentGraphGroups.length > 1;
+  const showExperimentGraphOverview =
+    hasExperimentGraphOverview && experimentGraphMode === "vwc" && !graphExpanded;
+  const activeExperimentGraphGroup = selectedExperimentGraphGroups.find(
+    (group) => group.id === selectedExperimentGraphGroupId,
+  ) ?? selectedExperimentGraphGroups[0];
   const controlPanelStyle: CSSProperties | undefined = graphExpanded
     ? {
         width: panelSize.width,
@@ -7558,7 +7467,7 @@ export default function App() {
 
   const experimentBuilder = experimentBuilderOpen && canCreateExperiment ? (
     <ExperimentBuilder
-      projectId={mattProjectId}
+      projectId={activeProjectId}
       pairings={visibleExperimentPairings(data.pairings)}
       inventoryUpdatedAt={configState?.updated_at ?? null}
       initialPrompt={experimentBuilderPrompt}
@@ -7621,6 +7530,7 @@ export default function App() {
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
         <PortalAdminHome
+          projectId={activeProjectId}
           data={data}
           experiments={availableExperiments}
           healthSnapshot={healthSnapshot}
@@ -7628,6 +7538,7 @@ export default function App() {
           salesSupportData={salesSupportData}
           salesSupportLoading={salesSupportLoading}
           rdAccessAllowed={hasRdSystemAdminAccess(portalAccess.role, rdAccessStatus === "allowed")}
+          platformOperations={platformOperations}
           controlCommands={controlCommands}
           controlCommandsLoading={controlCommandsLoading}
           controlBusy={controlBusy}
@@ -7652,6 +7563,7 @@ export default function App() {
         {experimentBuilder}
         <PortalSettingsPanel
           open={settingsOpen}
+          projectId={activeProjectId}
           portalRole={portalAccess.role}
           experiment={selectedExperiment}
           activeSection={settingsSection}
@@ -7684,9 +7596,11 @@ export default function App() {
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
         <PortalResearcherHome
+          projectId={activeProjectId}
           data={data}
           experiments={availableExperiments}
           canCreateExperiment={canCreateExperiment}
+          platformOperations={platformOperations}
           controlCommands={controlCommands}
           controlCommandsLoading={controlCommandsLoading}
           controlBusy={controlBusy}
@@ -7705,6 +7619,7 @@ export default function App() {
         {experimentBuilder}
         <PortalSettingsPanel
           open={settingsOpen}
+          projectId={activeProjectId}
           portalRole={portalAccess.role}
           experiment={selectedExperiment}
           activeSection={settingsSection}
@@ -7805,6 +7720,7 @@ export default function App() {
       {canUseExperimentSettings ? (
         <PortalSettingsPanel
           open={settingsOpen}
+          projectId={activeProjectId}
           portalRole={portalAccess.role}
           experiment={selectedExperiment}
           activeSection={settingsSection}
@@ -7840,11 +7756,11 @@ export default function App() {
 
       <section
         ref={dashboardMainRef}
-        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""} ${showMattExperiment2GraphOverview ? "is-matt-experiment-overview" : ""}`}
+        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""} ${showExperimentGraphOverview ? "is-experiment-overview" : ""}`}
       >
-        {showMattExperiment2GraphOverview ? (
-          <section className="matt-experiment-graph-overview">
-            <div className="matt-experiment-graph-toolbar">
+        {showExperimentGraphOverview ? (
+          <section className="experiment-graph-overview">
+            <div className="experiment-graph-toolbar">
               <div className="chart-view-toggle" aria-label="Graph view">
                 <button type="button" className="is-selected">
                   VWC
@@ -7866,28 +7782,26 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div className="matt-experiment-graph-grid">
-              {mattExperiment2GraphGroups.map((group) => {
-                const groupPots = new Set<number>(group.potNumbers);
-                const groupVisibleNames = new Set(
-                  sortedPairings
-                    .filter((pairing) => groupPots.has(pairing.pot_number))
-                    .map((pairing) => pairing.name),
-                );
+            <div className="experiment-graph-grid">
+              {selectedExperimentGraphGroups.map((group) => {
+                const groupVisibleNames = new Set(group.pairingNames);
                 return (
                   <button
                     type="button"
-                    className="matt-experiment-graph-card"
+                    className="experiment-graph-card"
                     key={group.id}
                     aria-label={`Expand ${group.label} graph`}
-                    onClick={() => openMattExperiment2Graph(group.id)}
+                    onClick={() => openExperimentGraphGroup(group.id)}
                   >
-                    <span className="matt-experiment-graph-card-head">
+                    <span className="experiment-graph-card-head">
                       <strong>{group.label}</strong>
-                      <em>6 pots · {group.target}%</em>
+                      <em>
+                        {group.pairingNames.length} pots
+                        {group.target == null ? "" : ` · ${group.target}%`}
+                      </em>
                       <Maximize2 size={16} aria-hidden="true" />
                     </span>
-                    <span className="matt-experiment-graph-chart">
+                    <span className="experiment-graph-chart">
                       <SensorCanvasChart
                         series={timeFilteredSeries}
                         visibleNames={groupVisibleNames}
@@ -7902,7 +7816,7 @@ export default function App() {
                 );
               })}
             </div>
-            <div className="matt-experiment-graph-range">
+            <div className="experiment-graph-range">
               <TimeRangeControl
                 bounds={timeBounds}
                 value={timeWindow}
@@ -7912,10 +7826,15 @@ export default function App() {
           </section>
         ) : (
           <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
-            {isMattExperiment2 && graphExpanded && experimentGraphMode === "vwc" ? (
+            {hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" && activeExperimentGraphGroup ? (
               <div className="expanded-graph-label">
-                <strong>{activeMattExperiment2GraphGroup.label}</strong>
-                <span>6 pots · {activeMattExperiment2GraphGroup.target}%</span>
+                <strong>{activeExperimentGraphGroup.label}</strong>
+                <span>
+                  {activeExperimentGraphGroup.pairingNames.length} pots
+                  {activeExperimentGraphGroup.target == null
+                    ? ""
+                    : ` · ${activeExperimentGraphGroup.target}%`}
+                </span>
               </div>
             ) : null}
             <div className="chart-tools">
@@ -8004,7 +7923,7 @@ export default function App() {
           </section>
         )}
 
-        {!showMattExperiment2GraphOverview ? (
+        {!showExperimentGraphOverview ? (
           <aside
             ref={controlPanelRef}
             className="control-panel"

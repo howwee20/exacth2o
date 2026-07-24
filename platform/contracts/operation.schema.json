@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://exacth2o.com/contracts/operation.schema.json",
+  "title": "ExactH2O operation ledger record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "projectId",
+    "capabilityId",
+    "source",
+    "intent",
+    "approvalState",
+    "executionState",
+    "verificationState",
+    "correlationId",
+    "requestedAt"
+  ],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "projectId": { "type": "string", "format": "uuid" },
+    "capabilityId": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "actorId": {
+      "anyOf": [
+        { "type": "string", "format": "uuid" },
+        { "type": "null" }
+      ]
+    },
+    "source": {
+      "type": "string",
+      "enum": ["assistant", "portal", "automation", "administrator", "device", "system", "simulator"]
+    },
+    "intent": { "type": "string", "minLength": 1, "maxLength": 8000 },
+    "specification": { "type": "object" },
+    "approvalState": {
+      "type": "string",
+      "enum": ["draft", "reviewed", "approved", "rejected", "not_required"]
+    },
+    "executionState": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "queued",
+        "claimed",
+        "running",
+        "completed",
+        "completed_unverified",
+        "verified",
+        "failed",
+        "canceled"
+      ]
+    },
+    "verificationState": {
+      "type": "string",
+      "enum": ["not_required", "pending", "verified", "failed", "unavailable"]
+    },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "parentOperationId": {
+      "anyOf": [
+        { "type": "string", "format": "uuid" },
+        { "type": "null" }
+      ]
+    },
+    "requestedAt": { "type": "string", "format": "date-time" },
+    "approvedAt": {
+      "anyOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ]
+    },
+    "startedAt": {
+      "anyOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ]
+    },
+    "completedAt": {
+      "anyOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ]
+    },
+    "errorCode": { "type": ["string", "null"], "maxLength": 120 },
+    "errorMessage": { "type": ["string", "null"], "maxLength": 1000 },
+    "metadata": { "type": "object" }
+  }
+}

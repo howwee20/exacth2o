@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   experimentCardDescription,
   isCalibrationExperiment,
+  mergePortalExperiments,
   portalExperimentById,
   portalExperimentsForRole,
   readingsForExperiment,
-  swcCalibrationStartedAt,
+  type PortalExperiment,
 } from "./experimentRegistry";
 import type { PairingRow, SensorReading } from "./types";
 
@@ -43,56 +44,54 @@ function reading(deviceRecordedAt: string): SensorReading {
 }
 
 describe("experiment registry", () => {
-  it("shows the approved role-specific experiment tiles", () => {
-    expect(portalExperimentsForRole("admin").map((experiment) => experiment.id)).toEqual([
-      "matt-experiment",
-      "matt-experiment-2",
-      "swc-saturation-calibration",
-    ]);
-    expect(portalExperimentsForRole("researcher").map((experiment) => experiment.id)).toEqual([
-      "matt-experiment-2",
-      "swc-saturation-calibration",
-    ]);
-    expect(portalExperimentsForRole("viewer").map((experiment) => experiment.id)).toEqual([
-      "matt-experiment-2",
-      "swc-saturation-calibration",
-    ]);
+  const startedAt = "2026-07-23T14:46:34.000Z";
+  const history: PortalExperiment = {
+    id: "history",
+    name: "Historical trial",
+    shortDescription: "",
+    mode: "controlled",
+    wateringState: "off",
+    groupNames: [],
+    pairingNames: ["Zone2-Pot41"],
+    endedAt: startedAt,
+  };
+  const calibration: PortalExperiment = {
+    id: "calibration",
+    name: "Calibration",
+    shortDescription: "",
+    mode: "calibration",
+    wateringState: "off",
+    groupNames: [],
+    pairingNames: ["Zone2-Pot41"],
+    startedAt,
+  };
+
+  it("does not embed installation-specific experiment fallbacks", () => {
+    expect(portalExperimentsForRole("admin")).toEqual([]);
+    expect(portalExperimentsForRole("researcher")).toEqual([]);
+    expect(portalExperimentById("missing").id).toBe("unavailable");
   });
 
-  it("keeps Matt Experiment 1 available to System Admin", () => {
-    expect(portalExperimentById("matt-experiment").name).toBe("Matt Experiment 1");
-  });
-
-  it("defines the ten exact SWC calibration pots without inheriting the 20-pot group", () => {
-    const experiment = portalExperimentById("swc-saturation-calibration");
-    expect(isCalibrationExperiment(experiment)).toBe(true);
-    expect(experiment.groupNames).toEqual([]);
-    expect(experiment.pairingNames).toEqual([
-      "Zone2-Pot41",
-      "Zone2-Pot43",
-      "Zone2-Pot45",
-      "Zone2-Pot47",
-      "Zone2-Pot49",
-      "Zone4-Pot91",
-      "Zone4-Pot93",
-      "Zone4-Pot95",
-      "Zone4-Pot97",
-      "Zone4-Pot99",
+  it("merges only supplied catalog records", () => {
+    expect(mergePortalExperiments([], [history, calibration])).toEqual([
+      history,
+      calibration,
     ]);
+    expect(isCalibrationExperiment(calibration)).toBe(true);
   });
 
   it("separates historical Matt Experiment 1 readings from the new SWC run", () => {
     const before = reading("2026-07-23T14:46:33.999Z");
-    const atStart = reading(swcCalibrationStartedAt);
+    const atStart = reading(startedAt);
 
-    expect(readingsForExperiment([before, atStart], portalExperimentById("matt-experiment"))).toEqual([before]);
-    expect(readingsForExperiment([before, atStart], portalExperimentById("swc-saturation-calibration"))).toEqual([atStart]);
+    expect(readingsForExperiment([before, atStart], history)).toEqual([before]);
+    expect(readingsForExperiment([before, atStart], calibration)).toEqual([atStart]);
   });
 
   it("reports the live SWC settings and changes automatically to sensing-only", () => {
-    const experiment = portalExperimentById("swc-saturation-calibration");
-    expect(experimentCardDescription(experiment, [pairing()])).toBe("100% target · 10 s / 10 min");
-    expect(experimentCardDescription(experiment, [
+    const activeCalibration = { ...calibration, wateringState: "controller_managed" as const };
+    expect(experimentCardDescription(activeCalibration, [pairing()])).toBe("100% target · 10 s / 10 min");
+    expect(experimentCardDescription(activeCalibration, [
       pairing({ wtc_percent_limit: -999_999, valve_open_time_ms: 0 }),
     ])).toBe("Sensing only");
   });

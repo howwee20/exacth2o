@@ -13,12 +13,14 @@ import {
   semanticDedupeValveEvents,
 } from "./rd-evidence-policy.mjs";
 import { uptimeSecondsFromSources } from "./uptime-policy.mjs";
+import { healthSyncInstallation } from "../_shared/installation-config.mjs";
 
-const mattProjectId = "22222222-2222-4222-8222-222222222222";
-const mattOrganizationId = "11111111-1111-4111-8111-111111111111";
-const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
-const ownerHealthBaseUrl =
-  `https://${mattDeviceId}.balena-devices.com/owner-health`;
+const healthSync = healthSyncInstallation(Deno.env.toObject());
+const healthSyncProjectId = healthSync?.projectId ?? "";
+const healthSyncOrganizationId = healthSync?.organizationId ?? "";
+const healthSyncDeviceId = healthSync?.deviceId ?? "";
+const healthSyncDeviceName = healthSync?.deviceName ?? "";
+const ownerHealthBaseUrl = healthSync?.ownerHealthBaseUrl ?? "";
 const ignoredDiagnosticPairingNames = new Set(["cwd-lowercaset", "720-1539"]);
 const ignoredDiagnosticSensorKeys = new Set(["t", "d30gqn2d:t"]);
 const ignoredDiagnosticValveKeys = new Set([
@@ -692,9 +694,9 @@ function isIgnoredDiagnosticValveEvent(event: ValveEventInsert) {
 function valveEventWriteRow(event: ValveEventInsert): ValveEventWriteRow {
   return {
     ...event,
-    organization_id: mattOrganizationId,
-    project_id: mattProjectId,
-    device_id: mattDeviceId,
+    organization_id: healthSyncOrganizationId,
+    project_id: healthSyncProjectId,
+    device_id: healthSyncDeviceId,
   };
 }
 
@@ -875,9 +877,9 @@ async function mirrorLiveReadings(
 ) {
   const enabled = Deno.env.get("RD_LIVE_READING_MIRROR_ENABLED") !== "false";
   const rows = collectLiveReadingRows(health, {
-    organizationId: mattOrganizationId,
-    projectId: mattProjectId,
-    deviceId: mattDeviceId,
+    organizationId: healthSyncOrganizationId,
+    projectId: healthSyncProjectId,
+    deviceId: healthSyncDeviceId,
     serverReceivedAt: nowIso,
   });
   if (!enabled) {
@@ -1280,12 +1282,24 @@ serve(async (request) => {
 
   const supabaseUrl = cleanSecret(Deno.env.get("SUPABASE_URL"));
   const serviceRoleKey = cleanSecret(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
-  const ownerUser = cleanSecret(Deno.env.get("MATT_OWNER_HEALTH_USER"));
-  const ownerPassword = cleanSecret(Deno.env.get("MATT_OWNER_HEALTH_PASSWORD"));
+  const ownerUser = cleanSecret(
+    Deno.env.get("OWNER_HEALTH_USER") ?? Deno.env.get("MATT_OWNER_HEALTH_USER"),
+  );
+  const ownerPassword = cleanSecret(
+    Deno.env.get("OWNER_HEALTH_PASSWORD") ?? Deno.env.get("MATT_OWNER_HEALTH_PASSWORD"),
+  );
 
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse(
       { error: "Server is missing Supabase configuration" },
+      500,
+      origin,
+    );
+  }
+
+  if (!healthSync) {
+    return jsonResponse(
+      { error: "Server is missing health-sync installation configuration" },
       500,
       origin,
     );
@@ -1340,8 +1354,8 @@ serve(async (request) => {
   const { data: leaseAcquired, error: leaseError } = await admin.rpc(
     "acquire_device_ingest_lease",
     {
-      lease_project_id: mattProjectId,
-      lease_device_id: mattDeviceId,
+      lease_project_id: healthSyncProjectId,
+      lease_device_id: healthSyncDeviceId,
       lease_holder: leaseHolder,
       lease_seconds: 300,
     },
@@ -1362,8 +1376,8 @@ serve(async (request) => {
 
   const releaseLease = async () => {
     const { error } = await admin.rpc("release_device_ingest_lease", {
-      lease_project_id: mattProjectId,
-      lease_device_id: mattDeviceId,
+      lease_project_id: healthSyncProjectId,
+      lease_device_id: healthSyncDeviceId,
       lease_holder: leaseHolder,
     });
     if (error) console.error("Could not release health ingest lease", error);
@@ -1412,16 +1426,16 @@ serve(async (request) => {
             .select(
               "created_at, captured_at, status_endpoint_ok, ingest_complete",
             )
-            .eq("project_id", mattProjectId)
-            .eq("device_id", mattDeviceId)
+            .eq("project_id", healthSyncProjectId)
+            .eq("device_id", healthSyncDeviceId)
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle(),
           admin
             .from("device_runtime_state")
             .select("updated_at, state_observed_at, state_fresh_until")
-            .eq("project_id", mattProjectId)
-            .eq("device_id", mattDeviceId)
+            .eq("project_id", healthSyncProjectId)
+            .eq("device_id", healthSyncDeviceId)
             .maybeSingle(),
         ]);
         const latestSnapshot = latestSnapshotResult.data;
@@ -1476,8 +1490,8 @@ serve(async (request) => {
         .select(
           "updated_at, config_hash, pairings, calibrations, board_config, sensors, valves, groups",
         )
-        .eq("project_id", mattProjectId)
-        .eq("device_id", mattDeviceId)
+        .eq("project_id", healthSyncProjectId)
+        .eq("device_id", healthSyncDeviceId)
         .maybeSingle(),
       admin
         .from("device_maintenance_state")
@@ -1741,9 +1755,9 @@ serve(async (request) => {
       : new Date(Date.now() - 1).toISOString();
 
     const snapshot = {
-      project_id: mattProjectId,
-      device_id: mattDeviceId,
-      device_name: "plain-feather",
+      project_id: healthSyncProjectId,
+      device_id: healthSyncDeviceId,
+      device_name: healthSyncDeviceName,
       source,
       captured_at: capturedAt,
       observation_key: capturedAt,
@@ -1810,8 +1824,8 @@ serve(async (request) => {
       const existingResult = await admin
         .from("device_health_snapshots")
         .select("id")
-        .eq("project_id", mattProjectId)
-        .eq("device_id", mattDeviceId)
+        .eq("project_id", healthSyncProjectId)
+        .eq("device_id", healthSyncDeviceId)
         .eq("observation_key", snapshot.observation_key)
         .single();
       if (existingResult.error || !existingResult.data?.id) {
@@ -1853,9 +1867,9 @@ serve(async (request) => {
     }
 
     const runtimeRow: DeviceRuntimeStateWrite = {
-      project_id: mattProjectId,
-      device_id: mattDeviceId,
-      device_name: "plain-feather",
+      project_id: healthSyncProjectId,
+      device_id: healthSyncDeviceId,
+      device_name: healthSyncDeviceName,
       source,
       controller_state: controllerState.normalized,
       controller_state_raw: controllerState.raw,
@@ -1921,9 +1935,9 @@ serve(async (request) => {
 
     const configWrite = shouldWriteConfig && nextConfigHash
       ? await upsertDeviceConfigState(admin, {
-        project_id: mattProjectId,
-        device_id: mattDeviceId,
-        device_name: "plain-feather",
+        project_id: healthSyncProjectId,
+        device_id: healthSyncDeviceId,
+        device_name: healthSyncDeviceName,
         source,
         observed_at: nowIso,
         pairings,

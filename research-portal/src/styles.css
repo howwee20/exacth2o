@@ -3314,35 +3314,35 @@ select {
   min-height: calc(100vh - 82px);
 }
 
-.dashboard-main.is-matt-experiment-overview {
+.dashboard-main.is-experiment-overview {
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
 }
 
-.matt-experiment-graph-overview {
+.experiment-graph-overview {
   min-width: 0;
   display: grid;
   gap: 14px;
 }
 
-.matt-experiment-graph-toolbar {
+.experiment-graph-toolbar {
   display: flex;
   justify-content: flex-end;
 }
 
-.matt-experiment-graph-toolbar .chart-view-toggle {
+.experiment-graph-toolbar .chart-view-toggle {
   border: 1px solid #dfe5ee;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
 }
 
-.matt-experiment-graph-grid {
+.experiment-graph-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.matt-experiment-graph-card {
+.experiment-graph-card {
   min-width: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -3359,18 +3359,18 @@ select {
   transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
-.matt-experiment-graph-card:hover {
+.experiment-graph-card:hover {
   border-color: #99cbb8;
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
   transform: translateY(-1px);
 }
 
-.matt-experiment-graph-card:focus-visible {
+.experiment-graph-card:focus-visible {
   outline: 3px solid rgba(35, 142, 102, 0.28);
   outline-offset: 2px;
 }
 
-.matt-experiment-graph-card-head {
+.experiment-graph-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
@@ -3378,11 +3378,11 @@ select {
   padding: 15px 17px 4px;
 }
 
-.matt-experiment-graph-card-head strong {
+.experiment-graph-card-head strong {
   font-size: 0.96rem;
 }
 
-.matt-experiment-graph-card-head em {
+.experiment-graph-card-head em {
   color: #64748b;
   font-family: var(--portal-mono);
   font-size: 0.64rem;
@@ -3392,21 +3392,21 @@ select {
   text-transform: uppercase;
 }
 
-.matt-experiment-graph-card-head svg {
+.experiment-graph-card-head svg {
   color: #238e66;
 }
 
-.matt-experiment-graph-chart {
+.experiment-graph-chart {
   min-width: 0;
   display: block;
   pointer-events: none;
 }
 
-.matt-experiment-graph-chart .canvas-chart {
+.experiment-graph-chart .canvas-chart {
   min-height: 345px;
 }
 
-.matt-experiment-graph-range {
+.experiment-graph-range {
   padding: 0 22px 14px;
   border-radius: 10px;
   background: #ffffff;
@@ -5418,7 +5418,7 @@ select {
     grid-template-columns: 1fr;
   }
 
-  .matt-experiment-graph-grid {
+  .experiment-graph-grid {
     grid-template-columns: 1fr;
   }
 
@@ -5432,21 +5432,21 @@ select {
 }
 
 @media (max-width: 680px) {
-  .matt-experiment-graph-card-head {
+  .experiment-graph-card-head {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .matt-experiment-graph-card-head em {
+  .experiment-graph-card-head em {
     grid-column: 1 / -1;
     grid-row: 2;
   }
 
-  .matt-experiment-graph-card-head svg {
+  .experiment-graph-card-head svg {
     grid-column: 2;
     grid-row: 1;
   }
 
-  .matt-experiment-graph-chart .canvas-chart {
+  .experiment-graph-chart .canvas-chart {
     min-height: 300px;
   }
 

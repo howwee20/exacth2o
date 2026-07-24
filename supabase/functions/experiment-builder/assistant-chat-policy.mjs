@@ -133,6 +133,32 @@ export const assistantTools = [
   },
   {
     type: "function",
+    name: "get_delivery_evidence",
+    description:
+      "Read independent flow, weight, pressure, reservoir-mass, manual, or simulator evidence for physical water delivery. A valve event alone is not physical-delivery evidence.",
+    strict: true,
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        experiment: {
+          anyOf: [
+            { type: "string", minLength: 1, maxLength: 160 },
+            { type: "null" },
+          ],
+          description: "An exact current experiment name or null for the full project.",
+        },
+        hours: {
+          type: "number",
+          minimum: 1,
+          maximum: 168,
+        },
+      },
+      required: ["experiment", "hours"],
+    },
+  },
+  {
+    type: "function",
     name: "compare_experiments",
     description:
       "Compare measurements, trends, targets, and recorded watering activity across two to six current experiments.",
@@ -279,71 +305,20 @@ export const assistantTools = [
   },
 ];
 
-export const assistantCapabilities = [
-  {
-    id: "live_status",
-    label: "Live experiment status",
-    mode: "read",
-    approval: "none",
-    available: true,
-  },
-  {
-    id: "comparison",
-    label: "Experiment comparison",
-    mode: "read",
-    approval: "none",
-    available: true,
-  },
-  {
-    id: "experiment_builder",
-    label: "Create experiments",
-    mode: "write",
-    approval: "review",
-    available: true,
-  },
-  {
-    id: "settings",
-    label: "Change targets, cadence, groups, and supported settings",
-    mode: "write",
-    approval: "review",
-    available: true,
-  },
-  {
-    id: "scheduling",
-    label: "Future and recurring supported settings",
-    mode: "write",
-    approval: "review",
-    available: true,
-  },
-  {
-    id: "monitoring",
-    label: "Moisture, trend, freshness, and health monitoring",
-    mode: "write",
-    approval: "review",
-    available: true,
-  },
-  {
-    id: "lifecycle",
-    label: "Complete, archive, and restore safe experiments",
-    mode: "write",
-    approval: "review",
-    available: true,
-  },
-  {
-    id: "manual_water",
-    label: "Manual watering",
-    mode: "hardware",
-    approval: "physical safety gate",
-    available: false,
-  },
-  {
-    id: "sensor_initialization",
-    label: "Sensor initialization",
-    mode: "hardware",
-    approval: "administrator safety gate",
-    available: false,
-  },
-];
+export const assistantCapabilities = platformCapabilities.map((capability) => ({
+  id: capability.id,
+  label: capability.label,
+  mode: capability.kind,
+  approval: capability.approval,
+  available: capability.enabled,
+  roles: capability.roles,
+  physical_evidence_required: capability.physicalEvidenceRequired,
+}));
+
+export const assistantCapabilityContract = {
+  version: platformContractVersion,
+  checksum: platformContractChecksum,
+};
 
 export function assistantChatInstructions(role) {
   return [
@@ -354,7 +329,7 @@ export function assistantChatInstructions(role) {
     "Treat tool timestamps as the evidence boundary. State the observation time when describing current conditions, and say when data is stale or missing.",
     "A recorded valve event is evidence of a controller action, not proof that water physically reached a pot. Never claim physical delivery without physical evidence.",
     "Use get_recent_activity for questions about queued, running, completed, or failed changes. Use get_calibration_status for questions about calibration studies, reference observations, candidate equations, or set requests.",
-    "Use get_automation_status for schedule, monitor, or alert status. Use compare_experiments when a question needs evidence from more than one experiment. Use get_capabilities when asked what ExactH2O can do.",
+    "Use get_automation_status for schedule, monitor, or alert status. Use get_delivery_evidence when asked whether water physically reached a pot or whether expected volume was verified. Use compare_experiments when a question needs evidence from more than one experiment. Use get_capabilities when asked what ExactH2O can do.",
     "Use prepare_experiment_specification when the user asks to create or define a new experiment. Use prepare_settings_plan when the user asks to change an existing experiment, watering, sensing, pairings, groups, calibrations, targets, cadence, controller state, or exports.",
     "Use prepare_schedule for future or recurring supported settings. Use prepare_monitor when the user asks to watch a condition or alert them. Use prepare_experiment_archive when the user asks to delete, remove, or archive an experiment. Use prepare_experiment_lifecycle to complete or restore an experiment.",
     "A request to pause or resume watering belongs in a reviewed settings plan. Completion and restoration use the lifecycle review.",
@@ -648,3 +623,8 @@ export function compareExperimentAggregates(items) {
     };
   });
 }
+import {
+  platformCapabilities,
+  platformContractChecksum,
+  platformContractVersion,
+} from "../_shared/platform-capabilities.mjs";

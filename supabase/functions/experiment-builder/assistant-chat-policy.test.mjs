@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   aggregateExperimentReadings,
   aggregateValveEvents,
+  assistantCapabilities,
+  assistantCapabilityContract,
   assistantChatInstructions,
   assistantTools,
   experimentArchiveDecision,
@@ -11,6 +13,27 @@ import {
   resolveExactExperimentCatalog,
   resolveExperimentCatalog,
 } from "./assistant-chat-policy.mjs";
+import {
+  platformCapabilities,
+  platformContractChecksum,
+  platformContractVersion,
+} from "../_shared/platform-capabilities.mjs";
+
+test("assistant capabilities and tools come from the shared platform contract", () => {
+  assert.equal(assistantCapabilityContract.version, platformContractVersion);
+  assert.equal(assistantCapabilityContract.checksum, platformContractChecksum);
+  assert.deepEqual(
+    assistantCapabilities.map((capability) => capability.id),
+    platformCapabilities.map((capability) => capability.id),
+  );
+  assert.deepEqual(
+    assistantTools.map((tool) => tool.name).sort(),
+    platformCapabilities
+      .map((capability) => capability.assistantTool)
+      .filter(Boolean)
+      .sort(),
+  );
+});
 
 test("assistant tools expose only reads and approval-gated proposals", () => {
   assert.deepEqual(
@@ -23,6 +46,7 @@ test("assistant tools expose only reads and approval-gated proposals", () => {
       "get_recent_activity",
       "get_calibration_status",
       "get_automation_status",
+      "get_delivery_evidence",
       "compare_experiments",
       "prepare_experiment_specification",
       "prepare_settings_plan",

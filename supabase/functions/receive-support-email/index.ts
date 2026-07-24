@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { Webhook } from "https://esm.sh/svix@1.64.1";
+import { publicIntakeProjectId } from "../_shared/installation-config.mjs";
 
 type ResendEmailReceivedEvent = {
   type?: string;
@@ -34,8 +35,6 @@ type ReceivedEmailDetail = {
   message_id?: string;
   attachments?: unknown[];
 };
-
-const mattProjectId = "22222222-2222-4222-8222-222222222222";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -99,8 +98,12 @@ async function retrieveReceivedEmail(emailId: string): Promise<ReceivedEmailDeta
 }
 
 serve(async (request) => {
+  const intakeProjectId = publicIntakeProjectId(Deno.env.toObject());
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+  if (!intakeProjectId) {
+    return jsonResponse({ error: "Public intake is not configured" }, 503);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -163,7 +166,7 @@ serve(async (request) => {
   const { data: thread, error: threadError } = await supabase
     .from("support_threads")
     .insert({
-      project_id: mattProjectId,
+      project_id: intakeProjectId,
       source: "email",
       status: "new",
       priority: "normal",
@@ -190,7 +193,7 @@ serve(async (request) => {
     .from("support_messages")
     .insert({
       thread_id: thread.id,
-      project_id: mattProjectId,
+      project_id: intakeProjectId,
       direction: "inbound",
       channel: "email",
       from_email: from,

@@ -5,6 +5,12 @@ import {
   controlCommandIntakeEnabled,
   manualWaterIntakeEnabled,
 } from "./command-policy.mjs";
+import { controllerCommandTypes } from "../_shared/platform-capabilities.mjs";
+import {
+  ensureApprovedOperation,
+  markOperationFailed,
+  recordQueuedCommandResources,
+} from "../_shared/operation-ledger.mjs";
 
 type CommandType =
   | "update_pairing"
@@ -29,6 +35,8 @@ type ControlCommandPayload = {
   depends_on_command_id?: string | null;
   batch_id?: string | null;
   experiment_id?: string | null;
+  operation_id?: string | null;
+  operation_intent?: string | null;
   command_type?: CommandType;
   payload?: unknown;
   batch_commands?: Array<{
@@ -61,22 +69,9 @@ const allowedOrigins = new Set([
   "http://localhost:8123",
 ]);
 
-const commandTypes = new Set<CommandType>([
-  "update_pairing",
-  "bulk_update_pairings",
-  "create_pairing",
-  "delete_pairing",
-  "create_group",
-  "remove_group",
-  "create_calibration",
-  "delete_calibration",
-  "apply_calibration",
-  "manual_water",
-  "update_board_config",
-  "initialize_sensors",
-  "update_system_state",
-  "export_data",
-]);
+const commandTypes = new Set<CommandType>(
+  controllerCommandTypes as CommandType[],
+);
 
 const destructiveCommands = new Set<CommandType>([
   "delete_pairing",
@@ -391,6 +386,8 @@ serve(async (request) => {
   const dependsOnCommandId = clean(body.depends_on_command_id, 80);
   const batchId = clean(body.batch_id, 80);
   const experimentId = clean(body.experiment_id, 80);
+  const requestedOperationId = clean(body.operation_id, 80);
+  const operationIntent = clean(body.operation_intent, 8_000);
   const commandType = body.command_type;
   const rawBatchCommands = Array.isArray(body.batch_commands) ? body.batch_commands : [];
   const isBatchRequest = rawBatchCommands.length > 0;
@@ -414,6 +411,9 @@ serve(async (request) => {
   }
   if (experimentId && !isUuid(experimentId)) {
     return jsonResponse({ error: "Experiment reference is invalid" }, 400, origin);
+  }
+  if (requestedOperationId && !isUuid(requestedOperationId)) {
+    return jsonResponse({ error: "Operation reference is invalid" }, 400, origin);
   }
   if (
     !isBatchRequest &&
@@ -550,6 +550,25 @@ serve(async (request) => {
     }
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    let operation;
+    try {
+      operation = await ensureApprovedOperation(admin, {
+        operationId: requestedOperationId,
+        projectId,
+        userId: userData.user.id,
+        capabilityId: "settings.change",
+        idempotencyKey: `control-batch:${batchId}`,
+        intent: operationIntent || "Apply the reviewed settings batch.",
+        specification: {
+          batch_id: batchId,
+          expected_config_hash: expectedConfigHash,
+          expected_controller_state: expectedControllerState,
+          commands: validatedBatch,
+        },
+      });
+    } catch (error) {
+      return jsonResponse({ error: errorMessage(error) }, 500, origin);
+    }
     const { data: commandRows, error: insertError } = await admin.rpc(
       "enqueue_portal_control_command_batch",
       {
@@ -564,6 +583,12 @@ serve(async (request) => {
       },
     );
     if (insertError || !Array.isArray(commandRows) || commandRows.length !== validatedBatch.length) {
+      await markOperationFailed(admin, {
+        operationId: operation.id,
+        projectId,
+        errorCode: "command_enqueue_failed",
+        errorMessage: insertError?.message || "The complete settings batch was not queued.",
+      });
       if (insertError?.message?.includes("configuration changed")) {
         return jsonResponse({ error: "Controller settings changed. Review the request again." }, 409, origin);
       }
@@ -578,7 +603,26 @@ serve(async (request) => {
       }
       return jsonResponse({ error: "Could not queue the complete settings batch" }, 500, origin);
     }
-    return jsonResponse({ ok: true, batch_id: batchId, commands: commandRows }, 200, origin);
+    try {
+      await recordQueuedCommandResources(admin, {
+        operationId: operation.id,
+        projectId,
+        batchId,
+        commands: commandRows,
+      });
+    } catch (error) {
+      console.error("operation_ledger_link_failed", {
+        operation_id: operation.id,
+        batch_id: batchId,
+        error: errorMessage(error),
+      });
+    }
+    return jsonResponse({
+      ok: true,
+      operation_id: operation.id,
+      batch_id: batchId,
+      commands: commandRows,
+    }, 200, origin);
   }
 
   if (!validated) {
@@ -592,6 +636,31 @@ serve(async (request) => {
 
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const capabilityId = validated.commandType === "manual_water"
+    ? "manual_water"
+    : validated.commandType === "export_data"
+    ? "data.export"
+    : "settings.change";
+  let operation;
+  try {
+    operation = await ensureApprovedOperation(admin, {
+      operationId: requestedOperationId,
+      projectId,
+      userId: userData.user.id,
+      capabilityId,
+      idempotencyKey: `control-command:${clientRequestId}`,
+      intent: operationIntent || `Apply reviewed ${validated.commandType} command.`,
+      specification: {
+        command_type: validated.commandType,
+        payload: validated.payload,
+        experiment_id: experimentId || null,
+        batch_id: batchId || null,
+      },
+      verificationRequired: validated.commandType === "manual_water",
+    });
+  } catch (error) {
+    return jsonResponse({ error: errorMessage(error) }, 500, origin);
+  }
   const { data: commandRows, error: insertError } = await admin.rpc(
     "enqueue_portal_control_command_v2",
     {
@@ -612,6 +681,12 @@ serve(async (request) => {
   const command = Array.isArray(commandRows) ? commandRows[0] : commandRows;
 
   if (insertError || !command) {
+    await markOperationFailed(admin, {
+      operationId: operation.id,
+      projectId,
+      errorCode: "command_enqueue_failed",
+      errorMessage: insertError?.message || "The controller command was not queued.",
+    });
     if (insertError?.message?.includes("already active or cooling down")) {
       return jsonResponse({ error: "Manual watering is already active or cooling down" }, 409, origin);
     }
@@ -624,8 +699,24 @@ serve(async (request) => {
     return jsonResponse({ error: "Could not queue control command" }, 500, origin);
   }
 
+  try {
+    await recordQueuedCommandResources(admin, {
+      operationId: operation.id,
+      projectId,
+      batchId: batchId || null,
+      commands: [command],
+    });
+  } catch (error) {
+    console.error("operation_ledger_link_failed", {
+      operation_id: operation.id,
+      command_id: command.id,
+      error: errorMessage(error),
+    });
+  }
+
   return jsonResponse({
     ok: true,
+    operation_id: operation.id,
     command,
   }, 200, origin);
 });

@@ -1,5 +1,8 @@
+import { controllerCommandTypes } from "./generated/platform-capabilities.mjs";
+
 const VERSION = "exacth2o-control-executor/0.3.0";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const supportedCommandTypes = new Set(controllerCommandTypes);
 
 export class IndeterminateMutationError extends Error {
   constructor(message, options = {}) {
@@ -446,6 +449,10 @@ export async function executeCommand(command, options) {
   const dryRun = options.dryRun;
   const manualWaterMaxSeconds = options.manualWaterMaxSeconds;
   const payload = ensureObject(command.payload || {}, "payload");
+
+  if (!supportedCommandTypes.has(command.command_type)) {
+    throw new Error(`Unsupported command type: ${command.command_type}`);
+  }
 
   if (command.command_type === "export_data") {
     return { skipped: true, reason: "export_data is handled by the portal download path" };

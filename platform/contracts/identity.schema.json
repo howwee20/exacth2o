@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://exacth2o.com/contracts/identity.schema.json",
+  "title": "ExactH2O canonical identity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "organizationId",
+    "projectId",
+    "siteId",
+    "deviceId",
+    "potId",
+    "pairingName",
+    "sensorKey",
+    "valveKey",
+    "effectiveFrom"
+  ],
+  "properties": {
+    "organizationId": { "type": "string", "format": "uuid" },
+    "projectId": { "type": "string", "format": "uuid" },
+    "siteId": { "type": "string", "format": "uuid" },
+    "deviceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "positionId": {
+      "anyOf": [
+        { "type": "string", "format": "uuid" },
+        { "type": "null" }
+      ]
+    },
+    "potId": { "type": "string", "format": "uuid" },
+    "potKey": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "zone": { "type": ["integer", "null"], "minimum": 1, "maximum": 1000 },
+    "potNumber": { "type": ["integer", "null"], "minimum": 1, "maximum": 100000 },
+    "pairingName": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "sensorKey": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "valveKey": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "configHash": { "type": ["string", "null"], "maxLength": 128 },
+    "effectiveFrom": { "type": "string", "format": "date-time" },
+    "effectiveUntil": {
+      "anyOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ]
+    },
+    "verification": {
+      "type": "string",
+      "enum": ["unverified", "software_matched", "physically_verified", "disputed"]
+    },
+    "experimentAssignment": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["experimentId", "revisionId", "treatment"],
+          "properties": {
+            "experimentId": { "type": "string", "format": "uuid" },
+            "revisionId": { "type": "string", "format": "uuid" },
+            "crop": { "type": ["string", "null"], "maxLength": 120 },
+            "treatment": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "targetVwcPercent": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+          }
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

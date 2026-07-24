@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Scatter, ComposedChart } from 'recharts'
 import { ArrowDownCircleIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { useConnectedDevices } from '../swr/useConnectedDevices'
@@ -142,10 +142,10 @@ function CalibrationContent() {
     })
 
     setSensorValues(newSensorValues)
-  }, [selectedSensors])
+  }, [calibrationValues.length, selectedSensors])
 
   // Calculate average readings based on selected sensors and their values
-  const calculateAverages = (selectedIds: number[]) => {
+  const calculateAverages = useCallback((selectedIds: number[]) => {
     const averages = calibrationValues.map((_, index) => {
       let sum = 0
       let count = 0
@@ -163,12 +163,12 @@ function CalibrationContent() {
     })
 
     setAverageReadings(averages)
-  }
+  }, [calibrationValues, sensorValues])
 
   // Recalculate averages when sensorValues change
   useEffect(() => {
     calculateAverages(selectedSensors)
-  }, [sensorValues])
+  }, [calculateAverages, selectedSensors])
 
   // Handle sensor selection change
   const handleSensorChange = (sensorId: number) => {

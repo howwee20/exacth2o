@@ -46,6 +46,20 @@ import {
   resolveExactExperimentCatalog,
   resolveExperimentCatalog,
 } from "./assistant-chat-policy.mjs";
+import {
+  ensureApprovedOperation,
+  linkOperationResource,
+  markOperationCompleted,
+  markOperationFailed,
+} from "../_shared/operation-ledger.mjs";
+import {
+  clean,
+  isUuid,
+  openAiUsage,
+  record,
+  scheduleInputForNormalization,
+  sha256,
+} from "./request-utils.mjs";
 
 const allowedOrigins = new Set([
   "https://exacth2o.com",
@@ -76,63 +90,8 @@ function response(body: unknown, status: number, origin: string | null) {
   });
 }
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
-function clean(value: unknown, maxLength: number) {
-  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    .test(value);
-}
-
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Experiment builder failed.";
-}
-
-async function sha256(value: string) {
-  const encoded = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function openAiUsage(value: unknown) {
-  const usage = record(value);
-  return {
-    input_tokens: typeof usage.input_tokens === "number" ? usage.input_tokens : null,
-    output_tokens: typeof usage.output_tokens === "number" ? usage.output_tokens : null,
-  };
-}
-
-function scheduleInputForNormalization(value: unknown) {
-  const plan = record(value);
-  const settingsPlan = record(plan.settings_plan);
-  const commands = Array.isArray(settingsPlan.commands)
-    ? settingsPlan.commands.map((item) => {
-      const command = record(item);
-      return {
-        command_type: command.command_type,
-        payload_json: typeof command.payload_json === "string"
-          ? command.payload_json
-          : JSON.stringify(record(command.payload)),
-        effect: command.effect,
-      };
-    })
-    : [];
-  return {
-    ...plan,
-    settings_plan: {
-      ...settingsPlan,
-      commands,
-    },
-  };
 }
 
 Deno.serve(async (request) => {
@@ -320,6 +279,27 @@ Deno.serve(async (request) => {
       return response({ error: "Review this experiment again before removing it." }, 409, origin);
     }
 
+    let archiveOperation;
+    try {
+      archiveOperation = await ensureApprovedOperation(admin, {
+        projectId,
+        userId: userData.user.id,
+        capabilityId: "experiment.archive",
+        idempotencyKey: `archive:${reviewToken}`,
+        intent: `Archive experiment ${experiment.name} while preserving its history.`,
+        specification: {
+          experiment_id: experiment.id,
+          experiment_name: experiment.name,
+          history_preserved: true,
+          watering_state: experiment.watering_state,
+        },
+        verificationRequired: false,
+        metadata: { source: "portal_assistant" },
+      });
+    } catch {
+      return response({ error: "The approved removal could not be recorded." }, 500, origin);
+    }
+
     const archiveTime = new Date().toISOString();
     const { data: archived, error: archiveError } = await admin
       .from("experiments")
@@ -335,6 +315,12 @@ Deno.serve(async (request) => {
       .select("id,slug,name,status,updated_at")
       .maybeSingle();
     if (archiveError || !archived) {
+      await markOperationFailed(admin, {
+        operationId: archiveOperation.id,
+        projectId,
+        errorCode: "experiment_changed",
+        errorMessage: "The experiment changed after review.",
+      });
       return response({
         error: "The experiment changed after review. Review it again.",
       }, 409, origin);
@@ -366,11 +352,30 @@ Deno.serve(async (request) => {
         .eq("project_id", projectId)
         .eq("updated_at", archiveTime)
         .eq("status", "archived");
+      await markOperationFailed(admin, {
+        operationId: archiveOperation.id,
+        projectId,
+        errorCode: "audit_write_failed",
+        errorMessage: "The removal was not recorded and was rolled back.",
+      });
       return response({
         error: "The removal was not recorded, so the experiment was left unchanged.",
       }, 500, origin);
     }
+    await linkOperationResource(admin, {
+      operationId: archiveOperation.id,
+      projectId,
+      resourceType: "experiment",
+      resourceId: archived.id,
+    });
+    await markOperationCompleted(admin, {
+      operationId: archiveOperation.id,
+      projectId,
+      summary: `${archived.name} was archived with history preserved.`,
+      evidence: { experiment_id: archived.id, history_preserved: true },
+    });
     return response({
+      operation_id: archiveOperation.id,
       experiment_id: archived.id,
       experiment_slug: archived.slug,
       experiment_name: archived.name,
@@ -481,6 +486,26 @@ Deno.serve(async (request) => {
         error: canApply ? "Review this lifecycle action again." : reason,
       }, 409, origin);
     }
+    let lifecycleOperation;
+    try {
+      lifecycleOperation = await ensureApprovedOperation(admin, {
+        projectId,
+        userId: userData.user.id,
+        capabilityId: "experiment.lifecycle",
+        idempotencyKey: `lifecycle:${reviewToken}`,
+        intent: `${lifecycleAction === "restore" ? "Restore" : "Complete"} experiment ${experiment.name}.`,
+        specification: {
+          experiment_id: experiment.id,
+          experiment_name: experiment.name,
+          lifecycle_action: lifecycleAction,
+          history_preserved: true,
+        },
+        verificationRequired: false,
+        metadata: { source: "portal_assistant" },
+      });
+    } catch {
+      return response({ error: "The approved lifecycle action could not be recorded." }, 500, origin);
+    }
     const functionName = lifecycleAction === "restore"
       ? "restore_assistant_experiment"
       : "complete_assistant_experiment";
@@ -488,9 +513,34 @@ Deno.serve(async (request) => {
       requested_project_id: projectId,
       requested_experiment_id: experiment.id,
     });
-    if (applyError) return response({ error: applyError.message }, 409, origin);
+    if (applyError) {
+      await markOperationFailed(admin, {
+        operationId: lifecycleOperation.id,
+        projectId,
+        errorCode: "lifecycle_apply_failed",
+        errorMessage: applyError.message,
+      });
+      return response({ error: applyError.message }, 409, origin);
+    }
     const appliedRow = Array.isArray(applied) ? applied[0] : applied;
+    await linkOperationResource(admin, {
+      operationId: lifecycleOperation.id,
+      projectId,
+      resourceType: "experiment",
+      resourceId: experiment.id,
+    });
+    await markOperationCompleted(admin, {
+      operationId: lifecycleOperation.id,
+      projectId,
+      summary: `${experiment.name} was ${lifecycleAction === "restore" ? "restored" : "completed"}.`,
+      evidence: {
+        experiment_id: experiment.id,
+        lifecycle_action: lifecycleAction,
+        history_preserved: true,
+      },
+    });
     return response({
+      operation_id: lifecycleOperation.id,
       experiment_id: appliedRow?.experiment_id ?? experiment.id,
       experiment_slug: appliedRow?.experiment_slug ?? experiment.slug,
       status: appliedRow?.experiment_status ??
@@ -568,6 +618,21 @@ Deno.serve(async (request) => {
     if (body.confirm !== true || clean(body.review_token, 128) !== reviewToken) {
       return response({ error: "Review this schedule again before creating it." }, 409, origin);
     }
+    let scheduleOperation;
+    try {
+      scheduleOperation = await ensureApprovedOperation(admin, {
+        projectId,
+        userId: userData.user.id,
+        capabilityId: "schedule.manage",
+        idempotencyKey: `schedule:${reviewToken}`,
+        intent: `Create schedule ${plan.name}.`,
+        specification: plan,
+        verificationRequired: false,
+        metadata: { source: "portal_assistant" },
+      });
+    } catch {
+      return response({ error: "The approved schedule could not be recorded." }, 500, origin);
+    }
     const { data: created, error: createError } = await admin
       .from("assistant_schedules")
       .insert({
@@ -594,12 +659,50 @@ Deno.serve(async (request) => {
         .eq("created_by", userData.user.id)
         .eq("review_token_hash", reviewToken)
         .maybeSingle();
-      if (existing) return response({ schedule: existing }, 200, origin);
+      if (existing) {
+        await linkOperationResource(admin, {
+          operationId: scheduleOperation.id,
+          projectId,
+          resourceType: "schedule",
+          resourceId: existing.id,
+        });
+        await markOperationCompleted(admin, {
+          operationId: scheduleOperation.id,
+          projectId,
+          summary: `Schedule ${existing.name} is active.`,
+          evidence: { schedule_id: existing.id, next_run_at: existing.next_run_at },
+        });
+        return response({
+          operation_id: scheduleOperation.id,
+          schedule: existing,
+        }, 200, origin);
+      }
     }
     if (createError || !created) {
+      await markOperationFailed(admin, {
+        operationId: scheduleOperation.id,
+        projectId,
+        errorCode: "schedule_create_failed",
+        errorMessage: "The approved schedule could not be saved.",
+      });
       return response({ error: "The approved schedule could not be saved." }, 500, origin);
     }
-    return response({ schedule: created }, 200, origin);
+    await linkOperationResource(admin, {
+      operationId: scheduleOperation.id,
+      projectId,
+      resourceType: "schedule",
+      resourceId: created.id,
+    });
+    await markOperationCompleted(admin, {
+      operationId: scheduleOperation.id,
+      projectId,
+      summary: `Schedule ${created.name} was created.`,
+      evidence: { schedule_id: created.id, next_run_at: created.next_run_at },
+    });
+    return response({
+      operation_id: scheduleOperation.id,
+      schedule: created,
+    }, 200, origin);
   }
 
   if (action === "monitor_create") {
@@ -625,6 +728,21 @@ Deno.serve(async (request) => {
     ));
     if (body.confirm !== true || clean(body.review_token, 128) !== reviewToken) {
       return response({ error: "Review this monitor again before creating it." }, 409, origin);
+    }
+    let monitorOperation;
+    try {
+      monitorOperation = await ensureApprovedOperation(admin, {
+        projectId,
+        userId: userData.user.id,
+        capabilityId: "monitor.manage",
+        idempotencyKey: `monitor:${reviewToken}`,
+        intent: `Create monitor ${plan.name}.`,
+        specification: plan,
+        verificationRequired: false,
+        metadata: { source: "portal_assistant" },
+      });
+    } catch {
+      return response({ error: "The approved monitor could not be recorded." }, 500, origin);
     }
     const { data: created, error: createError } = await admin
       .from("assistant_monitors")
@@ -658,12 +776,50 @@ Deno.serve(async (request) => {
         .eq("created_by", userData.user.id)
         .eq("review_token_hash", reviewToken)
         .maybeSingle();
-      if (existing) return response({ monitor: existing }, 200, origin);
+      if (existing) {
+        await linkOperationResource(admin, {
+          operationId: monitorOperation.id,
+          projectId,
+          resourceType: "monitor",
+          resourceId: existing.id,
+        });
+        await markOperationCompleted(admin, {
+          operationId: monitorOperation.id,
+          projectId,
+          summary: `Monitor ${existing.name} is active.`,
+          evidence: { monitor_id: existing.id },
+        });
+        return response({
+          operation_id: monitorOperation.id,
+          monitor: existing,
+        }, 200, origin);
+      }
     }
     if (createError || !created) {
+      await markOperationFailed(admin, {
+        operationId: monitorOperation.id,
+        projectId,
+        errorCode: "monitor_create_failed",
+        errorMessage: "The approved monitor could not be saved.",
+      });
       return response({ error: "The approved monitor could not be saved." }, 500, origin);
     }
-    return response({ monitor: created }, 200, origin);
+    await linkOperationResource(admin, {
+      operationId: monitorOperation.id,
+      projectId,
+      resourceType: "monitor",
+      resourceId: created.id,
+    });
+    await markOperationCompleted(admin, {
+      operationId: monitorOperation.id,
+      projectId,
+      summary: `Monitor ${created.name} was created.`,
+      evidence: { monitor_id: created.id },
+    });
+    return response({
+      operation_id: monitorOperation.id,
+      monitor: created,
+    }, 200, origin);
   }
 
   if (action === "preflight" || action === "launch") {
@@ -718,6 +874,34 @@ Deno.serve(async (request) => {
       mode: draft.mode === "calibration" ? "calibration" : "observation",
       watering_requested: false,
     };
+    let launchOperation;
+    try {
+      const launchFingerprint = await sha256(JSON.stringify({
+        draft,
+        reviewedConfigHash,
+        expectedInventory,
+      }));
+      launchOperation = await ensureApprovedOperation(admin, {
+        projectId,
+        userId: userData.user.id,
+        capabilityId: "experiment.create",
+        idempotencyKey: `experiment-launch:${launchFingerprint}`,
+        intent: `Create experiment ${draft.name} from the reviewed specification.`,
+        specification: {
+          draft,
+          control_plan: plan,
+          expected_inventory_updated_at: expectedInventory,
+          reviewed_config_hash: reviewedConfigHash,
+        },
+        verificationRequired: false,
+        metadata: {
+          source,
+          prompt_fingerprint: clean(body.prompt_fingerprint, 128) || null,
+        },
+      });
+    } catch {
+      return response({ error: "The approved experiment could not be recorded." }, 500, origin);
+    }
     const { data: published, error: publishError } = await authClient.rpc(
       "publish_sensing_experiment",
       {
@@ -731,10 +915,24 @@ Deno.serve(async (request) => {
           : null,
       },
     );
-    if (publishError) return response({ error: publishError.message }, 400, origin);
+    if (publishError) {
+      await markOperationFailed(admin, {
+        operationId: launchOperation.id,
+        projectId,
+        errorCode: "experiment_publish_failed",
+        errorMessage: publishError.message,
+      });
+      return response({ error: publishError.message }, 400, origin);
+    }
     const publishedResult = Array.isArray(published) ? published[0] : published;
     const experimentId = clean(publishedResult?.experiment_id, 80);
     const experimentSlug = clean(publishedResult?.experiment_slug, 80);
+    await linkOperationResource(admin, {
+      operationId: launchOperation.id,
+      projectId,
+      resourceType: "experiment",
+      resourceId: experimentId,
+    });
 
     const { data: attached, error: attachError } = await admin.rpc(
       "attach_experiment_control_plan",
@@ -748,6 +946,12 @@ Deno.serve(async (request) => {
       },
     );
     if (attachError) {
+      await markOperationFailed(admin, {
+        operationId: launchOperation.id,
+        projectId,
+        errorCode: "control_plan_attach_failed",
+        errorMessage: attachError.message,
+      });
       return response({
         error: `Experiment was saved with watering off. ${attachError.message}`,
         experiment_id: experimentId,
@@ -757,6 +961,14 @@ Deno.serve(async (request) => {
     const attachedResult = Array.isArray(attached) ? attached[0] : attached;
     const planId = clean(attachedResult?.plan_id, 80) || null;
     const batchId = clean(attachedResult?.batch_id, 80) || null;
+    if (planId) {
+      await linkOperationResource(admin, {
+        operationId: launchOperation.id,
+        projectId,
+        resourceType: "control_plan",
+        resourceId: planId,
+      });
+    }
     const commandIds: string[] = [];
     let dependsOnCommandId: string | null = null;
 
@@ -779,6 +991,8 @@ Deno.serve(async (request) => {
           depends_on_command_id: dependsOnCommandId,
           batch_id: batchId,
           experiment_id: experimentId,
+          operation_id: launchOperation.id,
+          operation_intent: `Activate experiment ${draft.name} from the reviewed specification.`,
         }),
       });
       const commandBody = record(await commandResponse.json().catch(() => ({})));
@@ -793,6 +1007,12 @@ Deno.serve(async (request) => {
             failure_message: enqueueError,
           });
         }
+        await markOperationFailed(admin, {
+          operationId: launchOperation.id,
+          projectId,
+          errorCode: "controller_enqueue_failed",
+          errorMessage: enqueueError,
+        });
         return response({
           error: `Experiment was created but remains safely paused. ${enqueueError}`,
           experiment_id: experimentId,
@@ -803,7 +1023,16 @@ Deno.serve(async (request) => {
       dependsOnCommandId = commandId;
     }
 
+    if (!plan.commands.length) {
+      await markOperationCompleted(admin, {
+        operationId: launchOperation.id,
+        projectId,
+        summary: `${draft.name} was created as a sensing experiment.`,
+        evidence: { experiment_id: experimentId, plan_id: planId },
+      });
+    }
     return response({
+      operation_id: launchOperation.id,
       experiment_id: experimentId,
       experiment_slug: experimentSlug,
       plan_id: planId,
@@ -1097,26 +1326,32 @@ Deno.serve(async (request) => {
             ? Math.min(168, Math.max(1, hoursValue))
             : 24;
           const since = new Date(Date.now() - hours * 60 * 60 * 1_000).toISOString();
-          const { data: commands, error: commandReadError } = await authClient
-            .from("project_control_commands")
-            .select(
-              "id,experiment_id,command_type,status,requested_at,started_at,completed_at,error,result",
-            )
-            .eq("project_id", projectId)
-            .gte("requested_at", since)
-            .order("requested_at", { ascending: false })
-            .limit(100);
-          if (commandReadError) {
+          const [operationResult, commandResult] = await Promise.all([
+            authClient
+              .from("portal_operation_timeline")
+              .select(
+                "id,capability_id,intent,approval_state,execution_state,verification_state,correlation_id,created_at,updated_at,completed_at,events",
+              )
+              .eq("project_id", projectId)
+              .gte("created_at", since)
+              .order("created_at", { ascending: false })
+              .limit(100),
+            authClient
+              .from("project_control_commands")
+              .select(
+                "id,experiment_id,command_type,status,requested_at,started_at,completed_at,error,result",
+              )
+              .eq("project_id", projectId)
+              .gte("requested_at", since)
+              .order("requested_at", { ascending: false })
+              .limit(100),
+          ]);
+          if (operationResult.error || commandResult.error) {
             console.error("assistant_activity_read_failed", {
               request_id: requestRow.id,
-              code: commandReadError.code,
+              operation_code: operationResult.error?.code,
+              command_code: commandResult.error?.code,
             });
-            return {
-              observed_at: new Date().toISOString(),
-              hours,
-              activity_available: false,
-              error: "Recent activity could not be loaded.",
-            };
           }
           const catalog = await loadCatalog();
           const experimentNameById = new Map(
@@ -1125,8 +1360,11 @@ Deno.serve(async (request) => {
           return {
             observed_at: new Date().toISOString(),
             hours,
-            activity_available: true,
-            commands: (commands ?? []).map((item) => ({
+            activity_available: !operationResult.error || !commandResult.error,
+            operations_available: !operationResult.error,
+            operations: operationResult.data ?? [],
+            commands_available: !commandResult.error,
+            commands: (commandResult.data ?? []).map((item) => ({
               command_type: item.command_type,
               status: item.status,
               experiment: item.experiment_id
@@ -1261,6 +1499,78 @@ Deno.serve(async (request) => {
             schedules: scheduleResult.data ?? [],
             monitors: monitorResult.data ?? [],
             recent_alerts: eventResult.data ?? [],
+          };
+        }
+
+        if (call.name === "get_delivery_evidence") {
+          const hoursValue = Number(call.arguments.hours);
+          const hours = Number.isFinite(hoursValue)
+            ? Math.min(168, Math.max(1, hoursValue))
+            : 24;
+          const since = new Date(Date.now() - hours * 60 * 60 * 1_000).toISOString();
+          const requestedExperiment = clean(call.arguments.experiment, 160);
+          let pairingNames: string[] | null = null;
+          let experimentName: string | null = null;
+          if (requestedExperiment) {
+            const catalog = await loadCatalog();
+            const experiment = resolveExperimentCatalog(catalog, requestedExperiment);
+            if (!experiment) {
+              return {
+                error: "Experiment not found.",
+                available_experiments: catalog.map((item) => item.name),
+              };
+            }
+            experimentName = clean(experiment.name, 160);
+            pairingNames = Array.isArray(experiment.pairing_names)
+              ? experiment.pairing_names
+                .map((item: unknown) => clean(item, 120))
+                .filter(Boolean)
+              : [];
+          }
+
+          let evidenceQuery = authClient
+            .from("delivery_evidence")
+            .select(
+              "operation_id,command_id,valve_event_id,pairing_name,evidence_type,source_id,observed_at,value,unit,expected_value,tolerance,verification_result,created_at",
+            )
+            .eq("project_id", projectId)
+            .gte("observed_at", since)
+            .order("observed_at", { ascending: false })
+            .limit(1_000);
+          if (pairingNames) {
+            if (!pairingNames.length) {
+              return {
+                observed_at: new Date().toISOString(),
+                hours,
+                experiment: experimentName,
+                physical_evidence_available: false,
+                evidence: [],
+                evidence_note: "This experiment has no assigned pairings.",
+              };
+            }
+            evidenceQuery = evidenceQuery.in("pairing_name", pairingNames);
+          }
+          const evidenceResult = await evidenceQuery;
+          if (evidenceResult.error) {
+            console.error("assistant_delivery_evidence_read_failed", {
+              request_id: requestRow.id,
+              code: evidenceResult.error.code,
+            });
+          }
+          const evidence = evidenceResult.data ?? [];
+          return {
+            observed_at: new Date().toISOString(),
+            hours,
+            since,
+            experiment: experimentName,
+            physical_evidence_available: !evidenceResult.error && evidence.length > 0,
+            data_available: !evidenceResult.error,
+            evidence,
+            evidence_note: evidenceResult.error
+              ? "Physical-delivery evidence could not be read."
+              : evidence.length
+                ? "These records are independent physical or simulator evidence."
+                : "No independent physical-delivery evidence was recorded. This does not prove delivery failed.",
           };
         }
 

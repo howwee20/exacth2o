@@ -1,0 +1,230 @@
+{
+  "contractVersion": "2026-07-24.1",
+  "capabilities": [
+    {
+      "id": "capability.read",
+      "label": "Platform capabilities",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "get_capabilities",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "project.read",
+      "label": "Project overview",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "get_project_overview",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "experiment.read",
+      "label": "Experiment status",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "get_experiment_status",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "experiment.compare",
+      "label": "Experiment comparison",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "compare_experiments",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "system.health.read",
+      "label": "System health",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "get_system_health",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "activity.read",
+      "label": "Recent activity",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "get_recent_activity",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "calibration.read",
+      "label": "Calibration status",
+      "kind": "read",
+      "roles": ["admin", "researcher"],
+      "approval": "none",
+      "assistantTool": "get_calibration_status",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "automation.read",
+      "label": "Automation status",
+      "kind": "read",
+      "roles": ["admin", "researcher"],
+      "approval": "none",
+      "assistantTool": "get_automation_status",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "experiment.create",
+      "label": "Create an experiment",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": "prepare_experiment_specification",
+      "controllerCommands": ["update_system_state", "bulk_update_pairings"],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "settings.change",
+      "label": "Change supported settings",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": "prepare_settings_plan",
+      "controllerCommands": [
+        "update_system_state",
+        "update_pairing",
+        "bulk_update_pairings",
+        "create_pairing",
+        "delete_pairing",
+        "create_group",
+        "remove_group",
+        "create_calibration",
+        "delete_calibration",
+        "apply_calibration",
+        "update_board_config"
+      ],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "experiment.archive",
+      "label": "Archive an experiment",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": "prepare_experiment_archive",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "schedule.manage",
+      "label": "Schedule supported settings",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": "prepare_schedule",
+      "controllerCommands": [
+        "update_system_state",
+        "update_pairing",
+        "bulk_update_pairings"
+      ],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "monitor.manage",
+      "label": "Monitor experiment conditions",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": "prepare_monitor",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "experiment.lifecycle",
+      "label": "Complete or restore an experiment",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": "prepare_experiment_lifecycle",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "notification.manage",
+      "label": "Notification preferences",
+      "kind": "write",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "review",
+      "assistantTool": null,
+      "controllerCommands": [],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "delivery.read",
+      "label": "Physical delivery evidence",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": "get_delivery_evidence",
+      "controllerCommands": [],
+      "physicalEvidenceRequired": true,
+      "enabled": true
+    },
+    {
+      "id": "manual_water",
+      "label": "Manual watering",
+      "kind": "hardware",
+      "roles": ["admin", "researcher"],
+      "approval": "physical_safety_gate",
+      "assistantTool": null,
+      "controllerCommands": ["manual_water"],
+      "physicalEvidenceRequired": true,
+      "enabled": false
+    },
+    {
+      "id": "sensor.initialize",
+      "label": "Sensor initialization",
+      "kind": "hardware",
+      "roles": ["admin"],
+      "approval": "administrator_safety_gate",
+      "assistantTool": null,
+      "controllerCommands": ["initialize_sensors"],
+      "physicalEvidenceRequired": true,
+      "enabled": false
+    },
+    {
+      "id": "data.export",
+      "label": "Export project data",
+      "kind": "read",
+      "roles": ["admin", "researcher", "viewer"],
+      "approval": "none",
+      "assistantTool": null,
+      "controllerCommands": ["export_data"],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    }
+  ]
+}

@@ -27,6 +27,28 @@ Required function secrets include:
 - `MATT_OWNER_HEALTH_PASSWORD`
 - `PUBLIC_FORM_RATE_LIMIT_SALT` (random, at least 32 characters)
 - Resend and notification secrets used by the quote/support functions
+- `PUBLIC_INTAKE_PROJECT_ID`
+- `HEALTH_SYNC_PROJECT_ID`
+- `HEALTH_SYNC_ORGANIZATION_ID`
+- `HEALTH_SYNC_DEVICE_ID`
+- `HEALTH_SYNC_DEVICE_NAME`
+- `OWNER_HEALTH_BASE_URL` (optional)
+- `NOTIFICATION_DISPATCHER_SECRET`
+- `NOTIFICATION_FROM_EMAIL`
+
+The production installation identifiers above are deployment configuration,
+not application behavior. `sync-owner-health` fails closed when the health-sync
+identity is incomplete, and the public intake functions fail closed when their
+project is not configured. The legacy `MATT_OWNER_HEALTH_USER` and
+`MATT_OWNER_HEALTH_PASSWORD` secret names remain accepted during credential
+migration; new installations should use `OWNER_HEALTH_USER` and
+`OWNER_HEALTH_PASSWORD`.
+
+The notification dispatcher requires an authenticated server-side invocation.
+Do not expose `NOTIFICATION_DISPATCHER_SECRET` to a browser. Configure the
+provider and a scheduler only after the sending domain and recipient behavior
+have been verified in staging. `QUOTE_EMAIL_FROM` is used as the fallback
+sender when `NOTIFICATION_FROM_EMAIL` is not set.
 
 `sync-owner-health` accepts only server ingestion secrets. Supabase Cron is the five-minute server authority until the matching controller executor is safely released; the executor can then become the primary publisher while Cron and GitHub Actions remain freshness-checked watchdogs. Browser tabs are readers, not ingestion authorities. Provision the same strong random value in the Edge secret `SYNC_OWNER_HEALTH_CRON_SECRET` and Vault name `exacth2o_owner_health_cron_secret`; the scheduled database function fails closed without it.
 

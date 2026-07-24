@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { enforcePublicSubmission } from "../_shared/abuse-prevention.mjs";
+import { publicIntakeProjectId } from "../_shared/installation-config.mjs";
 
 type QuotePayload = {
   name?: string;
@@ -13,8 +14,6 @@ type QuotePayload = {
   sourceUrl?: string;
   honey?: string;
 };
-
-const mattProjectId = "22222222-2222-4222-8222-222222222222";
 
 const allowedOrigins = new Set([
   "https://exacth2o.com",
@@ -112,6 +111,7 @@ function buildEmailText(submission: Required<Omit<QuotePayload, "honey">>) {
 
 serve(async (request) => {
   const origin = request.headers.get("Origin");
+  const intakeProjectId = publicIntakeProjectId(Deno.env.toObject());
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -119,6 +119,9 @@ serve(async (request) => {
 
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405, origin);
+  }
+  if (!intakeProjectId) {
+    return jsonResponse({ error: "Public intake is not configured" }, 503, origin);
   }
 
   if (origin && !allowedOrigins.has(origin)) {
@@ -190,7 +193,7 @@ serve(async (request) => {
     "save_public_quote_submission",
     {
       submission_data: {
-        project_id: mattProjectId,
+        project_id: intakeProjectId,
         name: submission.name,
         email: submission.email,
         phone: submission.phone,

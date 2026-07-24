@@ -46,8 +46,6 @@ function latestState(
     )[0];
 }
 
-const mattDeviceId = "3100e37ee3205651fe3dd86dafd4dc0c";
-
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -287,6 +285,18 @@ Deno.serve(async (request) => {
     return response({ allowed: true }, 200, origin);
   }
 
+  const { data: projectDevice, error: projectDeviceError } = await admin
+    .from("device_config_state")
+    .select("device_id,updated_at")
+    .eq("project_id", projectId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (projectDeviceError || !projectDevice?.device_id) {
+    return response({ error: "R&D project device is unavailable" }, 503, origin);
+  }
+  const observationDeviceId = projectDevice.device_id;
+
   const { pageSize: historyPageSize, cursor: historyCursor } =
     parseHistoryPageRequest(requestBody);
 
@@ -294,7 +304,7 @@ Deno.serve(async (request) => {
     "rd_worker_observation",
     {
       observation_project_id: projectId,
-      observation_device_id: mattDeviceId,
+      observation_device_id: observationDeviceId,
       observation_since: new Date(Date.now() - 36 * 60 * 60 * 1000)
         .toISOString(),
     },
@@ -348,7 +358,7 @@ Deno.serve(async (request) => {
       Math.abs(left.vwc - left.target) - Math.abs(right.vwc - right.target)
     );
     const selected = candidates[0] ?? {
-      pairingName: "Matt experiment",
+      pairingName: "Awaiting experiment evidence",
       target: 0,
       vwc: 0,
       reading: null,
@@ -362,7 +372,7 @@ Deno.serve(async (request) => {
         candidate_version: null,
         model_readiness: {
           kind: "bootstrap",
-          label: "Awaiting real Matt Experiment 1 training evidence",
+          label: "Awaiting approved live training evidence",
           synthetic_data_only: false,
           evidence_count: 0,
         },
@@ -523,7 +533,7 @@ Deno.serve(async (request) => {
       .limit(750),
     admin.from("rd_shadow_model_channels_v5").select(
       "champion_model_version_id,evaluation_candidate_model_version_id,latest_challenger_model_version_id,champion_since,evaluation_started_at,updated_at",
-    ).eq("project_id", projectId).eq("device_id", mattDeviceId).limit(1),
+    ).eq("project_id", projectId).eq("device_id", observationDeviceId).limit(1),
     admin.from("rd_model_updates_v5").select(
       "model_version_id,training_event_count,training_horizon_count,metrics,parameters,created_at",
     ).order("created_at", { ascending: false }).limit(50),
@@ -1140,7 +1150,7 @@ Deno.serve(async (request) => {
   const modelReadiness = displayedModel?.synthetic_data_only === false
     ? {
       kind: "trained",
-      label: "Trained from real Matt Experiment 1 evidence",
+      label: "Trained from approved live evidence",
       synthetic_data_only: false,
       evidence_count: Number(
         displayedModel.training_event_count ?? learnedEventCount,
@@ -1155,7 +1165,7 @@ Deno.serve(async (request) => {
     }
     : {
       kind: "bootstrap",
-      label: "Awaiting real Matt Experiment 1 training evidence",
+      label: "Awaiting approved live training evidence",
       synthetic_data_only: false,
       evidence_count: learnedEventCount,
     };

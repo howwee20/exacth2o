@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.assistant-automation-runner]
 verify_jwt = false
+
+[functions.notification-dispatcher]
+verify_jwt = false

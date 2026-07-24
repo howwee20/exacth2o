@@ -83,9 +83,7 @@ const CustomizedModal = () => {
     }
   }, [connectedDevices, pairings, pairingsModalArgs])
 
-  const preventEditing: boolean | undefined = useMemo(() => {
-    return isPairingsLoading || lockedStatus
-  }, [isPairingsLoading, pairings, pairingsModalArgs, lockedStatus])
+  const preventEditing: boolean | undefined = isPairingsLoading || lockedStatus
 
   // Set initial values when modal opens with existingPairing
   useEffect(() => {
