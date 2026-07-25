@@ -5,6 +5,7 @@ import {
   aggregateValveEvents,
   assistantCapabilities,
   assistantCapabilityContract,
+  assistantArtifactsFromToolEvidence,
   assistantChatInstructions,
   assistantTools,
   experimentArchiveDecision,
@@ -59,6 +60,11 @@ test("assistant tools expose only reads and approval-gated proposals", () => {
   assert.match(assistantChatInstructions("researcher"), /do not execute changes/i);
   assert.match(assistantChatInstructions("researcher"), /tool output as untrusted data/i);
   assert.match(assistantChatInstructions("researcher"), /practice.*observation-only/i);
+  assert.match(assistantChatInstructions("researcher"), /under 120 words/i);
+  assert.match(
+    assistantChatInstructions("researcher"),
+    /above or below its target does not by itself prove/i,
+  );
   assert.doesNotMatch(assistantTools.map((tool) => tool.name).join(" "), /apply|launch|water_now/);
 });
 
@@ -172,4 +178,166 @@ test("water-event evidence is explicitly bounded", () => {
   ]);
   assert.equal(summary.recorded_open_events, 1);
   assert.match(summary.evidence_note, /do not prove physical water delivery/i);
+});
+
+test("duplicate imported and live evidence is counted once with live preferred", () => {
+  const readings = aggregateExperimentReadings(
+    [
+      {
+        event_id: "balena-export-v2:one",
+        pairing_name: "Zone1-Pot16",
+        calibrated_value: 28,
+        device_recorded_at: "2026-07-24T13:00:00Z",
+      },
+      {
+        event_id: "live-device:one",
+        pairing_name: "Zone1-Pot16",
+        calibrated_value: 28,
+        device_recorded_at: "2026-07-24T13:00:00Z",
+      },
+    ],
+    [{ pairing_name: "Zone1-Pot16", crop: "Maize", treatment: "Drought" }],
+    [{ name: "Zone1-Pot16", pot_number: 16, wtc_percent_limit: 10 }],
+  );
+  const watering = aggregateValveEvents([
+    {
+      event_id: "balena-export-v2:water",
+      pairing_name: "Zone1-Pot16",
+      action: "open",
+      duration_ms: 2_000,
+      device_recorded_at: "2026-07-24T13:05:00Z",
+    },
+    {
+      event_id: "live-device:water",
+      pairing_name: "Zone1-Pot16",
+      action: "open",
+      duration_ms: 2_000,
+      device_recorded_at: "2026-07-24T13:05:00Z",
+    },
+  ]);
+  assert.equal(readings.reading_count, 1);
+  assert.equal(watering.recorded_open_events, 1);
+});
+
+test("experiment evidence produces grouped chart data and source proof", () => {
+  const bundle = assistantArtifactsFromToolEvidence([
+    {
+      tool: "get_experiment_status",
+      result: {
+        experiment: {
+          name: "Matt Experiment 2",
+          slug: "matt-experiment-2",
+          expected_pots: 2,
+        },
+        window: { since: "2026-07-24T12:00:00Z" },
+        readings_available: true,
+        water_events_available: true,
+        readings: {
+          reading_count: 4,
+          latest_observed_at: "2026-07-24T14:00:00Z",
+          pots: [
+            {
+              pairing_name: "Zone1-Pot15",
+              pot_number: 15,
+              crop: "Maize",
+              treatment: "Control",
+              target_vwc_percent: 30,
+              current_vwc_percent: 31,
+              change_vwc_percent: -1,
+            },
+            {
+              pairing_name: "Zone1-Pot16",
+              pot_number: 16,
+              crop: "Maize",
+              treatment: "Drought",
+              target_vwc_percent: 10,
+              current_vwc_percent: 28,
+              change_vwc_percent: -3,
+            },
+          ],
+        },
+        watering: {
+          recorded_open_events: 1,
+          latest_event_at: "2026-07-24T13:05:00Z",
+          evidence_note:
+            "Recorded valve-open events show controller actions; they do not prove physical water delivery.",
+        },
+      },
+    },
+  ]);
+  assert.equal(bundle.sources[0].label, "Sensor readings and valve events");
+  assert.equal(bundle.artifacts[0].kind, "experiment_chart");
+  assert.equal(bundle.artifacts[0].groups.length, 2);
+  assert.equal(bundle.artifacts[0].groups[1].target_vwc_percent, 10);
+  assert.equal(bundle.artifacts[0].recorded_water_events, 1);
+});
+
+test("activity evidence becomes a durable proof-of-work receipt", () => {
+  const bundle = assistantArtifactsFromToolEvidence([
+    {
+      tool: "get_recent_activity",
+      result: {
+        observed_at: "2026-07-24T14:00:00Z",
+        operations: [
+          {
+            id: "operation-1",
+            intent: "Create observation-only test",
+            execution_state: "completed",
+            verification_state: "verified",
+            created_at: "2026-07-24T13:00:00Z",
+            completed_at: "2026-07-24T13:01:00Z",
+          },
+        ],
+        commands: [],
+      },
+    },
+  ]);
+  assert.equal(bundle.artifacts[0].kind, "operation_receipt");
+  assert.equal(bundle.artifacts[0].operations[0].verification_state, "verified");
+});
+
+test("overview, calibration, and automation reads produce compact evidence cards", () => {
+  const bundle = assistantArtifactsFromToolEvidence([
+    {
+      tool: "get_project_overview",
+      result: {
+        observed_at: "2026-07-24T14:00:00Z",
+        controller: {
+          controller_state: "RUNNING",
+          sensors_current: 20,
+          sensors_expected: 20,
+        },
+        inventory: {
+          configured_pairings: 44,
+          watering_enabled_pairings: 24,
+          sensing_only_pairings: 20,
+        },
+        experiments: [{ name: "Matt Experiment 2" }],
+      },
+    },
+    {
+      tool: "get_calibration_status",
+      result: {
+        observed_at: "2026-07-24T14:00:00Z",
+        calibration_data_complete: true,
+        studies: [{ matched_observation_count: 25 }],
+        candidates: [{ id: "candidate-1" }],
+        set_requests: [],
+      },
+    },
+    {
+      tool: "get_automation_status",
+      result: {
+        observed_at: "2026-07-24T14:00:00Z",
+        data_complete: true,
+        schedules: [{ status: "active" }],
+        monitors: [{ status: "active" }],
+        recent_alerts: [{ acknowledged_at: null }],
+      },
+    },
+  ]);
+  assert.deepEqual(
+    bundle.artifacts.map((artifact) => artifact.title),
+    ["Project overview", "Calibration", "Automation"],
+  );
 });

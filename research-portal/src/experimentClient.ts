@@ -14,6 +14,7 @@ import type {
   SettingsDraftResponse,
   SettingsPlan,
 } from "./settingsSpec";
+import type { AssistantEvidenceBundle } from "./assistantEvidence";
 
 type CatalogRow = {
   id: string;
@@ -53,6 +54,8 @@ export type AssistantChatResponse = {
     | "lifecycle";
   workflow_prompt: string | null;
   thread_id: string;
+  request_id: string;
+  evidence: AssistantEvidenceBundle;
   model: string | null;
   prompt_fingerprint: string | null;
 };
@@ -61,6 +64,19 @@ export type AssistantPersistedMessage = AssistantConversationMessage & {
   id: string;
   workflow: AssistantChatResponse["workflow"];
   created_at: string;
+  metadata: {
+    evidence?: AssistantEvidenceBundle;
+    workflow_prompt?: string | null;
+    model?: string | null;
+  };
+};
+
+export type AssistantThread = {
+  id: string;
+  title: string;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
 };
 
 export type SchedulePlan = {
@@ -218,20 +234,27 @@ export function chatWithAssistant(
   });
 }
 
-export async function loadAssistantConversation(projectId: string) {
-  const { data: threads, error: threadError } = await supabase
+export async function listAssistantThreads(projectId: string) {
+  const { data, error } = await supabase
     .from("assistant_threads")
-    .select("id,title,updated_at")
+    .select("id,title,status,created_at,updated_at")
     .eq("project_id", projectId)
     .eq("status", "active")
     .order("updated_at", { ascending: false })
-    .limit(1);
-  if (threadError) throw threadError;
-  const thread = threads?.[0] ?? null;
+    .limit(50);
+  if (error) throw error;
+  return (data ?? []) as AssistantThread[];
+}
+
+export async function loadAssistantConversation(projectId: string, selectedThreadId?: string | null) {
+  const threads = await listAssistantThreads(projectId);
+  const thread = selectedThreadId
+    ? threads.find((item) => item.id === selectedThreadId) ?? null
+    : threads[0] ?? null;
   if (!thread) return { threadId: null, messages: [] as AssistantPersistedMessage[] };
   const { data: messages, error: messageError } = await supabase
     .from("assistant_messages")
-    .select("id,role,content,workflow,created_at")
+    .select("id,role,content,workflow,metadata,created_at")
     .eq("project_id", projectId)
     .eq("thread_id", thread.id)
     .order("created_at", { ascending: true })
@@ -241,6 +264,26 @@ export async function loadAssistantConversation(projectId: string) {
     threadId: thread.id as string,
     messages: (messages ?? []) as AssistantPersistedMessage[],
   };
+}
+
+export function renameAssistantThread(projectId: string, threadId: string, title: string) {
+  return invokeExperimentBuilder<{ thread: AssistantThread }>({
+    action: "assistant_thread_rename",
+    project_id: projectId,
+    thread_id: threadId,
+    title,
+  });
+}
+
+export function deleteAssistantThread(projectId: string, threadId: string) {
+  return invokeExperimentBuilder<{
+    deleted_thread_id: string;
+    audit_history_preserved: true;
+  }>({
+    action: "assistant_thread_delete",
+    project_id: projectId,
+    thread_id: threadId,
+  });
 }
 
 export function draftSchedule(

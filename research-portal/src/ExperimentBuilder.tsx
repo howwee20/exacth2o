@@ -88,6 +88,8 @@ export function ExperimentBuilder({
   const [reviewedConfigHash, setReviewedConfigHash] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [launchStatus, setLaunchStatus] = useState<"active" | "activating" | null>(null);
+  const [createdOperationId, setCreatedOperationId] = useState<string | null>(null);
+  const [createdCommandCount, setCreatedCommandCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
@@ -277,6 +279,8 @@ export function ExperimentBuilder({
       });
       setCreatedSlug(result.experiment_slug);
       setLaunchStatus(result.status);
+      setCreatedOperationId(result.operation_id);
+      setCreatedCommandCount(result.command_ids.length);
       setStep("complete");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Could not create the experiment.");
@@ -668,6 +672,24 @@ export function ExperimentBuilder({
                 ? "The reviewed controller steps are running in order. The tile shows the current status."
                 : "The tile and graph are ready."}
             </p>
+            <div className="experiment-builder-proof" aria-label="Creation receipt">
+              <article>
+                <span>Experiment</span>
+                <strong>Created</strong>
+              </article>
+              <article>
+                <span>Operation</span>
+                <strong>{createdOperationId ? createdOperationId.slice(0, 8) : "Recorded"}</strong>
+              </article>
+              <article>
+                <span>Controller commands</span>
+                <strong>
+                  {createdCommandCount
+                    ? `${createdCommandCount} queued`
+                    : "None"}
+                </strong>
+              </article>
+            </div>
             <button
               type="button"
               className="is-primary"

@@ -66,6 +66,7 @@ export type ExperimentPreflightResponse = {
 };
 
 export type ExperimentLaunchResponse = {
+  operation_id: string;
   experiment_id: string;
   experiment_slug: string;
   plan_id: string | null;

@@ -3201,6 +3201,7 @@ function PortalAssistantHero({
   onApplySettings,
   onExperimentCreated,
   onExperimentArchived,
+  onOpenExperiment,
 }: {
   projectId: string;
   pairings: PairingRow[];
@@ -3212,6 +3213,7 @@ function PortalAssistantHero({
   onApplySettings: QueueSettingsPlan;
   onExperimentCreated: (slug: string) => Promise<void>;
   onExperimentArchived: () => Promise<void>;
+  onOpenExperiment: (experimentId: ExperimentId) => void;
 }) {
   return (
     <PortalAssistantWorkspace
@@ -3222,6 +3224,7 @@ function PortalAssistantHero({
       onApplySettings={onApplySettings}
       onExperimentCreated={onExperimentCreated}
       onExperimentArchived={onExperimentArchived}
+      onOpenExperiment={onOpenExperiment}
       activity={(
         <PortalCommandActivity
           operations={operations}
@@ -3276,6 +3279,7 @@ function PortalResearcherHome({
           onApplySettings={onApplySettings}
           onExperimentCreated={onExperimentCreated}
           onExperimentArchived={onExperimentArchived}
+          onOpenExperiment={onOpenExperiment}
         />
       ) : null}
       <div className="portal-launch-grid">
@@ -3355,6 +3359,7 @@ function PortalAdminHome({
         onApplySettings={onApplySettings}
         onExperimentCreated={onExperimentCreated}
         onExperimentArchived={onExperimentArchived}
+        onOpenExperiment={onOpenExperiment}
       />
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">

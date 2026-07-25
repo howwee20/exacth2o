@@ -35,6 +35,7 @@ import {
 import {
   aggregateExperimentReadings,
   aggregateValveEvents,
+  assistantArtifactsFromToolEvidence,
   assistantCapabilities,
   assistantChatInstructions,
   assistantFunctionCalls,
@@ -135,6 +136,8 @@ Deno.serve(async (request) => {
       body.action === "launch" ||
       body.action === "route" ||
       body.action === "assistant_chat" ||
+      body.action === "assistant_thread_rename" ||
+      body.action === "assistant_thread_delete" ||
       body.action === "settings_draft" ||
       body.action === "settings_revise" ||
       body.action === "archive_preflight" ||
@@ -168,6 +171,42 @@ Deno.serve(async (request) => {
   }
   if (access?.role !== "admin" && access?.role !== "researcher") {
     return response({ error: "Researcher or administrator access is required." }, 403, origin);
+  }
+
+  if (action === "assistant_thread_rename" || action === "assistant_thread_delete") {
+    const threadId = clean(body.thread_id, 80);
+    if (!isUuid(threadId)) {
+      return response({ error: "Choose a valid conversation." }, 400, origin);
+    }
+    if (action === "assistant_thread_rename") {
+      const title = clean(body.title, 160);
+      if (!title) return response({ error: "Name the conversation." }, 400, origin);
+      const { data, error } = await admin
+        .from("assistant_threads")
+        .update({ title, updated_at: new Date().toISOString() })
+        .eq("id", threadId)
+        .eq("project_id", projectId)
+        .eq("user_id", userData.user.id)
+        .select("id,title,status,created_at,updated_at")
+        .maybeSingle();
+      if (error) return response({ error: "The conversation could not be renamed." }, 500, origin);
+      if (!data) return response({ error: "The conversation was not found." }, 404, origin);
+      return response({ thread: data }, 200, origin);
+    }
+    const { data, error } = await admin
+      .from("assistant_threads")
+      .delete()
+      .eq("id", threadId)
+      .eq("project_id", projectId)
+      .eq("user_id", userData.user.id)
+      .select("id")
+      .maybeSingle();
+    if (error) return response({ error: "The conversation could not be deleted." }, 500, origin);
+    if (!data) return response({ error: "The conversation was not found." }, 404, origin);
+    return response({
+      deleted_thread_id: threadId,
+      audit_history_preserved: true,
+    }, 200, origin);
   }
 
   const { data: configState, error: configError } = await admin
@@ -1179,6 +1218,10 @@ Deno.serve(async (request) => {
       let reply = "";
       let inputTokens = 0;
       let outputTokens = 0;
+      const toolEvidence: Array<{
+        tool: string;
+        result: Record<string, unknown>;
+      }> = [];
 
       const loadCatalog = async () => {
         const { data: catalog, error: catalogError } = await authClient
@@ -1608,7 +1651,7 @@ Deno.serve(async (request) => {
               authClient
                 .from("sensor_readings")
                 .select(
-                  "pairing_name,calibrated_value,device_recorded_at,server_received_at",
+                  "event_id,pairing_name,calibrated_value,device_recorded_at,server_received_at",
                 )
                 .eq("project_id", projectId)
                 .in("pairing_name", pairingNames)
@@ -1618,7 +1661,7 @@ Deno.serve(async (request) => {
               authClient
                 .from("valve_events")
                 .select(
-                  "pairing_name,action,duration_ms,device_recorded_at,server_received_at",
+                  "event_id,pairing_name,action,duration_ms,device_recorded_at,server_received_at",
                 )
                 .eq("project_id", projectId)
                 .in("pairing_name", pairingNames)
@@ -1690,7 +1733,7 @@ Deno.serve(async (request) => {
             authClient
               .from("sensor_readings")
               .select(
-                "pairing_name,calibrated_value,device_recorded_at,server_received_at",
+                "event_id,pairing_name,calibrated_value,device_recorded_at,server_received_at",
               )
               .eq("project_id", projectId)
               .in("pairing_name", pairingNames)
@@ -1700,7 +1743,7 @@ Deno.serve(async (request) => {
             authClient
               .from("valve_events")
               .select(
-                "pairing_name,action,duration_ms,device_recorded_at,server_received_at",
+                "event_id,pairing_name,action,duration_ms,device_recorded_at,server_received_at",
               )
               .eq("project_id", projectId)
               .in("pairing_name", pairingNames)
@@ -1801,6 +1844,10 @@ Deno.serve(async (request) => {
         input.push(...output);
         for (const call of calls) {
           const result = await executeAssistantTool(call);
+          toolEvidence.push({
+            tool: call.name,
+            result: record(result),
+          });
           input.push({
             type: "function_call_output",
             call_id: call.call_id,
@@ -1811,6 +1858,7 @@ Deno.serve(async (request) => {
 
       if (!reply) throw new Error("Assistant did not return an answer.");
       const workflow = proposalState.value?.workflow ?? "answer";
+      const evidence = assistantArtifactsFromToolEvidence(toolEvidence);
       const { error: assistantMessageError } = await admin
         .from("assistant_messages")
         .insert({
@@ -1824,6 +1872,7 @@ Deno.serve(async (request) => {
           metadata: {
             workflow_prompt: proposalState.value?.workflow_prompt ?? null,
             model,
+            evidence,
           },
         });
       if (assistantMessageError) {
@@ -1848,6 +1897,8 @@ Deno.serve(async (request) => {
         workflow,
         workflow_prompt: proposalState.value?.workflow_prompt ?? null,
         thread_id: threadId,
+        request_id: requestRow.id,
+        evidence,
         model,
         prompt_fingerprint: promptFingerprint,
       }, 200, origin);
