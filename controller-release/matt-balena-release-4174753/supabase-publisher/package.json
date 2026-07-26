@@ -1,0 +1,10 @@
+{
+  "name": "exacth2o-supabase-publisher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/publisher.mjs",
+    "test": "node --test"
+  }
+}

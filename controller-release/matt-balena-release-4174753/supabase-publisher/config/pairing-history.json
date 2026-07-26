@@ -1,0 +1,29 @@
+{
+  "changes": [
+    {
+      "changedAt": "2026-07-26T18:08:26.000Z",
+      "mappings": [
+        {
+          "sensorId": 641,
+          "beforePairingName": "Zone1-Pot19",
+          "afterPairingName": "Zone3-Pot69"
+        },
+        {
+          "sensorId": 645,
+          "beforePairingName": "Zone1-Pot23",
+          "afterPairingName": "Zone3-Pot73"
+        },
+        {
+          "sensorId": 691,
+          "beforePairingName": "Zone3-Pot69",
+          "afterPairingName": "Zone1-Pot19"
+        },
+        {
+          "sensorId": 695,
+          "beforePairingName": "Zone3-Pot73",
+          "afterPairingName": "Zone1-Pot23"
+        }
+      ]
+    }
+  ]
+}
