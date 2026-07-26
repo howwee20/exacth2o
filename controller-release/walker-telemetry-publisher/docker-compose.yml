@@ -6,5 +6,5 @@ version: "2.4"
 services:
   walker_telemetry_publisher:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
