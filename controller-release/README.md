@@ -6,6 +6,7 @@ Current production sources:
 
 - `control-executor/` - a dry-run-first command bridge that claims Supabase `project_control_commands` rows with a device token, calls the local controller API, then writes truthful command completion status.
 - `matt-balena-release-4174753/` - the complete secret-free Balena source used to build Matt release `4174753` (`64247b84ec92e193f806e5718c206ec4`). It includes the authenticated controller config publisher, atomic STOPPED-state mutation gate, persisted controller-owned manual-pulse timer, restart recovery, and the hardened executor.
+- `walker-telemetry-publisher/` - a separate Gate B staging package for one-way, readings-only Walker VWC publication. It is not part of a live Walker release and must not be deployed until its exact source/release reconciliation and explicit approval gate are complete.
 
 Rollback target: release `4173986` (`c06746e0d24f8f00c1d5a08f9a18fd01`). The pre-release greenhouse config is preserved outside this repository in the protected release evidence directory.
 

@@ -73,6 +73,11 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
       walker_rls_table_count integer;
       walker_control_trigger_count integer;
       walker_blocked boolean;
+      walker_test_user constant uuid :=
+        '44444444-4444-4444-8444-444444444444'::uuid;
+      walker_snapshot jsonb;
+      walker_result jsonb;
+      walker_live_blocked boolean;
     begin
       if to_regclass('public.platform_operations') is null
          or to_regclass('public.delivery_evidence') is null
@@ -154,7 +159,9 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
       if to_regclass('public.walker_observation_workspaces') is null
          or to_regclass('public.walker_observation_imports') is null
          or to_regclass('public.walker_observation_sensor_metadata') is null
-         or to_regclass('public.walker_observation_trace_buckets') is null then
+         or to_regclass('public.walker_observation_trace_buckets') is null
+         or to_regclass('public.walker_live_telemetry_readings') is null
+         or to_regclass('public.walker_live_ingest_state') is null then
         raise exception 'Restored database is missing Walker observation tables';
       end if;
 
@@ -168,11 +175,13 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
           'walker_observation_workspaces',
           'walker_observation_imports',
           'walker_observation_sensor_metadata',
-          'walker_observation_trace_buckets'
+          'walker_observation_trace_buckets',
+          'walker_live_telemetry_readings',
+          'walker_live_ingest_state'
         )
         and relation.relrowsecurity;
 
-      if walker_rls_table_count <> 5 then
+      if walker_rls_table_count <> 7 then
         raise exception 'Restored database is missing Walker RLS';
       end if;
 
@@ -192,8 +201,44 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
         'authenticated',
         'public.walker_observation_finalize_sensor(integer)',
         'EXECUTE'
+      ) or has_function_privilege(
+        'anon',
+        'public.walker_live_observation_status(uuid,text)',
+        'EXECUTE'
+      ) or not has_function_privilege(
+        'authenticated',
+        'public.walker_live_observation_status(uuid,text)',
+        'EXECUTE'
+      ) or has_function_privilege(
+        'authenticated',
+        'public.walker_live_initialize_ingest(bigint,bigint,timestamptz,text)',
+        'EXECUTE'
+      ) or has_function_privilege(
+        'authenticated',
+        'public.ingest_walker_live_telemetry_batch(jsonb,bigint,bigint,timestamptz,text)',
+        'EXECUTE'
+      ) or has_function_privilege(
+        'authenticated',
+        'public.walker_live_record_heartbeat(bigint,bigint,timestamptz,text)',
+        'EXECUTE'
+      ) or not has_function_privilege(
+        'service_role',
+        'public.ingest_walker_live_telemetry_batch(jsonb,bigint,bigint,timestamptz,text)',
+        'EXECUTE'
       ) then
         raise exception 'Walker observation function privileges are unsafe';
+      end if;
+
+      if has_table_privilege(
+        'authenticated',
+        'public.walker_live_telemetry_readings',
+        'SELECT'
+      ) or has_table_privilege(
+        'service_role',
+        'public.walker_live_telemetry_readings',
+        'INSERT'
+      ) then
+        raise exception 'Walker live tables must be accessible only through bounded RPCs';
       end if;
 
       select count(*)
@@ -253,6 +298,227 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
       end;
       if not walker_blocked then
         raise exception 'Walker generic project membership was not blocked';
+      end if;
+
+      insert into auth.users (
+        instance_id,
+        id,
+        aud,
+        role,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_app_meta_data,
+        raw_user_meta_data,
+        created_at,
+        updated_at
+      ) values (
+        '00000000-0000-0000-0000-000000000000'::uuid,
+        walker_test_user,
+        'authenticated',
+        'authenticated',
+        'walker-read-model-test@example.invalid',
+        '',
+        now(),
+        '{}'::jsonb,
+        '{}'::jsonb,
+        now(),
+        now()
+      );
+
+      insert into public.organizations (id, slug, name)
+      values (
+        '44444444-4444-4444-8444-444444444430'::uuid,
+        'walker-read-model-test',
+        'Walker Read Model Test'
+      );
+
+      insert into public.projects (id, organization_id, slug, name)
+      values (
+        '44444444-4444-4444-8444-444444444431'::uuid,
+        '44444444-4444-4444-8444-444444444430'::uuid,
+        'walker-read-model-test',
+        'Walker Read Model Test'
+      );
+
+      insert into public.portal_access (
+        project_id,
+        user_id,
+        email,
+        role
+      ) values (
+        '44444444-4444-4444-8444-444444444431'::uuid,
+        walker_test_user,
+        'walker-read-model-test@example.invalid',
+        'admin'
+      );
+
+      insert into public.system_admin_installation_access (
+        project_id,
+        device_id,
+        portal_project_id,
+        user_id,
+        capability
+      ) values (
+        '33333333-3333-4333-8333-333333333331'::uuid,
+        'balena:a1c4ace2b367fbee8521f1aff6a6329b',
+        '44444444-4444-4444-8444-444444444431'::uuid,
+        walker_test_user,
+        'observe'
+      );
+
+      insert into public.walker_observation_sensor_metadata (
+        project_id,
+        device_id,
+        source_sensor_id,
+        sensor_key,
+        display_label,
+        source_pairing_name,
+        position_number,
+        board_serial_id,
+        sensor_address
+      )
+      select
+        '33333333-3333-4333-8333-333333333331'::uuid,
+        'balena:a1c4ace2b367fbee8521f1aff6a6329b',
+        700 + position,
+        'SIM:' || position,
+        case when position = 41 then 'Q-41' else position::text end,
+        case when position = 41 then 'Q-41' else position::text end,
+        position,
+        case when position <= 52 then 'SIM-BOARD-A' else 'SIM-BOARD-B' end,
+        position::text
+      from generate_series(1, 100) position
+      where position not in (48, 50, 51, 100);
+
+      insert into public.sensor_readings (
+        event_id,
+        organization_id,
+        project_id,
+        device_id,
+        source_sensor_id,
+        sensor_key,
+        pairing_name,
+        device_recorded_at,
+        server_received_at,
+        raw_value,
+        calibrated_value,
+        unit,
+        quality_flags
+      )
+      select
+        'walker:test:historical-row',
+        project.organization_id,
+        project.id,
+        'balena:a1c4ace2b367fbee8521f1aff6a6329b',
+        701,
+        'SIM:1',
+        '1',
+        now(),
+        now(),
+        1999,
+        99,
+        'vwc_pct',
+        jsonb_build_object('historical', true)
+      from public.projects project
+      where project.id = '33333333-3333-4333-8333-333333333331'::uuid;
+
+      perform set_config('request.jwt.claim.role', 'service_role', true);
+      select public.walker_live_initialize_ingest(
+        100,
+        100,
+        now() - interval '1 minute',
+        'walker-pi5-a1c4ace2'
+      ) into walker_result;
+      if walker_result ->> 'initialized' <> 'true' then
+        raise exception 'Walker live ingest did not initialize';
+      end if;
+
+      select public.ingest_walker_live_telemetry_batch(
+        jsonb_build_array(jsonb_build_object(
+          'source_reading_id', 101,
+          'source_sensor_id', 701,
+          'raw_value', 1200,
+          'calibrated_value', 25,
+          'temperature', 22,
+          'electrical_conductivity', null,
+          'device_recorded_at', now(),
+          'source_created_at', now()
+        )),
+        101,
+        101,
+        now(),
+        'walker-pi5-a1c4ace2'
+      ) into walker_result;
+      if walker_result ->> 'accepted' <> '1' then
+        raise exception 'Walker live append did not accept the simulated reading';
+      end if;
+
+      select public.ingest_walker_live_telemetry_batch(
+        jsonb_build_array(jsonb_build_object(
+          'source_reading_id', 101,
+          'source_sensor_id', 701,
+          'raw_value', 1200,
+          'calibrated_value', 25,
+          'temperature', 22,
+          'electrical_conductivity', null,
+          'device_recorded_at', (
+            select device_recorded_at
+            from public.walker_live_telemetry_readings
+            where source_reading_id = 101
+          ),
+          'source_created_at', (
+            select source_created_at
+            from public.walker_live_telemetry_readings
+            where source_reading_id = 101
+          )
+        )),
+        101,
+        101,
+        now(),
+        'walker-pi5-a1c4ace2'
+      ) into walker_result;
+      if walker_result ->> 'replayed' <> '1' then
+        raise exception 'Walker live append is not idempotent';
+      end if;
+
+      walker_live_blocked := false;
+      begin
+        update public.walker_live_telemetry_readings
+        set calibrated_value = 30
+        where source_reading_id = 101;
+      exception when raise_exception then
+        walker_live_blocked := sqlerrm = 'Walker live telemetry is append-only';
+      end;
+      if not walker_live_blocked then
+        raise exception 'Walker live telemetry update was not blocked';
+      end if;
+
+      perform set_config(
+        'request.jwt.claim.sub',
+        walker_test_user::text,
+        true
+      );
+      perform set_config('request.jwt.claim.role', 'authenticated', true);
+      select public.walker_live_observation_snapshot(
+        '33333333-3333-4333-8333-333333333331'::uuid,
+        'balena:a1c4ace2b367fbee8521f1aff6a6329b',
+        72,
+        288
+      ) into walker_snapshot;
+
+      if jsonb_array_length(walker_snapshot -> 'sensors') <> 96
+         or jsonb_array_length(walker_snapshot -> 'series') <> 96
+         or walker_snapshot ->> 'evidenced_sensor_count' <> '96'
+         or walker_snapshot ->> 'portal_control_available' <> 'false'
+         or (
+           select point ->> 'average'
+           from jsonb_array_elements(walker_snapshot -> 'series') series,
+                jsonb_array_elements(series -> 'points') point
+           where series ->> 'source_sensor_id' = '701'
+           limit 1
+         ) <> '25' then
+        raise exception 'Walker rolling snapshot is incorrect or archive-contaminated';
       end if;
     end
     \$\$;

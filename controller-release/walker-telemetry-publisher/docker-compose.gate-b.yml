@@ -1,0 +1,56 @@
+# Staging evidence only. This file has not been merged into or deployed to the
+# Walker Balena release.
+services:
+  walker-telemetry-publisher:
+    build:
+      context: ./walker-telemetry-publisher
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - database
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - walker-telemetry-cursor:/var/lib/walker-telemetry
+    networks:
+      - walker-telemetry-db
+      - walker-telemetry-egress
+    environment:
+      WALKER_TELEMETRY_PUBLISHER_INSTANCE: walker-pi5-a1c4ace2
+      WALKER_TELEMETRY_DB_HOST: database
+      WALKER_TELEMETRY_DB_PORT: "3306"
+      WALKER_TELEMETRY_DB_NAME: walkerlabs
+      WALKER_TELEMETRY_DB_USER: walker_telemetry
+      WALKER_TELEMETRY_DB_PASSWORD_FILE: /run/secrets/walker_telemetry_db_password
+      WALKER_TELEMETRY_RECEIVER_URL: https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/receive-walker-telemetry
+      WALKER_TELEMETRY_PUBLISH_SECRET_FILE: /run/secrets/walker_telemetry_publish_secret
+      WALKER_TELEMETRY_BATCH_SIZE: "500"
+      WALKER_TELEMETRY_MAX_ROWS_PER_CYCLE: "2000"
+      WALKER_TELEMETRY_POLL_MS: "15000"
+    secrets:
+      - walker_telemetry_db_password
+      - walker_telemetry_publish_secret
+
+  database:
+    networks:
+      - default
+      - walker-telemetry-db
+
+networks:
+  walker-telemetry-db:
+    internal: true
+  walker-telemetry-egress:
+
+volumes:
+  walker-telemetry-cursor:
+
+secrets:
+  walker_telemetry_db_password:
+    external: true
+  walker_telemetry_publish_secret:
+    external: true

@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.notification-dispatcher]
 verify_jwt = false
+
+[functions.receive-walker-telemetry]
+verify_jwt = false
