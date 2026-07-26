@@ -24,3 +24,18 @@ export class FileCursorStore {
     await rename(temporaryPath, this.path);
   }
 }
+
+export class FileHealthStore {
+  constructor(path) {
+    this.path = path;
+  }
+
+  async write(value) {
+    await mkdir(dirname(this.path), { recursive: true });
+    const temporaryPath = `${this.path}.next`;
+    await writeFile(temporaryPath, `${JSON.stringify(value)}\n`, {
+      mode: 0o600,
+    });
+    await rename(temporaryPath, this.path);
+  }
+}

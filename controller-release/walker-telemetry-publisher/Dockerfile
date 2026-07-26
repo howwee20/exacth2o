@@ -8,4 +8,6 @@ RUN mkdir -p /var/lib/walker-telemetry && chown node:node /var/lib/walker-teleme
 
 USER node
 VOLUME ["/var/lib/walker-telemetry"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD ["node", "src/healthcheck.mjs"]
 CMD ["node", "src/index.mjs"]

@@ -1,0 +1,10 @@
+version: "2.4"
+
+# Draft-image build composition only. The resulting image is later associated
+# with the parity-checked six-service release; this one-service draft is never
+# pinned to Walker.
+services:
+  walker_telemetry_publisher:
+    build:
+      context: ..
+      dockerfile: Dockerfile

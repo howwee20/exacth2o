@@ -5,7 +5,7 @@ import {
   publishCycle,
   retryBounded,
 } from "./publisher-core.mjs";
-import { FileCursorStore } from "./state-store.mjs";
+import { FileCursorStore, FileHealthStore } from "./state-store.mjs";
 
 const requiredIdentity = "walker-pi5-a1c4ace2";
 
@@ -123,6 +123,10 @@ const store = new FileCursorStore(
   process.env.WALKER_TELEMETRY_CURSOR_PATH ??
     "/var/lib/walker-telemetry/cursor.json",
 );
+const healthStore = new FileHealthStore(
+  process.env.WALKER_TELEMETRY_HEALTH_PATH ??
+    "/var/lib/walker-telemetry/health.json",
+);
 let stopping = false;
 process.on("SIGTERM", () => {
   stopping = true;
@@ -136,6 +140,12 @@ let state = await initializeAtSourceTail({
   sink,
   store,
   publisherInstance,
+});
+await healthStore.write({
+  version: 1,
+  publisher_instance: publisherInstance,
+  cursor: state.cursor,
+  last_success_at: new Date().toISOString(),
 });
 console.log("Walker telemetry publisher initialized", {
   cursor: state.cursor,
@@ -153,6 +163,14 @@ while (!stopping) {
       maxRowsPerCycle,
     });
     state = result.state;
+    await healthStore.write({
+      version: 1,
+      publisher_instance: publisherInstance,
+      cursor: state.cursor,
+      source_latest_known: result.sourceLatestKnown,
+      caught_up: result.caughtUp,
+      last_success_at: new Date().toISOString(),
+    });
     console.log("Walker telemetry publisher cycle", {
       published: result.published,
       cursor: state.cursor,

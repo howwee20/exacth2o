@@ -1,13 +1,14 @@
-# Staging evidence only. This file has not been merged into or deployed to the
-# Walker Balena release.
+# Final additive service definition. The release assembler must combine this
+# with the five exact service definitions and image records from release
+# 3981239; it must never rebuild those pre-existing services.
 services:
-  walker-telemetry-publisher:
+  walker_telemetry_publisher:
     build:
-      context: ./walker-telemetry-publisher
+      context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - database
+      - database_svc
     read_only: true
     cap_drop:
       - ALL
@@ -16,41 +17,20 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
     volumes:
-      - walker-telemetry-cursor:/var/lib/walker-telemetry
+      - walker_telemetry_cursor:/var/lib/walker-telemetry
     networks:
-      - walker-telemetry-db
-      - walker-telemetry-egress
+      - default
     environment:
       WALKER_TELEMETRY_PUBLISHER_INSTANCE: walker-pi5-a1c4ace2
-      WALKER_TELEMETRY_DB_HOST: database
+      WALKER_TELEMETRY_DB_HOST: database_svc
       WALKER_TELEMETRY_DB_PORT: "3306"
       WALKER_TELEMETRY_DB_NAME: walkerlabs
       WALKER_TELEMETRY_DB_USER: walker_telemetry
-      WALKER_TELEMETRY_DB_PASSWORD_FILE: /run/secrets/walker_telemetry_db_password
       WALKER_TELEMETRY_RECEIVER_URL: https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/receive-walker-telemetry
-      WALKER_TELEMETRY_PUBLISH_SECRET_FILE: /run/secrets/walker_telemetry_publish_secret
       WALKER_TELEMETRY_BATCH_SIZE: "500"
       WALKER_TELEMETRY_MAX_ROWS_PER_CYCLE: "2000"
       WALKER_TELEMETRY_POLL_MS: "15000"
-    secrets:
-      - walker_telemetry_db_password
-      - walker_telemetry_publish_secret
-
-  database:
-    networks:
-      - default
-      - walker-telemetry-db
-
-networks:
-  walker-telemetry-db:
-    internal: true
-  walker-telemetry-egress:
+      WALKER_TELEMETRY_HEALTH_MAX_AGE_MS: "90000"
 
 volumes:
-  walker-telemetry-cursor:
-
-secrets:
-  walker_telemetry_db_password:
-    external: true
-  walker_telemetry_publish_secret:
-    external: true
+  walker_telemetry_cursor:
