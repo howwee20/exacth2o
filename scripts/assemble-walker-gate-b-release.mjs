@@ -134,6 +134,32 @@ async function copyJoinMetadata(sdk, sourceJoinId, targetJoinId) {
   return { environment: environment.length, labels: labels.length };
 }
 
+async function writeDefinitionMetadata(sdk, definition, targetJoinId) {
+  const environment = Object.entries(definition.environment ?? {});
+  const labels = Object.entries(definition.labels ?? {});
+  for (const [name, value] of environment) {
+    await sdk.pine.post({
+      resource: "image_environment_variable",
+      body: {
+        release_image: targetJoinId,
+        name,
+        value: (value ?? "").toString(),
+      },
+    });
+  }
+  for (const [labelName, value] of labels) {
+    await sdk.pine.post({
+      resource: "image_label",
+      body: {
+        release_image: targetJoinId,
+        label_name: labelName,
+        value: (value ?? "").toString(),
+      },
+    });
+  }
+  return { environment: environment.length, labels: labels.length };
+}
+
 const publisherReleaseId = Number(argument("--publisher-release"));
 assert(
   Number.isSafeInteger(publisherReleaseId) && publisherReleaseId > 0,
@@ -308,11 +334,18 @@ try {
       },
     });
     associatedImages[image.serviceName] = image.imageId;
-    copiedMetadata[image.serviceName] = await copyJoinMetadata(
-      sdk,
-      image.releaseImageId,
-      association.id,
-    );
+    copiedMetadata[image.serviceName] =
+      image.serviceName === publisherService
+        ? await writeDefinitionMetadata(
+          sdk,
+          composition.services[publisherService],
+          association.id,
+        )
+        : await copyJoinMetadata(
+          sdk,
+          image.releaseImageId,
+          association.id,
+        );
   }
   const completedAt = new Date().toISOString();
   await sdk.pine.patch({
