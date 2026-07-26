@@ -129,7 +129,7 @@ services:
       MYSQL_DATABASE: "walkerlabs"
       MARIADB_DATABASE: "walkerlabs"
     healthcheck:
-      test: ["CMD-SHELL", "mariadb -h localhost -u root -p\"$${MYSQL_ROOT_PASSWORD}\" -e 'SELECT 1'"]
+      test: ["CMD", "/scripts/healthcheck.sh"]
       retries: 5
       timeout: 30s
       interval: 30s
