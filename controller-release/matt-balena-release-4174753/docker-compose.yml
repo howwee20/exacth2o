@@ -97,6 +97,7 @@ services:
       EXACTH2O_LOCAL_API_BASE: "http://api_svc:8888/v1"
       EXACTH2O_SYNC_OWNER_HEALTH_URL: "https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/sync-owner-health"
       EXACTH2O_CONTROL_EXECUTOR_POLL_MS: "5000"
+      EXACTH2O_CONTROL_EXECUTOR_RETRY_MAX_MS: "60000"
       EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "1"
       EXACTH2O_MANUAL_WATER_ENABLED: "0"
       EXACTH2O_MANUAL_WATER_MAX_SECONDS: "60"

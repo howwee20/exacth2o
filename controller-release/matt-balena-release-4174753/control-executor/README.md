@@ -22,6 +22,7 @@ The claim RPC only claims commands whose `device_id` exactly matches the token's
 - Pairing edits, calibration create/apply/delete, group create/removal, and board config require the controller state to be `STOPPED`.
 - Sensor initialization is locked both server-side and in the production executor. Any future maintenance implementation must be a separate reviewed protocol with a backup, admin approval, stopped-state proof, bench verification, and rollback plan.
 - Local controller calls and Supabase RPC calls have abort timeouts. Running commands use a fail-closed database lease that the executor renews while working; an expired lease is not automatically replayed. A timed-out mutation is quarantined as an unknown outcome, disables that device's command tokens, and requires explicit state reconciliation before any later command.
+- Polling authentication and quarantine errors use bounded retry backoff without restarting the container. This keeps the service observable while the command stream remains fail-closed.
 - Successful runtime/config commands trigger `sync-owner-health`, and the executor is the primary periodic state-sync authority. The GitHub schedule remains a low-authority watchdog and is deduplicated when device sync is fresh.
 - The Pi stores only `EXACTH2O_DEVICE_TOKEN`, never the Supabase service-role key.
 
@@ -36,6 +37,7 @@ The claim RPC only claims commands whose `device_id` exactly matches the token's
 - `EXACTH2O_CONTROL_EXECUTOR_POLL_MS`, default `5000`
 - `EXACTH2O_LOCAL_API_TIMEOUT_MS`, default `10000`
 - `EXACTH2O_SUPABASE_RPC_TIMEOUT_MS`, default `15000`
+- `EXACTH2O_CONTROL_EXECUTOR_RETRY_MAX_MS`, default `60000`
 - `EXACTH2O_COMMAND_LEASE_RENEW_MS`, default `30000`
 - `EXACTH2O_MANUAL_WATER_MAX_SECONDS`, default `60`
 - `EXACTH2O_MANUAL_WATER_MAX_VALVE_SECONDS`, default `120`
