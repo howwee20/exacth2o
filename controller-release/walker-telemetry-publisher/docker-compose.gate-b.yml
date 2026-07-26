@@ -18,8 +18,6 @@ services:
       - /tmp:size=16m,mode=1777
     volumes:
       - walker_telemetry_cursor:/var/lib/walker-telemetry
-    networks:
-      - default
     environment:
       WALKER_TELEMETRY_PUBLISHER_INSTANCE: walker-pi5-a1c4ace2
       WALKER_TELEMETRY_DB_HOST: database_svc
@@ -33,4 +31,4 @@ services:
       WALKER_TELEMETRY_HEALTH_MAX_AGE_MS: "90000"
 
 volumes:
-  walker_telemetry_cursor:
+  walker_telemetry_cursor: {}

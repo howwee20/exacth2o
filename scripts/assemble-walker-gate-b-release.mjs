@@ -2,7 +2,6 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -13,7 +12,10 @@ if (!cliRoot) {
 
 const BalenaSdk = require(resolve(cliRoot, "node_modules/balena-sdk"));
 const { CliSettings } = require(resolve(cliRoot, "build/utils/bootstrap"));
-const yaml = require(resolve(cliRoot, "node_modules/js-yaml"));
+const { parse: parseCompose } = require(resolve(
+  cliRoot,
+  "node_modules/@balena/compose-parser",
+));
 
 const baseline = Object.freeze({
   fleet: "basyalbi/walker-labs-pi5",
@@ -236,19 +238,21 @@ assert(
   "Publisher build draft must contain exactly one service image",
 );
 
-const snippet = yaml.load(
-  await readFile(
-    resolve(
-      "controller-release/walker-telemetry-publisher/docker-compose.gate-b.yml",
-    ),
-    "utf8",
+const snippet = await parseCompose([
+  resolve(
+    "controller-release/walker-telemetry-publisher/" +
+      "docker-compose.gate-b-parser-base.yml",
   ),
-);
+  resolve(
+    "controller-release/walker-telemetry-publisher/docker-compose.gate-b.yml",
+  ),
+]);
 const publisherDefinition = snippet.services?.[publisherService];
 assert(publisherDefinition, "Gate B snippet is missing the publisher service");
 assert(
-  Object.keys(snippet.services).length === 1,
-  "Gate B snippet must be additive-only",
+  Object.keys(snippet.services).sort().join(",") ===
+    ["database_svc", publisherService].sort().join(","),
+  "Gate B parser fixture contains an unexpected service",
 );
 
 const composition = structuredClone(baseRelease.composition);
