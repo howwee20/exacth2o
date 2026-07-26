@@ -173,11 +173,11 @@ assert(
   "Baseline fleet/application drift",
 );
 assert(
-  device.belongs_to__application[0].slug === baseline.fleet,
+  device.belongs_to__application.__id === baseline.applicationId,
   "Walker device fleet drift",
 );
 assert(
-  device.is_running__release[0].commit === baseline.releaseCommit,
+  device.is_running__release.__id === baseline.releaseId,
   "Walker is no longer running the approved baseline",
 );
 assert(
