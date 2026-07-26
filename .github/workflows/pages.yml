@@ -55,6 +55,7 @@ jobs:
       - name: Test control authorization and executor safety
         run: |
           node scripts/generate-platform-contracts.mjs --check
+          node scripts/audit-walker-observation.mjs
           node --test supabase/functions/create-control-command/command-policy.test.mjs
           node --test supabase/functions/accept-invite/invite-role-policy.test.mjs
           node --test supabase/functions/_shared/abuse-prevention.test.mjs

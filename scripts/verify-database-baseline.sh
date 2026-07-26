@@ -70,6 +70,9 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
       platform_view_count integer;
       rls_table_count integer;
       foundation_policy_count integer;
+      walker_rls_table_count integer;
+      walker_control_trigger_count integer;
+      walker_blocked boolean;
     begin
       if to_regclass('public.platform_operations') is null
          or to_regclass('public.delivery_evidence') is null
@@ -146,6 +149,110 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
         'EXECUTE'
       ) then
         raise exception 'Authenticated notification preference access is missing';
+      end if;
+
+      if to_regclass('public.walker_observation_workspaces') is null
+         or to_regclass('public.walker_observation_imports') is null
+         or to_regclass('public.walker_observation_sensor_metadata') is null
+         or to_regclass('public.walker_observation_trace_buckets') is null then
+        raise exception 'Restored database is missing Walker observation tables';
+      end if;
+
+      select count(*)
+      into walker_rls_table_count
+      from pg_class relation
+      join pg_namespace namespace on namespace.oid = relation.relnamespace
+      where namespace.nspname = 'public'
+        and relation.relname in (
+          'system_admin_installation_access',
+          'walker_observation_workspaces',
+          'walker_observation_imports',
+          'walker_observation_sensor_metadata',
+          'walker_observation_trace_buckets'
+        )
+        and relation.relrowsecurity;
+
+      if walker_rls_table_count <> 5 then
+        raise exception 'Restored database is missing Walker RLS';
+      end if;
+
+      if has_function_privilege(
+        'anon',
+        'public.walker_observation_overview(uuid,text)',
+        'EXECUTE'
+      ) or not has_function_privilege(
+        'authenticated',
+        'public.walker_observation_overview(uuid,text)',
+        'EXECUTE'
+      ) or has_function_privilege(
+        'authenticated',
+        'public.walker_observation_finalize_import()',
+        'EXECUTE'
+      ) or has_function_privilege(
+        'authenticated',
+        'public.walker_observation_finalize_sensor(integer)',
+        'EXECUTE'
+      ) then
+        raise exception 'Walker observation function privileges are unsafe';
+      end if;
+
+      select count(*)
+      into walker_control_trigger_count
+      from pg_trigger trigger
+      join pg_class relation on relation.oid = trigger.tgrelid
+      join pg_namespace namespace on namespace.oid = relation.relnamespace
+      where namespace.nspname = 'public'
+        and trigger.tgname = 'block_walker_control_path'
+        and not trigger.tgisinternal;
+
+      if walker_control_trigger_count <> 5 then
+        raise exception 'Walker control-path trigger coverage is incomplete';
+      end if;
+
+      if exists (
+        select 1 from public.device_control_tokens
+        where project_id = '33333333-3333-4333-8333-333333333331'::uuid
+           or device_id = 'balena:a1c4ace2b367fbee8521f1aff6a6329b'
+      ) or exists (
+        select 1 from public.project_control_commands
+        where project_id = '33333333-3333-4333-8333-333333333331'::uuid
+           or device_id = 'balena:a1c4ace2b367fbee8521f1aff6a6329b'
+      ) then
+        raise exception 'Walker baseline unexpectedly contains a control identity';
+      end if;
+
+      walker_blocked := false;
+      begin
+        insert into public.device_control_tokens (
+          project_id, device_id, token_hash
+        ) values (
+          '33333333-3333-4333-8333-333333333331'::uuid,
+          'balena:a1c4ace2b367fbee8521f1aff6a6329b',
+          repeat('0', 64)
+        );
+      exception when raise_exception then
+        walker_blocked :=
+          sqlerrm like 'Walker Gate A is observation-only%';
+      end;
+      if not walker_blocked then
+        raise exception 'Walker control-token registration was not blocked';
+      end if;
+
+      walker_blocked := false;
+      begin
+        insert into public.project_members (
+          project_id, user_id, role
+        ) values (
+          '33333333-3333-4333-8333-333333333331'::uuid,
+          gen_random_uuid(),
+          'viewer'
+        );
+      exception when raise_exception then
+        walker_blocked :=
+          sqlerrm like 'Walker observation access requires%';
+      end;
+      if not walker_blocked then
+        raise exception 'Walker generic project membership was not blocked';
       end if;
     end
     \$\$;

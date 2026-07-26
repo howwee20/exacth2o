@@ -98,6 +98,10 @@ import {
 } from "./experimentClient";
 import { PortalAssistantWorkspace } from "./PortalAssistantWorkspace";
 import {
+  WalkerAdminTile,
+  WalkerObservationView,
+} from "./WalkerObservationView";
+import {
   activeControlCommandCount,
   controlActivityStatusLabel,
   isActiveControlStatus,
@@ -216,7 +220,7 @@ type WateringOverlayTooltip = WateringOverlayMarker & {
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
-type PortalView = "home" | "experiment" | "health" | "support" | "rd";
+type PortalView = "home" | "experiment" | "health" | "support" | "rd" | "walker";
 type RdAccessStatus = "unknown" | "allowed" | "denied";
 
 type PortalAccess = {
@@ -3310,6 +3314,7 @@ function PortalAdminHome({
   onOpenHealth,
   onOpenSupport,
   onOpenRd,
+  onOpenWalker,
 }: {
   projectId: string;
   data: LoadState;
@@ -3331,6 +3336,7 @@ function PortalAdminHome({
   onOpenHealth: () => void;
   onOpenSupport: () => void;
   onOpenRd: () => void;
+  onOpenWalker: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
@@ -3386,6 +3392,8 @@ function PortalAdminHome({
               Open <ArrowRight size={14} />
             </span>
           </button>
+
+          <WalkerAdminTile onOpen={onOpenWalker} />
         </div>
 
         <div className="portal-business-stack">
@@ -7561,6 +7569,7 @@ export default function App() {
             setRdError(null);
             setPortalView("rd");
           }}
+          onOpenWalker={() => setPortalView("walker")}
         />
         {experimentCatalogError ? (
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
@@ -7710,6 +7719,15 @@ export default function App() {
             </div>
           </section>
         )}
+      </main>
+    );
+  }
+
+  if (isAdmin && portalView === "walker") {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        <WalkerObservationView onBack={() => setPortalView("home")} />
       </main>
     );
   }
