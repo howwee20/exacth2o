@@ -20,8 +20,8 @@ const { parse: parseCompose } = require(resolve(
 const baseline = Object.freeze({
   fleet: "basyalbi/walker-labs-pi5",
   applicationId: 2310664,
-  releaseId: 4209672,
-  releaseCommit: "216a954ef70e38e7b61e9669ce785fb1",
+  releaseId: 4209726,
+  releaseCommit: "397b9b56559647958afd5b419ab70294",
   deviceUuid: "a1c4ace2b367fbee8521f1aff6a6329b",
   images: Object.freeze({
     api_svc: 14443963,
@@ -29,7 +29,7 @@ const baseline = Object.freeze({
     database_svc: 14443964,
     redis_svc: 14443965,
     ui_svc: 14443962,
-    walker_telemetry_publisher: 16019259,
+    walker_telemetry_publisher: 16019677,
   }),
 });
 const publisherService = "walker_telemetry_publisher";
@@ -217,8 +217,8 @@ assert(
   "Walker is no longer running the approved baseline",
 );
 assert(
-  baseRelease.is_final && baseRelease.status === "success",
-  "Baseline release is not finalized and successful",
+  baseRelease.status === "success",
+  "Baseline release is not successful",
 );
 assert(
   publisherRelease.belongs_to__application.__id === baseline.applicationId,

@@ -82,6 +82,15 @@ test("normalizes only a matching fixed-catalog sensor response", () => {
     ),
     /address mismatch/,
   );
+  assert.throws(
+    () => normalizeSensorResponse(
+      sensor,
+      { data: [] },
+      1_518_646,
+      new Date(),
+    ),
+    /exactly one measurement/,
+  );
 });
 
 test("bootstraps at the verified archive boundary without backfill", async () => {

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import {
   initializeObserverState,
+  normalizeSensorResponse,
   publishObservationBatch,
   publisherEnvelope,
   replayPendingBatch,
@@ -232,8 +233,27 @@ while (!stopping) {
       for (let resultIndex = 0; resultIndex < results.length; resultIndex += 1) {
         const result = results[resultIndex];
         if (result.status === "fulfilled") {
-          observations.push({ sensor: sensors[resultIndex], payload: result.value });
-          lastScan.succeeded += 1;
+          try {
+            normalizeSensorResponse(
+              sensors[resultIndex],
+              result.value,
+              1,
+              new Date(),
+            );
+            observations.push({
+              sensor: sensors[resultIndex],
+              payload: result.value,
+            });
+            lastScan.succeeded += 1;
+          } catch (error) {
+            lastScan.failed += 1;
+            console.error("Walker sensor returned no usable observation", {
+              sensor: sensors[resultIndex].pairingName,
+              message: error instanceof Error
+                ? error.message
+                : String(error),
+            });
+          }
         } else {
           lastScan.failed += 1;
           console.error("Walker sensor observation failed", {
