@@ -102,7 +102,6 @@ import {
   isWalkerAccessDenied,
   toggleWalkerSensorSelection,
   walkerSensorsByBoard,
-  type WalkerLiveFreshness,
   type WalkerLiveSensor,
   type WalkerLiveSnapshot,
 } from "./walkerObservation";
@@ -2137,10 +2136,13 @@ function SensorCanvasChart({
 
 const walkerLivePollMs = 60_000;
 
-function walkerFreshnessText(freshness: WalkerLiveFreshness) {
-  if (freshness === "live") return "Live telemetry";
-  if (freshness === "delayed") return "Telemetry delayed";
-  if (freshness === "stale") return "Telemetry stale";
+function walkerFreshnessText(snapshot: WalkerLiveSnapshot) {
+  if (snapshot.freshness === "live") return "Live telemetry";
+  if (snapshot.freshness === "delayed") return "Telemetry delayed";
+  if (snapshot.freshness === "stale") return "Telemetry stale";
+  if (snapshot.publisher.status === "healthy") {
+    return "Publisher ready · awaiting sensor readings";
+  }
   return "Live publisher pending";
 }
 
@@ -2305,7 +2307,7 @@ function WalkerExperimentView({ onBack }: { onBack: () => void }) {
 
       <h1 className="experiment-view-title">Walker Pi 5</h1>
       <section className="walker-experiment-status" aria-live="polite">
-        <strong>{snapshot ? walkerFreshnessText(snapshot.freshness) : "Loading telemetry"}</strong>
+        <strong>{snapshot ? walkerFreshnessText(snapshot) : "Loading telemetry"}</strong>
         <span>
           {snapshot?.evidenced_sensor_count ?? 96} / {snapshot?.expected_sensor_count ?? 100} evidenced sensors
           {" · "}rolling 72 hours
@@ -2344,7 +2346,11 @@ function WalkerExperimentView({ onBack }: { onBack: () => void }) {
             {!loading && !hasLivePoints ? (
               <div className="walker-live-empty">
                 <strong>No recent Walker readings yet</strong>
-                <span>The 72-hour graph will populate after the approved one-way publisher starts.</span>
+                <span>
+                  {snapshot?.publisher.status === "healthy"
+                    ? "The one-way publisher is connected. This graph will populate when Walker sensing creates new rows."
+                    : "The 72-hour graph will populate after the approved one-way publisher starts."}
+                </span>
               </div>
             ) : null}
           </section>

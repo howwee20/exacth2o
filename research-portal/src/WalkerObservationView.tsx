@@ -11,6 +11,7 @@ function freshnessLabel(status?: WalkerLiveStatus | null) {
   if (status.freshness === "live") return "Live";
   if (status.freshness === "delayed") return "Delayed";
   if (status.freshness === "stale") return "Stale";
+  if (status.publisher.status === "healthy") return "Publisher ready";
   return "Awaiting publisher";
 }
 
