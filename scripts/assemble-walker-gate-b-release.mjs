@@ -20,8 +20,8 @@ const { parse: parseCompose } = require(resolve(
 const baseline = Object.freeze({
   fleet: "basyalbi/walker-labs-pi5",
   applicationId: 2310664,
-  releaseId: 3981239,
-  releaseCommit: "24165fb95a29664b3a2231cb58a3ad89",
+  releaseId: 4209672,
+  releaseCommit: "216a954ef70e38e7b61e9669ce785fb1",
   deviceUuid: "a1c4ace2b367fbee8521f1aff6a6329b",
   images: Object.freeze({
     api_svc: 14443963,
@@ -29,9 +29,17 @@ const baseline = Object.freeze({
     database_svc: 14443964,
     redis_svc: 14443965,
     ui_svc: 14443962,
+    walker_telemetry_publisher: 16019259,
   }),
 });
 const publisherService = "walker_telemetry_publisher";
+const retainedServiceNames = Object.freeze([
+  "api_svc",
+  "cron_svc",
+  "database_svc",
+  "redis_svc",
+  "ui_svc",
+]);
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -170,8 +178,8 @@ assert(
 const apply = process.argv.includes("--apply");
 if (apply) {
   assert(
-    process.env.WALKER_GATE_B_APPLY === "YES",
-    "WALKER_GATE_B_APPLY=YES is required with --apply",
+    process.env.WALKER_OBSERVER_APPLY === "YES",
+    "WALKER_OBSERVER_APPLY=YES is required with --apply",
   );
 }
 
@@ -251,8 +259,8 @@ const publisherDefinition = snippet.services?.[publisherService];
 assert(publisherDefinition, "Gate B snippet is missing the publisher service");
 assert(
   Object.keys(snippet.services).sort().join(",") ===
-    ["database_svc", publisherService].sort().join(","),
-  "Gate B parser fixture contains an unexpected service",
+    ["cron_svc", publisherService].sort().join(","),
+  "Observer parser fixture contains an unexpected service",
 );
 
 const composition = structuredClone(baseRelease.composition);
@@ -263,7 +271,7 @@ composition.volumes = {
   ...(snippet.volumes ?? {}),
 };
 
-for (const serviceName of Object.keys(baseline.images)) {
+for (const serviceName of retainedServiceNames) {
   assert(
     digest(composition.services[serviceName]) ===
       digest(baseRelease.composition.services[serviceName]),
@@ -272,8 +280,8 @@ for (const serviceName of Object.keys(baseline.images)) {
 }
 assert(
   Object.keys(composition.services).sort().join(",") ===
-    [...Object.keys(baseline.images), publisherService].sort().join(","),
-  "Assembled release service set is not exactly five retained plus publisher",
+    Object.keys(baseline.images).sort().join(","),
+  "Assembled release service set is not exactly five retained plus observer",
 );
 
 const plan = {
@@ -295,9 +303,15 @@ const plan = {
   assembled: {
     compositionSha256: digest(composition),
     serviceCount: Object.keys(composition.services).length,
-    addedServices: [publisherService],
+    replacedServices: [publisherService],
     addedVolumes: Object.keys(snippet.volumes ?? {}),
-    retainedImageIds: baseline.images,
+    retainedImageIds: Object.fromEntries(
+      retainedServiceNames.map((serviceName) => [
+        serviceName,
+        baseline.images[serviceName],
+      ]),
+    ),
+    previousPublisherImageId: baseline.images[publisherService],
   },
 };
 
@@ -324,7 +338,7 @@ const newRelease = await sdk.pine.post({
 
 try {
   const sources = [
-    ...baseImages,
+    ...baseImages.filter((image) => image.serviceName !== publisherService),
     publisherImage,
   ];
   const associatedImages = {};

@@ -17,14 +17,14 @@ const forbidden = [
   ["plain-feather identity", /plain-feather/i],
   ["Matt identity", /\bmatt\b/i],
   ["Walker public IP", /35\.10\.15\.132/],
-  ["controller API host", /\b(api|cron)(?:_svc)?\b/i],
   ["command table", /project_control_commands/],
   ["device control token", /device_control_tokens/],
   ["manual-water capability", /manual[_ -]?water/i],
   ["sensor initialization capability", /initialize[_ -]?sensors/i],
-  ["valve operation capability", /operate[_ -]?valve|valves?\/operate/i],
+  ["valve capability", /\bvalves?\b|operate[_ -]?valve/i],
   ["target mutation", /update[_ -]?target/i],
   ["schedule mutation", /create[_ -]?schedule|assistant_schedules/i],
+  ["controller mutation route", /\/v1\/system|\/v1\/boardConfigs|\/v1\/pairings/i],
 ];
 
 const failures = [];
@@ -39,11 +39,21 @@ const publisher = readFileSync(
   resolve("controller-release/walker-telemetry-publisher/src/index.mjs"),
   "utf8",
 );
-if (/\b(?:INSERT|UPDATE|DELETE|REPLACE|GRANT|REVOKE)\b/i.test(publisher)) {
-  failures.push("publisher source contains a local database write verb");
+if (/mysql|mariadb|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b/i.test(publisher)) {
+  failures.push("publisher source contains a local database capability");
 }
-if (!/SELECT[\s\S]+FROM readings/.test(publisher)) {
-  failures.push("publisher source is missing the readings-only SELECT");
+if (
+  !/sensorReadUrl\.hostname !== "cron_svc"/.test(publisher) ||
+  !/sensorReadUrl\.pathname !== "\/v1\/sensors"/.test(publisher) ||
+  !/new URL\("\/v1\/state", sensorReadUrl\.origin\)/.test(publisher)
+) {
+  failures.push("publisher source is missing the fixed internal sensing route");
+}
+if (!/currentControllerState !== "STOPPED"/.test(publisher)) {
+  failures.push("publisher source is missing the STOPPED-state sensing guard");
+}
+if (!/method: "GET"/.test(publisher)) {
+  failures.push("publisher source is missing explicit read-only sensor requests");
 }
 
 const migration = readFileSync(
@@ -68,5 +78,5 @@ if (failures.length) {
 }
 
 process.stdout.write(
-  "Walker live path is fixed-identity, readings-only, append-only, and contains no controller command surface.\n",
+  "Walker live path is fixed-identity, STOPPED-state sensing-only, append-only, and contains no irrigation command surface.\n",
 );

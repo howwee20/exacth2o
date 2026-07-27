@@ -1,6 +1,5 @@
-# Final additive service definition. The release assembler must combine this
-# with the five exact service definitions and image records from release
-# 3981239; it must never rebuild those pre-existing services.
+# Final sensing-only observer definition. The release assembler must carry the
+# five original service images and definitions without rebuilding them.
 services:
   walker_telemetry_publisher:
     build:
@@ -8,7 +7,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - database_svc
+      - cron_svc
     read_only: true
     cap_drop:
       - ALL
@@ -20,14 +19,12 @@ services:
       - walker_telemetry_cursor:/var/lib/walker-telemetry
     environment:
       WALKER_TELEMETRY_PUBLISHER_INSTANCE: walker-pi5-a1c4ace2
-      WALKER_TELEMETRY_DB_HOST: database_svc
-      WALKER_TELEMETRY_DB_PORT: "3306"
-      WALKER_TELEMETRY_DB_NAME: walkerlabs
-      WALKER_TELEMETRY_DB_USER: walker_telemetry
+      WALKER_SENSOR_READ_URL: http://cron_svc:3000/v1/sensors
       WALKER_TELEMETRY_RECEIVER_URL: https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/receive-walker-telemetry
-      WALKER_TELEMETRY_BATCH_SIZE: "500"
-      WALKER_TELEMETRY_MAX_ROWS_PER_CYCLE: "2000"
-      WALKER_TELEMETRY_POLL_MS: "15000"
+      WALKER_TELEMETRY_BOOTSTRAP_CURSOR: "1518645"
+      WALKER_SENSOR_SCAN_INTERVAL_MS: "600000"
+      WALKER_TELEMETRY_HEARTBEAT_MS: "30000"
+      WALKER_TELEMETRY_REQUEST_TIMEOUT_MS: "20000"
       WALKER_TELEMETRY_HEALTH_MAX_AGE_MS: "90000"
 
 volumes:

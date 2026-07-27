@@ -6,8 +6,5 @@
   "scripts": {
     "start": "node src/index.mjs",
     "test": "node --test"
-  },
-  "dependencies": {
-    "mysql2": "^3.14.4"
   }
 }

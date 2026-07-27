@@ -27,9 +27,12 @@ export type WalkerLiveStatus = {
   portal_control_available: false;
   expected_sensor_count: 100;
   evidenced_sensor_count: number;
+  current_sensor_count: number;
+  stale_sensor_count: number;
   missing_numeric_positions: number[];
   window_hours: number;
   freshness: WalkerLiveFreshness;
+  overall_status: "operational" | "scanning" | "delayed" | "stale" | "offline";
   latest_live_reading_at: string | null;
   publisher: WalkerPublisherState;
 };

@@ -1,8 +1,7 @@
 version: "2.4"
 
 # Validation-only stub that lets the Balena Compose parser normalize the
-# additive Gate B overlay without copying or rebuilding the real database
-# service.
+# observer overlay without copying or rebuilding the real cron service.
 services:
-  database_svc:
-    image: walker-gate-b-parser-placeholder
+  cron_svc:
+    image: walker-observer-parser-placeholder

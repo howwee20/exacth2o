@@ -7,12 +7,12 @@ import {
 import { loadWalkerLiveStatus } from "./walkerObservationClient";
 
 function freshnessLabel(status?: WalkerLiveStatus | null) {
-  if (!status) return "Checking live telemetry";
+  if (!status) return "Checking live scan";
   if (status.freshness === "live") return "Live";
   if (status.freshness === "delayed") return "Delayed";
   if (status.freshness === "stale") return "Stale";
-  if (status.publisher.status === "healthy") return "Publisher ready";
-  return "Awaiting publisher";
+  if (status.publisher.status === "healthy") return "Starting scan";
+  return "Telemetry offline";
 }
 
 function lastReadingLabel(value?: string | null) {
@@ -25,7 +25,13 @@ function lastReadingLabel(value?: string | null) {
   }).format(new Date(value))}`;
 }
 
-export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
+export function WalkerAdminTile({
+  onOpen,
+  onStatus,
+}: {
+  onOpen: () => void;
+  onStatus?: (status: WalkerLiveStatus | null) => void;
+}) {
   const [status, setStatus] = useState<WalkerLiveStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
@@ -33,28 +39,40 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
 
   useEffect(() => {
     let active = true;
-    loadWalkerLiveStatus()
-      .then((nextStatus) => {
-        if (active) setStatus(nextStatus);
-      })
-      .catch((error: { code?: string; message?: string }) => {
-        if (!active) return;
-        if (isWalkerAccessDenied(error)) setVisible(false);
-        else setFailed(true);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    const refresh = () => {
+      loadWalkerLiveStatus()
+        .then((nextStatus) => {
+          if (!active) return;
+          setStatus(nextStatus);
+          onStatus?.(nextStatus);
+          setFailed(false);
+        })
+        .catch((error: { code?: string; message?: string }) => {
+          if (!active) return;
+          if (isWalkerAccessDenied(error)) {
+            setVisible(false);
+            onStatus?.(null);
+          } else {
+            setFailed(true);
+          }
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
     return () => {
       active = false;
+      window.clearInterval(timer);
     };
-  }, []);
+  }, [onStatus]);
 
   if (!visible) return null;
   return (
     <button
       type="button"
-      className="portal-launch-card is-experiment is-observation"
+      className="portal-launch-card is-experiment is-walker-live"
       onClick={onOpen}
     >
       <span className="portal-launch-top">
@@ -67,13 +85,13 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
         </span>
       </span>
       <span className="portal-launch-copy">
-        <span className="portal-launch-title">Walker Pi 5</span>
+        <span className="portal-launch-title">Walker Pi 5 Observation</span>
         <strong>
           {loading
             ? "Checking sensor access..."
             : `${status?.evidenced_sensor_count ?? 96} / ${status?.expected_sensor_count ?? 100} sensors`}
         </strong>
-        <em>72-hour VWC observation</em>
+        <em>Live VWC · sensing only</em>
         <em>{failed ? "Open to retry" : lastReadingLabel(status?.latest_live_reading_at)}</em>
       </span>
     </button>

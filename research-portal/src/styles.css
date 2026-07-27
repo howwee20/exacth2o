@@ -1381,7 +1381,7 @@ select {
 
 .portal-experiment-column .portal-experiment-stack::before {
   position: absolute;
-  top: calc(16.6667% - 4.67px);
+  top: 89px;
   left: -20px;
   bottom: -24px;
   z-index: 0;
@@ -1520,6 +1520,16 @@ select {
 .portal-launch-card.is-observation .portal-launch-icon {
   background: #fffbeb;
   color: #b45309;
+}
+
+.portal-launch-card.is-walker-live {
+  border-color: rgba(4, 120, 87, 0.22);
+  background: linear-gradient(145deg, #ffffff, #f0fdf8);
+}
+
+.portal-launch-card.is-walker-live .portal-launch-icon {
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .portal-launch-card:focus-visible {
