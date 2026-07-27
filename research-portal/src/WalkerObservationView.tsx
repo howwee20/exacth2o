@@ -1,19 +1,10 @@
-import { Activity, AlertTriangle, Clock3 } from "lucide-react";
+import { Activity, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   isWalkerAccessDenied,
   type WalkerLiveStatus,
 } from "./walkerObservation";
 import { loadWalkerLiveStatus } from "./walkerObservationClient";
-
-function freshnessLabel(status?: WalkerLiveStatus | null) {
-  if (!status) return "Checking live scan";
-  if (status.freshness === "live") return "Live";
-  if (status.freshness === "delayed") return "Delayed";
-  if (status.freshness === "stale") return "Stale";
-  if (status.publisher.status === "healthy") return "Starting scan";
-  return "Telemetry offline";
-}
 
 function lastReadingLabel(value?: string | null) {
   if (!value) return "No live readings yet";
@@ -25,13 +16,7 @@ function lastReadingLabel(value?: string | null) {
   }).format(new Date(value))}`;
 }
 
-export function WalkerAdminTile({
-  onOpen,
-  onStatus,
-}: {
-  onOpen: () => void;
-  onStatus?: (status: WalkerLiveStatus | null) => void;
-}) {
+export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
   const [status, setStatus] = useState<WalkerLiveStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
@@ -44,14 +29,12 @@ export function WalkerAdminTile({
         .then((nextStatus) => {
           if (!active) return;
           setStatus(nextStatus);
-          onStatus?.(nextStatus);
           setFailed(false);
         })
         .catch((error: { code?: string; message?: string }) => {
           if (!active) return;
           if (isWalkerAccessDenied(error)) {
             setVisible(false);
-            onStatus?.(null);
           } else {
             setFailed(true);
           }
@@ -66,7 +49,7 @@ export function WalkerAdminTile({
       active = false;
       window.clearInterval(timer);
     };
-  }, [onStatus]);
+  }, []);
 
   if (!visible) return null;
   return (
@@ -79,10 +62,12 @@ export function WalkerAdminTile({
         <span className="portal-launch-icon">
           <Activity size={20} />
         </span>
-        <span className={`portal-experiment-progress ${failed ? "is-failed" : "is-running"}`}>
-          {failed ? <AlertTriangle size={12} /> : <Clock3 size={12} />}
-          {failed ? "Unavailable" : freshnessLabel(status)}
-        </span>
+        {failed ? (
+          <span className="portal-experiment-progress is-failed">
+            <AlertTriangle size={12} />
+            Unavailable
+          </span>
+        ) : null}
       </span>
       <span className="portal-launch-copy">
         <span className="portal-launch-title">Walker Pi 5 Observation</span>

@@ -1381,7 +1381,7 @@ select {
 
 .portal-experiment-column .portal-experiment-stack::before {
   position: absolute;
-  top: 89px;
+  top: calc(16.6667% - 4.67px);
   left: -20px;
   bottom: -24px;
   z-index: 0;
@@ -5879,7 +5879,6 @@ select {
 }
 
 .portal-launch-card.is-rd {
-  margin-top: 16px;
   border-color: rgba(103, 84, 217, 0.18);
   background: linear-gradient(145deg, #ffffff, #faf9ff);
 }
@@ -5898,6 +5897,7 @@ select {
 .portal-business-stack {
   min-width: 0;
   display: grid;
+  gap: 16px;
 }
 
 @media (max-width: 980px) {

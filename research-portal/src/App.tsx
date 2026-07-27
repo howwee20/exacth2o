@@ -104,7 +104,6 @@ import {
   walkerSensorsByBoard,
   type WalkerLiveSensor,
   type WalkerLiveSnapshot,
-  type WalkerLiveStatus,
 } from "./walkerObservation";
 import { loadWalkerLiveSnapshot } from "./walkerObservationClient";
 import {
@@ -3410,12 +3409,10 @@ function ExperimentLaunchCards({
   data,
   experiments,
   onOpenExperiment,
-  extraExperimentCard,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
   onOpenExperiment: (experimentId: ExperimentId) => void;
-  extraExperimentCard?: ReactNode;
 }) {
   return (
     <div className="portal-experiment-stack" aria-label="Experiments">
@@ -3458,7 +3455,6 @@ function ExperimentLaunchCards({
           </button>
         );
       })}
-      {extraExperimentCard}
     </div>
   );
 }
@@ -3657,7 +3653,6 @@ function PortalAdminHome({
   onOpenRd: () => void;
   onOpenWalker: () => void;
 }) {
-  const [walkerStatus, setWalkerStatus] = useState<WalkerLiveStatus | null>(null);
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
   const openSupportCount = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
@@ -3668,18 +3663,9 @@ function PortalAdminHome({
     .concat(salesSupportData.quotes.map((item) => item.updated_at ?? item.created_at))
     .filter(Boolean)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
-  const primaryCurrent = healthSnapshot?.sensors_current ?? 0;
-  const primaryExpected = healthSnapshot?.sensors_expected ?? 0;
-  const walkerCurrent = walkerStatus?.current_sensor_count ?? 0;
-  const walkerExpected = walkerStatus?.expected_sensor_count ?? 0;
-  const sensorLine = healthSnapshot && walkerStatus
-    ? `${formatHealthInteger(primaryCurrent + walkerCurrent)} / ${formatHealthInteger(primaryExpected + walkerExpected)} sensors`
-    : healthSnapshot
-      ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors`
-      : "No health snapshot";
-  const combinedHealthUpdated = [healthUpdated, walkerStatus?.latest_live_reading_at]
-    .filter((value): value is string => Boolean(value))
-    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
+  const sensorLine = healthSnapshot
+    ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors`
+    : "No health snapshot";
 
   return (
     <section className="portal-admin-main" aria-label="Portal sections">
@@ -3702,9 +3688,6 @@ function PortalAdminHome({
             data={data}
             experiments={experiments}
             onOpenExperiment={onOpenExperiment}
-            extraExperimentCard={(
-              <WalkerAdminTile onOpen={onOpenWalker} onStatus={setWalkerStatus} />
-            )}
           />
 
           <span className="portal-health-link" aria-hidden="true">
@@ -3722,7 +3705,7 @@ function PortalAdminHome({
             <span className="portal-launch-copy">
               <span className="portal-launch-title">System Health</span>
               <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
-              <em>Primary + Walker · Updated {formatSettingsTimestamp(combinedHealthUpdated)}</em>
+              <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
             </span>
             <span className="portal-launch-action">
               Open <ArrowRight size={14} />
@@ -3757,6 +3740,8 @@ function PortalAdminHome({
               <span className="portal-launch-action">Open Lab</span>
             </button>
           ) : null}
+
+          <WalkerAdminTile onOpen={onOpenWalker} />
         </div>
       </div>
     </section>
