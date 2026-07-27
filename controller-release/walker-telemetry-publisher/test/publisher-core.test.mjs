@@ -53,7 +53,17 @@ test("catalog is exactly the two verified 48-sensor Walker boards", () => {
     [],
   );
   assert.equal(walkerSensorCatalog.find((sensor) => sensor.position === 1)?.sourceSensorId, 770);
-  assert.equal(walkerSensorCatalog.find((sensor) => sensor.position === 49)?.sourceSensorId, 769);
+  assert.deepEqual(
+    walkerSensorCatalog.find((sensor) => sensor.position === 49),
+    {
+      position: 49,
+      sourceSensorId: 769,
+      pairingName: "49-X",
+      boardSerial: "D30GQN2S",
+      address: "X",
+      calibrationCoefficients: walkerSensorCatalog[0].calibrationCoefficients,
+    },
+  );
   assert.equal(walkerSensorCatalog.find((sensor) => sensor.position === 52)?.sourceSensorId, 817);
   assert.equal(walkerSensorCatalog.find((sensor) => sensor.position === 99)?.sourceSensorId, 818);
 });

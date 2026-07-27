@@ -25,7 +25,9 @@ function walkerPosition(position) {
   const firstBoard = position < 50;
   const address = firstBoard
     ? (
-      position <= 24
+      position === 49
+        ? "X"
+        : position <= 24
         ? String.fromCharCode("a".charCodeAt(0) + position - 1)
         : String.fromCharCode("A".charCodeAt(0) + position - 25)
     )

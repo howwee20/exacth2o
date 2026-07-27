@@ -20,8 +20,8 @@ const { parse: parseCompose } = require(resolve(
 const baseline = Object.freeze({
   fleet: "basyalbi/walker-labs-pi5",
   applicationId: 2310664,
-  releaseId: 4209726,
-  releaseCommit: "397b9b56559647958afd5b419ab70294",
+  releaseId: 4209749,
+  releaseCommit: "d60f289b1f2eeb2d4095bcac03a18b94",
   deviceUuid: "a1c4ace2b367fbee8521f1aff6a6329b",
   images: Object.freeze({
     api_svc: 14443963,
@@ -29,7 +29,7 @@ const baseline = Object.freeze({
     database_svc: 14443964,
     redis_svc: 14443965,
     ui_svc: 14443962,
-    walker_telemetry_publisher: 16019677,
+    walker_telemetry_publisher: 16019887,
   }),
 });
 const publisherService = "walker_telemetry_publisher";
