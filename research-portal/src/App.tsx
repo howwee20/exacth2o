@@ -3668,20 +3668,7 @@ function PortalAdminHome({
     : "No health snapshot";
 
   return (
-    <section className="portal-admin-main" aria-label="Portal sections">
-      <PortalAssistantHero
-        projectId={projectId}
-        pairings={visibleExperimentPairings(data.pairings)}
-        inventoryUpdatedAt={inventoryUpdatedAt}
-        operations={platformOperations}
-        commands={controlCommands}
-        commandLoading={controlCommandsLoading}
-        controlBusy={controlBusy}
-        onApplySettings={onApplySettings}
-        onExperimentCreated={onExperimentCreated}
-        onExperimentArchived={onExperimentArchived}
-        onOpenExperiment={onOpenExperiment}
-      />
+    <section className="portal-admin-main is-assistant-below" aria-label="Portal sections">
       <div className="portal-launch-grid">
         <div className="portal-experiment-column">
           <ExperimentLaunchCards
@@ -3744,6 +3731,20 @@ function PortalAdminHome({
           <WalkerAdminTile onOpen={onOpenWalker} />
         </div>
       </div>
+
+      <PortalAssistantHero
+        projectId={projectId}
+        pairings={visibleExperimentPairings(data.pairings)}
+        inventoryUpdatedAt={inventoryUpdatedAt}
+        operations={platformOperations}
+        commands={controlCommands}
+        commandLoading={controlCommandsLoading}
+        controlBusy={controlBusy}
+        onApplySettings={onApplySettings}
+        onExperimentCreated={onExperimentCreated}
+        onExperimentArchived={onExperimentArchived}
+        onOpenExperiment={onOpenExperiment}
+      />
     </section>
   );
 }

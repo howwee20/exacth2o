@@ -1321,6 +1321,11 @@ select {
   padding-top: 112px;
 }
 
+.portal-admin-main.is-assistant-below .portal-workspace-intro {
+  margin-top: 48px;
+  margin-bottom: 0;
+}
+
 .support-back-button {
   min-height: 36px;
   display: inline-flex;
@@ -5963,6 +5968,10 @@ select {
   .system-health-main,
   .sales-support-main {
     padding: 96px 18px 96px;
+  }
+
+  .portal-admin-main.is-assistant-below .portal-workspace-intro {
+    margin-top: 32px;
   }
 
   .settings-modal {
