@@ -8,6 +8,7 @@ import {
   getConfig,
   IndeterminateMutationError,
   assertRuntimeConfig,
+  retryDelayMs,
   stripTrailingSlash,
   tick,
 } from "../src/control-executor.mjs";
@@ -59,6 +60,12 @@ test("stripTrailingSlash removes only trailing slashes", () => {
   assert.equal(stripTrailingSlash("https://example.test///"), "https://example.test");
 });
 
+test("poll retry backoff is bounded", () => {
+  assert.equal(retryDelayMs(1, 5000, 60_000), 5000);
+  assert.equal(retryDelayMs(2, 5000, 60_000), 10_000);
+  assert.equal(retryDelayMs(20, 5000, 60_000), 60_000);
+});
+
 test("live startup requires state-sync identity and credentials", () => {
   const baseEnv = {
     SUPABASE_URL: "https://example.supabase.co",
@@ -68,6 +75,7 @@ test("live startup requires state-sync identity and credentials", () => {
   const dryRunConfig = getConfig(baseEnv);
   assert.equal(dryRunConfig.dryRun, true);
   assert.equal(dryRunConfig.manualWaterEnabled, false);
+  assert.equal(dryRunConfig.pollRetryMaxMs, 60_000);
   assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "flase" }).manualWaterEnabled, false);
   assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "off" }).manualWaterEnabled, false);
   assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "1" }).manualWaterEnabled, true);

@@ -1,6 +1,6 @@
 import { controllerCommandTypes } from "./generated/platform-capabilities.mjs";
 
-const VERSION = "exacth2o-control-executor/0.3.0";
+const VERSION = "exacth2o-control-executor/0.3.1";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const supportedCommandTypes = new Set(controllerCommandTypes);
 
@@ -20,6 +20,11 @@ class LeaseLostError extends Error {
 
 export function stripTrailingSlash(value) {
   return String(value || "").replace(/\/+$/, "");
+}
+
+export function retryDelayMs(consecutiveFailures, baseMs, maxMs) {
+  const exponent = Math.max(0, Math.min(10, Number(consecutiveFailures) - 1));
+  return Math.min(maxMs, baseMs * (2 ** exponent));
 }
 
 function boolEnv(value, defaultValue) {
@@ -54,6 +59,7 @@ export function getConfig(env = process.env) {
     pollMs: numberEnv(env.EXACTH2O_CONTROL_EXECUTOR_POLL_MS || env.CONTROL_BRIDGE_POLL_INTERVAL_MS, 5000, 1000, 60000),
     localApiTimeoutMs: numberEnv(env.EXACTH2O_LOCAL_API_TIMEOUT_MS, 10_000, 1000, 60_000),
     supabaseRpcTimeoutMs: numberEnv(env.EXACTH2O_SUPABASE_RPC_TIMEOUT_MS, 15_000, 1000, 60_000),
+    pollRetryMaxMs: numberEnv(env.EXACTH2O_CONTROL_EXECUTOR_RETRY_MAX_MS, 60_000, 5000, 15 * 60_000),
     commandLeaseRenewMs: numberEnv(env.EXACTH2O_COMMAND_LEASE_RENEW_MS, 30_000, 10_000, 60_000),
     dryRun: boolEnv(env.EXACTH2O_CONTROL_EXECUTOR_DRY_RUN, true),
     manualWaterEnabled: explicitlyEnabledEnv(env.EXACTH2O_MANUAL_WATER_ENABLED),
@@ -872,13 +878,30 @@ async function main() {
   });
 
   let nextStateSyncAt = 0;
+  let consecutivePollFailures = 0;
   do {
-    const processedCommand = await tick({ rpc, api, config });
-    if (processedCommand) nextStateSyncAt = Date.now() + config.stateSyncMs;
-    if (Date.now() >= nextStateSyncAt) {
-      const syncResult = await refreshOwnerHealthMirror(null, config);
-      if (syncResult?.ok === false) console.error("State mirror watchdog failed", syncResult);
-      nextStateSyncAt = Date.now() + config.stateSyncMs;
+    try {
+      const processedCommand = await tick({ rpc, api, config });
+      consecutivePollFailures = 0;
+      if (processedCommand) nextStateSyncAt = Date.now() + config.stateSyncMs;
+      if (Date.now() >= nextStateSyncAt) {
+        const syncResult = await refreshOwnerHealthMirror(null, config);
+        if (syncResult?.ok === false) console.error("State mirror watchdog failed", syncResult);
+        nextStateSyncAt = Date.now() + config.stateSyncMs;
+      }
+    } catch (error) {
+      if (config.runOnce) throw error;
+      consecutivePollFailures += 1;
+      const retryMs = retryDelayMs(consecutivePollFailures, config.pollMs, config.pollRetryMaxMs);
+      console.error("Control executor poll failed; staying fail-closed and retrying", {
+        error: error.message,
+        consecutiveFailures: consecutivePollFailures,
+        retryMs,
+        dryRun: config.dryRun,
+        manualWaterEnabled: config.manualWaterEnabled,
+      });
+      if (!stopping) await sleep(retryMs);
+      continue;
     }
     if (!config.runOnce && !stopping) await sleep(config.pollMs);
   } while (!config.runOnce && !stopping);
