@@ -89,6 +89,14 @@ export function createServer(stateMachine: StateMachine, options: { environment:
     const suppliedBuffer = Buffer.from(supplied)
     return expectedBuffer.length === suppliedBuffer.length && timingSafeEqual(expectedBuffer, suppliedBuffer)
   }
+  const requireControllerSecret = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): boolean => {
+    if (hasControllerSecret(request)) return true
+    reply.status(401).send({ message: 'Controller command authentication required' })
+    return false
+  }
 
   server.get(`/${pathPrefix}/sensors`, async (request: FastifyRequest<{ Querystring: { boardSerialId: string, sensorAddress: string, measurements?: number } }>, reply: FastifyReply) => {
     const { boardSerialId, sensorAddress } = request.query
@@ -104,7 +112,13 @@ export function createServer(stateMachine: StateMachine, options: { environment:
   })
 
   server.post(`/${pathPrefix}/valves`, async (request: FastifyRequest<{ Body: { relayAddress: string, address: number, state: 'OPEN' | 'CLOSE' } }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
     const { relayAddress, address, state } = request.body
+    if (state !== 'CLOSE') {
+      return reply.status(410).send({
+        message: 'Untimed valve OPEN is disabled. Use the authenticated pulse route.',
+      })
+    }
 
     try {
       const resp = await operateValve(stateMachine, relayAddress, address, state)
@@ -124,9 +138,7 @@ export function createServer(stateMachine: StateMachine, options: { environment:
       commandId: string
     }
   }>, reply: FastifyReply) => {
-    if (!hasControllerSecret(request)) {
-      return reply.status(401).send({ message: 'Controller command authentication required' })
-    }
+    if (!requireControllerSecret(request, reply)) return
 
     const body = request.body || ({} as any)
     const relayAddress = typeof body.relayAddress === 'string'
@@ -194,6 +206,7 @@ export function createServer(stateMachine: StateMachine, options: { environment:
   })
 
   server.post(`/${pathPrefix}/boardConfigs`, async (request: FastifyRequest<{ Body: { boardConfigs: BoardConfig[] } }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
     const { boardConfigs } = request.body
 
     console.log('Received boardConfigs:', boardConfigs)
@@ -210,6 +223,7 @@ export function createServer(stateMachine: StateMachine, options: { environment:
   })
 
   server.post(`/${pathPrefix}/state`, async (request: FastifyRequest<{ Body: { state: MachineState, boardConfig?: BoardConfig[] } }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
     const { state, boardConfig } = request.body
     console.log('state', state)
     console.log('boardConfig', boardConfig)

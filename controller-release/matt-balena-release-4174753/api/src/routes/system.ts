@@ -12,6 +12,11 @@ import {
   withTimeout,
 } from "../utils/requestTimeout";
 
+const controllerMutationHeaders = () => ({
+  'Content-Type': 'application/json',
+  'x-exacth2o-controller-secret': String(process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || ''),
+})
+
 
 const getSystemSingleton: () => Promise<System> = async () => {
   const defaults = {
@@ -117,9 +122,7 @@ const setSystemState = async (request: FastifyRequest<{ Body: { state?: MachineS
       `${process.env.CRON_URL}/state`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: controllerMutationHeaders(),
         body: JSON.stringify({
           state: requestedState,
           boardConfig: request.body.configuration?.boardConfigs
@@ -150,9 +153,7 @@ const sendStateMachineRESET = async () => {
       `${process.env.CRON_URL}/state`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: controllerMutationHeaders(),
         body: JSON.stringify({ state: MachineState.RESET })
       },
       'cron reset state update',
@@ -178,9 +179,7 @@ const updateBoardConfigs = async (request: FastifyRequest<{ Body: { boardConfigs
         `${process.env.CRON_URL}/boardConfigs`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: controllerMutationHeaders(),
           body: JSON.stringify({ boardConfigs: request.body.boardConfigs })
         },
         'cron boardConfigs update',

@@ -8,7 +8,7 @@ import { BullQueueService, StateTransitionEvent } from './services/BullQueueServ
 import { DEFAULT_BOARD_CONFIGS, API_ENDPOINTS, DEFAULT_TIMING } from './config/constants'
 import { BoardConfig } from './controllers/Expand13Manager'
 import { ManualPulseManager, ManualPulseRequest, ManualPulseResult } from './services/ManualPulseManager'
-import { WateringPulseLedger } from './services/WateringPulseLedger'
+import { ActiveAutomaticPulse, WateringPulseLedger } from './services/WateringPulseLedger'
 import {
   getValveOpenSafetyDecision,
   getWateringBand,
@@ -90,10 +90,22 @@ class StateMachine {
     // Automatic watering remains fail-closed until the durable per-pot pulse
     // ledger has been restored. Keep sensing alive if the ledger is damaged;
     // later watering attempts will be rejected because it is uninitialized.
+    let automaticLedgerReady = false
     try {
       await this.wateringPulseLedger.init()
+      automaticLedgerReady = true
     } catch (error) {
       console.error('Automatic watering disabled: durable pulse ledger could not be restored', error)
+    }
+    if (automaticLedgerReady) {
+      const activePulse = this.wateringPulseLedger.activePulse()
+      if (activePulse) {
+        console.warn(`Recovering automatic valve left active by a previous process: ${activePulse.pairId}`)
+        await this.closeAutomaticPulseWithFallback(activePulse)
+        await this.wateringPulseLedger.completeActive(activePulse.pairId)
+        this.openValvePairId = null
+        this.lastValveClosedAt = Date.now()
+      }
     }
 
     if (initializeHardware) {
@@ -528,6 +540,16 @@ class StateMachine {
         return 'IDLE'
       }
 
+      const boardConfigAddress = Number(pairing.Valve.relayAddress)
+      const address = Number(pairing.Valve.address)
+      const activePulse = await this.wateringPulseLedger.beginActive(
+        pairId,
+        boardConfigAddress,
+        address,
+        Date.now(),
+      )
+      this.openValvePairId = pairId
+      pairing.valveOpened = true
       pairing.nextTransitionTime = Date.now() + pairing.timingRules.valveOpenTime
       await this.apiService.postData(API_ENDPOINTS.LOGS, {
         level: 'info',
@@ -536,27 +558,37 @@ class StateMachine {
       })
       console.log(`Opening valve: ${pairId}`)
 
-      const boardConfigAddress = Number(pairing.Valve.relayAddress)
-      const address = Number(pairing.Valve.address)
-      const { column, pin } = this.valveService.calculateColumnAndPin(address)
-      this.valveService.operateValve(boardConfigAddress, column, pin, 'OPEN')
-      this.openValvePairId = pairId
-      pairing.valveOpened = true
+      this.operateAutomaticPulseValve(activePulse, 'OPEN')
       recordValveOpen(pairing, Date.now(), DEFAULT_TIMING.WATERING_SETTLE_WINDOW)
       console.log(`Valve ${pairId} opened successfully`)
-      await this.apiService.postData(API_ENDPOINTS.LOGS, {
-        level: 'info',
-        message: `Opened Valve: ${pairId}; measured=${isFiniteNumber(pairing.WTCPercentMeasured) ? pairing.WTCPercentMeasured.toFixed(2) : 'unknown'} floor=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).floor.toFixed(2)} trigger=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).trigger.toFixed(2)} recovery=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).recoveryMax.toFixed(2)} pulseCount=${pairing.wateringWindowPulseCount}`,
-        source: 'StateMachine'
-      })
+      try {
+        await this.apiService.postData(API_ENDPOINTS.LOGS, {
+          level: 'info',
+          message: `Opened Valve: ${pairId}; measured=${isFiniteNumber(pairing.WTCPercentMeasured) ? pairing.WTCPercentMeasured.toFixed(2) : 'unknown'} floor=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).floor.toFixed(2)} trigger=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).trigger.toFixed(2)} recovery=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).recoveryMax.toFixed(2)} pulseCount=${pairing.wateringWindowPulseCount}`,
+          source: 'StateMachine'
+        })
+      } catch (error) {
+        console.error(`Valve ${pairId} opened, but the audit log write failed:`, error)
+      }
       return 'VALVE_OPEN'
     } catch (error) {
       console.error(`Error opening valve ${pairId}:`, error)
-      await this.apiService.postData(API_ENDPOINTS.LOGS, {
-        level: 'error',
-        message: `Error opening valve ${pairId}; watering blocked: ${error}`,
-        source: 'StateMachine'
-      })
+      try {
+        await this.apiService.postData(API_ENDPOINTS.LOGS, {
+          level: 'error',
+          message: `Error opening valve ${pairId}; watering blocked: ${error}`,
+          source: 'StateMachine'
+        })
+      } catch (logError) {
+        console.error(`Failed to write valve-open error log for ${pairId}:`, logError)
+      }
+      const activePulse = this.wateringPulseLedger.activePulse()
+      if (activePulse?.pairId === pairId) {
+        this.openValvePairId = pairId
+        pairing.valveOpened = true
+        pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.STANDARD_VALVE_CLOSE
+        return 'VALVE_OPEN'
+      }
       pairing.valveOpened = false
       pairing.nextTransitionTime = Date.now() + pairing.timingRules.intervalTime
       return 'IDLE'
@@ -584,30 +616,50 @@ class StateMachine {
     console.log(`Closing valve: ${pairId}`)
 
     try {
-      const boardConfigAddress = Number(pairing.Valve.relayAddress)
-      const address = Number(pairing.Valve.address)
-      const { column, pin } = this.valveService.calculateColumnAndPin(address)
-      this.valveService.operateValve(boardConfigAddress, column, pin, 'CLOSE')
+      const activePulse = this.wateringPulseLedger.activePulse()
+      const closeTarget = activePulse?.pairId === pairId
+        ? activePulse
+        : {
+            pairId,
+            relayAddress: Number(pairing.Valve.relayAddress),
+            address: Number(pairing.Valve.address),
+            startedAt: Date.now(),
+          }
+      await this.closeAutomaticPulseWithFallback(closeTarget)
+      if (activePulse?.pairId === pairId) {
+        await this.wateringPulseLedger.completeActive(pairId)
+      }
       console.log(`Valve ${pairId} closed successfully`)
       this.lastValveClosedAt = Date.now()
       if (this.openValvePairId === pairId) {
         this.openValvePairId = null
       }
       pairing.valveOpened = false
-      await this.apiService.postData(API_ENDPOINTS.LOGS, {
-        level: 'info',
-        message: `Closed Valve: ${pairId}`,
-        source: 'StateMachine'
-      })
+      try {
+        await this.apiService.postData(API_ENDPOINTS.LOGS, {
+          level: 'info',
+          message: `Closed Valve: ${pairId}`,
+          source: 'StateMachine'
+        })
+      } catch (error) {
+        console.error(`Valve ${pairId} closed, but the audit log write failed:`, error)
+      }
       return 'VALVE_CLOSE'
     } catch (error) {
       console.error(`Error closing valve ${pairId}:`, error)
-      await this.apiService.postData(API_ENDPOINTS.LOGS, {
-        level: 'error',
-        message: `Error closing valve ${pairId}: ${error}`,
-        source: 'StateMachine'
-      })
-      return 'VALVE_CLOSE'
+      try {
+        await this.apiService.postData(API_ENDPOINTS.LOGS, {
+          level: 'error',
+          message: `Error closing valve ${pairId}; retrying closure before any further watering: ${error}`,
+          source: 'StateMachine'
+        })
+      } catch (logError) {
+        console.error(`Failed to write valve-close error log for ${pairId}:`, logError)
+      }
+      pairing.valveOpened = true
+      this.openValvePairId = pairId
+      pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.STANDARD_VALVE_CLOSE
+      return 'VALVE_OPEN'
     }
   }
 
@@ -731,9 +783,36 @@ class StateMachine {
     }
   }
 
+  private operateAutomaticPulseValve(
+    request: ActiveAutomaticPulse,
+    state: 'OPEN' | 'CLOSE',
+  ): void {
+    const { column, pin } = this.valveService.calculateColumnAndPin(request.address)
+    this.valveService.operateValve(request.relayAddress, column, pin, state)
+  }
+
+  private async closeAutomaticPulseWithFallback(request: ActiveAutomaticPulse): Promise<void> {
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        this.operateAutomaticPulseValve(request, 'CLOSE')
+        return
+      } catch (error) {
+        lastError = error
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+    }
+    try {
+      this.valveService.closeAllValves()
+      return
+    } catch (error) {
+      lastError = error
+    }
+    throw lastError instanceof Error ? lastError : new Error('automatic pulse close failed')
+  }
+
   async setState(state: MachineState): Promise<void> {
-    this.state = state
-    console.log(`StateMachine state set to: ${MachineState[state]}`)
+    console.log(`StateMachine state transition requested: ${MachineState[state]}`)
 
     switch (state) {
       case MachineState.STARTUP:

@@ -12,6 +12,7 @@ describe('controller mutation authentication', () => {
   it('allows only the explicitly read-only POST query routes without mutation credentials', () => {
     expect(isControllerMutation('POST', '/logs/search')).toBe(false)
     expect(isControllerMutation('POST', '/readings/filtered')).toBe(false)
+    expect(isControllerMutation('POST', '/users/authenticate')).toBe(false)
     expect(isControllerMutation('POST', '/logs')).toBe(true)
     expect(isControllerMutation('POST', '/readings')).toBe(true)
     expect(isControllerMutation('PUT', '/readings/1')).toBe(true)

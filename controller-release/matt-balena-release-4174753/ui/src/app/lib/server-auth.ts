@@ -9,6 +9,7 @@ const sessionLifetimeSeconds = 8 * 60 * 60
 type SessionPayload = {
   userId: string;
   expiresAt: number;
+  userRevision: string;
 }
 
 function sessionSecret(): string {
@@ -30,10 +31,15 @@ function validSignature(value: string, supplied: string): boolean {
   )
 }
 
-export async function createUiSession(userId: string): Promise<void> {
+export async function createUiSession(
+  userId: string,
+  userRevision: string,
+): Promise<void> {
+  if (!userRevision) throw new Error('Controller UI user revision is required')
   const payload: SessionPayload = {
     userId: String(userId),
     expiresAt: Date.now() + sessionLifetimeSeconds * 1000,
+    userRevision,
   }
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url')
   const cookieStore = await cookies()
@@ -46,7 +52,7 @@ export async function createUiSession(userId: string): Promise<void> {
   })
 }
 
-export async function uiSessionUserId(): Promise<string | null> {
+export async function uiSessionPayload(): Promise<SessionPayload | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(sessionCookieName)?.value
   if (!token) return null
@@ -54,11 +60,24 @@ export async function uiSessionUserId(): Promise<string | null> {
   if (!encoded || !suppliedSignature || extra || !validSignature(encoded, suppliedSignature)) return null
   try {
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as SessionPayload
-    if (!payload.userId || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= Date.now()) return null
-    return String(payload.userId)
+    if (
+      !payload.userId ||
+      !payload.userRevision ||
+      !Number.isFinite(payload.expiresAt) ||
+      payload.expiresAt <= Date.now()
+    ) return null
+    return {
+      userId: String(payload.userId),
+      expiresAt: payload.expiresAt,
+      userRevision: String(payload.userRevision),
+    }
   } catch {
     return null
   }
+}
+
+export async function uiSessionUserId(): Promise<string | null> {
+  return (await uiSessionPayload())?.userId ?? null
 }
 
 export async function requireUiSession(): Promise<string> {

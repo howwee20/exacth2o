@@ -98,7 +98,10 @@ const operateValve = async (request: FastifyRequest<{ Body: { operation: string,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-exacth2o-controller-secret': String(
+            process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || ''
+          ),
         },
         body: JSON.stringify({ relayAddress, address, state: operation })
       },

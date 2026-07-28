@@ -30,6 +30,7 @@ export interface User {
     lastname: string | null;
     isAdmin: boolean;
     isActive: boolean;
+    updatedAt?: string;
 }
 
 // Sensor related types

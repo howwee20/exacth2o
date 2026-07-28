@@ -3,8 +3,13 @@ import { IRoute } from '../types/IRoute';
 import User from '../models/user';
 import bcrypt from 'bcryptjs';
 import { secretsMatch } from '../utils/controllerMutationAuth';
+import {
+  clearAuthenticationAttempts,
+  consumeAuthenticationAttempt,
+} from '../utils/authenticationRateLimit';
 
 const safeUserAttributes = ['id', 'username', 'email', 'firstname', 'lastname', 'isAdmin', 'isActive', 'createdAt', 'updatedAt'];
+const dummyPasswordHash = bcrypt.hash('exacth2o-invalid-login-sentinel', 10);
 
 const safeUser = (user: User) => {
   const value = user.toJSON() as Record<string, unknown>;
@@ -12,12 +17,16 @@ const safeUser = (user: User) => {
   return value;
 }
 
-const passwordMatches = async (user: User, suppliedPassword: string): Promise<boolean> => {
+const passwordMatches = async (
+  user: User,
+  suppliedPassword: string,
+  migratePlaintext: boolean = true,
+): Promise<boolean> => {
   const storedPassword = String(user.password || '');
   const matches = storedPassword.startsWith('$2')
     ? await bcrypt.compare(suppliedPassword, storedPassword)
     : secretsMatch(suppliedPassword, storedPassword);
-  if (matches && !storedPassword.startsWith('$2')) {
+  if (matches && migratePlaintext && !storedPassword.startsWith('$2')) {
     user.password = await bcrypt.hash(suppliedPassword, 10);
     await user.save();
   }
@@ -74,10 +83,23 @@ const getUserByEmail = async (request: FastifyRequest<{ Params: { email: string 
 const authenticateUser = async (request: FastifyRequest<{ Body: { email: string, password: string } }>, reply: FastifyReply) => {
   const email = String(request.body?.email || '').trim();
   const password = String(request.body?.password || '');
+  const rateLimitKey = email.toLowerCase() || '<missing-email>';
+  const rateLimit = consumeAuthenticationAttempt(rateLimitKey);
+  if (!rateLimit.allowed) {
+    return reply
+      .header('Retry-After', String(rateLimit.retryAfterSeconds))
+      .code(429)
+      .send({ message: 'Too many authentication attempts' });
+  }
+
   const user = await User.findOne({ where: { email } });
-  if (!user || !user.isActive || !(await passwordMatches(user, password))) {
+  const credentialsMatch = user
+    ? await passwordMatches(user, password, Boolean(user.isActive))
+    : await bcrypt.compare(password, await dummyPasswordHash);
+  if (!user || !user.isActive || !credentialsMatch) {
     return reply.code(401).send({ message: 'Invalid email or password' });
   }
+  clearAuthenticationAttempts(rateLimitKey);
   return reply.send(safeUser(user));
 }
 

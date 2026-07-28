@@ -115,22 +115,30 @@ export class ValveService {
   }
 
   closeAllValves(): void {
-    if (this.valveManager) {
-      console.log('Closing all valves...')
+    if (!this.valveManager) {
+      throw new Error('ValveManager is not initialized. Cannot close valves.')
+    }
 
-      const boards: BoardConfig[]  = this.getBoardConfigs()
-      boards.forEach((board) => {
-        for (let column = 0; column < VALVE_CONFIGURATION.COLS; ++column) {
-          for (let pin = 0; pin < VALVE_CONFIGURATION.ROWS; ++pin) {
+    console.log('Closing all valves...')
+    const failures: string[] = []
+    const boards: BoardConfig[] = this.getBoardConfigs()
+    for (const board of boards) {
+      for (let column = 0; column < VALVE_CONFIGURATION.COLS; ++column) {
+        for (let pin = 0; pin < VALVE_CONFIGURATION.ROWS; ++pin) {
+          try {
             this.operateValve(board.address, column, pin, 'CLOSE')
+          } catch (error: any) {
+            failures.push(
+              `${board.address}:${column}:${pin}: ${error?.message || String(error)}`
+            )
           }
         }
-      })
-
-      console.log('All valves closed.')
-    } else {
-
-      console.error('ValveManager is not initialized. Cannot close valves.')
+      }
     }
+
+    if (failures.length > 0) {
+      throw new Error(`Failed to close ${failures.length} valve outputs: ${failures.join('; ')}`)
+    }
+    console.log('All valves closed.')
   }
 }

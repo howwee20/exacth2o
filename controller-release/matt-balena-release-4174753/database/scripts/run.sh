@@ -12,12 +12,15 @@ read_secret() {
 
 # Set MYSQL_ variables based on MARIADB_ variables or secrets if MYSQL_ is not set
 for var in ROOT_PASSWORD DATABASE USER PASSWORD CHARSET COLLATION; do
-    eval mysql_var="\$MYSQL_${var}"
-    eval mariadb_var="\$MARIADB_${var}"
+    mysql_name="MYSQL_${var}"
+    mariadb_name="MARIADB_${var}"
+    mysql_var=$(printenv "$mysql_name")
+    mariadb_var=$(printenv "$mariadb_name")
 
     # Check environment variables
     if [ -z "$mysql_var" ] && [ -n "$mariadb_var" ]; then
-        eval "export MYSQL_${var}=\$mariadb_var"
+        export "$mysql_name=$mariadb_var"
+        mysql_var="$mariadb_var"
     fi
 
     # Check secrets
@@ -25,22 +28,27 @@ for var in ROOT_PASSWORD DATABASE USER PASSWORD CHARSET COLLATION; do
     mariadb_secret="/run/secrets/mariadb_$(echo $var | tr '[:upper:]' '[:lower:]')"
 
     if [ -z "$mysql_var" ] && [ -f "$mariadb_secret" ]; then
-        eval "export MYSQL_${var}=$(read_secret "$mariadb_secret")"
+        secret_value=$(read_secret "$mariadb_secret")
+        export "$mysql_name=$secret_value"
     elif [ -z "$mysql_var" ] && [ -f "$mysql_secret" ]; then
-        eval "export MYSQL_${var}=$(read_secret "$mysql_secret")"
+        secret_value=$(read_secret "$mysql_secret")
+        export "$mysql_name=$secret_value"
     fi
 done
 
 # Handle *_FILE variables
 for var in ROOT_PASSWORD DATABASE USER PASSWORD; do
-    eval mysql_var="\$MYSQL_${var}"
-    eval mysql_file_var="\$MYSQL_${var}_FILE"
-    eval mariadb_file_var="\$MARIADB_${var}_FILE"
+    mysql_name="MYSQL_${var}"
+    mysql_var=$(printenv "$mysql_name")
+    mysql_file_var=$(printenv "MYSQL_${var}_FILE")
+    mariadb_file_var=$(printenv "MARIADB_${var}_FILE")
 
     if [ -z "$mysql_var" ] && [ -n "$mysql_file_var" ]; then
-        eval "export MYSQL_${var}=$(read_secret "$mysql_file_var")"
+        secret_value=$(read_secret "$mysql_file_var")
+        export "$mysql_name=$secret_value"
     elif [ -z "$mysql_var" ] && [ -n "$mariadb_file_var" ]; then
-        eval "export MYSQL_${var}=$(read_secret "$mariadb_file_var")"
+        secret_value=$(read_secret "$mariadb_file_var")
+        export "$mysql_name=$secret_value"
     fi
 done
 
@@ -90,7 +98,7 @@ else
 
     if [ -z "$MYSQL_ROOT_PASSWORD" ]; then
         MYSQL_ROOT_PASSWORD=$(pwgen 16 1)
-        echo "[i] Root Password: $MYSQL_ROOT_PASSWORD"
+        echo "[i] Generated a local database root password"
     fi
 
     # Handle MYSQL_DATABASE
@@ -128,8 +136,8 @@ else
     cat << EOF > "$tfile"
 USE mysql;
 FLUSH PRIVILEGES ;
-GRANT ALL ON *.* TO 'root'@'%' identified by '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION ;
 GRANT ALL ON *.* TO 'root'@'localhost' identified by '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION ;
+DROP USER IF EXISTS 'root'@'%' ;
 SET PASSWORD FOR 'root'@'localhost'=PASSWORD('${MYSQL_ROOT_PASSWORD}') ;
 DROP DATABASE IF EXISTS test ;
 FLUSH PRIVILEGES ;
@@ -146,7 +154,7 @@ EOF
         fi
 
         if [ "$MYSQL_USER" != "" ]; then
-            echo "[i] Creating user: $MYSQL_USER with password $MYSQL_PASSWORD"
+            echo "[i] Creating application database user: $MYSQL_USER"
             echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* to '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';" >> "$tfile"
         fi
     fi

@@ -157,7 +157,6 @@ let state = await initializeObserverState({
   publisherInstance,
   bootstrapCursor,
 });
-state = await replayPendingBatch({ sink, store, state });
 
 const sensorsByBoard = Map.groupBy(
   walkerSensorCatalog,
@@ -220,6 +219,7 @@ while (!stopping) {
     failed: 0,
   };
   try {
+    state = await replayPendingBatch({ sink, store, state });
     for (let index = 0; index < 48 && !stopping; index += 1) {
       const currentControllerState = await controllerState();
       if (currentControllerState !== "STOPPED") {
@@ -286,6 +286,20 @@ while (!stopping) {
       completedAt: lastScan.completedAt,
     });
   } catch (error) {
+    try {
+      state = await initializeObserverState({
+        sink,
+        store,
+        publisherInstance,
+        bootstrapCursor,
+      });
+    } catch (restoreError) {
+      console.error("Walker durable observer state could not be restored", {
+        message: restoreError instanceof Error
+          ? restoreError.message
+          : String(restoreError),
+      });
+    }
     console.error("Walker sensing-only observation scan paused", {
       message: error instanceof Error ? error.message : String(error),
       cursor: state.cursor,

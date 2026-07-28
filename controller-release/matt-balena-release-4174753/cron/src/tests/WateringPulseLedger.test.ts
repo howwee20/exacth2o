@@ -67,6 +67,46 @@ describe('WateringPulseLedger', () => {
     await ledger.reserve('712-1625', start, 60 * 60 * 1000, 2, 30 * 60 * 1000)
 
     const persisted = JSON.parse(await readFile(ledgerPath, 'utf8'))
-    expect(persisted).toEqual({ version: 1, pulses: { '712-1625': [start] } })
+    expect(persisted).toEqual({
+      version: 2,
+      pulses: { '712-1625': [start] },
+      active: null,
+    })
+  })
+
+  it('persists an active automatic valve until closure is confirmed', async () => {
+    const start = Date.UTC(2026, 6, 16, 12)
+    const first = new WateringPulseLedger(ledgerPath)
+    await first.init(start)
+    await first.beginActive('712-1625', 0x20, 3, start)
+
+    const restarted = new WateringPulseLedger(ledgerPath)
+    await restarted.init(start + 1000)
+    expect(restarted.activePulse()).toEqual({
+      pairId: '712-1625',
+      relayAddress: 0x20,
+      address: 3,
+      startedAt: start,
+    })
+    await expect(
+      restarted.reserve('713-1626', start + 1000, 60_000, 2, 0)
+    ).rejects.toThrow('closure is still pending')
+
+    await restarted.completeActive('712-1625', start + 2000)
+    expect(restarted.activePulse()).toBeNull()
+  })
+
+  it('migrates a version-one timestamp ledger without losing pulse history', async () => {
+    const start = Date.UTC(2026, 6, 16, 12)
+    await writeFile(
+      ledgerPath,
+      JSON.stringify({ version: 1, pulses: { '712-1625': [start] } }),
+      'utf8',
+    )
+
+    const ledger = new WateringPulseLedger(ledgerPath)
+    await ledger.init(start + 1000)
+    expect(ledger.decision('712-1625', start + 1000, 60_000, 2, 0).pulseCount).toBe(1)
+    expect(JSON.parse(await readFile(ledgerPath, 'utf8')).version).toBe(2)
   })
 })

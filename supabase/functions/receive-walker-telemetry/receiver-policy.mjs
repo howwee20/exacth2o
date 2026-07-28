@@ -5,6 +5,46 @@ export const walkerTelemetryIdentity = Object.freeze({
 
 const maximumBatchSize = 1000;
 
+export class PayloadTooLargeError extends Error {
+  constructor() {
+    super("Payload too large");
+    this.name = "PayloadTooLargeError";
+  }
+}
+
+export async function readBoundedJson(request, maximumBytes) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) {
+    throw new Error("Invalid request-body limit");
+  }
+  if (!request.body) throw new Error("Request body is required");
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maximumBytes) {
+        await reader.cancel();
+        throw new PayloadTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
 function record(value) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
