@@ -18,6 +18,9 @@ import type { AssistantEvidenceBundle } from "./assistantEvidence";
 
 type CatalogRow = {
   id: string;
+  current_revision_id: string | null;
+  current_version: number | null;
+  current_spec: ExperimentDraft | null;
   slug: string;
   name: string;
   description: string;
@@ -176,7 +179,7 @@ export async function loadPortalExperimentCatalog(projectId: string) {
   const { data, error } = await supabase
     .from("portal_experiment_catalog")
     .select(
-      "id,slug,name,description,mode,status,watering_state,started_at,ended_at,pairing_names,assignments",
+      "id,current_revision_id,current_version,current_spec,slug,name,description,mode,status,watering_state,started_at,ended_at,pairing_names,assignments",
     )
     .eq("project_id", projectId)
     .order("created_at", { ascending: true });
@@ -185,6 +188,9 @@ export async function loadPortalExperimentCatalog(projectId: string) {
   return ((data ?? []) as CatalogRow[]).map<PortalExperiment>((row) => ({
     id: row.slug,
     databaseId: row.id,
+    currentRevisionId: row.current_revision_id ?? undefined,
+    currentVersion: row.current_version ?? undefined,
+    currentSpec: row.current_spec ?? undefined,
     name: row.name,
     shortDescription: row.description,
     mode: row.mode,
@@ -451,16 +457,22 @@ export function preflightExperiment({
   projectId,
   draft,
   inventoryUpdatedAt,
+  experimentId,
+  expectedRevisionId,
 }: {
   projectId: string;
   draft: ExperimentDraft;
   inventoryUpdatedAt: string;
+  experimentId?: string;
+  expectedRevisionId?: string;
 }) {
   return invokeExperimentBuilder<ExperimentPreflightResponse>({
-    action: "preflight",
+    action: experimentId ? "edit_preflight" : "preflight",
     project_id: projectId,
     draft,
     inventory_updated_at: inventoryUpdatedAt,
+    experiment_id: experimentId,
+    expected_revision_id: expectedRevisionId,
   });
 }
 
@@ -472,6 +484,8 @@ export function launchExperiment({
   model,
   promptFingerprint,
   reviewedConfigHash,
+  experimentId,
+  expectedRevisionId,
 }: {
   projectId: string;
   draft: ExperimentDraft;
@@ -480,9 +494,11 @@ export function launchExperiment({
   model: string | null;
   promptFingerprint: string | null;
   reviewedConfigHash: string;
+  experimentId?: string;
+  expectedRevisionId?: string;
 }) {
   return invokeExperimentBuilder<ExperimentLaunchResponse>({
-    action: "launch",
+    action: experimentId ? "edit_apply" : "launch",
     project_id: projectId,
     draft,
     inventory_updated_at: inventoryUpdatedAt,
@@ -490,6 +506,8 @@ export function launchExperiment({
     model,
     prompt_fingerprint: promptFingerprint,
     reviewed_config_hash: reviewedConfigHash,
+    experiment_id: experimentId,
+    expected_revision_id: expectedRevisionId,
     confirm: true,
   });
 }

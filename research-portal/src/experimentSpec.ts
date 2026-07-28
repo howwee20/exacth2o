@@ -1,4 +1,5 @@
 import type { PairingRow } from "./types";
+import type { PortalExperiment } from "./experimentRegistry";
 
 export type ExperimentBuilderMode = "controlled" | "observation" | "calibration";
 export type ExperimentDraftSource = "manual" | "natural_language";
@@ -202,5 +203,49 @@ export function manualExperimentDraft(
   return {
     ...emptyExperimentDraft(),
     assignments,
+  };
+}
+
+export function experimentDraftFromPortalExperiment(
+  experiment: PortalExperiment,
+  pairings: PairingRow[],
+): ExperimentDraft {
+  if (experiment.currentSpec) {
+    return {
+      ...emptyExperimentDraft(),
+      ...experiment.currentSpec,
+      name: experiment.name,
+      description: experiment.shortDescription,
+      mode: experiment.mode,
+      assignments: experiment.currentSpec.assignments.map((assignment) => ({ ...assignment })),
+      visibility_roles: ["admin", "researcher"],
+      questions: [],
+    };
+  }
+
+  const assignmentsByName = new Map(
+    (experiment.assignments ?? []).map((assignment) => [assignment.pairing_name, assignment]),
+  );
+  return {
+    ...manualExperimentDraft(pairings, experiment.pairingNames),
+    name: experiment.name,
+    description: experiment.shortDescription,
+    mode: experiment.mode,
+    assignments: pairings
+      .filter((pairing) => experiment.pairingNames.includes(pairing.name))
+      .map((pairing) => {
+        const assignment = assignmentsByName.get(pairing.name);
+        return {
+          ...manualExperimentDraft([pairing], [pairing.name]).assignments[0],
+          crop: assignment?.crop ?? null,
+          treatment: assignment?.treatment ?? null,
+          block: assignment?.block ?? null,
+          substrate: assignment?.substrate ?? null,
+          target_vwc_percent: assignment?.target_vwc_percent ??
+            (pairing.wtc_percent_limit > -1_000 ? pairing.wtc_percent_limit : null),
+          measurement_interval_minutes: assignment?.measurement_interval_minutes ??
+            Math.max(0.5, pairing.measurement_interval_ms / 60_000),
+        };
+      }),
   };
 }
