@@ -148,6 +148,54 @@ export function inventoryFromDeviceConfig(configRow) {
   });
 }
 
+export function activeExperimentAssignmentConflicts(
+  experiments,
+  selectedPairingNames,
+  excludedExperimentId = "",
+) {
+  const selected = new Set(
+    Array.isArray(selectedPairingNames)
+      ? selectedPairingNames.filter((value) => typeof value === "string")
+      : [],
+  );
+  const occupyingStatuses = new Set([
+    "published_sensing",
+    "activating",
+    "active",
+    "activation_failed",
+  ]);
+  const conflicts = [];
+
+  for (const rawExperiment of Array.isArray(experiments) ? experiments : []) {
+    const experiment = record(rawExperiment);
+    const experimentId = text(experiment.id, 80);
+    const experimentName = text(experiment.name, 120) || "another active experiment";
+    const status = text(experiment.status, 40);
+    if (
+      !experimentId ||
+      experimentId === excludedExperimentId ||
+      !occupyingStatuses.has(status)
+    ) continue;
+
+    const pairingNames = Array.isArray(experiment.pairing_names)
+      ? experiment.pairing_names
+      : [];
+    for (const pairingName of pairingNames) {
+      if (typeof pairingName !== "string" || !selected.has(pairingName)) continue;
+      conflicts.push({
+        pairing_name: pairingName,
+        experiment_id: experimentId,
+        experiment_name: experimentName,
+      });
+    }
+  }
+
+  return conflicts.sort((left, right) =>
+    left.pairing_name.localeCompare(right.pairing_name) ||
+    left.experiment_name.localeCompare(right.experiment_name)
+  );
+}
+
 export function safeInventoryForModel(inventory) {
   return inventory.map((item) => ({
     pairing_name: item.name,

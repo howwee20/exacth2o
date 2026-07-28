@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  activeExperimentAssignmentConflicts,
   compileControlPlan,
   inventoryFromDeviceConfig,
   normalizeDraft,
@@ -39,6 +40,38 @@ test("inventory uses current config while the model inventory omits hardware key
     current_valve_open_seconds: 5,
     current_measurement_interval_minutes: 10,
   }]);
+});
+
+test("active experiment assignments block accidental pot overlap", () => {
+  const experiments = [{
+    id: "00000000-0000-4000-8000-000000000001",
+    name: "Current edit",
+    status: "active",
+    pairing_names: ["Zone1-Pot15"],
+  }, {
+    id: "00000000-0000-4000-8000-000000000002",
+    name: "Other trial",
+    status: "active",
+    pairing_names: ["Zone1-Pot15", "Zone1-Pot16"],
+  }, {
+    id: "00000000-0000-4000-8000-000000000003",
+    name: "Completed trial",
+    status: "completed",
+    pairing_names: ["Zone1-Pot17"],
+  }];
+
+  assert.deepEqual(
+    activeExperimentAssignmentConflicts(
+      experiments,
+      ["Zone1-Pot15", "Zone1-Pot17"],
+      "00000000-0000-4000-8000-000000000001",
+    ),
+    [{
+      pairing_name: "Zone1-Pot15",
+      experiment_id: "00000000-0000-4000-8000-000000000002",
+      experiment_name: "Other trial",
+    }],
+  );
 });
 
 test("draft validation blocks invented pairings and incomplete watering settings", () => {

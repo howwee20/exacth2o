@@ -262,13 +262,6 @@
     line-height: 1.15;
     font-weight: 400;
   }
-  .experiment-hint {
-    font-family: var(--mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.04em;
-    color: rgba(14,26,20,0.62);
-    white-space: nowrap;
-  }
   .experiment-legend {
     display: flex;
     align-items: center;
@@ -443,24 +436,6 @@
   }
   .tooltip-accent {
     fill: #22c55e;
-  }
-  .experiment-shell figcaption {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.8rem 1.5rem 1.05rem;
-    border-top: 1px solid rgba(14,26,20,0.09);
-    color: rgba(14,26,20,0.68);
-    font-size: 0.72rem;
-    line-height: 1.5;
-  }
-  .experiment-provenance {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgba(14,26,20,0.62);
-    text-align: right;
   }
   .sr-only {
     position: absolute;
@@ -754,11 +729,9 @@
   }
 
   @media (max-height: 780px) and (min-width: 901px) {
-    .experiment-hint { display: none; }
     .experiment-shell-head { padding: 0.9rem 1.2rem 0.7rem; }
     .experiment-shell h2 { font-size: 1.35rem; }
     .experiment-legend { padding: 0.65rem 1.2rem 0; }
-    .experiment-shell figcaption { padding: 0.65rem 1.2rem 0.8rem; }
   }
 
   @media (max-width: 900px) {
@@ -794,11 +767,8 @@
     .application-jumps { gap: 0.45rem 0.8rem; }
     .experiment-shell { border-radius: 12px; }
     .experiment-shell-head { padding: 1rem 1rem 0.75rem; }
-    .experiment-hint { display: none; }
     .experiment-legend { padding: 0.7rem 1rem 0; gap: 0.55rem 0.85rem; }
     .experiment-visual { padding: 0 0.2rem; }
-    .experiment-shell figcaption { display: block; padding: 0.75rem 1rem 0.9rem; }
-    .experiment-provenance { margin-top: 0.35rem; text-align: left; }
     section, .applications, .why-section { padding: 3.5rem 1rem; }
     .app-intro-grid { margin-bottom: 2.5rem; padding-bottom: 2.5rem; }
     .app-card { padding: 1rem; }
@@ -859,9 +829,8 @@
         <header class="experiment-shell-head">
           <div>
             <span class="experiment-kicker">Interactive experiment explorer</span>
-            <h2>72-hour irrigation response</h2>
+            <h2>Example irrigation response</h2>
           </div>
-          <span class="experiment-hint">Hover or click a run · Arrow keys also work</span>
         </header>
         <div class="experiment-legend" aria-label="Chart legend">
           <span class="legend-item"><span class="legend-line"></span>Control</span>
@@ -948,10 +917,6 @@
           </g>
         </svg>
         </div>
-        <figcaption>
-          <span>Select a run to isolate its response and inspect VWC along the curve.</span>
-          <span class="experiment-provenance">Representative visualization · not live experiment data</span>
-        </figcaption>
         <p class="experiment-status sr-only" aria-live="polite"></p>
       </figure>
     </div>

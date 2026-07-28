@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  activeExperimentAssignmentConflicts,
   compileControlPlan,
   experimentDraftSchema,
   inventoryFromDeviceConfig,
@@ -917,6 +918,40 @@ Deno.serve(async (request) => {
     }
     if (!plan) {
       return response({ error: "Controller plan could not be compiled." }, 500, origin);
+    }
+
+    const { data: occupancyRows, error: occupancyError } = await admin
+      .from("portal_experiment_catalog")
+      .select("id,name,status,pairing_names,visible_to_roles")
+      .eq("project_id", projectId);
+    if (occupancyError) {
+      return response({ error: "Current experiment assignments are unavailable." }, 503, origin);
+    }
+    const occupancyConflicts = activeExperimentAssignmentConflicts(
+      occupancyRows,
+      draft.assignments.map((assignment: { pairing_name: string }) => assignment.pairing_name),
+      existingExperiment?.id ?? "",
+    );
+    if (occupancyConflicts.length) {
+      const visibleExperimentIds = new Set(
+        (occupancyRows ?? [])
+          .filter((item) =>
+            access.role === "admin" ||
+            (Array.isArray(item.visible_to_roles) && item.visible_to_roles.includes(access.role))
+          )
+          .map((item) => item.id),
+      );
+      const safeConflicts = occupancyConflicts.map((conflict) => ({
+        ...conflict,
+        experiment_name: visibleExperimentIds.has(conflict.experiment_id)
+          ? conflict.experiment_name
+          : "another active experiment",
+      }));
+      const firstConflict = safeConflicts[0];
+      return response({
+        error: `${firstConflict.pairing_name} is already used by ${firstConflict.experiment_name}. Remove it from that experiment before selecting it here.`,
+        occupancy_conflicts: safeConflicts,
+      }, 409, origin);
     }
 
     const expectedInventory = clean(body.inventory_updated_at, 80);

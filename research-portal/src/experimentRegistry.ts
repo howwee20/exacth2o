@@ -42,6 +42,18 @@ export type PortalExperiment = {
   endedAt?: string;
 };
 
+export type ExperimentPotOccupancy = {
+  experimentId: string;
+  experimentName: string;
+};
+
+const potOccupyingStatuses = new Set<NonNullable<PortalExperiment["status"]>>([
+  "published_sensing",
+  "activating",
+  "active",
+  "activation_failed",
+]);
+
 const emptyExperiment: PortalExperiment = {
   id: "unavailable",
   name: "Experiment unavailable",
@@ -65,6 +77,31 @@ export function mergePortalExperiments(
   const merged = new Map(fallback.map((experiment) => [experiment.id, experiment]));
   for (const experiment of catalog) merged.set(experiment.id, experiment);
   return Array.from(merged.values());
+}
+
+export function activeExperimentPotOccupancy(
+  experiments: readonly PortalExperiment[],
+  excludedExperimentId?: string,
+) {
+  const occupied = new Map<string, ExperimentPotOccupancy[]>();
+  for (const experiment of experiments) {
+    const identity = experiment.databaseId ?? experiment.id;
+    if (
+      identity === excludedExperimentId ||
+      !experiment.status ||
+      !potOccupyingStatuses.has(experiment.status)
+    ) continue;
+
+    for (const pairingName of experiment.pairingNames) {
+      const current = occupied.get(pairingName) ?? [];
+      current.push({
+        experimentId: identity,
+        experimentName: experiment.name,
+      });
+      occupied.set(pairingName, current);
+    }
+  }
+  return occupied;
 }
 
 export function portalExperimentById(

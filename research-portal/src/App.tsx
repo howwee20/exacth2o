@@ -3464,12 +3464,7 @@ function PortalResearcherHome({
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
       {canCreateExperiment ? (
-        <div className="portal-experiments-toolbar">
-          <div>
-            <p>Research workspace</p>
-            <h1>Experiments</h1>
-            <span>Open a tile to view results, or edit its reviewed settings.</span>
-          </div>
+        <div className="portal-new-experiment-action">
           <button type="button" onClick={onNewExperiment}>
             <Plus size={17} />
             New Experiment
@@ -3535,12 +3530,7 @@ function PortalAdminHome({
 
   return (
     <section className="portal-admin-main is-assistant-below" aria-label="Portal sections">
-      <div className="portal-experiments-toolbar">
-        <div>
-          <p>Research workspace</p>
-          <h1>Experiments</h1>
-          <span>Open a tile to view results, or edit its reviewed settings.</span>
-        </div>
+      <div className="portal-new-experiment-action">
         <button type="button" onClick={onNewExperiment}>
           <Plus size={17} />
           New Experiment
@@ -7599,6 +7589,7 @@ export default function App() {
       key={editingExperiment?.currentRevisionId ?? "new-experiment"}
       projectId={activeProjectId}
       pairings={visibleExperimentPairings(data.pairings)}
+      experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}
       initialPrompt={experimentBuilderPrompt}
       direct
