@@ -1,5 +1,5 @@
 {
-  "contractVersion": "2026-07-24.1",
+  "contractVersion": "2026-07-28.1",
   "capabilities": [
     {
       "id": "capability.read",
@@ -96,6 +96,17 @@
       "roles": ["admin", "researcher"],
       "approval": "review",
       "assistantTool": "prepare_experiment_specification",
+      "controllerCommands": ["update_system_state", "bulk_update_pairings"],
+      "physicalEvidenceRequired": false,
+      "enabled": true
+    },
+    {
+      "id": "experiment.edit",
+      "label": "Edit an experiment",
+      "kind": "write",
+      "roles": ["admin", "researcher"],
+      "approval": "review",
+      "assistantTool": null,
       "controllerCommands": ["update_system_state", "bulk_update_pairings"],
       "physicalEvidenceRequired": false,
       "enabled": true

@@ -100,6 +100,38 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
         raise exception 'Restored database is missing platform views';
       end if;
 
+      if not exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'portal_experiment_catalog'
+          and column_name = 'current_spec'
+      ) then
+        raise exception 'Experiment catalog is missing the editable current specification';
+      end if;
+
+      if to_regprocedure(
+        'public.revise_and_attach_experiment(uuid,uuid,uuid,jsonb,jsonb,timestamptz,text,text,text,text)'
+      ) is null then
+        raise exception 'Experiment revision RPC is missing';
+      end if;
+
+      if has_function_privilege(
+        'anon',
+        'public.revise_and_attach_experiment(uuid,uuid,uuid,jsonb,jsonb,timestamptz,text,text,text,text)',
+        'EXECUTE'
+      ) or has_function_privilege(
+        'authenticated',
+        'public.revise_and_attach_experiment(uuid,uuid,uuid,jsonb,jsonb,timestamptz,text,text,text,text)',
+        'EXECUTE'
+      ) or not has_function_privilege(
+        'service_role',
+        'public.revise_and_attach_experiment(uuid,uuid,uuid,jsonb,jsonb,timestamptz,text,text,text,text)',
+        'EXECUTE'
+      ) then
+        raise exception 'Experiment revision RPC privileges are unsafe';
+      end if;
+
       select count(*)
       into rls_table_count
       from pg_class relation

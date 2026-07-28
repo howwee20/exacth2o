@@ -9,6 +9,7 @@ import {
   readingsForExperiment,
   type PortalExperiment,
 } from "./experimentRegistry";
+import { experimentDraftFromPortalExperiment } from "./experimentSpec";
 import type { PairingRow, SensorReading } from "./types";
 
 function pairing(overrides: Partial<PairingRow> = {}): PairingRow {
@@ -94,5 +95,48 @@ describe("experiment registry", () => {
     expect(experimentCardDescription(activeCalibration, [
       pairing({ wtc_percent_limit: -999_999, valve_open_time_ms: 0 }),
     ])).toBe("Sensing only");
+  });
+
+  it("hydrates edit drafts from the immutable current revision", () => {
+    const currentSpec = {
+      name: "Current revision",
+      description: "Revision-backed settings",
+      mode: "controlled" as const,
+      start_date: "2026-07-23",
+      assignments: [{
+        pairing_name: "Zone2-Pot41",
+        crop: "Maize",
+        treatment: "Drought",
+        block: "B1",
+        substrate: "Sand",
+        watering_enabled: true,
+        target_vwc_percent: 31,
+        valve_open_seconds: 7,
+        measurement_interval_minutes: 8,
+        notes: "Keep",
+      }],
+      visibility_roles: ["admin", "researcher"] as Array<"admin" | "researcher">,
+      controller_changes_requested: true,
+      questions: [],
+    };
+    const draft = experimentDraftFromPortalExperiment({
+      ...history,
+      name: "Editable trial",
+      shortDescription: "Updated description",
+      currentRevisionId: "00000000-0000-4000-8000-000000000001",
+      currentVersion: 4,
+      currentSpec,
+    }, [pairing()]);
+
+    expect(draft.name).toBe("Editable trial");
+    expect(draft.description).toBe("Updated description");
+    expect(draft.assignments[0]).toMatchObject({
+      crop: "Maize",
+      watering_enabled: true,
+      target_vwc_percent: 31,
+      valve_open_seconds: 7,
+    });
+    draft.assignments[0].crop = "Changed locally";
+    expect(currentSpec.assignments[0].crop).toBe("Maize");
   });
 });

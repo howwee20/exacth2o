@@ -1363,12 +1363,124 @@ select {
   justify-content: center;
 }
 
+.portal-experiments-toolbar {
+  max-width: 826px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 auto 28px;
+  padding: 22px 24px;
+  border: 1px solid rgba(26, 107, 74, 0.14);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 95% 0, rgba(56, 189, 248, 0.14), transparent 34%),
+    linear-gradient(135deg, #f3fbf7, #ffffff 62%);
+  box-shadow: 0 16px 42px rgba(14, 26, 20, 0.07);
+}
+
+.portal-experiments-toolbar p,
+.portal-experiments-toolbar h1,
+.portal-experiments-toolbar span {
+  margin: 0;
+}
+
+.portal-experiments-toolbar p {
+  color: var(--portal-water);
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portal-experiments-toolbar h1 {
+  margin-top: 4px;
+  color: var(--portal-ink);
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  letter-spacing: -0.03em;
+}
+
+.portal-experiments-toolbar span {
+  display: block;
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.portal-experiments-toolbar > button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 0 18px;
+  border: 1px solid #155f42;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1a6b4a, #27875f);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--portal-mono);
+  font-size: 0.7rem;
+  font-weight: 780;
+  letter-spacing: 0.03em;
+  box-shadow: 0 10px 24px rgba(26, 107, 74, 0.2);
+}
+
+.portal-experiments-toolbar > button:hover,
+.portal-experiments-toolbar > button:focus-visible {
+  outline: 3px solid rgba(26, 107, 74, 0.16);
+  transform: translateY(-1px);
+}
+
 .portal-experiment-stack {
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   justify-items: stretch;
+}
+
+.portal-launch-card-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.portal-launch-card-shell > .portal-launch-card {
+  width: 100%;
+}
+
+.portal-experiment-edit-button {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgba(26, 107, 74, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--portal-water);
+  cursor: pointer;
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
+  font-weight: 780;
+  box-shadow: 0 7px 18px rgba(14, 26, 20, 0.09);
+}
+
+.portal-experiment-edit-button:hover,
+.portal-experiment-edit-button:focus-visible {
+  border-color: rgba(26, 107, 74, 0.5);
+  outline: 3px solid rgba(26, 107, 74, 0.13);
+}
+
+.portal-experiment-edit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .portal-experiment-column {
@@ -8362,6 +8474,14 @@ select {
   overflow: hidden;
 }
 
+.experiment-builder.is-direct .experiment-builder-review-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.experiment-builder.is-direct .experiment-builder-review {
+  padding: 28px clamp(20px, 4vw, 42px);
+}
+
 .experiment-builder-conversation {
   min-height: 0;
   display: flex;
@@ -8503,6 +8623,69 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.experiment-builder-mode-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.experiment-builder-mode-field legend {
+  margin-bottom: 7px;
+  color: #415063;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.experiment-builder-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.experiment-builder-mode-options button {
+  min-height: 72px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 5px;
+  padding: 13px 14px;
+  border: 1px solid rgba(24, 37, 55, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  color: #26352d;
+  cursor: pointer;
+  text-align: left;
+}
+
+.experiment-builder-mode-options button strong {
+  font-size: 0.77rem;
+}
+
+.experiment-builder-mode-options button span {
+  color: #718096;
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.experiment-builder-mode-options button.is-controlled {
+  background: linear-gradient(145deg, #fff, #f0fdf8);
+}
+
+.experiment-builder-mode-options button.is-observation {
+  background: linear-gradient(145deg, #fff, #fffbeb);
+}
+
+.experiment-builder-mode-options button.is-calibration {
+  background: linear-gradient(145deg, #fff, #f7f5ff);
+}
+
+.experiment-builder-mode-options button.is-selected {
+  border-color: rgba(26, 107, 74, 0.62);
+  box-shadow: 0 0 0 3px rgba(26, 107, 74, 0.1);
 }
 
 .experiment-builder-section-heading {
@@ -8830,6 +9013,10 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .experiment-builder-mode-options {
+    grid-template-columns: 1fr;
+  }
+
   .experiment-builder-pot-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -8839,6 +9026,17 @@ select {
     padding: 10px;
     border: 1px solid rgba(24, 37, 55, 0.08);
     border-radius: 10px;
+  }
+}
+
+@media (max-width: 620px) {
+  .portal-experiments-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .portal-experiments-toolbar > button {
+    width: 100%;
   }
 }
 

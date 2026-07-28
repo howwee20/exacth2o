@@ -1,4 +1,5 @@
 import type { PairingRow, SensorReading, ValveEvent } from "./types";
+import type { ExperimentDraft } from "./experimentSpec";
 
 export type ExperimentId = string;
 export type ExperimentMode = "controlled" | "observation" | "calibration";
@@ -20,6 +21,9 @@ export type PortalExperimentAssignment = {
 export type PortalExperiment = {
   id: ExperimentId;
   databaseId?: string;
+  currentRevisionId?: string;
+  currentVersion?: number;
+  currentSpec?: ExperimentDraft;
   name: string;
   shortDescription: string;
   mode: ExperimentMode;

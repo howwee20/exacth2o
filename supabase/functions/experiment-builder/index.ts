@@ -134,6 +134,8 @@ Deno.serve(async (request) => {
       body.action === "revise" ||
       body.action === "preflight" ||
       body.action === "launch" ||
+      body.action === "edit_preflight" ||
+      body.action === "edit_apply" ||
       body.action === "route" ||
       body.action === "assistant_chat" ||
       body.action === "assistant_thread_rename" ||
@@ -861,7 +863,46 @@ Deno.serve(async (request) => {
     }, 200, origin);
   }
 
-  if (action === "preflight" || action === "launch") {
+  if (
+    action === "preflight" ||
+    action === "launch" ||
+    action === "edit_preflight" ||
+    action === "edit_apply"
+  ) {
+    const editing = action === "edit_preflight" || action === "edit_apply";
+    const requestedExperimentId = clean(body.experiment_id, 80);
+    const expectedRevisionId = clean(body.expected_revision_id, 80);
+    let existingExperiment: {
+      id: string;
+      slug: string;
+      current_revision_id: string | null;
+      status: string;
+    } | null = null;
+    if (editing) {
+      if (!isUuid(requestedExperimentId) || !isUuid(expectedRevisionId)) {
+        return response({ error: "A current experiment revision is required for editing." }, 400, origin);
+      }
+      const { data: experimentRecord, error: experimentError } = await admin
+        .from("experiments")
+        .select("id,slug,current_revision_id,status")
+        .eq("project_id", projectId)
+        .eq("id", requestedExperimentId)
+        .maybeSingle();
+      if (experimentError) {
+        return response({ error: "The experiment could not be loaded." }, 500, origin);
+      }
+      if (
+        !experimentRecord ||
+        experimentRecord.current_revision_id !== expectedRevisionId ||
+        !["published_sensing", "active", "activation_failed"].includes(experimentRecord.status)
+      ) {
+        return response({
+          error: "This experiment changed or is not currently editable. Reload it before continuing.",
+        }, 409, origin);
+      }
+      existingExperiment = experimentRecord;
+    }
+
     const compiled = compileControlPlan(body.draft, inventory);
     const { draft, messages, plan } = compiled;
     const preflightMessages = [
@@ -883,13 +924,15 @@ Deno.serve(async (request) => {
       return response({ error: "The pot inventory changed. Review the experiment again." }, 409, origin);
     }
 
-    if (action === "preflight") {
+    if (action === "preflight" || action === "edit_preflight") {
       return response({
         draft,
         plan,
         inventory_updated_at: configState.updated_at,
         config_hash: configState.config_hash,
         validation_messages: [],
+        experiment_id: existingExperiment?.id ?? null,
+        expected_revision_id: existingExperiment?.current_revision_id ?? null,
       }, 200, origin);
     }
 
@@ -919,13 +962,17 @@ Deno.serve(async (request) => {
         draft,
         reviewedConfigHash,
         expectedInventory,
+        experimentId: existingExperiment?.id ?? null,
+        expectedRevisionId: existingExperiment?.current_revision_id ?? null,
       }));
       launchOperation = await ensureApprovedOperation(admin, {
         projectId,
         userId: userData.user.id,
-        capabilityId: "experiment.create",
-        idempotencyKey: `experiment-launch:${launchFingerprint}`,
-        intent: `Create experiment ${draft.name} from the reviewed specification.`,
+        capabilityId: editing ? "experiment.edit" : "experiment.create",
+        idempotencyKey: `${editing ? "experiment-edit" : "experiment-launch"}:${launchFingerprint}`,
+        intent: editing
+          ? `Edit experiment ${draft.name} from the reviewed specification.`
+          : `Create experiment ${draft.name} from the reviewed specification.`,
         specification: {
           draft,
           control_plan: plan,
@@ -941,31 +988,70 @@ Deno.serve(async (request) => {
     } catch {
       return response({ error: "The approved experiment could not be recorded." }, 500, origin);
     }
-    const { data: published, error: publishError } = await authClient.rpc(
-      "publish_sensing_experiment",
-      {
-        requested_project_id: projectId,
-        reviewed_spec: sensingSpec,
-        expected_inventory_updated_at: expectedInventory,
-        draft_source: source,
-        draft_model_name: source === "natural_language" ? clean(body.model, 120) || model : null,
-        draft_prompt_fingerprint: source === "natural_language"
-          ? clean(body.prompt_fingerprint, 128) || null
-          : null,
-      },
-    );
-    if (publishError) {
-      await markOperationFailed(admin, {
-        operationId: launchOperation.id,
-        projectId,
-        errorCode: "experiment_publish_failed",
-        errorMessage: publishError.message,
-      });
-      return response({ error: publishError.message }, 400, origin);
+    let experimentId = existingExperiment?.id ?? "";
+    let experimentSlug = existingExperiment?.slug ?? "";
+    let planId: string | null = null;
+    let batchId: string | null = null;
+
+    if (editing) {
+      const { data: revised, error: reviseError } = await admin.rpc(
+        "revise_and_attach_experiment",
+        {
+          requested_experiment_id: experimentId,
+          requested_actor_id: userData.user.id,
+          expected_revision_id: expectedRevisionId,
+          reviewed_spec: draft,
+          compiled_plan: plan,
+          expected_inventory_updated_at: expectedInventory,
+          expected_config_hash: reviewedConfigHash,
+          revision_source: source,
+          revision_model_name: source === "natural_language" ? clean(body.model, 120) || model : null,
+          revision_prompt_fingerprint: source === "natural_language"
+            ? clean(body.prompt_fingerprint, 128) || null
+            : null,
+        },
+      );
+      if (reviseError) {
+        await markOperationFailed(admin, {
+          operationId: launchOperation.id,
+          projectId,
+          errorCode: "experiment_edit_failed",
+          errorMessage: reviseError.message,
+        });
+        return response({ error: reviseError.message }, 409, origin);
+      }
+      const revisedResult = Array.isArray(revised) ? revised[0] : revised;
+      experimentId = clean(revisedResult?.experiment_id, 80);
+      experimentSlug = clean(revisedResult?.experiment_slug, 80);
+      planId = clean(revisedResult?.plan_id, 80) || null;
+      batchId = clean(revisedResult?.batch_id, 80) || null;
+    } else {
+      const { data: published, error: publishError } = await authClient.rpc(
+        "publish_sensing_experiment",
+        {
+          requested_project_id: projectId,
+          reviewed_spec: sensingSpec,
+          expected_inventory_updated_at: expectedInventory,
+          draft_source: source,
+          draft_model_name: source === "natural_language" ? clean(body.model, 120) || model : null,
+          draft_prompt_fingerprint: source === "natural_language"
+            ? clean(body.prompt_fingerprint, 128) || null
+            : null,
+        },
+      );
+      if (publishError) {
+        await markOperationFailed(admin, {
+          operationId: launchOperation.id,
+          projectId,
+          errorCode: "experiment_publish_failed",
+          errorMessage: publishError.message,
+        });
+        return response({ error: publishError.message }, 400, origin);
+      }
+      const publishedResult = Array.isArray(published) ? published[0] : published;
+      experimentId = clean(publishedResult?.experiment_id, 80);
+      experimentSlug = clean(publishedResult?.experiment_slug, 80);
     }
-    const publishedResult = Array.isArray(published) ? published[0] : published;
-    const experimentId = clean(publishedResult?.experiment_id, 80);
-    const experimentSlug = clean(publishedResult?.experiment_slug, 80);
     await linkOperationResource(admin, {
       operationId: launchOperation.id,
       projectId,
@@ -973,33 +1059,35 @@ Deno.serve(async (request) => {
       resourceId: experimentId,
     });
 
-    const { data: attached, error: attachError } = await admin.rpc(
-      "attach_experiment_control_plan",
-      {
-        requested_experiment_id: experimentId,
-        requested_actor_id: userData.user.id,
-        reviewed_spec: draft,
-        compiled_plan: plan,
-        expected_inventory_updated_at: expectedInventory,
-        expected_config_hash: reviewedConfigHash,
-      },
-    );
-    if (attachError) {
-      await markOperationFailed(admin, {
-        operationId: launchOperation.id,
-        projectId,
-        errorCode: "control_plan_attach_failed",
-        errorMessage: attachError.message,
-      });
-      return response({
-        error: `Experiment was saved with watering off. ${attachError.message}`,
-        experiment_id: experimentId,
-        experiment_slug: experimentSlug,
-      }, 409, origin);
+    if (!editing) {
+      const { data: attached, error: attachError } = await admin.rpc(
+        "attach_experiment_control_plan",
+        {
+          requested_experiment_id: experimentId,
+          requested_actor_id: userData.user.id,
+          reviewed_spec: draft,
+          compiled_plan: plan,
+          expected_inventory_updated_at: expectedInventory,
+          expected_config_hash: reviewedConfigHash,
+        },
+      );
+      if (attachError) {
+        await markOperationFailed(admin, {
+          operationId: launchOperation.id,
+          projectId,
+          errorCode: "control_plan_attach_failed",
+          errorMessage: attachError.message,
+        });
+        return response({
+          error: `Experiment was saved with watering off. ${attachError.message}`,
+          experiment_id: experimentId,
+          experiment_slug: experimentSlug,
+        }, 409, origin);
+      }
+      const attachedResult = Array.isArray(attached) ? attached[0] : attached;
+      planId = clean(attachedResult?.plan_id, 80) || null;
+      batchId = clean(attachedResult?.batch_id, 80) || null;
     }
-    const attachedResult = Array.isArray(attached) ? attached[0] : attached;
-    const planId = clean(attachedResult?.plan_id, 80) || null;
-    const batchId = clean(attachedResult?.batch_id, 80) || null;
     if (planId) {
       await linkOperationResource(admin, {
         operationId: launchOperation.id,
@@ -1031,7 +1119,7 @@ Deno.serve(async (request) => {
           batch_id: batchId,
           experiment_id: experimentId,
           operation_id: launchOperation.id,
-          operation_intent: `Activate experiment ${draft.name} from the reviewed specification.`,
+          operation_intent: `${editing ? "Apply edits to" : "Activate"} experiment ${draft.name} from the reviewed specification.`,
         }),
       });
       const commandBody = record(await commandResponse.json().catch(() => ({})));
@@ -1053,7 +1141,7 @@ Deno.serve(async (request) => {
           errorMessage: enqueueError,
         });
         return response({
-          error: `Experiment was created but remains safely paused. ${enqueueError}`,
+          error: `Experiment was ${editing ? "updated" : "created"} but remains safely paused. ${enqueueError}`,
           experiment_id: experimentId,
           experiment_slug: experimentSlug,
         }, 409, origin);
@@ -1066,7 +1154,9 @@ Deno.serve(async (request) => {
       await markOperationCompleted(admin, {
         operationId: launchOperation.id,
         projectId,
-        summary: `${draft.name} was created as a sensing experiment.`,
+        summary: editing
+          ? `${draft.name} was updated without controller changes.`
+          : `${draft.name} was created as a sensing experiment.`,
         evidence: { experiment_id: experimentId, plan_id: planId },
       });
     }

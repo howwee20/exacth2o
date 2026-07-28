@@ -15,12 +15,14 @@ import {
 } from "./experimentClient";
 import {
   emptyExperimentDraft,
+  experimentDraftFromPortalExperiment,
   manualExperimentDraft,
   type ExperimentControlPlan,
   type ExperimentDraft,
   type ExperimentDraftAssignment,
   type ExperimentDraftSource,
 } from "./experimentSpec";
+import type { PortalExperiment } from "./experimentRegistry";
 import {
   normalizeExperimentDraft,
   validateExperimentDraft,
@@ -35,6 +37,8 @@ type ExperimentBuilderProps = {
   inventoryUpdatedAt: string | null;
   initialPrompt?: string;
   autoGenerate?: boolean;
+  direct?: boolean;
+  experiment?: PortalExperiment | null;
   presentation?: "modal" | "inline";
   onClose: () => void;
   onCreated: (slug: string) => void;
@@ -70,13 +74,22 @@ export function ExperimentBuilder({
   inventoryUpdatedAt,
   initialPrompt = "",
   autoGenerate = false,
+  direct = false,
+  experiment = null,
   presentation = "modal",
   onClose,
   onCreated,
 }: ExperimentBuilderProps) {
-  const [step, setStep] = useState<BuilderStep>("prompt");
+  const editing = Boolean(experiment);
+  const [step, setStep] = useState<BuilderStep>(direct ? "review" : "prompt");
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [draft, setDraft] = useState<ExperimentDraft>(() => emptyExperimentDraft());
+  const [draft, setDraft] = useState<ExperimentDraft>(() =>
+    experiment
+      ? experimentDraftFromPortalExperiment(experiment, pairings)
+      : direct
+      ? manualExperimentDraft(pairings)
+      : emptyExperimentDraft()
+  );
   const [source, setSource] = useState<ExperimentDraftSource>("manual");
   const [draftInventoryUpdatedAt, setDraftInventoryUpdatedAt] = useState<string | null>(
     inventoryUpdatedAt,
@@ -109,7 +122,13 @@ export function ExperimentBuilder({
     () => new Set(draft.assignments.map((assignment) => assignment.pairing_name)),
     [draft.assignments],
   );
-  const stepIndex = step === "prompt" ? 0 : step === "review" ? 1 : 2;
+  const stepIndex = step === "complete"
+    ? 2
+    : direct && !controlPlan
+    ? 0
+    : step === "review"
+    ? 1
+    : 0;
 
   const generateDraft = useCallback(async (
     request: string,
@@ -247,6 +266,8 @@ export function ExperimentBuilder({
         projectId,
         draft: normalized,
         inventoryUpdatedAt: draftInventoryUpdatedAt,
+        experimentId: experiment?.databaseId,
+        expectedRevisionId: experiment?.currentRevisionId,
       });
       setDraft(normalizeExperimentDraft(result.draft));
       setControlPlan(result.plan);
@@ -276,6 +297,8 @@ export function ExperimentBuilder({
         model,
         promptFingerprint,
         reviewedConfigHash,
+        experimentId: experiment?.databaseId,
+        expectedRevisionId: experiment?.currentRevisionId,
       });
       setCreatedSlug(result.experiment_slug);
       setLaunchStatus(result.status);
@@ -283,7 +306,13 @@ export function ExperimentBuilder({
       setCreatedCommandCount(result.command_ids.length);
       setStep("complete");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Could not create the experiment.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : editing
+          ? "Could not save the experiment."
+          : "Could not create the experiment.",
+      );
     } finally {
       setBusy(false);
     }
@@ -297,18 +326,22 @@ export function ExperimentBuilder({
       role="presentation"
     >
       <section
-        className={`experiment-builder ${presentation === "inline" ? "is-inline" : ""}`}
+        className={`experiment-builder ${presentation === "inline" ? "is-inline" : ""} ${direct ? "is-direct" : ""}`}
         role={presentation === "inline" ? "region" : "dialog"}
         aria-modal={presentation === "modal" ? "true" : undefined}
         aria-labelledby="experiment-builder-title"
       >
         <header className="experiment-builder-header">
           <div>
-            <p>ExactH2O Assistant</p>
-            <h2 id="experiment-builder-title">Build an experiment</h2>
+            <p>Experiment workspace</p>
+            <h2 id="experiment-builder-title">
+              {editing ? `Edit ${experiment?.name ?? "experiment"}` : "Create an experiment"}
+            </h2>
           </div>
           <ol className="experiment-builder-steps" aria-label="Experiment workflow">
-            {["Describe", "Review", "Create"].map((label, index) => (
+            {(direct
+              ? ["Configure", "Review", editing ? "Save" : "Create"]
+              : ["Describe", "Review", "Create"]).map((label, index) => (
               <li className={index <= stepIndex ? "is-current" : ""} key={label}>
                 <span>{index + 1}</span>
                 {label}
@@ -352,7 +385,7 @@ export function ExperimentBuilder({
         {step === "review" ? (
           <>
             <div className="experiment-builder-review-shell">
-              <aside className="experiment-builder-conversation">
+              {!direct ? <aside className="experiment-builder-conversation">
                 <div>
                   <p>Request</p>
                   <strong>{prompt || "Manual experiment"}</strong>
@@ -377,7 +410,7 @@ export function ExperimentBuilder({
                 <p className="experiment-builder-conversation-note">
                   ExactH2O validates every setting against the live pot inventory.
                 </p>
-              </aside>
+              </aside> : null}
               <div className="experiment-builder-review">
               <div className="experiment-builder-fields">
                 <label>
@@ -396,24 +429,26 @@ export function ExperimentBuilder({
                     onChange={(event) => updateDraft("description", event.target.value)}
                   />
                 </label>
-                <label>
-                  Type
-                  <select
-                    value={draft.mode}
-                    onChange={(event) =>
-                      updateMode(
-                        event.target.value === "controlled"
-                          ? "controlled"
-                          : event.target.value === "calibration"
-                            ? "calibration"
-                            : "observation",
-                      )}
-                  >
-                    <option value="controlled">Controlled</option>
-                    <option value="observation">Observation</option>
-                    <option value="calibration">Calibration</option>
-                  </select>
-                </label>
+                <fieldset className="experiment-builder-mode-field">
+                  <legend>Experiment type</legend>
+                  <div className="experiment-builder-mode-options">
+                    {([
+                      ["controlled", "Controlled", "Sense and water to target"],
+                      ["observation", "Observation", "Sense only; watering stays off"],
+                      ["calibration", "Calibration", "Tune a measured response"],
+                    ] as const).map(([mode, label, description]) => (
+                      <button
+                        type="button"
+                        className={draft.mode === mode ? `is-selected is-${mode}` : `is-${mode}`}
+                        key={mode}
+                        onClick={() => updateMode(mode)}
+                      >
+                        <strong>{label}</strong>
+                        <span>{description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
                 <label>
                   Record start date
                   <input
@@ -567,7 +602,7 @@ export function ExperimentBuilder({
               {controlPlan ? (
                 <section className="experiment-builder-preflight">
                   <div>
-                    <h3>Ready to start</h3>
+                    <h3>{editing ? "Ready to save" : "Ready to start"}</h3>
                     <span>
                       {controlPlan.change_count
                         ? `${controlPlan.change_count} pot setting${controlPlan.change_count === 1 ? "" : "s"} will change`
@@ -630,11 +665,12 @@ export function ExperimentBuilder({
                 className="is-secondary"
                 onClick={() => {
                   setError(null);
-                  setStep("prompt");
+                  if (direct) onClose();
+                  else setStep("prompt");
                 }}
               >
                 <ArrowLeft size={16} />
-                Back
+                {direct ? "Cancel" : "Back"}
               </button>
               {controlPlan ? (
                 <button
@@ -646,7 +682,7 @@ export function ExperimentBuilder({
                   {busy
                     ? <Loader2 className="chart-loading-spinner" size={16} />
                     : <Play size={16} />}
-                  Confirm and create
+                  {editing ? "Confirm and save" : "Confirm and create"}
                 </button>
               ) : (
                 <button
@@ -666,16 +702,20 @@ export function ExperimentBuilder({
         {step === "complete" ? (
           <div className="experiment-builder-complete">
             <span><Check size={22} /></span>
-            <h3>{launchStatus === "activating" ? "Experiment starting" : "Experiment created"}</h3>
+            <h3>
+              {launchStatus === "activating"
+                ? editing ? "Changes are applying" : "Experiment starting"
+                : editing ? "Experiment updated" : "Experiment created"}
+            </h3>
             <p>
               {launchStatus === "activating"
                 ? "The reviewed controller steps are running in order. The tile shows the current status."
-                : "The tile and graph are ready."}
+                : editing ? "The new revision is saved and the tile is up to date." : "The tile and graph are ready."}
             </p>
             <div className="experiment-builder-proof" aria-label="Creation receipt">
               <article>
                 <span>Experiment</span>
-                <strong>Created</strong>
+                <strong>{editing ? "Updated" : "Created"}</strong>
               </article>
               <article>
                 <span>Operation</span>
@@ -695,7 +735,7 @@ export function ExperimentBuilder({
               className="is-primary"
               onClick={() => createdSlug && onCreated(createdSlug)}
             >
-              Open experiment
+              View experiment
             </button>
           </div>
         ) : null}
