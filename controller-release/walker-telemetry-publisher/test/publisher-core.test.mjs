@@ -179,9 +179,12 @@ test("replays the exact pending payload after an acknowledgement crash", async (
     sink: { send: async (payload) => sent.push(payload) },
     store,
     state,
+    now: () => new Date("2026-07-27T02:30:00Z"),
   });
   assert.equal(next.cursor, 1_518_646);
   assert.deepEqual(sent[0].readings, [pendingReading]);
+  assert.equal(sent[0].observed_at, "2026-07-27T02:30:00.000Z");
+  assert.equal(store.writes[0].pending.observedAt, "2026-07-27T02:30:00.000Z");
 });
 
 test("leaves the acknowledged cursor unchanged when append fails", async () => {

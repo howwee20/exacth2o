@@ -3,17 +3,34 @@ import 'server-only'
 
 import { requireUiSession } from './server-auth';
 
+const nonControllerPostRoutes = new Set([
+  '/logs/search',
+  '/readings/filtered',
+  '/users/authenticate',
+]);
+
+function requiresControllerSecret(method: string | undefined, endpoint: string): boolean {
+  const normalizedMethod = (method || 'GET').toUpperCase();
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) return false;
+  return normalizedMethod !== 'POST' || !nonControllerPostRoutes.has(endpoint.split('?')[0]);
+}
+
 export class ApiClient {
   private baseUrl: string;
   private timeoutMs: number;
   private allowAnonymous: boolean;
+  private sendControllerSecret: boolean;
 
-  constructor(options: { allowAnonymous?: boolean } = {}) {
+  constructor(options: {
+    allowAnonymous?: boolean;
+    sendControllerSecret?: boolean;
+  } = {}) {
     // This will be your internal Docker service URL when running server-side
     this.baseUrl = process.env.API_URL || 'http://api_svc:8888/v1';
     const parsedTimeout = Number.parseInt(process.env.API_REQUEST_TIMEOUT_MS || '', 10);
     this.timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 10000;
     this.allowAnonymous = options.allowAnonymous === true;
+    this.sendControllerSecret = options.sendControllerSecret ?? !this.allowAnonymous;
   }
 
   private async fetchWithConfig(
@@ -36,7 +53,7 @@ export class ApiClient {
         headers: {
           ...defaultHeaders,
           ...(
-            options.method && options.method !== 'GET'
+            this.sendControllerSecret && requiresControllerSecret(options.method, endpoint)
               ? { 'x-exacth2o-controller-secret': process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '' }
               : {}
           ),

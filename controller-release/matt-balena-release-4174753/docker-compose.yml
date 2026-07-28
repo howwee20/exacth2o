@@ -6,6 +6,7 @@ volumes:
   redis_data: {}
   cron_config: {}
   health_data: {}
+  publisher_data: {}
 
 services:
   ui_svc:
@@ -96,11 +97,44 @@ services:
       EXACTH2O_LOCAL_API_BASE: "http://api_svc:8888/v1"
       EXACTH2O_SYNC_OWNER_HEALTH_URL: "https://zmhdclcjrkntrpynozvo.supabase.co/functions/v1/sync-owner-health"
       EXACTH2O_CONTROL_EXECUTOR_POLL_MS: "5000"
+      EXACTH2O_CONTROL_EXECUTOR_RETRY_MAX_MS: "60000"
       EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "1"
       EXACTH2O_MANUAL_WATER_ENABLED: "0"
       EXACTH2O_MANUAL_WATER_MAX_SECONDS: "60"
       EXACTH2O_MANUAL_WATER_MAX_VALVE_SECONDS: "120"
       EXACTH2O_STATE_SYNC_MS: "120000"
+
+  supabase_publisher:
+    build:
+      context: ./supabase-publisher
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - api_svc
+    volumes:
+      - "publisher_data:/data"
+    environment:
+      EXACTH2O_PROJECT_ID: "22222222-2222-4222-8222-222222222222"
+      EXACTH2O_DEVICE_ID: "3100e37ee3205651fe3dd86dafd4dc0c"
+      EXACTH2O_LOCAL_API_BASE: "http://api_svc:8888/v1"
+      EXACTH2O_PUBLISHER_STATE: "/data/publisher-state.json"
+      EXACTH2O_PUBLISHER_HEALTH: "/data/publisher-health.json"
+      EXACTH2O_PAIRING_HISTORY_PATH: "/app/config/pairing-history.json"
+      EXACTH2O_PUBLISH_INTERVAL_MS: "30000"
+      EXACTH2O_PUBLISHER_CATCHUP_DELAY_MS: "1000"
+      EXACTH2O_PUBLISHER_RETRY_MIN_MS: "2000"
+      EXACTH2O_PUBLISHER_RETRY_MAX_MS: "60000"
+      EXACTH2O_PUBLISHER_REQUEST_TIMEOUT_MS: "30000"
+      EXACTH2O_READINGS_PAGE_SIZE: "500"
+      EXACTH2O_RECONCILE_MAX_PAGES: "4"
+      EXACTH2O_INGEST_BATCH_SIZE: "200"
+      EXACTH2O_PUBLISHER_HEALTH_STALE_MS: "180000"
+    healthcheck:
+      test: ["CMD", "node", "src/healthcheck.mjs"]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+      start_period: 30s
 
   redis_svc:
     image: redis:7-alpine
@@ -165,7 +199,7 @@ services:
       PI_DEVICE_API_BASE: "http://api_svc:8888"
       PI_PUBLIC_URL: "https://3100e37ee3205651fe3dd86dafd4dc0c.balena-devices.com"
       PI_EXPECTED_BOARDS: "0x20,0x24,0x26"
-      PI_EXPECTED_SERVICES: "api_svc,ui_svc,cron_svc,database_svc,redis_svc,health_svc,control_executor"
+      PI_EXPECTED_SERVICES: "api_svc,ui_svc,cron_svc,database_svc,redis_svc,health_svc,control_executor,supabase_publisher"
       PI_ETH_DEVICE: "eth0"
       PI_CONTROLLER_IPV4: "35.8.86.10"
       PI_HOST_SYS: "/sys"

@@ -2,8 +2,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   constantTimeSecretMatch,
   parseWalkerTelemetryEnvelope,
+  PayloadTooLargeError,
+  readBoundedJson,
   walkerTelemetryRpc,
 } from "./receiver-policy.mjs";
+
+const maximumPayloadBytes = 2_000_000;
 
 function response(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -37,12 +41,14 @@ Deno.serve(async (request) => {
     return response({ error: "Unauthorized" }, 401);
   }
   const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > 2_000_000) {
+  if (Number.isFinite(contentLength) && contentLength > maximumPayloadBytes) {
     return response({ error: "Payload too large" }, 413);
   }
 
   try {
-    const envelope = parseWalkerTelemetryEnvelope(await request.json());
+    const envelope = parseWalkerTelemetryEnvelope(
+      await readBoundedJson(request, maximumPayloadBytes),
+    );
     const rpc = walkerTelemetryRpc(envelope);
     const admin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -60,6 +66,9 @@ Deno.serve(async (request) => {
     }
     return response({ ok: true, result: data }, 200);
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return response({ error: "Payload too large" }, 413);
+    }
     const message = error instanceof Error ? error.message : "Invalid request";
     return response({ error: message }, 400);
   }

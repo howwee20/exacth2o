@@ -193,17 +193,30 @@ export async function initializeObserverState({
   return state;
 }
 
-export async function replayPendingBatch({ sink, store, state }) {
+export async function replayPendingBatch({
+  sink,
+  store,
+  state,
+  now = () => new Date(),
+}) {
   if (!state.pending) return state;
   const pending = state.pending;
-  await sink.send(publisherEnvelope("append", state, {
+  const refreshedState = {
+    ...state,
+    pending: {
+      ...pending,
+      observedAt: iso(now()),
+    },
+  };
+  await store.write(refreshedState);
+  await sink.send(publisherEnvelope("append", refreshedState, {
     sourceCursor: pending.sourceCursor,
     sourceLatestKnown: pending.sourceCursor,
-    observedAt: pending.observedAt,
+    observedAt: refreshedState.pending.observedAt,
     readings: pending.readings,
   }));
   const acknowledged = {
-    ...state,
+    ...refreshedState,
     cursor: pending.sourceCursor,
     pending: null,
   };

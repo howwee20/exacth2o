@@ -3,23 +3,34 @@
 import 'server-only'
 import { ApiClient } from '@/app/lib/api-client'
 import { User } from '@/app/lib/types';
-import { clearUiSession, createUiSession, requireUiSession } from '@/app/lib/server-auth';
+import {
+  clearUiSession,
+  createUiSession,
+  uiSessionPayload,
+} from '@/app/lib/server-auth';
 
 export async function getUser(email: string, password: string): Promise<User | null> {
   const apiClient = new ApiClient({ allowAnonymous: true });
   const user = await apiClient.post('/users/authenticate', { email, password }) as User | null;
   if (!user) return null;
-  await createUiSession(user.id);
+  await createUiSession(user.id, user.updatedAt || '');
   return user;
 }
 
 export async function getThisUser(): Promise<User | null> {
   try {
-    const userId = await requireUiSession();
+    const session = await uiSessionPayload();
+    if (!session) return null;
     const apiClient = new ApiClient();
-    const user: User | undefined = await apiClient.get(`/users/${userId}`) as User | undefined;
+    const user: User | undefined = await apiClient.get(`/users/${session.userId}`) as User | undefined;
 
-    if (!user) {
+    if (
+      !user ||
+      !user.isActive ||
+      !user.updatedAt ||
+      user.updatedAt !== session.userRevision
+    ) {
+      await clearUiSession();
       return null;
     }
 

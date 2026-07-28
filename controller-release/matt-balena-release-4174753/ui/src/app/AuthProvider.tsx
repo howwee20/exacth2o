@@ -41,22 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login function - save to localStorage and update state
   const login = async (email: string, password: string): Promise<boolean> => {
     console.log('login function called');
-    const userData = await getUser(email, password);
-    let toReturn: boolean = false;
-
+    setIsLoading(true);
     try {
+      const userData = await getUser(email, password);
       if (userData) {
         setUser(userData);
-        setIsLoading(false);
         console.log('returning true');
-        toReturn = true;
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Failed to login', error);
+      return false;
     } finally {
       setIsLoading(false);
-      console.log('returning false');
-      return toReturn;
     }
   };
 

@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   constantTimeSecretMatch,
   parseWalkerTelemetryEnvelope,
+  PayloadTooLargeError,
+  readBoundedJson,
   walkerTelemetryIdentity,
   walkerTelemetryRpc,
 } from "./receiver-policy.mjs";
@@ -98,4 +100,23 @@ test("checks publisher secrets without prefix acceptance", () => {
   assert.equal(constantTimeSecretMatch("exact-secret", "exact-secret"), true);
   assert.equal(constantTimeSecretMatch("exact", "exact-secret"), false);
   assert.equal(constantTimeSecretMatch("", "exact-secret"), false);
+});
+
+test("enforces the payload limit when content-length is missing", async () => {
+  const request = new Request("https://example.test/receiver", {
+    method: "POST",
+    body: JSON.stringify({ readings: "too-large" }),
+  });
+  await assert.rejects(
+    readBoundedJson(request, 8),
+    (error) => error instanceof PayloadTooLargeError,
+  );
+});
+
+test("parses a legitimate JSON body within the payload limit", async () => {
+  const request = new Request("https://example.test/receiver", {
+    method: "POST",
+    body: JSON.stringify({ kind: "heartbeat" }),
+  });
+  assert.deepEqual(await readBoundedJson(request, 100), { kind: "heartbeat" });
 });

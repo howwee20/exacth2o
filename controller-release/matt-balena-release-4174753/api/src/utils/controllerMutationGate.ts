@@ -31,6 +31,7 @@ const stoppedConfigPrefixes = [
 const readOnlyPostRoutes = new Set([
   '/logs/search',
   '/readings/filtered',
+  '/users/authenticate',
 ])
 
 export function isControllerMutation(method: string, url: string): boolean {
