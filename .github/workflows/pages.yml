@@ -30,6 +30,7 @@ jobs:
           cache-dependency-path: |
             research-portal/package-lock.json
             controller-release/control-executor/package-lock.json
+            controller-release/matt-balena-release-4174753/control-executor/package-lock.json
             controller-release/walker-telemetry-publisher/package-lock.json
             controller-release/matt-balena-release-4174753/api/package-lock.json
             controller-release/matt-balena-release-4174753/cron/package-lock.json
@@ -49,6 +50,7 @@ jobs:
         run: |
           npm ci --prefix research-portal
           npm ci --prefix controller-release/control-executor
+          npm ci --prefix controller-release/matt-balena-release-4174753/control-executor
           npm ci --prefix controller-release/walker-telemetry-publisher
           npm ci --prefix controller-release/matt-balena-release-4174753/api
           npm ci --prefix controller-release/matt-balena-release-4174753/cron
@@ -76,9 +78,11 @@ jobs:
           node --test supabase/functions/sync-owner-health/rd-evidence-policy.test.mjs
           node --test supabase/functions/sync-owner-health/uptime-policy.test.mjs
           npm test --prefix controller-release/control-executor
+          npm test --prefix controller-release/matt-balena-release-4174753/control-executor
           npm test --prefix controller-release/walker-telemetry-publisher
           npm test --prefix platform/controller-simulator
           npm audit --omit=dev --prefix controller-release/control-executor
+          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/control-executor
           npm audit --omit=dev --prefix controller-release/walker-telemetry-publisher
           npm test --prefix controller-release/matt-balena-release-4174753/api
           npm run build --prefix controller-release/matt-balena-release-4174753/api

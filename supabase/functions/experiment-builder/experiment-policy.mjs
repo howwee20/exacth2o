@@ -148,6 +148,71 @@ export function inventoryFromDeviceConfig(configRow) {
   });
 }
 
+export function controllerCommandChannelIssue(
+  tokens,
+  quarantine,
+  executorStatus,
+  { nowMs = Date.now(), maxHeartbeatAgeMs = 90_000 } = {},
+) {
+  const activeQuarantine = record(quarantine);
+  if (activeQuarantine.active === true) {
+    return {
+      code: "CONTROLLER_COMMAND_CHANNEL_QUARANTINED",
+      message:
+        "Controller changes are temporarily unavailable because the device command channel requires reconciliation.",
+    };
+  }
+
+  const hasEnabledToken = (Array.isArray(tokens) ? tokens : []).some((rawToken) => {
+    const token = record(rawToken);
+    return token.enabled === true && !token.revoked_at;
+  });
+  if (!hasEnabledToken) {
+    return {
+      code: "CONTROLLER_COMMAND_CHANNEL_UNAVAILABLE",
+      message:
+        "Controller changes are temporarily unavailable because the device executor is not authorized.",
+    };
+  }
+
+  const status = record(executorStatus);
+  const observedAtMs = Date.parse(String(status.observed_at || ""));
+  if (
+    !Number.isFinite(observedAtMs) ||
+    nowMs - observedAtMs < 0 ||
+    nowMs - observedAtMs > maxHeartbeatAgeMs
+  ) {
+    return {
+      code: "CONTROLLER_EXECUTOR_OFFLINE",
+      message:
+        "Controller changes are temporarily unavailable because the device executor is offline or stale.",
+    };
+  }
+  if (status.dry_run === true) {
+    return {
+      code: "CONTROLLER_EXECUTOR_DRY_RUN",
+      message:
+        "Controller changes are temporarily unavailable because the device executor is in verification-only mode.",
+    };
+  }
+  if (status.sync_ready !== true) {
+    return {
+      code: "CONTROLLER_EXECUTOR_NOT_READY",
+      message:
+        "Controller changes are temporarily unavailable because controller readback is not configured.",
+    };
+  }
+  if (status.local_api_reachable !== true) {
+    return {
+      code: "CONTROLLER_API_UNREACHABLE",
+      message:
+        "Controller changes are temporarily unavailable because the Pi controller API is not reachable.",
+    };
+  }
+
+  return null;
+}
+
 export function activeExperimentAssignmentConflicts(
   experiments,
   selectedPairingNames,

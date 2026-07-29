@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   activeExperimentAssignmentConflicts,
   compileControlPlan,
+  controllerCommandChannelIssue,
   inventoryFromDeviceConfig,
   normalizeDraft,
   responseOutputText,
@@ -71,6 +72,110 @@ test("active experiment assignments block accidental pot overlap", () => {
       experiment_id: "00000000-0000-4000-8000-000000000002",
       experiment_name: "Other trial",
     }],
+  );
+});
+
+test("controlled experiments require an authorized, non-quarantined command channel", () => {
+  const nowMs = Date.parse("2026-07-29T00:30:00.000Z");
+  const readyExecutor = {
+    observed_at: "2026-07-29T00:29:30.000Z",
+    dry_run: false,
+    sync_ready: true,
+    local_api_reachable: true,
+  };
+
+  assert.deepEqual(
+    controllerCommandChannelIssue(
+      [{ enabled: true, revoked_at: null }],
+      { active: true, reason: "command outcome is unknown" },
+      readyExecutor,
+      { nowMs },
+    ),
+    {
+      code: "CONTROLLER_COMMAND_CHANNEL_QUARANTINED",
+      message:
+        "Controller changes are temporarily unavailable because the device command channel requires reconciliation.",
+    },
+  );
+
+  assert.deepEqual(
+    controllerCommandChannelIssue(
+      [{ enabled: false, revoked_at: null }],
+      { active: false },
+      readyExecutor,
+      { nowMs },
+    ),
+    {
+      code: "CONTROLLER_COMMAND_CHANNEL_UNAVAILABLE",
+      message:
+        "Controller changes are temporarily unavailable because the device executor is not authorized.",
+    },
+  );
+
+  assert.deepEqual(
+    controllerCommandChannelIssue(
+      [{ enabled: true, revoked_at: null }],
+      { active: false },
+      { ...readyExecutor, observed_at: "2026-07-29T00:20:00.000Z" },
+      { nowMs },
+    ),
+    {
+      code: "CONTROLLER_EXECUTOR_OFFLINE",
+      message:
+        "Controller changes are temporarily unavailable because the device executor is offline or stale.",
+    },
+  );
+
+  assert.deepEqual(
+    controllerCommandChannelIssue(
+      [{ enabled: true, revoked_at: null }],
+      { active: false },
+      { ...readyExecutor, dry_run: true },
+      { nowMs },
+    ),
+    {
+      code: "CONTROLLER_EXECUTOR_DRY_RUN",
+      message:
+        "Controller changes are temporarily unavailable because the device executor is in verification-only mode.",
+    },
+  );
+
+  assert.deepEqual(
+    controllerCommandChannelIssue(
+      [{ enabled: true, revoked_at: null }],
+      { active: false },
+      { ...readyExecutor, sync_ready: false },
+      { nowMs },
+    ),
+    {
+      code: "CONTROLLER_EXECUTOR_NOT_READY",
+      message:
+        "Controller changes are temporarily unavailable because controller readback is not configured.",
+    },
+  );
+
+  assert.deepEqual(
+    controllerCommandChannelIssue(
+      [{ enabled: true, revoked_at: null }],
+      { active: false },
+      { ...readyExecutor, local_api_reachable: false },
+      { nowMs },
+    ),
+    {
+      code: "CONTROLLER_API_UNREACHABLE",
+      message:
+        "Controller changes are temporarily unavailable because the Pi controller API is not reachable.",
+    },
+  );
+
+  assert.equal(
+    controllerCommandChannelIssue(
+      [{ enabled: true, revoked_at: null }],
+      { active: false },
+      readyExecutor,
+      { nowMs },
+    ),
+    null,
   );
 });
 

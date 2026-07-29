@@ -72,6 +72,37 @@ separate notification sender is not configured.
 Do not test a production release by creating a watering command. Use the
 simulator for full experiment/control tests.
 
+### Controller self-service commissioning
+
+Commission researcher-controlled experiments as a separate maintenance gate:
+
+1. Deploy the additive executor-readiness migration and the experiment-builder
+   guard. Until a fresh live-ready heartbeat exists, the portal must reject
+   controller-affecting experiment creation before saving a tile.
+2. Deploy the exact controller source with the executor still in dry-run and
+   manual watering disabled. Verify release/source parity and the expected
+   dry-run heartbeat.
+3. Configure the shared owner-health readback secret on both sides without
+   printing it, and verify that the executor remains healthy.
+4. During an explicitly approved maintenance window, set the controller to
+   `STOPPED`; read back `STOPPED`, confirm both pulse ledgers have no active
+   pulse, and independently confirm every valve is closed.
+5. Reconcile the command quarantine and prove the device credential with a
+   non-mutating `export_data` command.
+6. Enable the executor's live mode while keeping manual watering disabled.
+   Require a fresh heartbeat with `dry_run=false`, `sync_ready=true`, and
+   `local_api_reachable=true`.
+7. Re-read controller configuration, confirm the command queue is empty, then
+   explicitly resume `RUNNING`. Do not create a watering experiment merely as
+   a production test.
+8. Confirm that fresh `live-device` readings continue for the available
+   controller-ready pairings and that the portal still blocks occupied pots.
+
+The immediate rollback is to return the executor to dry-run and disable command
+intake or the device token. If a command may have mutated the controller, keep
+the controller stopped and use quarantine reconciliation; never resume from an
+unknown outcome.
+
 ## Recovery
 
 - Portal: redeploy the last known-good GitHub Pages commit.

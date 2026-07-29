@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   activeExperimentAssignmentConflicts,
   compileControlPlan,
+  controllerCommandChannelIssue,
   experimentDraftSchema,
   inventoryFromDeviceConfig,
   responseOutputText,
@@ -918,6 +919,51 @@ Deno.serve(async (request) => {
     }
     if (!plan) {
       return response({ error: "Controller plan could not be compiled." }, 500, origin);
+    }
+
+    if (plan.commands.length) {
+      const [tokenResult, quarantineResult, executorStatusResult] = await Promise.all([
+        admin
+          .from("device_control_tokens")
+          .select("id,enabled,revoked_at,disabled_reason")
+          .eq("project_id", projectId)
+          .eq("device_id", configState.device_id),
+        admin
+          .from("device_control_quarantines")
+          .select("active,reason")
+          .eq("project_id", projectId)
+          .eq("device_id", configState.device_id)
+          .maybeSingle(),
+        admin
+          .from("device_control_executor_status")
+          .select(
+            "executor_version,dry_run,sync_ready,local_api_reachable,controller_state,observed_at",
+          )
+          .eq("project_id", projectId)
+          .eq("device_id", configState.device_id)
+          .maybeSingle(),
+      ]);
+      if (
+        tokenResult.error ||
+        quarantineResult.error ||
+        executorStatusResult.error
+      ) {
+        return response({
+          code: "CONTROLLER_COMMAND_CHANNEL_UNKNOWN",
+          error: "Controller command readiness could not be verified.",
+        }, 503, origin);
+      }
+      const channelIssue = controllerCommandChannelIssue(
+        tokenResult.data,
+        quarantineResult.data,
+        executorStatusResult.data,
+      );
+      if (channelIssue) {
+        return response({
+          code: channelIssue.code,
+          error: channelIssue.message,
+        }, 409, origin);
+      }
     }
 
     const { data: occupancyRows, error: occupancyError } = await admin
