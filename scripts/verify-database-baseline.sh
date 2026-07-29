@@ -132,6 +132,92 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
         raise exception 'Experiment revision RPC privileges are unsafe';
       end if;
 
+      if to_regclass('public.device_control_executor_status') is null
+         or not (
+           select relation.relrowsecurity
+           from pg_class relation
+           join pg_namespace namespace on namespace.oid = relation.relnamespace
+           where namespace.nspname = 'public'
+             and relation.relname = 'device_control_executor_status'
+         ) then
+        raise exception 'Controller executor readiness table or RLS is missing';
+      end if;
+
+      if to_regprocedure(
+        'public.device_report_control_executor_status(text,text,boolean,boolean,boolean,boolean,text,text)'
+      ) is null
+         or not has_function_privilege(
+           'anon',
+           'public.device_report_control_executor_status(text,text,boolean,boolean,boolean,boolean,text,text)',
+           'EXECUTE'
+         )
+         or not has_function_privilege(
+           'authenticated',
+           'public.device_report_control_executor_status(text,text,boolean,boolean,boolean,boolean,text,text)',
+           'EXECUTE'
+         )
+         or has_table_privilege(
+           'authenticated',
+           'public.device_control_executor_status',
+           'SELECT'
+         )
+         or not has_table_privilege(
+           'service_role',
+           'public.device_control_executor_status',
+           'SELECT'
+         ) then
+        raise exception 'Controller executor readiness privileges are unsafe';
+      end if;
+
+      insert into public.device_control_tokens (
+        project_id,
+        device_id,
+        label,
+        token_hash,
+        enabled
+      ) values (
+        '22222222-2222-4222-8222-222222222222'::uuid,
+        'baseline-controller-readiness-test',
+        'baseline readiness verification',
+        encode(extensions.digest('baseline-readiness-token', 'sha256'), 'hex'),
+        true
+      )
+      on conflict (token_hash) do update
+      set enabled = true,
+          revoked_at = null;
+
+      perform public.device_report_control_executor_status(
+        'baseline-readiness-token',
+        'baseline-verifier/1.0',
+        false,
+        false,
+        true,
+        true,
+        'STOPPED',
+        null
+      );
+
+      if not exists (
+        select 1
+        from public.device_control_executor_status status
+        where status.project_id = '22222222-2222-4222-8222-222222222222'::uuid
+          and status.device_id = 'baseline-controller-readiness-test'
+          and status.executor_version = 'baseline-verifier/1.0'
+          and status.dry_run = false
+          and status.sync_ready = true
+          and status.local_api_reachable = true
+          and status.controller_state = 'STOPPED'
+      ) then
+        raise exception 'Controller executor readiness heartbeat is incorrect';
+      end if;
+
+      delete from public.device_control_executor_status
+      where project_id = '22222222-2222-4222-8222-222222222222'::uuid
+        and device_id = 'baseline-controller-readiness-test';
+      delete from public.device_control_tokens
+      where project_id = '22222222-2222-4222-8222-222222222222'::uuid
+        and device_id = 'baseline-controller-readiness-test';
+
       select count(*)
       into rls_table_count
       from pg_class relation

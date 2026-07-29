@@ -1,6 +1,6 @@
 import { controllerCommandTypes } from "./generated/platform-capabilities.mjs";
 
-const VERSION = "exacth2o-control-executor/0.3.1";
+const VERSION = "exacth2o-control-executor/0.4.0";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const supportedCommandTypes = new Set(controllerCommandTypes);
 
@@ -61,6 +61,7 @@ export function getConfig(env = process.env) {
     supabaseRpcTimeoutMs: numberEnv(env.EXACTH2O_SUPABASE_RPC_TIMEOUT_MS, 15_000, 1000, 60_000),
     pollRetryMaxMs: numberEnv(env.EXACTH2O_CONTROL_EXECUTOR_RETRY_MAX_MS, 60_000, 5000, 15 * 60_000),
     commandLeaseRenewMs: numberEnv(env.EXACTH2O_COMMAND_LEASE_RENEW_MS, 30_000, 10_000, 60_000),
+    readinessReportMs: numberEnv(env.EXACTH2O_READINESS_REPORT_MS, 30_000, 5000, 5 * 60_000),
     dryRun: boolEnv(env.EXACTH2O_CONTROL_EXECUTOR_DRY_RUN, true),
     manualWaterEnabled: explicitlyEnabledEnv(env.EXACTH2O_MANUAL_WATER_ENABLED),
     manualWaterMaxSeconds: numberEnv(
@@ -85,6 +86,7 @@ export function assertRuntimeConfig(config) {
   if (!config.dryRun) {
     if (!config.projectId) missing.push("EXACTH2O_PROJECT_ID");
     if (!config.deviceId) missing.push("EXACTH2O_DEVICE_ID");
+    if (!config.controllerCommandSecret) missing.push("EXACTH2O_CONTROLLER_COMMAND_SECRET");
     if (!config.syncOwnerHealthUrl) missing.push("EXACTH2O_SYNC_OWNER_HEALTH_URL");
     if (!config.syncOwnerHealthSecret) missing.push("SYNC_OWNER_HEALTH_SECRET");
   }
@@ -253,7 +255,47 @@ export function createSupabaseRpcClient(config, fetchImpl = globalThis.fetch) {
         quarantine_reason: reason,
       });
     },
+    async reportStatus(status) {
+      return rpc("device_report_control_executor_status", {
+        device_token: config.deviceToken,
+        executor_version: VERSION,
+        executor_dry_run: config.dryRun,
+        executor_manual_water_enabled: config.manualWaterEnabled,
+        executor_sync_ready: Boolean(
+          config.projectId &&
+          config.deviceId &&
+          config.controllerCommandSecret &&
+          config.syncOwnerHealthUrl &&
+          config.syncOwnerHealthSecret
+        ),
+        executor_local_api_reachable: status.localApiReachable,
+        executor_controller_state: status.controllerState,
+        executor_last_error: status.lastError,
+      });
+    },
   };
+}
+
+export async function reportControllerReadiness({ rpc, api }) {
+  let localApiReachable = false;
+  let controllerState = null;
+  let lastError = null;
+  try {
+    const system = await api.get("/system");
+    localApiReachable = true;
+    const normalizedState = String(system?.state || "").trim().toUpperCase();
+    controllerState = normalizedState === "RUNNING" || normalizedState === "STOPPED"
+      ? normalizedState
+      : null;
+  } catch (error) {
+    lastError = String(error?.message || error || "Local controller API check failed").slice(0, 500);
+  }
+  await rpc.reportStatus({
+    localApiReachable,
+    controllerState,
+    lastError,
+  });
+  return { localApiReachable, controllerState, lastError };
 }
 
 async function loadControllerIndex(api) {
@@ -793,6 +835,10 @@ export async function tick({ rpc, api, config }) {
       );
     }
     finalResult = { ...result, post_command_sync: postCommandSync, executor_version: VERSION };
+    if (config.dryRun && command.command_type !== "export_data") {
+      finalStatus = "failed";
+      finalError = "Controller executor is in dry-run mode; no controller mutation was applied";
+    }
   } catch (error) {
     finalStatus = "failed";
     finalResult = { executor_version: VERSION, dryRun: config.dryRun };
@@ -878,8 +924,17 @@ async function main() {
   });
 
   let nextStateSyncAt = 0;
+  let nextReadinessReportAt = 0;
   let consecutivePollFailures = 0;
   do {
+    if (Date.now() >= nextReadinessReportAt) {
+      try {
+        await reportControllerReadiness({ rpc, api });
+      } catch (error) {
+        console.error("Controller readiness heartbeat failed", { error: error.message });
+      }
+      nextReadinessReportAt = Date.now() + config.readinessReportMs;
+    }
     try {
       const processedCommand = await tick({ rpc, api, config });
       consecutivePollFailures = 0;
@@ -892,7 +947,11 @@ async function main() {
     } catch (error) {
       if (config.runOnce) throw error;
       consecutivePollFailures += 1;
-      const retryMs = retryDelayMs(consecutivePollFailures, config.pollMs, config.pollRetryMaxMs);
+      const retryMs = retryDelayMs(
+        consecutivePollFailures,
+        config.pollMs,
+        config.pollRetryMaxMs,
+      );
       console.error("Control executor poll failed; staying fail-closed and retrying", {
         error: error.message,
         consecutiveFailures: consecutivePollFailures,

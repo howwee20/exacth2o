@@ -7,7 +7,9 @@ import {
   fetchJsonWithTimeout,
   getConfig,
   IndeterminateMutationError,
+  reportControllerReadiness,
   assertRuntimeConfig,
+  retryDelayMs,
   stripTrailingSlash,
   tick,
 } from "../src/control-executor.mjs";
@@ -59,6 +61,12 @@ test("stripTrailingSlash removes only trailing slashes", () => {
   assert.equal(stripTrailingSlash("https://example.test///"), "https://example.test");
 });
 
+test("poll retry backoff is bounded", () => {
+  assert.equal(retryDelayMs(1, 5000, 60_000), 5000);
+  assert.equal(retryDelayMs(2, 5000, 60_000), 10_000);
+  assert.equal(retryDelayMs(20, 5000, 60_000), 60_000);
+});
+
 test("live startup requires state-sync identity and credentials", () => {
   const baseEnv = {
     SUPABASE_URL: "https://example.supabase.co",
@@ -68,6 +76,7 @@ test("live startup requires state-sync identity and credentials", () => {
   const dryRunConfig = getConfig(baseEnv);
   assert.equal(dryRunConfig.dryRun, true);
   assert.equal(dryRunConfig.manualWaterEnabled, false);
+  assert.equal(dryRunConfig.pollRetryMaxMs, 60_000);
   assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "flase" }).manualWaterEnabled, false);
   assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "off" }).manualWaterEnabled, false);
   assert.equal(getConfig({ ...baseEnv, EXACTH2O_MANUAL_WATER_ENABLED: "1" }).manualWaterEnabled, true);
@@ -76,15 +85,58 @@ test("live startup requires state-sync identity and credentials", () => {
   const liveConfig = getConfig({ ...baseEnv, EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "0" });
   assert.throws(
     () => assertRuntimeConfig(liveConfig),
-    /EXACTH2O_PROJECT_ID, EXACTH2O_DEVICE_ID, SYNC_OWNER_HEALTH_SECRET/,
+    /EXACTH2O_PROJECT_ID, EXACTH2O_DEVICE_ID, EXACTH2O_CONTROLLER_COMMAND_SECRET, SYNC_OWNER_HEALTH_SECRET/,
   );
   assert.doesNotThrow(() => assertRuntimeConfig(getConfig({
     ...baseEnv,
     EXACTH2O_CONTROL_EXECUTOR_DRY_RUN: "0",
     EXACTH2O_PROJECT_ID: "project-id",
     EXACTH2O_DEVICE_ID: "device-id",
+    EXACTH2O_CONTROLLER_COMMAND_SECRET: "controller-secret",
     SYNC_OWNER_HEALTH_SECRET: "sync-secret",
   })));
+});
+
+test("readiness heartbeat reports local controller reachability without mutating it", async () => {
+  const fixture = apiFixture({ state: "RUNNING" });
+  const statuses = [];
+  const result = await reportControllerReadiness({
+    api: fixture.api,
+    rpc: {
+      async reportStatus(status) {
+        statuses.push(status);
+      },
+    },
+  });
+
+  assert.deepEqual(result, {
+    localApiReachable: true,
+    controllerState: "RUNNING",
+    lastError: null,
+  });
+  assert.deepEqual(statuses, [result]);
+  assert.deepEqual(fixture.calls, [["GET", "/system"]]);
+});
+
+test("readiness heartbeat reports an unreachable local controller", async () => {
+  const statuses = [];
+  const result = await reportControllerReadiness({
+    api: {
+      async get() {
+        throw new Error("connection refused");
+      },
+    },
+    rpc: {
+      async reportStatus(status) {
+        statuses.push(status);
+      },
+    },
+  });
+
+  assert.equal(result.localApiReachable, false);
+  assert.equal(result.controllerState, null);
+  assert.match(result.lastError, /connection refused/);
+  assert.deepEqual(statuses, [result]);
 });
 
 test("update_pairing maps portal payload to local controller fields", async () => {
@@ -527,6 +579,46 @@ test("a final-status RPC error is not converted into a contradictory failed comp
   assert.equal(completions[0][1], "succeeded");
 });
 
+test("dry-run controller mutations fail instead of reporting false activation success", async () => {
+  const fixture = apiFixture();
+  const completions = [];
+  const rpc = {
+    async claim() {
+      return {
+        id: commandId,
+        command_type: "update_pairing",
+        payload: {
+          pairing_name: "Pot 41",
+          target_vwc: 40,
+          open_time_seconds: 2,
+          measurement_interval_seconds: 600,
+        },
+      };
+    },
+    async renew() { return true; },
+    async quarantine() { throw new Error("unexpected quarantine"); },
+    async complete(...args) { completions.push(args); },
+  };
+
+  await tick({
+    rpc,
+    api: fixture.api,
+    config: {
+      dryRun: true,
+      commandLeaseRenewMs: 60_000,
+      manualWaterMaxSeconds: 60,
+      manualWaterMaxValveSeconds: 120,
+      manualWaterPulsePath: "/valves/pulse",
+    },
+  });
+
+  assert.equal(completions.length, 1);
+  assert.equal(completions[0][1], "failed");
+  assert.equal(completions[0][2].dryRun, true);
+  assert.match(completions[0][3], /no controller mutation was applied/);
+  assert.equal(fixture.calls.some(([method]) => method === "PUT"), false);
+});
+
 test("command lease renewal is authenticated with the device token", async () => {
   const requests = [];
   const fetchImpl = async (url, options) => {
@@ -548,5 +640,50 @@ test("command lease renewal is authenticated with the device token", async () =>
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     device_token: "device-token",
     command_id: "11111111-1111-4111-8111-111111111111",
+  });
+});
+
+test("readiness reports executor mode and required live configuration", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ url, options });
+    return new Response("null", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const rpc = createSupabaseRpcClient({
+    supabaseUrl: "https://example.supabase.co",
+    supabaseAnonKey: "anon-key",
+    deviceToken: "device-token",
+    projectId: "project-id",
+    deviceId: "device-id",
+    controllerCommandSecret: "controller-secret",
+    syncOwnerHealthUrl: "https://example.supabase.co/functions/v1/sync-owner-health",
+    syncOwnerHealthSecret: "sync-secret",
+    dryRun: false,
+    manualWaterEnabled: false,
+    supabaseRpcTimeoutMs: 1000,
+  }, fetchImpl);
+
+  await rpc.reportStatus({
+    localApiReachable: true,
+    controllerState: "RUNNING",
+    lastError: null,
+  });
+
+  assert.equal(
+    requests[0].url.endsWith("/rpc/device_report_control_executor_status"),
+    true,
+  );
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    device_token: "device-token",
+    executor_version: "exacth2o-control-executor/0.4.0",
+    executor_dry_run: false,
+    executor_manual_water_enabled: false,
+    executor_sync_ready: true,
+    executor_local_api_reachable: true,
+    executor_controller_state: "RUNNING",
+    executor_last_error: null,
   });
 });
