@@ -2105,16 +2105,6 @@ function SensorCanvasChart({
 
 const walkerLivePollMs = 60_000;
 
-function walkerFreshnessText(snapshot: WalkerLiveSnapshot) {
-  if (snapshot.freshness === "live") return "Live telemetry";
-  if (snapshot.freshness === "delayed") return "Telemetry delayed";
-  if (snapshot.freshness === "stale") return "Telemetry stale";
-  if (snapshot.publisher.status === "healthy") {
-    return "Live sensor scan starting";
-  }
-  return "Live sensor observer offline";
-}
-
 function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
   const boardZones = new Map(
     walkerSensorsByBoard(snapshot.sensors).map(([board], index) => [board, index + 1]),
@@ -2275,13 +2265,6 @@ function WalkerExperimentView({ onBack }: { onBack: () => void }) {
       ) : null}
 
       <h1 className="experiment-view-title">Walker Pi 5</h1>
-      <section className="walker-experiment-status" aria-live="polite">
-        <strong>{snapshot ? walkerFreshnessText(snapshot) : "Loading telemetry"}</strong>
-        <span>
-          {snapshot?.evidenced_sensor_count ?? 96} / {snapshot?.expected_sensor_count ?? 100} evidenced sensors
-          {" · "}rolling 72 hours
-        </span>
-      </section>
 
       <section className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}>
         <section className="chart-card">

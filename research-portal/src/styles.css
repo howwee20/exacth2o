@@ -502,30 +502,6 @@
   z-index: 60;
 }
 
-.walker-experiment-status {
-  min-height: 28px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: -4px 0 8px 13px;
-  color: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 0.64rem;
-}
-
-.walker-experiment-status strong {
-  color: #17623e;
-  font-weight: 800;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-
-.walker-experiment-status strong::after {
-  margin-left: 8px;
-  color: #cbd5e1;
-  content: "•";
-}
-
 .walker-experiment-shell .control-panel {
   position: sticky;
   top: 12px;
@@ -567,17 +543,6 @@
 @media (max-width: 760px) {
   .walker-experiment-shell .experiment-corner-actions {
     right: 110px;
-  }
-
-  .walker-experiment-status {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 3px;
-    margin-left: 13px;
-  }
-
-  .walker-experiment-status strong::after {
-    content: "";
   }
 
   .walker-experiment-shell .control-panel {
