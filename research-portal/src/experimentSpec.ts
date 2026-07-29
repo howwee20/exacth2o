@@ -210,14 +210,17 @@ export function experimentDraftFromPortalExperiment(
   experiment: PortalExperiment,
   pairings: PairingRow[],
 ): ExperimentDraft {
-  if (experiment.currentSpec) {
+  const currentAssignments = (
+    experiment.currentSpec as Partial<ExperimentDraft> | null | undefined
+  )?.assignments;
+  if (experiment.currentSpec && Array.isArray(currentAssignments)) {
     return {
       ...emptyExperimentDraft(),
       ...experiment.currentSpec,
       name: experiment.name,
       description: experiment.shortDescription,
       mode: experiment.mode,
-      assignments: experiment.currentSpec.assignments.map((assignment) => ({ ...assignment })),
+      assignments: currentAssignments.map((assignment) => ({ ...assignment })),
       visibility_roles: ["admin", "researcher"],
       questions: [],
     };

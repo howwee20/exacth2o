@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -22,7 +31,10 @@ import {
   type ExperimentDraftAssignment,
   type ExperimentDraftSource,
 } from "./experimentSpec";
-import type { PortalExperiment } from "./experimentRegistry";
+import {
+  activeExperimentPotOccupancy,
+  type PortalExperiment,
+} from "./experimentRegistry";
 import {
   normalizeExperimentDraft,
   validateExperimentDraft,
@@ -30,6 +42,7 @@ import {
 import type { PairingRow } from "./types";
 
 type BuilderStep = "prompt" | "review" | "complete";
+const noPortalExperiments: readonly PortalExperiment[] = [];
 
 type ExperimentBuilderProps = {
   projectId: string;
@@ -39,10 +52,57 @@ type ExperimentBuilderProps = {
   autoGenerate?: boolean;
   direct?: boolean;
   experiment?: PortalExperiment | null;
+  experiments?: readonly PortalExperiment[];
   presentation?: "modal" | "inline";
   onClose: () => void;
   onCreated: (slug: string) => void;
 };
+
+class ExperimentBuilderErrorBoundary extends Component<{
+  children: ReactNode;
+  onClose: () => void;
+}, {
+  failed: boolean;
+}> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Experiment editor failed to render", error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="experiment-builder-backdrop" role="presentation">
+        <section
+          className="experiment-builder experiment-builder-recovery"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="experiment-builder-recovery-title"
+        >
+          <AlertTriangle size={24} aria-hidden="true" />
+          <h2 id="experiment-builder-recovery-title">This experiment could not be opened</h2>
+          <p>The portal kept your experiment unchanged. Close this screen and reload before trying again.</p>
+          <button type="button" className="is-primary" onClick={this.props.onClose}>
+            Close editor
+          </button>
+        </section>
+      </div>
+    );
+  }
+}
+
+export function ExperimentBuilder(props: ExperimentBuilderProps) {
+  return (
+    <ExperimentBuilderErrorBoundary onClose={props.onClose}>
+      <ExperimentBuilderContent {...props} />
+    </ExperimentBuilderErrorBoundary>
+  );
+}
 
 function assignmentForPairing(pairing: PairingRow): ExperimentDraftAssignment {
   return {
@@ -68,7 +128,7 @@ function optionalValue(value: string) {
   return value.trim() || null;
 }
 
-export function ExperimentBuilder({
+function ExperimentBuilderContent({
   projectId,
   pairings,
   inventoryUpdatedAt,
@@ -76,6 +136,7 @@ export function ExperimentBuilder({
   autoGenerate = false,
   direct = false,
   experiment = null,
+  experiments = noPortalExperiments,
   presentation = "modal",
   onClose,
   onCreated,
@@ -121,6 +182,17 @@ export function ExperimentBuilder({
   const selectedNames = useMemo(
     () => new Set(draft.assignments.map((assignment) => assignment.pairing_name)),
     [draft.assignments],
+  );
+  const occupiedByName = useMemo(
+    () => activeExperimentPotOccupancy(
+      experiments,
+      experiment?.databaseId ?? experiment?.id,
+    ),
+    [experiment?.databaseId, experiment?.id, experiments],
+  );
+  const availablePairingCount = useMemo(
+    () => sortedPairings.filter((pairing) => !occupiedByName.has(pairing.name)).length,
+    [occupiedByName, sortedPairings],
   );
   const stepIndex = step === "complete"
     ? 2
@@ -211,6 +283,15 @@ export function ExperimentBuilder({
   };
 
   const togglePairing = (pairing: PairingRow) => {
+    const occupancy = occupiedByName.get(pairing.name);
+    if (occupancy?.length) {
+      setError(
+        `Pot ${pairing.pot_number} is currently used by ${
+          occupancy.map((item) => item.experimentName).join(", ")
+        }. Remove it from that experiment before selecting it here.`,
+      );
+      return;
+    }
     setControlPlan(null);
     setReviewedConfigHash(null);
     setConfirmed(false);
@@ -463,25 +544,51 @@ export function ExperimentBuilder({
               <div className="experiment-builder-pot-section">
                 <div className="experiment-builder-section-heading">
                   <h3>Pots</h3>
-                  <span>{draft.assignments.length} selected</span>
+                  <span>
+                    {draft.assignments.length} selected · {availablePairingCount} available of {sortedPairings.length}
+                  </span>
                 </div>
                 <div className="experiment-builder-pot-grid">
                   {sortedPairings.map((pairing) => {
                     const selected = selectedNames.has(pairing.name);
+                    const occupancy = occupiedByName.get(pairing.name) ?? [];
+                    const occupied = occupancy.length > 0;
+                    const occupiedLabel = occupancy.length === 1
+                      ? `In ${occupancy[0].experimentName}`
+                      : `In ${occupancy.length} experiments`;
                     return (
                       <button
                         type="button"
-                        className={selected ? "is-selected" : ""}
+                        className={[
+                          selected ? "is-selected" : "",
+                          occupied ? "is-occupied" : "",
+                        ].filter(Boolean).join(" ")}
                         key={pairing.name}
                         onClick={() => togglePairing(pairing)}
+                        disabled={occupied}
+                        aria-label={occupied
+                          ? `Pot ${pairing.pot_number}, used by ${
+                            occupancy.map((item) => item.experimentName).join(", ")
+                          }`
+                          : `Pot ${pairing.pot_number}, Zone ${pairing.zone}${
+                            selected ? ", selected" : ""
+                          }`}
+                        title={occupied
+                          ? `Used by ${occupancy.map((item) => item.experimentName).join(", ")}`
+                          : undefined}
                       >
                         <span>Pot {pairing.pot_number}</span>
-                        <small>Zone {pairing.zone}</small>
+                        <small>{occupied ? occupiedLabel : `Zone ${pairing.zone}`}</small>
                         {selected ? <Check size={14} /> : null}
                       </button>
                     );
                   })}
                 </div>
+                {occupiedByName.size ? (
+                  <p className="experiment-builder-inventory-note">
+                    Pots in another active experiment stay visible but cannot be selected.
+                  </p>
+                ) : null}
               </div>
 
               {draft.assignments.length ? (

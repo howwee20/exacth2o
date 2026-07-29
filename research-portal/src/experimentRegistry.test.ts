@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activeExperimentPotOccupancy,
   experimentCardDescription,
   isCalibrationExperiment,
   mergePortalExperiments,
@@ -138,5 +139,70 @@ describe("experiment registry", () => {
     });
     draft.assignments[0].crop = "Changed locally";
     expect(currentSpec.assignments[0].crop).toBe("Maize");
+  });
+
+  it("hydrates legacy revisions without blanking the editor", () => {
+    const draft = experimentDraftFromPortalExperiment({
+      ...history,
+      name: "Matt Experiment 2",
+      shortDescription: "24 pots · 30% target",
+      currentSpec: {
+        name: "Matt Experiment 2",
+        mode: "controlled",
+        watering_state: "controller_managed",
+      } as unknown as PortalExperiment["currentSpec"],
+      assignments: [{
+        pairing_name: "Zone2-Pot41",
+        zone: 2,
+        pot_number: 41,
+        crop: "Maize",
+        treatment: "Control",
+        block: "B1",
+        substrate: "Soil",
+        target_vwc_percent: 30,
+        measurement_interval_minutes: 10,
+      }],
+    }, [pairing({ wtc_percent_limit: 30 })]);
+
+    expect(draft.name).toBe("Matt Experiment 2");
+    expect(draft.assignments).toEqual([
+      expect.objectContaining({
+        pairing_name: "Zone2-Pot41",
+        crop: "Maize",
+        treatment: "Control",
+        watering_enabled: true,
+        target_vwc_percent: 30,
+        valve_open_seconds: 10,
+      }),
+    ]);
+  });
+
+  it("marks only other active experiment pots as occupied", () => {
+    const occupancy = activeExperimentPotOccupancy([
+      {
+        ...history,
+        id: "current",
+        databaseId: "00000000-0000-4000-8000-000000000001",
+        status: "active",
+      },
+      {
+        ...calibration,
+        id: "other-active",
+        databaseId: "00000000-0000-4000-8000-000000000002",
+        name: "Active calibration",
+        status: "active",
+      },
+      {
+        ...history,
+        id: "completed",
+        databaseId: "00000000-0000-4000-8000-000000000003",
+        status: "completed",
+      },
+    ], "00000000-0000-4000-8000-000000000001");
+
+    expect(occupancy.get("Zone2-Pot41")).toEqual([{
+      experimentId: "00000000-0000-4000-8000-000000000002",
+      experimentName: "Active calibration",
+    }]);
   });
 });
