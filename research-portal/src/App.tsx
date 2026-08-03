@@ -887,29 +887,6 @@ function formatHealthBoolean(value?: boolean | null, trueLabel = "Yes", falseLab
   return value ? trueLabel : falseLabel;
 }
 
-function healthStatusLabel(snapshot?: DeviceHealthSnapshot | null) {
-  if (!snapshot) return "No snapshot";
-  return snapshot.overall_status || (snapshot.status_endpoint_ok ? "OK" : "Unreachable");
-}
-
-function healthTone(snapshot?: DeviceHealthSnapshot | null): "ok" | "warning" | "bad" | "unknown" {
-  if (!snapshot) return "unknown";
-  const status = healthStatusLabel(snapshot).toLowerCase();
-  if (!snapshot.status_endpoint_ok || status.includes("critical") || status.includes("down") || status.includes("fail")) {
-    return "bad";
-  }
-  if (
-    status.includes("warning") ||
-    status.includes("degraded") ||
-    status.includes("stale") ||
-    (snapshot.sensors_stale ?? 0) > 0 ||
-    (snapshot.sensors_missing ?? 0) > 0
-  ) {
-    return "warning";
-  }
-  return "ok";
-}
-
 function healthSnapshotTimestamp(snapshot: DeviceHealthSnapshot) {
   const timestamp = snapshot.captured_at ?? snapshot.created_at;
   const value = new Date(timestamp).getTime();
@@ -920,11 +897,6 @@ function selectHealthSnapshot(snapshots: DeviceHealthSnapshot[]) {
   return snapshots
     .filter(Boolean)
     .sort((a, b) => healthSnapshotTimestamp(b) - healthSnapshotTimestamp(a))[0] ?? null;
-}
-
-function healthStatusText(snapshot?: DeviceHealthSnapshot | null) {
-  const label = healthStatusLabel(snapshot);
-  return label.toUpperCase() === "OK" ? "OK" : label;
 }
 
 function runtimeStateIsFresh(runtimeState?: DeviceRuntimeState | null) {
@@ -3348,15 +3320,6 @@ function PortalSettingsPanel({
   );
 }
 
-function PortalStatusPill({ snapshot }: { snapshot?: DeviceHealthSnapshot | null }) {
-  const tone = healthTone(snapshot);
-  return (
-    <span className={`portal-status-pill is-${tone}`}>
-      {healthStatusText(snapshot)}
-    </span>
-  );
-}
-
 function ExperimentLaunchCards({
   data,
   experiments,
@@ -3538,7 +3501,6 @@ function PortalAdminHome({
               <span className="portal-launch-icon">
                 <Server size={18} />
               </span>
-              <PortalStatusPill snapshot={healthSnapshot} />
             </span>
             <span className="portal-launch-copy">
               <span className="portal-launch-title">System Health</span>
@@ -3557,9 +3519,9 @@ function PortalAdminHome({
               <span className="portal-launch-icon">
                 <Mail size={20} />
               </span>
-              <span className={`portal-status-pill ${newSupportCount ? "is-warning" : "is-ok"}`}>
-                {newSupportCount ? "NEW" : "READY"}
-              </span>
+              {newSupportCount ? (
+                <span className="portal-status-pill is-warning">NEW</span>
+              ) : null}
             </span>
             <span className="portal-launch-copy">
               <span className="portal-launch-title">Sales &amp; Support</span>
@@ -3573,7 +3535,6 @@ function PortalAdminHome({
 
           {rdAccessAllowed ? (
             <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
-              <span className="portal-status-pill">LIVE MODEL</span>
               <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
               <span className="portal-launch-action">Open Lab</span>
             </button>

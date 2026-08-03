@@ -1640,12 +1640,6 @@ select {
   height: 32px;
 }
 
-.portal-launch-card.is-health .portal-status-pill {
-  min-height: 22px;
-  padding: 0 8px;
-  font-size: 0.58rem;
-}
-
 .portal-launch-card.is-health .portal-launch-copy {
   gap: 4px;
 }
@@ -5925,13 +5919,6 @@ select {
 .portal-launch-card.is-rd {
   border-color: rgba(103, 84, 217, 0.18);
   background: linear-gradient(145deg, #ffffff, #faf9ff);
-}
-
-.portal-launch-card.is-rd .portal-status-pill {
-  justify-self: start;
-  border-color: rgba(103, 84, 217, 0.18);
-  background: rgba(103, 84, 217, 0.09);
-  color: #5543c3;
 }
 
 .portal-launch-card.is-rd .portal-launch-title {
