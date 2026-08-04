@@ -2342,6 +2342,10 @@ select {
   background: #dc2626;
 }
 
+.health-chart-legend i.series {
+  background: linear-gradient(90deg, #7c3aed 0 20%, #14b8a6 20% 40%, #22c55e 40% 60%, #f59e0b 60% 80%, #2563eb 80% 100%);
+}
+
 .health-chart-controls {
   position: absolute;
   top: 8px;
@@ -2484,21 +2488,9 @@ select {
 }
 
 .watering-event-dot {
-  fill: #ffffff;
-  stroke: #2563eb;
-  cursor: pointer;
-}
-
-.watering-event-dot.is-control {
-  stroke: #2563eb;
-}
-
-.watering-event-dot.is-drought {
-  stroke: #f97316;
-}
-
-.watering-event-dot.is-unknown {
+  fill: #64748b;
   stroke: #64748b;
+  cursor: pointer;
 }
 
 .health-chart-empty {
@@ -4164,27 +4156,13 @@ select {
 }
 
 .research-watering-activity .watering-event-dot {
-  fill: rgba(37, 99, 235, 0.1);
-  transition: fill 140ms ease, stroke-width 140ms ease;
-}
-
-.research-watering-activity .watering-event-dot.is-drought {
-  fill: rgba(249, 115, 22, 0.1);
-}
-
-.research-watering-activity .watering-event-dot.is-unknown {
-  fill: rgba(100, 116, 139, 0.1);
+  transition: opacity 140ms ease, stroke-width 140ms ease;
 }
 
 .research-watering-activity .watering-event-dot:hover,
 .research-watering-activity .watering-event-dot:focus-visible {
-  fill: rgba(37, 99, 235, 0.22);
+  opacity: 0.82;
   stroke-width: 3.2;
-}
-
-.research-watering-activity .watering-event-dot.is-drought:hover,
-.research-watering-activity .watering-event-dot.is-drought:focus-visible {
-  fill: rgba(249, 115, 22, 0.22);
 }
 
 .research-watering-list {
