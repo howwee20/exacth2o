@@ -238,30 +238,6 @@
     box-shadow: 0 24px 70px rgba(14,26,20,0.1);
     overflow: hidden;
   }
-  .experiment-shell-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.5rem;
-    align-items: flex-end;
-    padding: 1.3rem 1.5rem 0.9rem;
-    border-bottom: 1px solid rgba(14,26,20,0.09);
-  }
-  .experiment-kicker {
-    display: block;
-    font-family: var(--mono);
-    color: var(--water);
-    font-size: 0.62rem;
-    line-height: 1.4;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 0.25rem;
-  }
-  .experiment-shell h2 {
-    font-family: var(--serif);
-    font-size: clamp(1.25rem, 2vw, 1.65rem);
-    line-height: 1.15;
-    font-weight: 400;
-  }
   .experiment-legend {
     display: flex;
     align-items: center;
@@ -285,10 +261,6 @@
   }
   .legend-line.is-dashed {
     background: repeating-linear-gradient(90deg, var(--water) 0 6px, transparent 6px 10px);
-  }
-  .legend-line.is-target {
-    height: 1px;
-    background: repeating-linear-gradient(90deg, rgba(26,107,74,0.5) 0 3px, transparent 3px 7px);
   }
   .experiment-visual {
     position: relative;
@@ -343,17 +315,6 @@
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-  }
-  .experiment-target {
-    stroke: rgba(26, 107, 74, 0.28);
-    stroke-width: 1;
-    stroke-dasharray: 5 7;
-  }
-  .experiment-target-label {
-    fill: rgba(26, 107, 74, 0.72);
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.04em;
   }
   .experiment-trace {
     fill: none;
@@ -728,12 +689,9 @@
       padding-right: 2.5rem;
     }
     .hero-title { font-size: clamp(3rem, 4.6vw, 4.4rem); }
-    .experiment-shell-head { align-items: flex-start; }
   }
 
   @media (max-height: 780px) and (min-width: 901px) {
-    .experiment-shell-head { padding: 0.9rem 1.2rem 0.7rem; }
-    .experiment-shell h2 { font-size: 1.35rem; }
     .experiment-legend { padding: 0.65rem 1.2rem 0; }
   }
 
@@ -769,7 +727,6 @@
     .hero-actions a { flex: 1 1 100%; text-align: center; }
     .application-jumps { gap: 0.45rem 0.8rem; }
     .experiment-shell { border-radius: 12px; }
-    .experiment-shell-head { padding: 1rem 1rem 0.75rem; }
     .experiment-legend { padding: 0.7rem 1rem 0; gap: 0.55rem 0.85rem; }
     .experiment-visual { padding: 0 0.2rem; }
     section, .applications, .why-section { padding: 3.5rem 1rem; }
@@ -829,16 +786,9 @@
   <div class="hero-right">
     <div class="hero-right-inner">
       <figure class="experiment-shell">
-        <header class="experiment-shell-head">
-          <div>
-            <span class="experiment-kicker">Interactive experiment explorer</span>
-            <h2>Example irrigation response</h2>
-          </div>
-        </header>
         <div class="experiment-legend" aria-label="Chart legend">
           <span class="legend-item"><span class="legend-line"></span>Control</span>
           <span class="legend-item"><span class="legend-line is-dashed"></span>Treatment</span>
-          <span class="legend-item"><span class="legend-line is-target"></span>Target guide</span>
         </div>
         <div class="experiment-visual" aria-label="Interactive VWC response chart">
           <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" tabindex="0" xmlns="http://www.w3.org/2000/svg">
@@ -852,9 +802,6 @@
 
           <rect x="0" y="0" width="760" height="560" fill="#fff" />
           <text class="experiment-caption" x="64" y="34">Representative runs 41–51</text>
-
-          <line class="experiment-target" x1="64" y1="258" x2="724" y2="258" />
-          <text class="experiment-target-label" x="716" y="249" text-anchor="end">Target guide</text>
 
           <line class="experiment-grid-line" x1="64" y1="68" x2="724" y2="68" />
           <line class="experiment-grid-line" x1="64" y1="152" x2="724" y2="152" />
@@ -878,9 +825,8 @@
           <text class="experiment-tick-label" x="44" y="408" text-anchor="end">20</text>
           <text class="experiment-tick-label" x="44" y="492" text-anchor="end">10</text>
           <text class="experiment-axis-label" x="18" y="270" transform="rotate(-90 18 270)" text-anchor="middle">VWC (%)</text>
-          <text class="experiment-tick-label" x="64" y="526" text-anchor="middle">Start</text>
-          <text class="experiment-tick-label" x="328" y="526" text-anchor="middle">Irrigation event</text>
-          <text class="experiment-tick-label" x="724" y="526" text-anchor="end">72 hr</text>
+          <text class="experiment-tick-label" x="64" y="526" text-anchor="middle">0</text>
+          <text class="experiment-tick-label" x="724" y="526" text-anchor="end">72 hours</text>
           <line class="experiment-crosshair" x1="456" y1="48" x2="456" y2="492" />
 
           <g clip-path="url(#experimentTraceReveal)" fill="none">
