@@ -4,8 +4,10 @@ import {
   booleanMarker,
   healthEvidenceValue,
   mergeReadings,
+  mergeRollingExperimentReadings,
   pairingsFromDeviceConfigState,
   resolveEffectiveMode,
+  rollingExperimentHistoryStart,
   sumKnownCounts,
   visibleExperimentPairings,
 } from "./portalData";
@@ -65,6 +67,24 @@ describe("reading merge", () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0].calibrated_value).toBe(26);
+  });
+
+  it("keeps a rolling 72-hour experiment window", () => {
+    const nowMs = Date.parse("2026-08-04T12:00:00.000Z");
+    const insideWindow = reading({
+      id: 2,
+      event_id: "live-device:inside",
+      device_recorded_at: "2026-08-01T12:00:00.000Z",
+    });
+    const outsideWindow = reading({
+      id: 3,
+      event_id: "live-device:outside",
+      device_recorded_at: "2026-08-01T11:59:59.999Z",
+    });
+
+    expect(rollingExperimentHistoryStart(nowMs)).toBe("2026-08-01T12:00:00.000Z");
+    expect(mergeRollingExperimentReadings([], [outsideWindow, insideWindow], nowMs))
+      .toEqual([insideWindow]);
   });
 });
 

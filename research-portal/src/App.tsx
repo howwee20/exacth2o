@@ -49,9 +49,11 @@ import {
   healthEvidenceValue,
   isIgnoredDiagnosticReading,
   isIgnoredDiagnosticValveEvent,
-  mergeReadings,
+  mergeRollingExperimentReadings,
   pairingsFromDeviceConfigState,
   resolveEffectiveMode,
+  rollingExperimentHistoryStart,
+  rollingExperimentReadLimit,
   sumKnownCounts,
   visibleExperimentPairings,
   type DataMode,
@@ -135,7 +137,6 @@ import {
   type SettingsPlan,
 } from "./settingsSpec";
 
-const graphReadLimit = 12_000;
 const pageSize = 1000;
 const readingSelectColumns =
   "id,event_id,pairing_name,sensor_key,raw_value,calibrated_value,temperature,electrical_conductivity,device_recorded_at,server_received_at";
@@ -150,7 +151,7 @@ const incrementalCursorOverlapMs = 2 * 60_000;
 const fullReconciliationEveryPolls = 72;
 const healthChartWindowHours = 8;
 const staleAfterMs = 15 * 60 * 1000;
-const maxPointsPerSeries = graphReadLimit;
+const maxPointsPerSeries = 12_000;
 const tenMinutesMs = 10 * 60 * 1000;
 const dayMs = 24 * 60 * 60 * 1000;
 const wateringEventDedupeBucketMs = 60 * 1000;
@@ -1115,6 +1116,7 @@ async function fetchReadingsPageByPrefix(
   options: {
     newerThan?: string | null;
     before?: { timestamp: string; id: number } | null;
+    recordedAtOrAfter?: string | null;
   } = {},
 ) {
   const orderColumn = options.newerThan ? "server_received_at" : "device_recorded_at";
@@ -1128,9 +1130,12 @@ async function fetchReadingsPageByPrefix(
     .order("id", { ascending: false })
     .limit(Math.min(limit, pageSize));
 
-  const { newerThan, before } = options;
+  const { newerThan, before, recordedAtOrAfter } = options;
   if (newerThan) {
     query = query.gte("server_received_at", newerThan);
+  }
+  if (recordedAtOrAfter) {
+    query = query.gte("device_recorded_at", recordedAtOrAfter);
   }
   if (before) {
     query = query.or(
@@ -1150,6 +1155,7 @@ async function fetchReadingsByPrefix(
   maxRows: number,
   newerThan?: string | null,
   onBatch?: (batch: SensorReading[]) => void,
+  recordedAtOrAfter?: string | null,
 ) {
   const readings: SensorReading[] = [];
   let before: { timestamp: string; id: number } | null = null;
@@ -1162,7 +1168,7 @@ async function fetchReadingsByPrefix(
       deviceId,
       prefix,
       batchLimit,
-      { newerThan, before },
+      { newerThan, before, recordedAtOrAfter },
     );
     if (rawBatch.length === 0) break;
 
@@ -1193,14 +1199,16 @@ async function fetchReadingsForMode(
   newerThan?: string | null,
   onBatch?: (batch: SensorReading[]) => void,
 ) {
+  const recordedAtOrAfter = rollingExperimentHistoryStart();
   if (mode === "live") {
     return fetchReadingsByPrefix(
       projectId,
       deviceId,
       livePrefix,
-      graphReadLimit,
+      rollingExperimentReadLimit,
       newerThan,
       onBatch,
+      recordedAtOrAfter,
     );
   }
 
@@ -1209,15 +1217,32 @@ async function fetchReadingsForMode(
       projectId,
       deviceId,
       importedPrefix,
-      graphReadLimit,
+      rollingExperimentReadLimit,
       newerThan,
       onBatch,
+      recordedAtOrAfter,
     );
   }
 
   const [liveReadings, importedReadings] = await Promise.all([
-    fetchReadingsByPrefix(projectId, deviceId, livePrefix, graphReadLimit, newerThan, onBatch),
-    fetchReadingsByPrefix(projectId, deviceId, importedPrefix, graphReadLimit, newerThan, onBatch),
+    fetchReadingsByPrefix(
+      projectId,
+      deviceId,
+      livePrefix,
+      rollingExperimentReadLimit,
+      newerThan,
+      onBatch,
+      recordedAtOrAfter,
+    ),
+    fetchReadingsByPrefix(
+      projectId,
+      deviceId,
+      importedPrefix,
+      rollingExperimentReadLimit,
+      newerThan,
+      onBatch,
+      recordedAtOrAfter,
+    ),
   ]);
 
   return dedupeReadings([...liveReadings, ...importedReadings]);
@@ -6010,7 +6035,7 @@ export default function App() {
         const applyReadingsBatch = (incomingReadings: SensorReading[]) => {
           if (token !== loadTokenRef.current || incomingReadings.length === 0) return;
           setData((current) => {
-            const readings = mergeReadings(current.readings, incomingReadings);
+            const readings = mergeRollingExperimentReadings(current.readings, incomingReadings);
             const loadedCounts = loadedReadingCounts(readings);
             const latestLiveReading = newestByTime(
               readings.filter((reading) => reading.event_id.startsWith("live-device:")),
@@ -6083,7 +6108,7 @@ export default function App() {
           };
         }
 
-        const readings = mergeReadings(current.readings, incomingReadings);
+        const readings = mergeRollingExperimentReadings(current.readings, incomingReadings);
         const loadedCounts = loadedReadingCounts(readings);
         const latestLiveReading = newestByTime(
           readings.filter((reading) => reading.event_id.startsWith("live-device:")),
@@ -7076,7 +7101,7 @@ export default function App() {
             const isLive = row.event_id.startsWith("live-device:");
             if (selectedMode === "auto" && !isLive && current.effectiveMode === "live") return current;
             const effectiveMode = selectedMode === "auto" && isLive ? "live" : current.effectiveMode;
-            const readings = mergeReadings(current.readings, [row]);
+            const readings = mergeRollingExperimentReadings(current.readings, [row]);
             const counts = loadedReadingCounts(readings);
             return {
               ...current,
