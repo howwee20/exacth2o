@@ -4858,9 +4858,7 @@ function HealthWateringChart({
         onChange={setWindowOffset}
       />
       <div className="health-chart-legend">
-        <span><i className="primary" />Valve fire</span>
-        <span><i className="control" />Control</span>
-        <span><i className="drought" />Drought</span>
+        <span><i className="series" />Marker color matches VWC line</span>
         <span><i className="secondary" />{visibleEvents.length} shown</span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by sensor or pot">
@@ -4883,6 +4881,7 @@ function HealthWateringChart({
           const pairing = resolveWateringEventPairing(event, pairingIndex);
           const treatment = pairing ? treatmentForPairing(pairing) : "unknown";
           const plantGroup = pairing ? plantGroupForPairing(pairing) : "unknown";
+          const seriesColor = pairing ? colorForPairing(pairing) : "#64748b";
           const openDetail = () => {
             onSelectDetail?.({
               title: label,
@@ -4906,7 +4905,8 @@ function HealthWateringChart({
               cx={xFor(time)}
               cy={yFor(label)}
               r={4.4}
-              className={`watering-event-dot is-${treatment}`}
+              className="watering-event-dot"
+              style={{ fill: seriesColor, stroke: seriesColor }}
               role="button"
               tabIndex={0}
               onClick={openDetail}

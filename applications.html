@@ -552,6 +552,19 @@
     border-radius: 6px;
     box-shadow: 0 8px 24px rgba(14, 26, 20, 0.12);
   }
+  .app-card-image.is-photo {
+    padding: 0.4rem;
+  }
+  .app-card-image.is-photo img {
+    object-fit: cover;
+    box-shadow: none;
+  }
+  .app-card-image.is-photo-phenotyping img {
+    object-position: 48% center;
+  }
+  .app-card-image.is-photo-greenhouse img {
+    object-position: center 55%;
+  }
   .app-card-image.is-placeholder {
     background: linear-gradient(145deg, #edf2ef, #e5ebe7);
   }
@@ -900,7 +913,7 @@
         Set and hold defined substrate-water targets across replicated pots for controlled drought, recovery, and stress-response studies. Continuous readings preserve each pot's water trajectory for comparison with physiological measurements and biomass.
       </p>
       <div class="app-card-image">
-        <img src="/applications-plant-stress.webp?v=2" width="1200" height="1600" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
+        <img src="/applications-plant-stress-20260804.jpg" width="1200" height="1600" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
       </div>
     </div>
 
@@ -919,7 +932,9 @@
       <p class="app-card-desc">
         Apply consistent water regimes across genotypes so growth and stress-response differences are less confounded by uneven irrigation. Per-pot water histories support phenotyping analysis and environmental-quality review.
       </p>
-      <div class="app-card-image is-placeholder" aria-hidden="true"></div>
+      <div class="app-card-image is-photo is-photo-phenotyping">
+        <img src="/applications-plant-phenotyping-20260804.jpg" width="1448" height="1086" loading="lazy" decoding="async" alt="Researcher using a tablet while examining greenhouse plants">
+      </div>
     </div>
 
     <!-- 3: Research Greenhouses -->
@@ -936,7 +951,9 @@
       <p class="app-card-desc">
         Monitor and control irrigation across greenhouse benches and container arrays while preserving independent targets and histories by zone. Built for research facilities and commercial greenhouse workflows.
       </p>
-      <div class="app-card-image is-placeholder" aria-hidden="true"></div>
+      <div class="app-card-image is-photo is-photo-greenhouse">
+        <img src="/applications-research-greenhouse-20260804.jpg" width="1122" height="1402" loading="lazy" decoding="async" alt="Rows of container plants inside a large commercial greenhouse">
+      </div>
     </div>
 
   </div>
