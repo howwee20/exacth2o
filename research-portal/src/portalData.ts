@@ -3,7 +3,9 @@ import type { PairingRow, SensorReading } from "./types";
 export type DataMode = "auto" | "live" | "snapshot" | "combined";
 export type EffectiveMode = Exclude<DataMode, "auto">;
 
-const graphReadLimit = 12_000;
+export const rollingExperimentHistoryHours = 72;
+export const rollingExperimentHistoryMs = rollingExperimentHistoryHours * 60 * 60 * 1000;
+export const rollingExperimentReadLimit = 50_000;
 const ignoredDiagnosticPairingNames = new Set(["cwd-lowercaset", "720-1539"]);
 const ignoredDiagnosticSensorKeys = new Set(["t", "d30gqn2d:t"]);
 const ignoredDiagnosticValveKeys = new Set(["1539", "0x20:3", "d30gqn2d:0x20:3"]);
@@ -179,11 +181,27 @@ export function dedupeReadings(readings: SensorReading[]) {
         new Date(b.device_recorded_at).getTime() -
         new Date(a.device_recorded_at).getTime(),
     )
-    .slice(0, graphReadLimit);
+    .slice(0, rollingExperimentReadLimit);
 }
 
 export function mergeReadings(base: SensorReading[], incoming: SensorReading[]) {
   return dedupeReadings([...base, ...incoming]);
+}
+
+export function rollingExperimentHistoryStart(nowMs = Date.now()) {
+  return new Date(nowMs - rollingExperimentHistoryMs).toISOString();
+}
+
+export function mergeRollingExperimentReadings(
+  base: SensorReading[],
+  incoming: SensorReading[],
+  nowMs = Date.now(),
+) {
+  const cutoffMs = nowMs - rollingExperimentHistoryMs;
+  return mergeReadings(base, incoming).filter((reading) => {
+    const recordedAtMs = Date.parse(reading.device_recorded_at);
+    return Number.isFinite(recordedAtMs) && recordedAtMs >= cutoffMs;
+  });
 }
 
 export function booleanMarker(
