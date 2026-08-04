@@ -19,7 +19,14 @@ const forbiddenApplicationsCopy = [
   "Select a run to isolate its response",
   "Representative visualization",
   "not live experiment data",
+  "Interactive experiment explorer",
+  "Example irrigation response",
+  "Target guide",
+  "Irrigation event",
+  ">Start</text>",
+  ">72 hr</text>",
 ];
+const requiredApplicationsCopy = [">0</text>", ">72 hours</text>"];
 
 const missingPortalCopy = requiredPortalCopy.filter((value) => !bundle.includes(value));
 if (missingPortalCopy.length) {
@@ -38,8 +45,9 @@ if (retainedApplicationsCopy.length) {
   throw new Error(`Applications page retained removed graph copy: ${retainedApplicationsCopy.join(", ")}`);
 }
 
-if (!applications.includes("Example irrigation response")) {
-  throw new Error("Applications page is missing the concise example-data title.");
+const missingApplicationsCopy = requiredApplicationsCopy.filter((value) => !applications.includes(value));
+if (missingApplicationsCopy.length) {
+  throw new Error(`Applications page is missing required graph labels: ${missingApplicationsCopy.join(", ")}`);
 }
 
-console.log("Portal surface audit passed: direct action, occupied-pot guard, and concise graph copy are present.");
+console.log("Portal surface audit passed: direct action, occupied-pot guard, and lean graph labels are present.");
