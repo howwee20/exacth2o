@@ -223,55 +223,145 @@ nav {
 .strip-desc { font-size: 1rem; line-height: 1.8; opacity: 0.6; padding-top: 0.5rem; }
 
 .features-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px; background: var(--rule); border: 1px solid var(--rule);
 }
 .feat-card {
-  background: var(--bg); padding: 2.2rem; transition: background 0.3s;
-  display: flex; flex-direction: column;
+  min-height: 510px; background: var(--bg); padding: 2.5rem;
+  display: flex; flex-direction: column; align-items: flex-start; overflow: visible;
 }
-.feat-card:hover { background: var(--water-pale); }
 .feat-card-img {
-  width: 100%; height: 150px; background: var(--mist);
-  border: 1px solid var(--rule); margin-bottom: 1.5rem;
+  width: 100%; max-width: 340px; height: clamp(250px, 19vw, 315px);
+  margin: 0 auto 2rem;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative; cursor: zoom-in;
+  position: relative; z-index: 1; cursor: default;
+  container-type: inline-size;
 }
-.feat-card-img img { width: 100%; height: 100%; object-fit: cover; }
-.feat-card-img--contain {
-  background: #f7f8f5;
+.feat-card-img--sensor { cursor: zoom-in; }
+.feat-card-img--sensor:hover,
+.feat-card-img--sensor:focus-visible { z-index: 4; }
+.feature-artifact {
+  width: 100%; height: 100%; position: relative; isolation: isolate;
+  overflow: hidden; border: 1px solid rgba(14,26,20,0.14);
+  border-radius: 14px; background: #fbfaf7; color: var(--ink);
+  box-shadow: 0 16px 34px rgba(14,26,20,0.12);
+  font-family: var(--sans); font-size: clamp(7px, 3cqi, 11px);
+  transform: translateY(0); transform-origin: center;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 260ms ease, border-color 260ms ease;
 }
-.feat-card-img--contain img {
-  object-fit: contain;
-  padding: 0.35rem;
+.feat-card-img--sensor:hover .feature-artifact,
+.feat-card-img--sensor:focus-visible .feature-artifact {
+  transform: translateY(-8px) scale(1.018);
+  border-color: rgba(26,107,74,0.3);
+  box-shadow: 0 24px 44px rgba(14,26,20,0.2);
 }
 .feat-card-img:focus-visible {
   outline: 2px solid var(--water);
-  outline-offset: 3px;
-}
-.feature-image-preview {
-  position: fixed; inset: 0; z-index: 1000;
-  display: flex; align-items: center; justify-content: center;
-  padding: clamp(1rem, 5vw, 4rem);
-  background: rgba(14, 26, 20, 0.34);
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity 160ms ease, visibility 160ms ease;
-}
-.feature-image-preview.is-visible { opacity: 1; visibility: visible; }
-.feature-image-preview img {
-  display: block; width: auto; height: auto;
-  max-width: min(920px, 88vw); max-height: 78vh;
-  object-fit: contain; background: #fff;
-  border: 1px solid rgba(14, 26, 20, 0.18);
+  outline-offset: 7px;
   border-radius: 10px;
-  box-shadow: 0 24px 80px rgba(14, 26, 20, 0.34);
 }
-.feat-card-icon { color: var(--water); width: 36px; height: 36px; margin-bottom: 1rem; }
+.artifact-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  min-height: 1.65rem; color: #526159;
+  font-family: var(--mono); font-size: 0.72em; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.artifact-topbar strong { color: var(--ink); font-family: var(--sans); font-size: 1.15em; letter-spacing: 0; text-transform: none; }
+/* Native scheduling interface */
+.artifact-schedule { display: grid; grid-template-rows: auto minmax(0,1fr); padding: 0.75rem; }
+.artifact-schedule-body { min-height: 0; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 0.55rem; }
+.artifact-pane { min-width: 0; padding: 0.55rem; border: 1px solid #dfe6e1; border-radius: 8px; background: rgba(255,255,255,0.9); }
+.artifact-pane-title { display: flex; justify-content: space-between; gap: 0.35rem; margin-bottom: 0.45rem; color: #203028; font-weight: 750; }
+.artifact-pane-title span { color: #7b8781; font-family: var(--mono); font-size: 0.72em; font-weight: 500; }
+.artifact-schedule-row { display: grid; grid-template-columns: 2.5rem minmax(0,1fr); gap: 0.38rem; align-items: center; margin-top: 0.38rem; }
+.artifact-schedule-time { color: #738078; font-family: var(--mono); font-size: 0.72em; }
+.artifact-schedule-event { padding: 0.43rem; border: 1px solid #dce7e1; border-radius: 6px; background: linear-gradient(135deg,#f5fbf7,#fff); }
+.artifact-schedule-event b,.artifact-rule-copy b { display: block; overflow: hidden; color: #17251e; font-size: 0.88em; text-overflow: ellipsis; white-space: nowrap; }
+.artifact-schedule-event small,.artifact-rule-copy small { color: #6c7a73; font-size: 0.7em; }
+.artifact-rule { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.38rem; padding: 0.43rem; border: 1px solid #e0e6e2; border-radius: 6px; background: #fff; }
+.artifact-rule-copy { min-width: 0; flex: 1; }
+.artifact-toggle { width: 1.55rem; height: 0.82rem; flex: 0 0 auto; padding: 0; border: 0; border-radius: 999px; background: #ccd4d0; cursor: pointer; transition: background 160ms ease; }
+.artifact-toggle::after { display: block; width: 0.62rem; height: 0.62rem; margin-left: 0.1rem; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(14,26,20,0.22); content: ''; transition: transform 160ms ease; }
+.artifact-toggle.is-on { background: #1f9a68; }
+.artifact-toggle.is-on::after { transform: translateX(0.72rem); }
+
+/* Native portal network with the production flow treatment */
+.artifact-network { display: grid; grid-template-rows: auto minmax(0,1fr); padding: 0.7rem; background: linear-gradient(145deg,#f8f7f2,#eff5f1); }
+.artifact-network-canvas { min-height: 0; position: relative; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); gap: 0.42rem 0.52rem; }
+.artifact-network-lines { position: absolute; top: 0; left: 50%; z-index: 0; width: 0.52rem; height: 68%; overflow: hidden; pointer-events: none; transform: translateX(-50%); }
+.artifact-network-rail { fill: none; stroke: rgba(26,107,74,0.2); stroke-width: 1.15; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.artifact-network-path {
+  fill: none; stroke: rgba(26,107,74,0.86); stroke-width: 1.55; stroke-linecap: round;
+  stroke-dasharray: 4 10; vector-effect: non-scaling-stroke;
+  animation: artifactNetworkFlow 1.6s linear infinite;
+  will-change: stroke-dashoffset;
+}
+@keyframes artifactNetworkFlow { to { stroke-dashoffset: -14; } }
+.artifact-network-card { position: relative; z-index: 1; min-width: 0; display: grid; align-content: center; gap: 0.12rem; padding: 0.42rem 0.48rem; border: 1px solid rgba(14,26,20,0.13); border-radius: 6px; background: rgba(255,255,255,0.96); color: var(--ink); cursor: pointer; text-align: left; box-shadow: 0 6px 14px rgba(14,26,20,0.07); transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+.artifact-network-card:hover,.artifact-network-card.is-active { z-index: 2; border-color: rgba(26,107,74,0.42); box-shadow: 0 9px 20px rgba(14,26,20,0.12); transform: translateY(-2px); }
+.artifact-network-card b { overflow: hidden; font-size: 0.82em; text-overflow: ellipsis; white-space: nowrap; }
+.artifact-network-card span { color: #637169; font-size: 0.68em; }
+.artifact-network-card em { color: var(--water); font-family: var(--mono); font-size: 0.62em; font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; }
+.artifact-network-card.is-calibration { border-color: rgba(180,83,9,0.2); background: #fffcf2; }
+.artifact-network-card.is-model { border-color: rgba(103,84,217,0.2); background: #fbfaff; }
+.artifact-network-card.is-walker { border-color: rgba(4,120,87,0.22); background: #f1fdf8; }
+.artifact-network-card.is-health { grid-column: 1 / -1; width: 48%; justify-self: center; }
+
+/* Real sensor photograph */
+.artifact-sensor.is-photo { display: block; padding: 0; border: 0; background: #17251e; }
+.artifact-sensor-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 52%; transition: transform 700ms cubic-bezier(.2,.8,.2,1); }
+.feat-card-img--sensor:hover .artifact-sensor-photo,
+.feat-card-img--sensor:focus-visible .artifact-sensor-photo { transform: scale(1.035); }
+
+/* Native animated telemetry graph */
+.artifact-chart { display: grid; grid-template-rows: auto minmax(0,1fr); padding: 0.68rem; background: #fbfcfa; }
+.artifact-chart-body { min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 4.6rem; gap: 0.4rem; }
+.artifact-chart-plot { min-width: 0; border: 1px solid #dfe6e2; border-radius: 7px; background: #fff; overflow: hidden; }
+.artifact-chart-plot svg { display: block; width: 100%; height: 100%; }
+.artifact-grid-line { stroke: #e5ebe8; stroke-width: 1; }
+.artifact-trace { fill: none; stroke-width: 2.25; stroke-linecap: round; vector-effect: non-scaling-stroke; stroke-dasharray: 1; stroke-dashoffset: 1; animation: artifactTraceDraw 1.5s cubic-bezier(.2,.72,.25,1) forwards; transition: opacity 180ms ease, stroke-width 180ms ease; }
+.artifact-trace:nth-of-type(2n) { animation-delay: 0.12s; }
+.artifact-trace:nth-of-type(3n) { animation-delay: 0.24s; }
+.artifact-flow-trace { fill: none; stroke: rgba(255,255,255,0.72); stroke-width: 1.1; stroke-linecap: round; stroke-dasharray: 6 10; vector-effect: non-scaling-stroke; animation: artifactTraceFlow 0.9s linear infinite; }
+@keyframes artifactTraceDraw { to { stroke-dashoffset: 0; } }
+@keyframes artifactTraceFlow { to { stroke-dashoffset: -32; } }
+.artifact-chart[data-mode="control"] .artifact-trace.is-treatment,
+.artifact-chart[data-mode="control"] .artifact-flow-trace.is-treatment,
+.artifact-chart[data-mode="drought"] .artifact-trace.is-control,
+.artifact-chart[data-mode="drought"] .artifact-flow-trace.is-control { opacity: 0.08; }
+.artifact-chart-controls { display: grid; align-content: start; gap: 0.34rem; }
+.artifact-filter { min-width: 0; padding: 0.42rem 0.25rem; border: 1px solid #d8e1dc; border-radius: 6px; background: #fff; color: #56645d; cursor: pointer; font-size: 0.68em; font-weight: 750; transition: border-color 150ms ease, background 150ms ease, color 150ms ease; }
+.artifact-filter:hover,.artifact-filter.is-active { border-color: #1a6b4a; background: #173c31; color: #fff; }
+.artifact-chart-reading { margin-top: auto; padding: 0.42rem; border: 1px solid #d8e1dc; border-radius: 6px; background: #f7fbf8; }
+.artifact-chart-reading span { display: block; color: #718078; font-size: 0.62em; }
+.artifact-chart-reading strong { color: var(--water); font-size: 0.88em; }
+@container (max-width: 245px) {
+  .artifact-schedule,.artifact-network,.artifact-sensor,.artifact-chart { padding: 0.48rem; }
+  .artifact-topbar { min-height: 1.6rem; }
+  .artifact-schedule-body { gap: 0.3rem; }
+  .artifact-pane { padding: 0.34rem; }
+  .artifact-schedule-row { grid-template-columns: 1.85rem minmax(0,1fr); gap: 0.2rem; }
+  .artifact-network-canvas { gap: 0.28rem 0.34rem; }
+  .artifact-network-card { padding: 0.28rem 0.32rem; }
+  .artifact-chart-body { grid-template-columns: minmax(0,1fr) 3.6rem; }
+}
+.feat-card-icon { color: var(--water); width: 42px; height: 42px; margin-bottom: 1.35rem; }
 .feat-card h3 {
-  font-family: var(--serif); font-size: 1.25rem; color: var(--ink);
+  font-family: var(--serif); font-size: 1.55rem; color: var(--ink);
   margin-bottom: 0.6rem; line-height: 1.2;
 }
-.feat-card p { font-size: 0.85rem; line-height: 1.65; opacity: 0.6; }
+.feat-card p { max-width: 38rem; font-size: 0.92rem; line-height: 1.7; opacity: 0.6; }
+
+@media (min-width: 1350px) {
+  .feat-card {
+    min-height: 420px; display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    grid-template-rows: 1fr auto 1fr; column-gap: 2.25rem;
+  }
+  .feat-card-img { grid-column: 1; grid-row: 1 / 4; align-self: center; margin: 0; }
+  .feat-card-icon { grid-column: 2; grid-row: 1; align-self: end; }
+  .feat-card h3 { grid-column: 2; grid-row: 2; }
+  .feat-card p { grid-column: 2; grid-row: 3; }
+}
 
 /* ── PUBLISHED USE CASE ── */
 .use-case-band {
@@ -441,7 +531,7 @@ footer a:hover { color: var(--accent); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 1024px) {
-  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .features-grid { grid-template-columns: 1fr; }
   .strip-header { grid-template-columns: 1fr; gap: 1rem; }
   .use-case-inner { grid-template-columns: 1fr; gap: 3rem; }
 }
@@ -454,16 +544,24 @@ footer a:hover { color: var(--accent); }
   .hero-left { padding: 8rem 1.5rem 4rem; }
   .features-strip, .use-case-band, .cta-strip { padding: 4rem 1.5rem; }
   .features-grid { grid-template-columns: 1fr; }
+  .feat-card {
+    min-height: 0; padding: 1.5rem;
+  }
+  .feat-card-img {
+    width: 100%; max-width: none;
+    height: clamp(260px, 70vw, 360px); margin: 0 0 1.75rem;
+  }
   .case-meta { grid-template-columns: 1fr; }
   .hero-stats { gap: 2rem; flex-wrap: wrap; }
   footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
 }
 @media (hover: none), (pointer: coarse) {
   .feat-card-img { cursor: default; }
-  .feature-image-preview { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .feature-image-preview { transition: none; }
+  .feature-artifact,.artifact-sensor-photo { transition: none; }
+  .artifact-network-path,.artifact-trace,.artifact-flow-trace { animation: none; }
+  .artifact-trace { stroke-dashoffset: 0; }
 }
 </style>
 </head>
@@ -568,10 +666,25 @@ footer a:hover { color: var(--accent); }
     </div>
     <div class="features-grid reveal">
       <div class="feat-card">
-        <div class="feat-card-img feat-card-img--contain" tabindex="0" aria-label="Enlarge Smart Scheduling image">
-          <img src="smart-scheduling-20260821.jpg" alt="Irrigation schedule and automation rules dashboard" width="1448" height="1086" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-          <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><circle cx="24" cy="24" r="18"/><path d="M24 12 L24 24 L32 28"/></svg>
+        <div class="feat-card-img feat-card-img--schedule" tabindex="0" aria-label="Smart Scheduling product interface">
+          <div class="feature-artifact artifact-schedule">
+            <div class="artifact-topbar"><strong>Irrigation Schedule</strong></div>
+            <div class="artifact-schedule-body">
+              <section class="artifact-pane">
+                <div class="artifact-pane-title">Today <span>Wed · Aug 21</span></div>
+                <div class="artifact-schedule-row"><span class="artifact-schedule-time">6 AM</span><div class="artifact-schedule-event"><b>Maize Drought</b><small>Zone 2 · 10% VWC</small></div></div>
+                <div class="artifact-schedule-row"><span class="artifact-schedule-time">9 AM</span><div class="artifact-schedule-event"><b>Sorghum Control</b><small>Zone 4 · 30% VWC</small></div></div>
+                <div class="artifact-schedule-row"><span class="artifact-schedule-time">12 PM</span><div class="artifact-schedule-event"><b>System Check</b><small>Sensors &amp; valves</small></div></div>
+                <div class="artifact-schedule-row"><span class="artifact-schedule-time">9 PM</span><div class="artifact-schedule-event"><b>Data Sync</b><small>Upload &amp; backup</small></div></div>
+              </section>
+              <section class="artifact-pane">
+                <div class="artifact-pane-title">Automation Rules <span>4 active</span></div>
+                <div class="artifact-rule"><div class="artifact-rule-copy"><b>If VWC &lt; 12%</b><small>Maize Drought</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle Maize Drought rule" aria-pressed="true"></button></div>
+                <div class="artifact-rule"><div class="artifact-rule-copy"><b>If VWC &lt; 28%</b><small>Sorghum Control</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle Sorghum Control rule" aria-pressed="true"></button></div>
+                <div class="artifact-rule"><div class="artifact-rule-copy"><b>Daily Report</b><small>8:00 AM</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle Daily Report rule" aria-pressed="true"></button></div>
+                <div class="artifact-rule"><div class="artifact-rule-copy"><b>If Temp &gt; 32°C</b><small>Mist · 3 min</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle heat rule" aria-pressed="true"></button></div>
+              </section>
+            </div>
           </div>
         </div>
         <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="18" cy="18" r="14"/><path d="M18 8 L18 18 L24 22"/></svg>
@@ -579,10 +692,20 @@ footer a:hover { color: var(--accent); }
         <p>Automated irrigation triggered by real-time soil moisture thresholds — not timers. Water when the plant needs it, stop when it doesn't.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img" tabindex="0" aria-label="Enlarge Web Dashboard image">
-          <img src="web-dashboard-20260804.jpg" alt="Web Dashboard" width="1800" height="1036" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-          <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="8" width="40" height="28" rx="3"/><path d="M16 36 L16 42"/><path d="M32 36 L32 42"/><path d="M10 42 L38 42"/><polyline points="10 26 18 18 24 22 32 14 38 18"/></svg>
+        <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Web Dashboard product interface">
+          <div class="feature-artifact artifact-network">
+            <div class="artifact-topbar"><strong>exactH2O Portal</strong></div>
+            <div class="artifact-network-canvas">
+              <svg class="artifact-network-lines" viewBox="0 0 12 156" preserveAspectRatio="none" aria-hidden="true">
+                <path class="artifact-network-rail" d="M6 36 V156 M0 36 H12 M0 116 H12" />
+                <path class="artifact-network-path" d="M6 36 V156" />
+              </svg>
+              <button class="artifact-network-card" type="button" data-artifact-project><b>Matt Experiment 2</b><span>24 / 24 pots</span><em>10% drought · 30% control</em></button>
+              <button class="artifact-network-card is-calibration" type="button" data-artifact-project><b>SWC Saturation Calibration</b><span>10 / 10 pots</span><em>Sensing only</em></button>
+              <button class="artifact-network-card is-model" type="button" data-artifact-project><b>R&amp;D · Response Curve</b><span>Bounded model</span><em>Open lab</em></button>
+              <button class="artifact-network-card is-walker" type="button" data-artifact-project><b>Walker Pi 5 Observation</b><span>96 / 100 sensors</span><em>Live VWC</em></button>
+              <button class="artifact-network-card is-health" type="button" data-artifact-project><b>System Health</b><span>20 / 20 sensors</span><em>Healthy</em></button>
+            </div>
           </div>
         </div>
         <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="30" height="21" rx="2"/><path d="M12 27 L12 32"/><path d="M24 27 L24 32"/><path d="M8 32 L28 32"/><polyline points="8 20 14 14 18 17 24 11 28 14"/></svg>
@@ -590,10 +713,9 @@ footer a:hover { color: var(--accent); }
         <p>Web-based monitoring and control from any device-desktop or mobile. Real-time sensor readings, historical data plots, system status, and irrigation history in one interface.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img" tabindex="0" aria-label="Enlarge Sensor Integration image">
-          <img src="sensor.avif?v=20260709-avif" alt="Sensor Integration" width="1200" height="1600" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='sensor.jpg'">
-          <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><circle cx="24" cy="16" r="8"/><line x1="24" y1="24" x2="24" y2="44"/><circle cx="24" cy="44" r="3"/></svg>
+        <div class="feat-card-img feat-card-img--sensor" tabindex="0" aria-label="Sensor Integration product photograph">
+          <div class="feature-artifact artifact-sensor is-photo">
+            <img class="artifact-sensor-photo" src="sensor.avif?v=20260709-avif" alt="ExactH2O soil moisture sensor installed beside a plant" width="1200" height="1600" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='sensor.jpg'">
           </div>
         </div>
         <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="18" cy="12" r="6"/><line x1="18" y1="18" x2="18" y2="33"/><circle cx="18" cy="33" r="2.5"/></svg>
@@ -601,10 +723,31 @@ footer a:hover { color: var(--accent); }
         <p>High-resolution VWC, electrical conductivity, and temperature sensors with substrate-specific calibration for several types of media.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img feat-card-img--contain" tabindex="0" aria-label="Enlarge Easy Scaling image">
-          <img src="easy-scaling-20260804.jpg" alt="Easy Scaling" width="1800" height="1036" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-          <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="14" height="14" rx="2"/><rect x="30" y="4" width="14" height="14" rx="2"/><rect x="4" y="30" width="14" height="14" rx="2"/><rect x="30" y="30" width="14" height="14" rx="2"/><circle cx="24" cy="24" r="4"/></svg>
+        <div class="feat-card-img feat-card-img--scaling" tabindex="0" aria-label="Easy Scaling product interface">
+          <div class="feature-artifact artifact-chart" data-mode="all">
+            <div class="artifact-topbar"><strong>VWC · 72 hours</strong></div>
+            <div class="artifact-chart-body">
+              <div class="artifact-chart-plot">
+                <svg viewBox="0 0 520 250" preserveAspectRatio="none" role="img" aria-label="Animated VWC telemetry traces">
+                  <g aria-hidden="true"><path class="artifact-grid-line" d="M28 38H506M28 84H506M28 130H506M28 176H506M28 222H506M100 20V230M190 20V230M280 20V230M370 20V230M460 20V230" /></g>
+                  <path pathLength="1" class="artifact-trace is-control" stroke="#5368cc" d="M28 48 C80 45 112 50 150 73 S218 88 260 91 S326 116 368 130 S438 124 506 147" />
+                  <path pathLength="1" class="artifact-trace is-treatment" stroke="#9b51c6" d="M28 58 C82 54 116 60 152 82 S220 102 260 104 S328 130 370 144 S440 141 506 163" />
+                  <path pathLength="1" class="artifact-trace is-control" stroke="#38a65b" d="M28 74 C80 70 116 76 154 97 S220 112 260 116 S326 145 370 160 S440 156 506 178" />
+                  <path pathLength="1" class="artifact-trace is-treatment" stroke="#e3a52b" d="M28 104 C82 101 118 107 155 126 S220 141 262 144 S330 168 372 180 S442 179 506 197" />
+                  <path pathLength="1" class="artifact-trace is-control" stroke="#2f9aa5" d="M28 126 C82 121 118 127 154 150 S220 166 262 166 S328 189 370 201 S442 197 506 211" />
+                  <path pathLength="1" class="artifact-trace is-treatment" stroke="#d45562" d="M28 92 C82 88 116 95 154 116 S220 130 262 133 S330 156 372 170 S442 168 506 188" />
+                  <path pathLength="1" class="artifact-trace is-control" stroke="#59bcb1" d="M28 151 C84 147 120 153 156 171 S222 183 264 186 S330 205 372 214 S442 213 506 224" />
+                  <path class="artifact-flow-trace is-control" stroke="#ffffff" d="M28 48 C80 45 112 50 150 73 S218 88 260 91 S326 116 368 130 S438 124 506 147" />
+                  <path class="artifact-flow-trace is-treatment" stroke="#ffffff" d="M28 58 C82 54 116 60 152 82 S220 102 260 104 S328 130 370 144 S440 141 506 163" />
+                </svg>
+              </div>
+              <div class="artifact-chart-controls" aria-label="Graph filters">
+                <button class="artifact-filter is-active" type="button" data-artifact-filter="all">All</button>
+                <button class="artifact-filter" type="button" data-artifact-filter="control">Control</button>
+                <button class="artifact-filter" type="button" data-artifact-filter="drought">Drought</button>
+                <div class="artifact-chart-reading"><span>Pot 49</span><strong>47.2%</strong></div>
+              </div>
+            </div>
           </div>
         </div>
         <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="10" height="10" rx="1"/><rect x="23" y="3" width="10" height="10" rx="1"/><rect x="3" y="23" width="10" height="10" rx="1"/><rect x="23" y="23" width="10" height="10" rx="1"/><circle cx="18" cy="18" r="3"/></svg>
@@ -613,10 +756,6 @@ footer a:hover { color: var(--accent); }
       </div>
     </div>
   </div>
-</div>
-
-<div class="feature-image-preview" aria-hidden="true">
-  <img src="" alt="">
 </div>
 
 <!-- PUBLISHED USE CASE -->
@@ -710,33 +849,35 @@ footer a:hover { color: var(--accent); }
   }, { threshold: 0.1 });
   revealEls.forEach(el => obs.observe(el));
 
-  const featurePreview = document.querySelector('.feature-image-preview');
-  const featurePreviewImage = featurePreview?.querySelector('img');
-  const featureImages = document.querySelectorAll('.features-grid .feat-card-img');
-  const hoverPreviewAvailable = window.matchMedia('(hover: hover) and (pointer: fine)');
-
-  function showFeaturePreview(card) {
-    if (!hoverPreviewAvailable.matches || !featurePreview || !featurePreviewImage) return;
-    const image = card.querySelector('img');
-    if (!image || image.style.display === 'none') return;
-    featurePreviewImage.src = image.currentSrc || image.src;
-    featurePreviewImage.alt = image.alt;
-    featurePreview.classList.add('is-visible');
-  }
-
-  function hideFeaturePreview() {
-    featurePreview?.classList.remove('is-visible');
-  }
-
-  featureImages.forEach(card => {
-    card.addEventListener('mouseenter', () => showFeaturePreview(card));
-    card.addEventListener('mouseleave', hideFeaturePreview);
-    card.addEventListener('focus', () => showFeaturePreview(card));
-    card.addEventListener('blur', hideFeaturePreview);
+  document.querySelectorAll('[data-artifact-toggle]').forEach(toggle => {
+    toggle.addEventListener('click', event => {
+      event.stopPropagation();
+      const isOn = toggle.classList.toggle('is-on');
+      toggle.setAttribute('aria-pressed', String(isOn));
+    });
   });
-  window.addEventListener('keydown', event => {
-    if (event.key === 'Escape') hideFeaturePreview();
+
+  document.querySelectorAll('[data-artifact-project]').forEach(card => {
+    card.addEventListener('click', event => {
+      event.stopPropagation();
+      card.closest('.artifact-network')?.querySelectorAll('[data-artifact-project]').forEach(item => {
+        item.classList.toggle('is-active', item === card);
+      });
+    });
   });
+
+  document.querySelectorAll('[data-artifact-filter]').forEach(filter => {
+    filter.addEventListener('click', event => {
+      event.stopPropagation();
+      const chart = filter.closest('.artifact-chart');
+      if (!chart) return;
+      chart.dataset.mode = filter.dataset.artifactFilter || 'all';
+      chart.querySelectorAll('[data-artifact-filter]').forEach(item => {
+        item.classList.toggle('is-active', item === filter);
+      });
+    });
+  });
+
 </script>
 </body>
 </html>
