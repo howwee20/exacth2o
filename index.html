@@ -238,8 +238,6 @@ nav {
   container-type: inline-size;
 }
 .feat-card-img--sensor { cursor: zoom-in; }
-.feat-card-img--sensor:hover,
-.feat-card-img--sensor:focus-visible { z-index: 4; }
 .feature-artifact {
   width: 100%; height: 100%; position: relative; isolation: isolate;
   overflow: hidden; border: 1px solid rgba(14,26,20,0.14);
@@ -248,12 +246,6 @@ nav {
   font-family: var(--sans); font-size: clamp(7px, 3cqi, 11px);
   transform: translateY(0); transform-origin: center;
   transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 260ms ease, border-color 260ms ease;
-}
-.feat-card-img--sensor:hover .feature-artifact,
-.feat-card-img--sensor:focus-visible .feature-artifact {
-  transform: translateY(-8px) scale(1.018);
-  border-color: rgba(26,107,74,0.3);
-  box-shadow: 0 24px 44px rgba(14,26,20,0.2);
 }
 .feat-card-img:focus-visible {
   outline: 2px solid var(--water);
@@ -308,9 +300,27 @@ nav {
 
 /* Real sensor photograph */
 .artifact-sensor.is-photo { display: block; padding: 0; border: 0; background: #17251e; }
-.artifact-sensor-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 52%; transition: transform 700ms cubic-bezier(.2,.8,.2,1); }
-.feat-card-img--sensor:hover .artifact-sensor-photo,
-.feat-card-img--sensor:focus-visible .artifact-sensor-photo { transform: scale(1.035); }
+.artifact-sensor-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 52%; }
+
+/* Desktop-only enlarged preview for the real sensor photograph */
+.feature-image-preview {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: rgba(8, 17, 13, 0.46);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 180ms ease, visibility 180ms ease;
+}
+.feature-image-preview.is-visible { opacity: 1; visibility: visible; }
+.feature-image-preview img {
+  display: block; width: auto; height: auto;
+  max-width: min(900px, 88vw); max-height: 84vh;
+  object-fit: contain; border-radius: 18px;
+  box-shadow: 0 28px 90px rgba(5, 13, 9, 0.38);
+  transform: scale(0.985);
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+}
+.feature-image-preview.is-visible img { transform: scale(1); }
 
 /* Native animated telemetry graph */
 .artifact-chart { display: grid; grid-template-rows: auto minmax(0,1fr); padding: 0.68rem; background: #fbfcfa; }
@@ -557,9 +567,10 @@ footer a:hover { color: var(--accent); }
 }
 @media (hover: none), (pointer: coarse) {
   .feat-card-img { cursor: default; }
+  .feature-image-preview { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .feature-artifact,.artifact-sensor-photo { transition: none; }
+  .feature-artifact,.feature-image-preview,.feature-image-preview img { transition: none; }
   .artifact-network-path,.artifact-trace,.artifact-flow-trace { animation: none; }
   .artifact-trace { stroke-dashoffset: 0; }
 }
@@ -758,6 +769,10 @@ footer a:hover { color: var(--accent); }
   </div>
 </div>
 
+<div class="feature-image-preview" aria-hidden="true">
+  <img src="" alt="">
+</div>
+
 <!-- PUBLISHED USE CASE -->
 <section class="use-case-band">
   <div class="use-case-inner">
@@ -876,6 +891,34 @@ footer a:hover { color: var(--accent); }
         item.classList.toggle('is-active', item === filter);
       });
     });
+  });
+
+  const sensorPreviewSource = document.querySelector('.feat-card-img--sensor');
+  const featurePreview = document.querySelector('.feature-image-preview');
+  const featurePreviewImage = featurePreview?.querySelector('img');
+  const hoverPreviewAvailable = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+  function showSensorPreview() {
+    if (!hoverPreviewAvailable.matches || !sensorPreviewSource || !featurePreview || !featurePreviewImage) return;
+    const image = sensorPreviewSource.querySelector('img');
+    if (!image) return;
+    featurePreviewImage.src = image.currentSrc || image.src;
+    featurePreviewImage.alt = image.alt;
+    featurePreview.classList.add('is-visible');
+    featurePreview.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideSensorPreview() {
+    featurePreview?.classList.remove('is-visible');
+    featurePreview?.setAttribute('aria-hidden', 'true');
+  }
+
+  sensorPreviewSource?.addEventListener('mouseenter', showSensorPreview);
+  sensorPreviewSource?.addEventListener('mouseleave', hideSensorPreview);
+  sensorPreviewSource?.addEventListener('focus', showSensorPreview);
+  sensorPreviewSource?.addEventListener('blur', hideSensorPreview);
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hideSensorPreview();
   });
 
 </script>
