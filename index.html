@@ -235,9 +235,30 @@ nav {
   width: 100%; height: 150px; background: var(--mist);
   border: 1px solid var(--rule); margin-bottom: 1.5rem;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative;
+  overflow: hidden; position: relative; cursor: zoom-in;
 }
 .feat-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.feat-card-img:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 3px;
+}
+.feature-image-preview {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: clamp(1rem, 5vw, 4rem);
+  background: rgba(14, 26, 20, 0.34);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 160ms ease, visibility 160ms ease;
+}
+.feature-image-preview.is-visible { opacity: 1; visibility: visible; }
+.feature-image-preview img {
+  display: block; width: auto; height: auto;
+  max-width: min(920px, 88vw); max-height: 78vh;
+  object-fit: contain; background: #fff;
+  border: 1px solid rgba(14, 26, 20, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(14, 26, 20, 0.34);
+}
 .feat-card-icon { color: var(--water); width: 36px; height: 36px; margin-bottom: 1rem; }
 .feat-card h3 {
   font-family: var(--serif); font-size: 1.25rem; color: var(--ink);
@@ -430,6 +451,13 @@ footer a:hover { color: var(--accent); }
   .hero-stats { gap: 2rem; flex-wrap: wrap; }
   footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
 }
+@media (hover: none), (pointer: coarse) {
+  .feat-card-img { cursor: default; }
+  .feature-image-preview { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feature-image-preview { transition: none; }
+}
 </style>
 </head>
 <body>
@@ -533,8 +561,8 @@ footer a:hover { color: var(--accent); }
     </div>
     <div class="features-grid reveal">
       <div class="feat-card">
-        <div class="feat-card-img">
-          <img src="smart-scheduling-20260805.jpg" alt="Smart Scheduling dashboard with upcoming irrigation events, moisture targets, automation rules, and recent activity" width="1800" height="1258" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge Smart Scheduling image">
+          <img src="smart-scheduling-20260821.jpg" alt="Irrigation schedule and automation rules dashboard" width="1448" height="1086" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><circle cx="24" cy="24" r="18"/><path d="M24 12 L24 24 L32 28"/></svg>
           </div>
@@ -544,7 +572,7 @@ footer a:hover { color: var(--accent); }
         <p>Automated irrigation triggered by real-time soil moisture thresholds — not timers. Water when the plant needs it, stop when it doesn't.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img">
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge Web Dashboard image">
           <img src="web-dashboard-20260804.jpg" alt="Web Dashboard" width="1800" height="1036" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="8" width="40" height="28" rx="3"/><path d="M16 36 L16 42"/><path d="M32 36 L32 42"/><path d="M10 42 L38 42"/><polyline points="10 26 18 18 24 22 32 14 38 18"/></svg>
@@ -555,7 +583,7 @@ footer a:hover { color: var(--accent); }
         <p>Web-based monitoring and control from any device-desktop or mobile. Real-time sensor readings, historical data plots, system status, and irrigation history in one interface.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img">
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge Sensor Integration image">
           <img src="sensor.avif?v=20260709-avif" alt="Sensor Integration" width="1200" height="1600" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='sensor.jpg'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><circle cx="24" cy="16" r="8"/><line x1="24" y1="24" x2="24" y2="44"/><circle cx="24" cy="44" r="3"/></svg>
@@ -566,7 +594,7 @@ footer a:hover { color: var(--accent); }
         <p>High-resolution VWC, electrical conductivity, and temperature sensors with substrate-specific calibration for several types of media.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img">
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge Easy Scaling image">
           <img src="easy-scaling-20260804.jpg" alt="Easy Scaling" width="1800" height="1036" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
           <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:var(--water-pale);">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#1a6b4a" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="4" width="14" height="14" rx="2"/><rect x="30" y="4" width="14" height="14" rx="2"/><rect x="4" y="30" width="14" height="14" rx="2"/><rect x="30" y="30" width="14" height="14" rx="2"/><circle cx="24" cy="24" r="4"/></svg>
@@ -578,6 +606,10 @@ footer a:hover { color: var(--accent); }
       </div>
     </div>
   </div>
+</div>
+
+<div class="feature-image-preview" aria-hidden="true">
+  <img src="" alt="">
 </div>
 
 <!-- PUBLISHED USE CASE -->
@@ -670,6 +702,34 @@ footer a:hover { color: var(--accent); }
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
   }, { threshold: 0.1 });
   revealEls.forEach(el => obs.observe(el));
+
+  const featurePreview = document.querySelector('.feature-image-preview');
+  const featurePreviewImage = featurePreview?.querySelector('img');
+  const featureImages = document.querySelectorAll('.features-grid .feat-card-img');
+  const hoverPreviewAvailable = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+  function showFeaturePreview(card) {
+    if (!hoverPreviewAvailable.matches || !featurePreview || !featurePreviewImage) return;
+    const image = card.querySelector('img');
+    if (!image || image.style.display === 'none') return;
+    featurePreviewImage.src = image.currentSrc || image.src;
+    featurePreviewImage.alt = image.alt;
+    featurePreview.classList.add('is-visible');
+  }
+
+  function hideFeaturePreview() {
+    featurePreview?.classList.remove('is-visible');
+  }
+
+  featureImages.forEach(card => {
+    card.addEventListener('mouseenter', () => showFeaturePreview(card));
+    card.addEventListener('mouseleave', hideFeaturePreview);
+    card.addEventListener('focus', () => showFeaturePreview(card));
+    card.addEventListener('blur', hideFeaturePreview);
+  });
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hideFeaturePreview();
+  });
 </script>
 </body>
 </html>

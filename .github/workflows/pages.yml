@@ -144,7 +144,7 @@ jobs:
           cp CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html exacth2o-logo.jpeg site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp product1.jpg product2.jpg product3.jpg site-dist/
-          cp smart-scheduling-20260805.jpg sensor.jpg web-dashboard-20260804.jpg easy-scaling-20260804.jpg data-visualization-20260804.jpg site-dist/
+          cp smart-scheduling-20260821.jpg sensor.jpg web-dashboard-20260804.jpg easy-scaling-20260804.jpg data-visualization-20260804.jpg site-dist/
           cp product1.avif product2.avif product3.avif site-dist/
           cp sensor.avif site-dist/
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
