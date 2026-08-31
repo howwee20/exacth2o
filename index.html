@@ -237,7 +237,8 @@ nav {
   position: relative; z-index: 1; cursor: default;
   container-type: inline-size;
 }
-.feat-card-img--sensor { cursor: zoom-in; }
+.feat-card-img--sensor,
+.feat-card-img--dashboard { cursor: zoom-in; }
 .feature-artifact {
   width: 100%; height: 100%; position: relative; isolation: isolate;
   overflow: hidden; border: 1px solid rgba(14,26,20,0.14);
@@ -276,33 +277,17 @@ nav {
 .artifact-toggle.is-on { background: #1f9a68; }
 .artifact-toggle.is-on::after { transform: translateX(0.72rem); }
 
-/* Native portal network with the production flow treatment */
-.artifact-network { display: grid; grid-template-rows: auto minmax(0,1fr); padding: 0.7rem; background: linear-gradient(145deg,#f8f7f2,#eff5f1); }
-.artifact-network-canvas { min-height: 0; position: relative; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); gap: 0.42rem 0.52rem; }
-.artifact-network-lines { position: absolute; top: 0; left: 50%; z-index: 0; width: 0.52rem; height: 68%; overflow: hidden; pointer-events: none; transform: translateX(-50%); }
-.artifact-network-rail { fill: none; stroke: rgba(26,107,74,0.2); stroke-width: 1.15; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.artifact-network-path {
-  fill: none; stroke: rgba(26,107,74,0.86); stroke-width: 1.55; stroke-linecap: round;
-  stroke-dasharray: 4 10; vector-effect: non-scaling-stroke;
-  animation: artifactNetworkFlow 1.6s linear infinite;
-  will-change: stroke-dashoffset;
-}
-@keyframes artifactNetworkFlow { to { stroke-dashoffset: -14; } }
-.artifact-network-card { position: relative; z-index: 1; min-width: 0; display: grid; align-content: center; gap: 0.12rem; padding: 0.42rem 0.48rem; border: 1px solid rgba(14,26,20,0.13); border-radius: 6px; background: rgba(255,255,255,0.96); color: var(--ink); cursor: pointer; text-align: left; box-shadow: 0 6px 14px rgba(14,26,20,0.07); transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
-.artifact-network-card:hover,.artifact-network-card.is-active { z-index: 2; border-color: rgba(26,107,74,0.42); box-shadow: 0 9px 20px rgba(14,26,20,0.12); transform: translateY(-2px); }
-.artifact-network-card b { overflow: hidden; font-size: 0.82em; text-overflow: ellipsis; white-space: nowrap; }
-.artifact-network-card span { color: #637169; font-size: 0.68em; }
-.artifact-network-card em { color: var(--water); font-family: var(--mono); font-size: 0.62em; font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; }
-.artifact-network-card.is-calibration { border-color: rgba(180,83,9,0.2); background: #fffcf2; }
-.artifact-network-card.is-model { border-color: rgba(103,84,217,0.2); background: #fbfaff; }
-.artifact-network-card.is-walker { border-color: rgba(4,120,87,0.22); background: #f1fdf8; }
-.artifact-network-card.is-health { grid-column: 1 / -1; width: 48%; justify-self: center; }
+/* Real product photographs */
+.artifact-sensor.is-photo,
+.artifact-dashboard.is-photo { display: block; padding: 0; border: 0; }
+.artifact-sensor.is-photo { background: #17251e; }
+.artifact-dashboard.is-photo { background: #f4f1eb; }
+.artifact-sensor-photo,
+.artifact-dashboard-photo { position: absolute; inset: 0; width: 100%; height: 100%; }
+.artifact-sensor-photo { object-fit: cover; object-position: center 52%; }
+.artifact-dashboard-photo { object-fit: contain; object-position: center; }
 
-/* Real sensor photograph */
-.artifact-sensor.is-photo { display: block; padding: 0; border: 0; background: #17251e; }
-.artifact-sensor-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 52%; }
-
-/* Desktop-only enlarged preview for the real sensor photograph */
+/* Desktop-only enlarged preview for the product photographs */
 .feature-image-preview {
   position: fixed; inset: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: center;
@@ -703,20 +688,9 @@ footer a:hover { color: var(--accent); }
         <p>Automated irrigation triggered by real-time soil moisture thresholds — not timers. Water when the plant needs it, stop when it doesn't.</p>
       </div>
       <div class="feat-card">
-        <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Web Dashboard product interface">
-          <div class="feature-artifact artifact-network">
-            <div class="artifact-topbar"><strong>exactH2O Portal</strong></div>
-            <div class="artifact-network-canvas">
-              <svg class="artifact-network-lines" viewBox="0 0 12 156" preserveAspectRatio="none" aria-hidden="true">
-                <path class="artifact-network-rail" d="M6 36 V156 M0 36 H12 M0 116 H12" />
-                <path class="artifact-network-path" d="M6 36 V156" />
-              </svg>
-              <button class="artifact-network-card" type="button" data-artifact-project><b>Matt Experiment 2</b><span>24 / 24 pots</span><em>10% drought · 30% control</em></button>
-              <button class="artifact-network-card is-calibration" type="button" data-artifact-project><b>SWC Saturation Calibration</b><span>10 / 10 pots</span><em>Sensing only</em></button>
-              <button class="artifact-network-card is-model" type="button" data-artifact-project><b>R&amp;D · Response Curve</b><span>Bounded model</span><em>Open lab</em></button>
-              <button class="artifact-network-card is-walker" type="button" data-artifact-project><b>Walker Pi 5 Observation</b><span>96 / 100 sensors</span><em>Live VWC</em></button>
-              <button class="artifact-network-card is-health" type="button" data-artifact-project><b>System Health</b><span>20 / 20 sensors</span><em>Healthy</em></button>
-            </div>
+        <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Enlarge the ExactH2O Web Dashboard photograph">
+          <div class="feature-artifact artifact-dashboard is-photo">
+            <img class="artifact-dashboard-photo" src="web-dashboard-20260831.webp" alt="ExactH2O portal showing experiment, calibration, research, observation, support, and system-health cards" width="2713" height="1993" loading="lazy" decoding="async">
           </div>
         </div>
         <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="30" height="21" rx="2"/><path d="M12 27 L12 32"/><path d="M24 27 L24 32"/><path d="M8 32 L28 32"/><polyline points="8 20 14 14 18 17 24 11 28 14"/></svg>
@@ -872,15 +846,6 @@ footer a:hover { color: var(--accent); }
     });
   });
 
-  document.querySelectorAll('[data-artifact-project]').forEach(card => {
-    card.addEventListener('click', event => {
-      event.stopPropagation();
-      card.closest('.artifact-network')?.querySelectorAll('[data-artifact-project]').forEach(item => {
-        item.classList.toggle('is-active', item === card);
-      });
-    });
-  });
-
   document.querySelectorAll('[data-artifact-filter]').forEach(filter => {
     filter.addEventListener('click', event => {
       event.stopPropagation();
@@ -893,14 +858,14 @@ footer a:hover { color: var(--accent); }
     });
   });
 
-  const sensorPreviewSource = document.querySelector('.feat-card-img--sensor');
+  const featurePreviewSources = document.querySelectorAll('.feat-card-img--sensor, .feat-card-img--dashboard');
   const featurePreview = document.querySelector('.feature-image-preview');
   const featurePreviewImage = featurePreview?.querySelector('img');
   const hoverPreviewAvailable = window.matchMedia('(hover: hover) and (pointer: fine)');
 
-  function showSensorPreview() {
-    if (!hoverPreviewAvailable.matches || !sensorPreviewSource || !featurePreview || !featurePreviewImage) return;
-    const image = sensorPreviewSource.querySelector('img');
+  function showFeaturePreview(source) {
+    if (!hoverPreviewAvailable.matches || !source || !featurePreview || !featurePreviewImage) return;
+    const image = source.querySelector('img');
     if (!image) return;
     featurePreviewImage.src = image.currentSrc || image.src;
     featurePreviewImage.alt = image.alt;
@@ -908,17 +873,19 @@ footer a:hover { color: var(--accent); }
     featurePreview.setAttribute('aria-hidden', 'false');
   }
 
-  function hideSensorPreview() {
+  function hideFeaturePreview() {
     featurePreview?.classList.remove('is-visible');
     featurePreview?.setAttribute('aria-hidden', 'true');
   }
 
-  sensorPreviewSource?.addEventListener('mouseenter', showSensorPreview);
-  sensorPreviewSource?.addEventListener('mouseleave', hideSensorPreview);
-  sensorPreviewSource?.addEventListener('focus', showSensorPreview);
-  sensorPreviewSource?.addEventListener('blur', hideSensorPreview);
+  featurePreviewSources.forEach(source => {
+    source.addEventListener('mouseenter', () => showFeaturePreview(source));
+    source.addEventListener('mouseleave', hideFeaturePreview);
+    source.addEventListener('focus', () => showFeaturePreview(source));
+    source.addEventListener('blur', hideFeaturePreview);
+  });
   window.addEventListener('keydown', event => {
-    if (event.key === 'Escape') hideSensorPreview();
+    if (event.key === 'Escape') hideFeaturePreview();
   });
 
 </script>
