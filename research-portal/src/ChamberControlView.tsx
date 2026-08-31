@@ -6,7 +6,6 @@ import {
   Loader2,
   MousePointer2,
   MonitorUp,
-  Radio,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -75,7 +74,7 @@ function useGasMixerStatus() {
 }
 
 export function ChamberControlAdminTile({ onOpen }: { onOpen: () => void }) {
-  const { status, loading, denied, failed } = useGasMixerStatus();
+  const { denied } = useGasMixerStatus();
   if (denied) return null;
 
   return (
@@ -86,10 +85,6 @@ export function ChamberControlAdminTile({ onOpen }: { onOpen: () => void }) {
     >
       <span className="portal-launch-top">
         <span className="portal-launch-icon"><MonitorUp size={20} /></span>
-        <span className={`portal-experiment-progress ${status?.online ? "is-running" : "is-failed"}`}>
-          {loading ? <Loader2 size={12} /> : failed ? <AlertTriangle size={12} /> : <Radio size={12} />}
-          {loading ? "Checking" : failed ? "Unavailable" : status?.online ? "Online" : "Agent pending"}
-        </span>
       </span>
       <span className="portal-launch-copy">
         <span className="portal-launch-title">Chamber Control</span>
