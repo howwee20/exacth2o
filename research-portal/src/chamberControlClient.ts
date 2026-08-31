@@ -6,6 +6,7 @@ import {
   type GasMixerSessionMode,
   type GasMixerRemoteStatus,
 } from "./chamberControl";
+import { gasMixerFunctionError } from "./gasMixerErrors";
 
 export async function loadGasMixerRemoteStatus(): Promise<GasMixerRemoteStatus> {
   const { data, error } = await supabase.rpc("gas_mixer_remote_status", {
@@ -20,9 +21,22 @@ export async function createGasMixerSession(mode: GasMixerSessionMode): Promise<
   const { data, error } = await supabase.functions.invoke<GasMixerSessionAccess>("gas-mixer-session", {
     body: { action: "create_session", mode },
   });
-  if (error) throw error;
+  if (error) throw await gasMixerFunctionError(error, "Unable to start the Gas Mixer session");
   if (!data?.session_token || !data.frame_url || !data.session) {
     throw new Error("The Gas Mixer session response was incomplete");
+  }
+  return data;
+}
+
+export async function refreshGasMixerSession(
+  sessionToken: string,
+): Promise<GasMixerSessionAccess> {
+  const { data, error } = await supabase.functions.invoke<GasMixerSessionAccess>("gas-mixer-session", {
+    body: { action: "refresh_session", session_token: sessionToken },
+  });
+  if (error) throw await gasMixerFunctionError(error, "Unable to renew the Gas Mixer session");
+  if (!data?.session_token || !data.frame_url || !data.session) {
+    throw new Error("The renewed Gas Mixer session response was incomplete");
   }
   return data;
 }
@@ -41,7 +55,7 @@ export async function sendGasMixerTap(
       normalized_y: normalizedY,
     },
   });
-  if (error) throw error;
+  if (error) throw await gasMixerFunctionError(error, "Unable to send mixer input");
   return data;
 }
 
@@ -49,5 +63,5 @@ export async function endGasMixerSession(sessionToken: string) {
   const { error } = await supabase.functions.invoke("gas-mixer-session", {
     body: { action: "end_session", session_token: sessionToken },
   });
-  if (error) throw error;
+  if (error) throw await gasMixerFunctionError(error, "Unable to end the Gas Mixer session");
 }

@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import {
   gasMixerAccessDenied,
+  gasMixerSessionRenewalDelay,
   gasMixerStatusLabel,
   normalizedMixerPoint,
   type GasMixerSessionAccess,
@@ -23,6 +24,7 @@ import {
   createGasMixerSession,
   endGasMixerSession,
   loadGasMixerRemoteStatus,
+  refreshGasMixerSession,
   sendGasMixerTap,
 } from "./chamberControlClient";
 
@@ -114,6 +116,43 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     return () => window.clearInterval(timer);
   }, [session]);
 
+  useEffect(() => {
+    if (!session) return undefined;
+    let cancelled = false;
+    let timer: number | undefined;
+    const activeSessionId = session.session.id;
+
+    const renew = async () => {
+      try {
+        const renewed = await refreshGasMixerSession(session.session_token);
+        if (cancelled) return;
+        setSession((current) => current?.session.id === activeSessionId ? renewed : current);
+        setSessionError(null);
+      } catch (error) {
+        if (cancelled) return;
+        const remainingMs = Date.parse(session.session.expires_at) - Date.now();
+        if (remainingMs > 10_000) {
+          timer = window.setTimeout(() => void renew(), 5_000);
+          return;
+        }
+        setSession((current) => current?.session.id === activeSessionId ? null : current);
+        setSessionNotice(null);
+        setSessionError(error instanceof Error
+          ? error.message
+          : "The secure mixer session ended. Request control again.");
+      }
+    };
+
+    timer = window.setTimeout(
+      () => void renew(),
+      gasMixerSessionRenewalDelay(session.session.expires_at),
+    );
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [session]);
+
   const beginSession = async (mode: GasMixerSessionMode) => {
     setSessionBusy(mode);
     setSessionError(null);
@@ -131,6 +170,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
   const closeSession = async () => {
     const activeSession = session;
     setSession(null);
+    setSessionError(null);
     setSessionNotice(null);
     if (!activeSession) return;
     setSessionBusy("end");
@@ -158,7 +198,9 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
       setSessionNotice("Tap delivered to the mixer agent");
     } catch (error) {
       setSessionNotice(null);
-      setSessionError(error instanceof Error ? error.message : "Unable to send mixer input");
+      const message = error instanceof Error ? error.message : "Unable to send mixer input";
+      if (/invalid or expired/i.test(message)) setSession(null);
+      setSessionError(message);
     }
   };
 
@@ -210,7 +252,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
                       {session.session.mode === "control" ? <MousePointer2 size={15} /> : <Eye size={15} />}
                       {session.session.mode === "control" ? "Control session" : "View-only session"}
                     </span>
-                    <small>Expires {new Date(session.session.expires_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small>
+                    <small>Secure lease auto-renews while this page is open</small>
                     <button type="button" onClick={() => void closeSession()} aria-label="End mixer session">
                       <X size={15} /> End
                     </button>

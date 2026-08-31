@@ -27,6 +27,17 @@ export type GasMixerSessionAccess = {
   session_token: string;
 };
 
+const mixerSessionRenewalLeadMs = 60_000;
+
+export function gasMixerSessionRenewalDelay(
+  expiresAt: string,
+  nowMs = Date.now(),
+) {
+  const expiresAtMs = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresAtMs)) return 1_000;
+  return Math.max(1_000, expiresAtMs - nowMs - mixerSessionRenewalLeadMs);
+}
+
 export function normalizedMixerPoint(
   clientX: number,
   clientY: number,

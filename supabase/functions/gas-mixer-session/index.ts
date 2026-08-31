@@ -136,7 +136,10 @@ serve(async (request) => {
     return jsonResponse({ ok: true, status: data }, 200, origin);
   }
 
-  if (payload.action === "send_input" || payload.action === "end_session") {
+  if (
+    payload.action === "send_input" || payload.action === "end_session" ||
+    payload.action === "refresh_session"
+  ) {
     if (
       typeof payload.session_token !== "string" ||
       payload.session_token.length < 32
@@ -163,6 +166,81 @@ serve(async (request) => {
       return jsonResponse(
         { error: "The remote session is invalid or expired" },
         403,
+        origin,
+      );
+    }
+
+    if (payload.action === "refresh_session") {
+      const capability = capabilityForSessionMode(activeSession.mode);
+      const { data: allowed, error: accessError } = await userClient.rpc(
+        "has_system_admin_installation_access",
+        {
+          check_project_id: gasMixerProjectId,
+          check_device_id: gasMixerDeviceId,
+          check_capability: capability,
+        },
+      );
+      if (accessError || allowed !== true) {
+        return jsonResponse(
+          { error: "System-admin installation access is required" },
+          403,
+          origin,
+        );
+      }
+
+      const { data: deviceStatus, error: deviceError } = await serviceClient
+        .from("gas_mixer_device_status")
+        .select("connected,last_heartbeat_at,local_session_available")
+        .eq("project_id", gasMixerProjectId)
+        .eq("device_id", gasMixerDeviceId)
+        .maybeSingle();
+      if (deviceError || !deviceIsReady(deviceStatus)) {
+        return jsonResponse(
+          { error: "The Gas Mixer agent is not online" },
+          409,
+          origin,
+        );
+      }
+
+      const renewedExpiresAt = sessionExpiresAt();
+      const { data: renewedSession, error: renewalError } = await serviceClient
+        .from("gas_mixer_remote_sessions")
+        .update({
+          expires_at: renewedExpiresAt,
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq("id", activeSession.id)
+        .select("id,mode,issued_at,expires_at")
+        .single();
+      if (renewalError || !renewedSession) {
+        return jsonResponse(
+          { error: "Unable to renew the remote session" },
+          503,
+          origin,
+        );
+      }
+
+      const { data: renewedFrameLink, error: renewedFrameLinkError } =
+        await serviceClient.storage.from(frameBucket).createSignedUrl(
+          framePath,
+          gasMixerSessionTtlSeconds,
+        );
+      if (renewedFrameLinkError || !renewedFrameLink?.signedUrl) {
+        return jsonResponse(
+          { error: "Unable to renew the live mixer frame" },
+          503,
+          origin,
+        );
+      }
+
+      return jsonResponse(
+        {
+          ok: true,
+          session: renewedSession,
+          frame_url: renewedFrameLink.signedUrl,
+          session_token: payload.session_token,
+        },
+        200,
         origin,
       );
     }
@@ -291,6 +369,30 @@ serve(async (request) => {
   const sessionToken = base64Url(tokenBytes);
   const tokenHash = await sha256Hex(sessionToken);
   const expiresAt = sessionExpiresAt();
+
+  const now = new Date().toISOString();
+  await serviceClient.from("gas_mixer_remote_sessions").update({
+    status: "expired",
+    ended_at: now,
+    last_activity_at: now,
+  })
+    .eq("project_id", gasMixerProjectId)
+    .eq("device_id", gasMixerDeviceId)
+    .in("status", ["issued", "connected"])
+    .lt("expires_at", now);
+
+  if (mode === "control") {
+    await serviceClient.from("gas_mixer_remote_sessions").update({
+      status: "ended",
+      ended_at: now,
+      last_activity_at: now,
+    })
+      .eq("project_id", gasMixerProjectId)
+      .eq("device_id", gasMixerDeviceId)
+      .eq("user_id", userData.user.id)
+      .eq("mode", "control")
+      .in("status", ["issued", "connected"]);
+  }
 
   const { data: session, error: sessionError } = await serviceClient
     .from("gas_mixer_remote_sessions")

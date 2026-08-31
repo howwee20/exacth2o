@@ -152,6 +152,7 @@ jobs:
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
 
           cp portal-app/assets/* site-dist/portal-app/assets/
+          cp portal-app/gas-mixer-agent.py portal-app/pi-agent-update.sh site-dist/portal-app/
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
