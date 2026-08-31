@@ -14,7 +14,6 @@ import { useEffect, useState } from "react";
 import {
   gasMixerAccessDenied,
   gasMixerSessionRenewalDelay,
-  gasMixerStatusLabel,
   normalizedMixerPoint,
   type GasMixerSessionAccess,
   type GasMixerSessionMode,
@@ -95,8 +94,6 @@ export function ChamberControlAdminTile({ onOpen }: { onOpen: () => void }) {
       <span className="portal-launch-copy">
         <span className="portal-launch-title">Chamber Control</span>
         <strong>Gas Mixer</strong>
-        <em>{failed ? "Status check failed" : gasMixerStatusLabel(status)}</em>
-        <em>Lighting automation · next integration</em>
       </span>
     </button>
   );
@@ -212,14 +209,10 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     <main className="dashboard-shell chamber-control-shell">
       <section className="chamber-control-page">
         <header className="chamber-control-heading">
-          <div>
-            <span className="chamber-control-eyebrow">System admin · installation control</span>
-            <h1>Chamber Control</h1>
-            <p>One workspace for the chamber's gas environment and lighting system.</p>
-          </div>
-          <button type="button" className="header-action" onClick={leaveChamber}>
-            <ArrowLeft size={15} /> Home
+          <button type="button" className="chamber-back-button" onClick={leaveChamber}>
+            <ArrowLeft size={17} /> Back
           </button>
+          <h1>Chamber Control</h1>
         </header>
 
         {denied ? (
@@ -236,9 +229,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
               <header>
                 <span className="chamber-module-icon"><MonitorUp size={21} /></span>
                 <div>
-                  <span>Module 1</span>
                   <h2>Gas Mixer</h2>
-                  <p>The exact interface running on the Raspberry Pi—never a reconstructed copy.</p>
                 </div>
                 <span className={`chamber-status ${status?.online ? "is-online" : "is-offline"}`}>
                   {loading ? "Checking" : status?.online ? "Online" : "Agent pending"}
@@ -272,12 +263,6 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
                   {loading ? <Loader2 className="chart-loading-spinner" size={30} /> : null}
                   {!loading && failed ? <AlertTriangle size={30} /> : null}
                   {!loading && !failed ? <MonitorUp size={38} /> : null}
-                  <strong>{failed ? "Connection status unavailable" : gasMixerStatusLabel(status)}</strong>
-                  <p>
-                    {status?.online
-                      ? "The device agent is connected. Start a short-lived, audited session below."
-                      : "The physical Pi and its mixer application remain unchanged while the outbound screen agent connects."}
-                  </p>
                   <small>{statusTime(status?.last_seen_at)}</small>
                 </div>
               )}
@@ -312,11 +297,8 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
               <header>
                 <span className="chamber-module-icon"><Lightbulb size={21} /></span>
                 <div>
-                  <span>Module 2 · next</span>
                   <h2>Lighting Automation</h2>
-                  <p>The separate NetBeans/Windows controller will connect here after Gas Mixer validation.</p>
                 </div>
-                <span className="chamber-status is-planned">Planned</span>
               </header>
               <div className="lighting-preview" aria-label="Lighting controls planned for the next integration">
                 <label><span>Light</span><input type="checkbox" disabled /></label>

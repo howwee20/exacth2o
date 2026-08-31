@@ -5935,34 +5935,45 @@ select {
 }
 
 .chamber-control-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
   margin-bottom: 28px;
 }
 
 .chamber-control-heading h1 {
-  margin: 5px 0 7px;
+  margin: 0;
   color: var(--portal-ink);
   font-size: clamp(2rem, 5vw, 3.8rem);
   letter-spacing: -0.055em;
 }
 
-.chamber-control-heading p {
-  max-width: 680px;
-  margin: 0;
-  color: #64746d;
-  line-height: 1.55;
+.chamber-back-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid rgba(14, 26, 20, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--portal-ink);
+  cursor: pointer;
+  font-family: var(--portal-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.chamber-control-eyebrow {
+.chamber-back-button:hover,
+.chamber-back-button:focus-visible {
+  border-color: rgba(26, 107, 74, 0.36);
+  background: #ffffff;
   color: var(--portal-water);
-  font-family: var(--portal-mono);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  outline: 3px solid rgba(26, 107, 74, 0.12);
 }
 
 .chamber-module-stack {
@@ -5987,25 +5998,9 @@ select {
   border-bottom: 1px solid rgba(14, 26, 20, 0.09);
 }
 
-.chamber-module > header > div > span {
-  color: var(--portal-water);
-  font-family: var(--portal-mono);
-  font-size: 0.58rem;
-  font-weight: 750;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
 .chamber-module h2 {
-  margin: 3px 0;
-  font-size: 1.15rem;
-}
-
-.chamber-module > header p {
   margin: 0;
-  color: #66766f;
-  font-size: 0.76rem;
-  line-height: 1.45;
+  font-size: 1.15rem;
 }
 
 .chamber-module-icon {
@@ -6031,7 +6026,6 @@ select {
 
 .chamber-status.is-online { background: #dff7e9; color: #17623e; }
 .chamber-status.is-offline { background: #fff0e8; color: #9a4a21; }
-.chamber-status.is-planned { background: #f1efff; color: #5b4bb7; }
 
 .gas-mixer-stage {
   min-height: 430px;
@@ -6049,8 +6043,6 @@ select {
   text-align: center;
 }
 
-.gas-mixer-stage strong { color: var(--portal-ink); font-size: 1rem; }
-.gas-mixer-stage p { max-width: 520px; margin: 0; color: #64746d; line-height: 1.55; }
 .gas-mixer-stage small { color: #829089; font-family: var(--portal-mono); font-size: 0.62rem; }
 
 .gas-mixer-live-stage {
@@ -6211,8 +6203,8 @@ select {
 
 @media (max-width: 700px) {
   .chamber-control-page { width: min(100% - 28px, 1180px); padding-top: 24px; }
-  .chamber-control-heading { display: grid; }
-  .chamber-control-heading .header-action { justify-self: start; }
+  .chamber-control-heading { grid-template-columns: 1fr; }
+  .chamber-back-button { justify-self: start; }
   .chamber-module > header { grid-template-columns: auto minmax(0, 1fr); }
   .chamber-status { grid-column: 2; justify-self: start; }
   .gas-mixer-stage { min-height: 320px; padding: 24px 18px; }

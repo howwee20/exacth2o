@@ -50,13 +50,6 @@ export function normalizedMixerPoint(
   };
 }
 
-export function gasMixerStatusLabel(status: GasMixerRemoteStatus | null) {
-  if (!status) return "Checking secure connection...";
-  if (!status.online) return "Waiting for the Pi agent";
-  if (status.active_session) return "Remote session active";
-  return "Ready for secure viewing";
-}
-
 export function gasMixerAccessDenied(error: { code?: string; message?: string }) {
   return error.code === "42501" || /installation access is required/i.test(error.message ?? "");
 }
