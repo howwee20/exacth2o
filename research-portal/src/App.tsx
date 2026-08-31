@@ -98,6 +98,10 @@ import {
 } from "./experimentClient";
 import { WalkerAdminTile } from "./WalkerObservationView";
 import {
+  ChamberControlAdminTile,
+  ChamberControlView,
+} from "./ChamberControlView";
+import {
   isWalkerAccessDenied,
   toggleWalkerSensorSelection,
   walkerSensorsByBoard,
@@ -216,7 +220,7 @@ type WateringOverlayTooltip = WateringOverlayMarker & {
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
-type PortalView = "home" | "experiment" | "health" | "support" | "rd" | "walker";
+type PortalView = "home" | "experiment" | "health" | "support" | "rd" | "walker" | "chamber";
 type RdAccessStatus = "unknown" | "allowed" | "denied";
 
 type PortalAccess = {
@@ -3469,6 +3473,7 @@ function PortalAdminHome({
   onOpenSupport,
   onOpenRd,
   onOpenWalker,
+  onOpenChamber,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
@@ -3484,6 +3489,7 @@ function PortalAdminHome({
   onOpenSupport: () => void;
   onOpenRd: () => void;
   onOpenWalker: () => void;
+  onOpenChamber: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
@@ -3564,6 +3570,8 @@ function PortalAdminHome({
               <span className="portal-launch-action">Open Lab</span>
             </button>
           ) : null}
+
+          <ChamberControlAdminTile onOpen={onOpenChamber} />
 
           <WalkerAdminTile onOpen={onOpenWalker} />
         </div>
@@ -7647,6 +7655,7 @@ export default function App() {
             setPortalView("rd");
           }}
           onOpenWalker={() => setPortalView("walker")}
+          onOpenChamber={() => setPortalView("chamber")}
         />
         {experimentCatalogError ? (
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
@@ -7798,6 +7807,10 @@ export default function App() {
 
   if (isAdmin && portalView === "walker") {
     return <WalkerExperimentView onBack={() => setPortalView("home")} />;
+  }
+
+  if (isAdmin && portalView === "chamber") {
+    return <ChamberControlView onBack={() => setPortalView("home")} />;
   }
 
   return (

@@ -96,6 +96,8 @@ jobs:
           deno check supabase/functions/assistant-automation-runner/index.ts
           deno check supabase/functions/create-control-command/index.ts
           deno check supabase/functions/experiment-builder/index.ts
+          deno check supabase/functions/gas-mixer-agent/index.ts
+          deno check supabase/functions/gas-mixer-session/index.ts
           deno check supabase/functions/notification-dispatcher/index.ts
           deno check supabase/functions/rd-admin-lab/index.ts
           deno check supabase/functions/receive-walker-telemetry/index.ts

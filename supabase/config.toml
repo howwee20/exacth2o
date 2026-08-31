@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.receive-walker-telemetry]
 verify_jwt = false
+
+[functions.gas-mixer-session]
+verify_jwt = true
+
+[functions.gas-mixer-agent]
+verify_jwt = false
