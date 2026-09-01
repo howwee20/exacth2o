@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   applyGasMixerNativeField,
@@ -222,8 +222,7 @@ export function GasMixerNativeControl() {
 
   return (
     <section className="chamber-module is-gas-mixer-native">
-      <header>
-        <span className="chamber-module-icon"><SlidersHorizontal size={21} /></span>
+      <header className="is-iconless">
         <div><h2>Gas Mixer V2</h2></div>
         <span className={`chamber-status ${ready ? "is-online" : "is-offline"}`}>
           {loading ? "Checking" : ready ? "Ready" : "Commissioning"}

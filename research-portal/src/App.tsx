@@ -3545,6 +3545,17 @@ function PortalAdminHome({
         </div>
 
         <div className="portal-business-stack">
+          <WalkerAdminTile onOpen={onOpenWalker} />
+
+          <ChamberControlAdminTile onOpen={onOpenChamber} />
+
+          {rdAccessAllowed ? (
+            <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
+              <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
+              <span className="portal-launch-action">Open Lab</span>
+            </button>
+          ) : null}
+
           <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
             <span className="portal-launch-top">
               <span className="portal-launch-icon">
@@ -3563,17 +3574,6 @@ function PortalAdminHome({
               Open <ArrowRight size={14} />
             </span>
           </button>
-
-          {rdAccessAllowed ? (
-            <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
-              <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
-              <span className="portal-launch-action">Open Lab</span>
-            </button>
-          ) : null}
-
-          <ChamberControlAdminTile onOpen={onOpenChamber} />
-
-          <WalkerAdminTile onOpen={onOpenWalker} />
         </div>
       </div>
 

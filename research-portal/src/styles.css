@@ -5935,18 +5935,10 @@ select {
 }
 
 .chamber-control-heading {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 28px;
-}
-
-.chamber-control-heading h1 {
-  margin: 0;
-  color: var(--portal-ink);
-  font-size: clamp(2rem, 5vw, 3.8rem);
-  letter-spacing: -0.055em;
 }
 
 .chamber-back-button {
@@ -5996,6 +5988,10 @@ select {
   gap: 14px;
   padding: 18px 20px;
   border-bottom: 1px solid rgba(14, 26, 20, 0.09);
+}
+
+.chamber-module > header.is-iconless {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .chamber-module h2 {
@@ -6356,6 +6352,10 @@ select {
   border-top: 1px solid rgba(14, 26, 20, 0.09);
 }
 
+.chamber-module > footer.gas-mixer-actions-footer {
+  justify-content: flex-end;
+}
+
 .chamber-module > footer span {
   display: inline-flex;
   align-items: center;
@@ -6417,7 +6417,6 @@ select {
 
 @media (max-width: 700px) {
   .chamber-control-page { width: min(100% - 28px, 1180px); padding-top: 24px; }
-  .chamber-control-heading { grid-template-columns: 1fr; }
   .chamber-back-button { justify-self: start; }
   .chamber-module > header { grid-template-columns: auto minmax(0, 1fr); }
   .chamber-status { grid-column: 2; justify-self: start; }

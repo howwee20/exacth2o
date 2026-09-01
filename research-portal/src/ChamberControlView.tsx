@@ -208,7 +208,6 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
           <button type="button" className="chamber-back-button" onClick={leaveChamber}>
             <ArrowLeft size={17} /> Back
           </button>
-          <h1>Chamber Control</h1>
         </header>
 
         {denied ? (
@@ -224,8 +223,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
             <GasMixerNativeControl />
 
             <section className="chamber-module is-gas-mixer">
-              <header>
-                <span className="chamber-module-icon"><MonitorUp size={21} /></span>
+              <header className="is-iconless">
                 <div>
                   <h2>Gas Mixer</h2>
                 </div>
@@ -268,9 +266,8 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
               {sessionError ? <p className="gas-mixer-session-error" role="alert">{sessionError}</p> : null}
               {sessionNotice ? <p className="gas-mixer-session-notice">{sessionNotice}</p> : null}
 
-              <footer>
-                <span><ShieldCheck size={15} /> Admin capability checked per installation</span>
-                {!session ? (
+              {!session ? (
+                <footer className="gas-mixer-actions-footer">
                   <span className="gas-mixer-session-actions">
                     <button
                       type="button"
@@ -287,8 +284,8 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
                       {sessionBusy === "control" ? <Loader2 size={14} /> : <MousePointer2 size={14} />} Request control
                     </button>
                   </span>
-                ) : null}
-              </footer>
+                </footer>
+              ) : null}
             </section>
 
             <section className="chamber-module is-lighting">
