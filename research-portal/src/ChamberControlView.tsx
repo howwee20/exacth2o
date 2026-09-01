@@ -25,6 +25,7 @@ import {
   refreshGasMixerSession,
   sendGasMixerTap,
 } from "./chamberControlClient";
+import { GasMixerNativeControl } from "./GasMixerNativeControl";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -220,6 +221,8 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
           </section>
         ) : (
           <div className="chamber-module-stack">
+            <GasMixerNativeControl />
+
             <section className="chamber-module is-gas-mixer">
               <header>
                 <span className="chamber-module-icon"><MonitorUp size={21} /></span>

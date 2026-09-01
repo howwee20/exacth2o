@@ -66,6 +66,7 @@ jobs:
           node --test supabase/functions/_shared/abuse-prevention.test.mjs
           node --test supabase/functions/_shared/installation-config.test.mjs
           node --test supabase/functions/_shared/operation-ledger.test.mjs
+          node --test supabase/functions/_shared/gas-mixer-native-policy.test.mjs
           node --test supabase/functions/notification-dispatcher/notification-policy.test.mjs
           node --test supabase/functions/rd-admin-lab/pagination-policy.test.mjs
           node --test supabase/functions/rd-admin-lab/response-policy.test.mjs
@@ -97,6 +98,8 @@ jobs:
           deno check supabase/functions/create-control-command/index.ts
           deno check supabase/functions/experiment-builder/index.ts
           deno check supabase/functions/gas-mixer-agent/index.ts
+          deno check supabase/functions/gas-mixer-native-agent/index.ts
+          deno check supabase/functions/gas-mixer-native-control/index.ts
           deno check supabase/functions/gas-mixer-session/index.ts
           deno check supabase/functions/notification-dispatcher/index.ts
           deno check supabase/functions/rd-admin-lab/index.ts
@@ -153,6 +156,7 @@ jobs:
 
           cp portal-app/assets/* site-dist/portal-app/assets/
           cp portal-app/gas-mixer-agent.py portal-app/pi-agent-update.sh site-dist/portal-app/
+          cp portal-app/gas-mixer-native-bridge.py portal-app/install-gas-mixer-native-bridge.sh portal-app/rollback-gas-mixer-native-bridge.sh site-dist/portal-app/
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3

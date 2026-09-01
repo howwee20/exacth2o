@@ -38,3 +38,9 @@ verify_jwt = true
 
 [functions.gas-mixer-agent]
 verify_jwt = false
+
+[functions.gas-mixer-native-control]
+verify_jwt = true
+
+[functions.gas-mixer-native-agent]
+verify_jwt = false
