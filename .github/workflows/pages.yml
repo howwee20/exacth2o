@@ -67,6 +67,7 @@ jobs:
           node --test supabase/functions/_shared/installation-config.test.mjs
           node --test supabase/functions/_shared/operation-ledger.test.mjs
           node --test supabase/functions/_shared/gas-mixer-native-policy.test.mjs
+          node --test supabase/functions/_shared/lighting-native-policy.test.mjs
           node --test supabase/functions/notification-dispatcher/notification-policy.test.mjs
           node --test supabase/functions/rd-admin-lab/pagination-policy.test.mjs
           node --test supabase/functions/rd-admin-lab/response-policy.test.mjs
@@ -101,6 +102,8 @@ jobs:
           deno check supabase/functions/gas-mixer-native-agent/index.ts
           deno check supabase/functions/gas-mixer-native-control/index.ts
           deno check supabase/functions/gas-mixer-session/index.ts
+          deno check supabase/functions/lighting-native-agent/index.ts
+          deno check supabase/functions/lighting-native-control/index.ts
           deno check supabase/functions/notification-dispatcher/index.ts
           deno check supabase/functions/rd-admin-lab/index.ts
           deno check supabase/functions/receive-walker-telemetry/index.ts

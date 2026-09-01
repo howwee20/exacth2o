@@ -6383,23 +6383,168 @@ select {
 }
 
 .chamber-module.is-lighting {
-  opacity: 0.82;
+  background: rgba(255, 255, 255, 0.96);
 }
 
-.lighting-preview {
+.lighting-native-panel {
   display: grid;
-  grid-template-columns: minmax(120px, 0.5fr) minmax(220px, 1fr);
-  gap: 18px;
-  padding: 22px 20px;
-  background: #fbfafc;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  min-height: 230px;
+  background: #eef6f2;
 }
 
-.lighting-preview label {
+.lighting-native-form {
   display: grid;
-  gap: 9px;
-  color: #68716d;
+  grid-template-columns: minmax(160px, 0.65fr) minmax(260px, 1.35fr);
+  align-items: stretch;
+  gap: 1px;
+  padding: 1px;
+  background: #b9cbc2;
+}
+
+.lighting-native-form > label {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  padding: 28px;
+  background: #ffffff;
+}
+
+.lighting-native-form > label > span:first-child {
+  color: #52625b;
+  font-family: var(--portal-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lighting-native-switch {
+  grid-template-columns: 1fr auto;
+}
+
+.lighting-native-switch input {
+  width: 56px;
+  height: 30px;
+  accent-color: var(--portal-water);
+  cursor: pointer;
+}
+
+.lighting-native-switch input:disabled {
+  cursor: not-allowed;
+}
+
+.lighting-native-switch strong {
+  grid-column: 1 / -1;
+  color: #173a2c;
+  font-size: 1.8rem;
+}
+
+.lighting-native-intensity em {
+  color: #75817c;
+  font-size: 0.68rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.lighting-native-number-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.lighting-native-number-wrap small {
+  padding-bottom: 9px;
+  color: #6d7c75;
   font-family: var(--portal-mono);
   font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.lighting-native-number {
+  min-width: 0;
+  width: 100%;
+  padding: 7px 2px 5px;
+  border: 0;
+  border-bottom: 2px solid #aebdb6;
+  border-radius: 0;
+  background: transparent;
+  color: #173a2c;
+  font: inherit;
+  font-family: var(--portal-mono);
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+.lighting-native-number::-webkit-inner-spin-button,
+.lighting-native-number::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.lighting-native-number:not([readonly]):focus {
+  border-bottom-color: var(--portal-water);
+  background: #f0faf5;
+  outline: 3px solid rgba(26, 107, 74, 0.12);
+}
+
+.lighting-native-number[readonly] {
+  color: #9aa8a1;
+}
+
+.lighting-native-number.is-sending { border-bottom-color: #d89b27; }
+.lighting-native-number.is-confirmed { border-bottom-color: #4caf50; }
+.lighting-native-number.is-failed { border-bottom-color: #f44336; color: #b3261e; }
+
+.lighting-native-state {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: #fbfdfc;
+}
+
+.lighting-native-state dl {
+  margin: 0;
+  padding: 18px 20px;
+}
+
+.lighting-native-state dl div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid #e1e9e5;
+}
+
+.lighting-native-state dt {
+  color: #748079;
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lighting-native-state dd {
+  margin: 0;
+  color: #1b362b;
+  font-size: 0.76rem;
+  font-weight: 650;
+  text-align: right;
+}
+
+.lighting-native-receipt {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-top: 1px solid #e1e9e5;
+  color: #65736c;
+  font-family: var(--portal-mono);
+  font-size: 0.62rem;
 }
 
 .chamber-access-denied {
@@ -6430,12 +6575,16 @@ select {
   .native-mfc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
   .chamber-module > footer { align-items: flex-start; flex-direction: column; }
   .gas-mixer-session-actions { justify-content: flex-start; }
-  .lighting-preview { grid-template-columns: 1fr; }
+  .lighting-native-panel,
+  .lighting-native-form { grid-template-columns: 1fr; }
+  .lighting-native-state dl div { grid-template-columns: 1fr; gap: 5px; }
+  .lighting-native-state dd { text-align: left; }
 }
 
 @media (min-width: 701px) and (max-width: 980px) {
   .native-mixer-panel { grid-template-columns: 1fr; }
   .native-mixer-ledger { min-height: 300px; }
+  .lighting-native-panel { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 980px) {

@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   Eye,
-  Lightbulb,
   Loader2,
   MousePointer2,
   MonitorUp,
@@ -26,6 +25,7 @@ import {
   sendGasMixerTap,
 } from "./chamberControlClient";
 import { GasMixerNativeControl } from "./GasMixerNativeControl";
+import { LightingNativeControl } from "./LightingNativeControl";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -306,18 +306,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
               ) : null}
             </section>
 
-            <section className="chamber-module is-lighting">
-              <header>
-                <span className="chamber-module-icon"><Lightbulb size={21} /></span>
-                <div>
-                  <h2>Lighting Automation</h2>
-                </div>
-              </header>
-              <div className="lighting-preview" aria-label="Lighting controls planned for the next integration">
-                <label><span>Light</span><input type="checkbox" disabled /></label>
-                <label><span>Intensity</span><input type="range" min="0" max="100" value="0" readOnly disabled /></label>
-              </div>
-            </section>
+            <LightingNativeControl />
           </div>
         )}
       </section>
