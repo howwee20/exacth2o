@@ -9,11 +9,13 @@ reference to the live `PiMfcGuiModel`. It therefore:
 - never opens `/dev/ttyUSB0` or creates a second Alicat controller;
 - sends structured requested/applied/observed state over outbound HTTPS;
 - applies only the configured LI-COR, total-flow, ratio, and setpoint fields;
+- isolates outbound HTTPS in a coalescing standard Python worker so a slow
+  network cannot build an unbounded Qt event backlog or crash the mixer UI;
 - rejects balance-MFC writes, unavailable channels, stale revisions, unknown
   fields, shell input, GPIO input, and arbitrary payloads; and
 - leaves the physical touchscreen and V1 live-screen agent in place.
 
 `install-native-bridge.sh` stages the module and an additive two-line entrypoint
-hook, saves an exact rollback copy first, validates Python syntax, and does not
-restart the running mixer. The supervised no-gas commissioning reboot is the
-only point at which the staged bridge becomes active.
+hook, preserves the original exact rollback copy, validates Python syntax, and
+does not restart the running mixer. The supervised no-gas commissioning reboot
+is the only point at which the staged bridge becomes active.

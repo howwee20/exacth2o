@@ -9,8 +9,8 @@ fi
 app_root="$HOME/dev/pi-mfc-gui"
 entrypoint="$app_root/pi-mfc-gui.py"
 bridge_url="https://exacth2o.com/portal-app/gas-mixer-native-bridge.py"
-bridge_fallback_url="https://raw.githubusercontent.com/howwee20/exacth2o/3f3b21d563c2c0516137db5770229a410914336c/portal-app/gas-mixer-native-bridge.py"
-bridge_sha256="7e4e6390eb2c1bc662adc5e48e8ab0be73cb202b41e23cec561f57d62300b104"
+bridge_fallback_url="https://raw.githubusercontent.com/howwee20/exacth2o/ej-supabase-research-portal/portal-app/gas-mixer-native-bridge.py"
+bridge_sha256="2fe6b9cd7494f215fcd9d5d70a81c122006da54f27d600e916ea2b279ebcf78d"
 state_root="$HOME/.local/state/exacth2o-gas-mixer-native-bridge"
 backup_root="$state_root/backups/$(date +%Y%m%d-%H%M%S)"
 
@@ -57,7 +57,13 @@ path.write_text(text)
 PY
 
 python3 -m py_compile "$entrypoint" "$app_root/native_bridge.py"
-printf '%s\n' "$backup_root" >"$state_root/last-backup"
+# Preserve the first pre-bridge backup as the full rollback target. Record the
+# newest upgrade backup separately for diagnosis without erasing that escape
+# hatch on every update.
+if [ ! -f "$state_root/last-backup" ]; then
+  printf '%s\n' "$backup_root" >"$state_root/last-backup"
+fi
+printf '%s\n' "$backup_root" >"$state_root/last-update-backup"
 sync
 echo "NATIVE_BRIDGE_STAGED"
 echo "The running mixer and existing screen agent have not been restarted or changed."

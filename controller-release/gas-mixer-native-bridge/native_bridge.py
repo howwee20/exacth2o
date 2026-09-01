@@ -10,16 +10,18 @@ import hashlib
 import json
 import math
 import os
+import queue
+import threading
 import time
 import urllib.error
 import urllib.request
 
-from PySide2.QtCore import QObject, QThread, QTimer, Signal, Slot
+from PySide2.QtCore import QObject, QTimer, Slot
 
 from config import err_thresh, mfc_config
 
 
-BRIDGE_VERSION = "exacth2o-gas-mixer-native-bridge/2.0.0"
+BRIDGE_VERSION = "exacth2o-gas-mixer-native-bridge/2.1.0"
 CONFIG_PATH = os.path.expanduser("~/.config/exacth2o-gas-mixer-agent/config.json")
 
 
@@ -52,87 +54,156 @@ def _native_endpoint():
     return endpoint.rsplit("/", 1)[0] + "/gas-mixer-native-agent", token
 
 
-class NativeCloudWorker(QObject):
-    commands_ready = Signal(list)
+class NativeCloudWorker(object):
+    """Network worker isolated from Qt's object and thread machinery.
+
+    The original bridge placed blocking HTTPS calls and rapidly queued Python
+    objects on a QThread. On the Walker Pi's Python 3.7/PySide2 stack that
+    eventually produced a native QThread SIGSEGV and killed the mixer GUI.
+    This worker keeps only the newest state snapshot under a normal Python
+    lock and returns commands through a bounded, main-thread timer drain.
+    """
 
     def __init__(self):
-        super().__init__()
         self._endpoint = None
         self._token = None
-        self._timer = None
         self._last_heartbeat = 0.0
         self._last_state_hash = None
         self._state = None
         self._revision = 0
         self._sync_requested = False
-        self._busy = False
+        self._state_sequence = 0
+        self._state_lock = threading.Lock()
+        self._commands = queue.Queue()
+        self._command_ids = set()
+        self._acknowledgements = queue.Queue()
+        self._stop = threading.Event()
+        self._thread = None
 
-    @Slot()
     def start(self):
-        self._endpoint, self._token = _native_endpoint()
-        self._timer = QTimer(self)
-        self._timer.setInterval(250)
-        self._timer.timeout.connect(self.tick)
-        self._timer.start()
-        self.tick()
+        self._thread = threading.Thread(
+            target=self._run,
+            name="exacth2o-native-cloud",
+        )
+        self._thread.daemon = True
+        self._thread.start()
 
-    @Slot(dict, object, bool)
     def publish_state(self, state, revision, sync_requested):
-        self._state = state
-        self._revision = revision
-        self._sync_requested = self._sync_requested or sync_requested
+        # Replace the previous snapshot instead of queueing every 250 ms. If
+        # the network is slow, memory and Qt's event queue remain bounded.
+        with self._state_lock:
+            self._state = state
+            self._revision = revision
+            self._sync_requested = self._sync_requested or sync_requested
+            self._state_sequence += 1
 
-    @Slot(dict)
     def acknowledge(self, payload):
-        try:
-            _post_json(self._endpoint, self._token, dict({"action": "ack"}, **payload))
-        except Exception as error:
-            print("Native bridge acknowledgement failed: {}".format(error))
+        self._acknowledgements.put(payload)
 
-    @Slot()
-    def tick(self):
-        if self._busy or not self._endpoint:
-            return
-        self._busy = True
-        try:
-            now = time.monotonic()
-            if self._state is not None and now - self._last_heartbeat >= 10:
+    def drain_commands(self):
+        commands = []
+        while len(commands) < 10:
+            try:
+                commands.append(self._commands.get_nowait())
+            except queue.Empty:
+                break
+        return commands
+
+    def stop(self):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(2.0)
+
+    def _state_snapshot(self):
+        with self._state_lock:
+            return (
+                self._state,
+                self._revision,
+                self._sync_requested,
+                self._state_sequence,
+            )
+
+    def _mark_state_sent(self, sequence, state_hash):
+        with self._state_lock:
+            self._last_state_hash = state_hash
+            if self._state_sequence == sequence:
+                self._sync_requested = False
+
+    def _send_acknowledgements(self):
+        while True:
+            try:
+                payload = self._acknowledgements.get_nowait()
+            except queue.Empty:
+                return
+            try:
+                _post_json(
+                    self._endpoint,
+                    self._token,
+                    dict({"action": "ack"}, **payload)
+                )
+            except Exception:
+                # Keep the acknowledgement durable in memory for the next
+                # network attempt instead of blocking or crashing the GUI.
+                self._acknowledgements.put(payload)
+                raise
+
+    def _tick(self):
+        state, revision, sync_requested, sequence = self._state_snapshot()
+        now = time.monotonic()
+        if state is not None and now - self._last_heartbeat >= 10:
+            _post_json(self._endpoint, self._token, {
+                "action": "heartbeat",
+                "bridge_ready": True,
+                "bridge_version": BRIDGE_VERSION,
+            })
+            self._last_heartbeat = now
+        if state is not None:
+            encoded = json.dumps(
+                state,
+                sort_keys=True,
+                separators=(",", ":")
+            ).encode("utf-8")
+            state_hash = hashlib.sha256(encoded).hexdigest()
+            if state_hash != self._last_state_hash or sync_requested:
                 _post_json(self._endpoint, self._token, {
-                    "action": "heartbeat",
-                    "bridge_ready": True,
-                    "bridge_version": BRIDGE_VERSION,
+                    "action": "state",
+                    "state_revision": revision,
+                    "applied_state": state,
+                    "observed_state": state,
+                    "sync_requested": sync_requested,
                 })
-                self._last_heartbeat = now
-            if self._state is not None:
-                encoded = json.dumps(self._state, sort_keys=True, separators=(",", ":")).encode("utf-8")
-                state_hash = hashlib.sha256(encoded).hexdigest()
-                if state_hash != self._last_state_hash or self._sync_requested:
-                    _post_json(self._endpoint, self._token, {
-                        "action": "state",
-                        "state_revision": self._revision,
-                        "applied_state": self._state,
-                        "observed_state": self._state,
-                        "sync_requested": self._sync_requested,
-                    })
-                    self._last_state_hash = state_hash
-                    self._sync_requested = False
-            poll = _post_json(self._endpoint, self._token, {"action": "poll"})
-            commands = poll.get("commands", [])
-            if commands:
-                self.commands_ready.emit(commands)
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError, RuntimeError, ValueError) as error:
-            print("Native bridge cloud error: {}".format(error))
-        finally:
-            self._busy = False
+                self._mark_state_sent(sequence, state_hash)
+        self._send_acknowledgements()
+        poll = _post_json(self._endpoint, self._token, {"action": "poll"})
+        for command in poll.get("commands", []):
+            command_id = command.get("id")
+            if command_id and command_id not in self._command_ids:
+                self._command_ids.add(command_id)
+                self._commands.put(command)
+
+    def _run(self):
+        while not self._stop.is_set():
+            try:
+                if not self._endpoint:
+                    self._endpoint, self._token = _native_endpoint()
+                self._tick()
+            except (
+                urllib.error.URLError,
+                urllib.error.HTTPError,
+                OSError,
+                RuntimeError,
+                ValueError,
+            ) as error:
+                print("Native bridge cloud error: {}".format(error))
+            except Exception as error:
+                # A bridge defect must take the bridge offline, never the
+                # scientific instrument UI. Keep retrying and leave the Qt
+                # main thread and mixer model untouched.
+                print("Native bridge unexpected error: {}".format(error))
+            self._stop.wait(0.25)
 
 
 class NativeBridge(QObject):
-    # Epoch-millisecond revisions exceed Qt's signed 32-bit `int`. Carry the
-    # Python integer as an object so PySide does not raise OverflowError before
-    # the state reaches the cloud worker.
-    state_ready = Signal(dict, object, bool)
-    ack_ready = Signal(dict)
-
     def __init__(self, model, mfcs, parent=None):
         super().__init__(parent)
         self._model = model
@@ -143,21 +214,20 @@ class NativeBridge(QObject):
         self._last_control_hash = None
         self._applying_cloud_command = False
         self._command_results = {}
-        self._thread = QThread(parent)
         self._worker = NativeCloudWorker()
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.start)
-        self._worker.commands_ready.connect(self.apply_commands)
-        self.state_ready.connect(self._worker.publish_state)
-        self.ack_ready.connect(self._worker.acknowledge)
+        self._worker.start()
         if parent is not None and hasattr(parent, "aboutToQuit"):
             parent.aboutToQuit.connect(self.shutdown)
+
+        self._command_timer = QTimer(self)
+        self._command_timer.setInterval(250)
+        self._command_timer.timeout.connect(self.drain_commands)
+        self._command_timer.start()
 
         self._snapshot_timer = QTimer(self)
         self._snapshot_timer.setInterval(250)
         self._snapshot_timer.timeout.connect(self.publish_snapshot)
         self._snapshot_timer.start()
-        self._thread.start()
         self.publish_snapshot()
 
     def _channel_snapshot(self, configured, mfc):
@@ -208,12 +278,19 @@ class NativeBridge(QObject):
         if changed:
             self._revision += 1
         self._last_control_hash = control_hash
-        self.state_ready.emit(state, self._revision, sync_requested)
+        self._worker.publish_state(state, self._revision, sync_requested)
+
+    @Slot()
+    def drain_commands(self):
+        commands = self._worker.drain_commands()
+        if commands:
+            self.apply_commands(commands)
 
     @Slot()
     def shutdown(self):
-        self._thread.quit()
-        self._thread.wait(2000)
+        self._snapshot_timer.stop()
+        self._command_timer.stop()
+        self._worker.stop()
 
     def _set_channel_ratio(self, mfc, value):
         mfc.set_ratio(value)
@@ -238,7 +315,7 @@ class NativeBridge(QObject):
         for command in commands:
             command_id = command.get("id")
             if command_id in self._command_results:
-                self.ack_ready.emit(self._command_results[command_id])
+                self._worker.acknowledge(self._command_results[command_id])
                 continue
             try:
                 if int(command.get("expected_revision")) != self._revision:
@@ -246,7 +323,7 @@ class NativeBridge(QObject):
                 payload = command.get("payload") or {}
                 field = payload.get("field")
                 value = payload.get("value")
-                self.ack_ready.emit({"command_id": command_id, "status": "accepted"})
+                self._worker.acknowledge({"command_id": command_id, "status": "accepted"})
                 self._applying_cloud_command = True
                 if field == "use_licor" and isinstance(value, bool):
                     self._model.set_use_licor(value)
@@ -268,7 +345,7 @@ class NativeBridge(QObject):
                 self.publish_snapshot()
                 result = {"command_id": command_id, "status": "verified"}
                 self._command_results[command_id] = result
-                self.ack_ready.emit(result)
+                self._worker.acknowledge(result)
             except Exception as error:
                 result = {
                     "command_id": command_id,
@@ -276,6 +353,6 @@ class NativeBridge(QObject):
                     "error": str(error)[:240],
                 }
                 self._command_results[command_id] = result
-                self.ack_ready.emit(result)
+                self._worker.acknowledge(result)
             finally:
                 self._applying_cloud_command = False
