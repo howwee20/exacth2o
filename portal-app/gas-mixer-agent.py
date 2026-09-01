@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 
 
-AGENT_VERSION = "exacth2o-gas-mixer-agent/1.0.0"
+AGENT_VERSION = "exacth2o-gas-mixer-agent/1.0.1"
 WIDTH = 800
 HEIGHT = 480
 CONFIG_PATH = os.path.expanduser(
@@ -267,6 +267,11 @@ def main():
                                 "status": "executed",
                             },
                         )
+                        # Do not wait for the regular capture cadence after an
+                        # operator action. The next loop captures the updated
+                        # Qt screen while preserving the single latest.png
+                        # overwrite model.
+                        last_frame = 0.0
                     except Exception as error:
                         post_json(
                             endpoint,

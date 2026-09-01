@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   gasMixerAccessDenied,
   gasMixerSessionRenewalDelay,
@@ -102,12 +102,27 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const [frameRevision, setFrameRevision] = useState(0);
+  const frameRefreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!session) return undefined;
-    const timer = window.setInterval(() => setFrameRevision((value) => value + 1), 750);
-    return () => window.clearInterval(timer);
-  }, [session]);
+    return () => {
+      if (frameRefreshTimer.current !== null) {
+        window.clearTimeout(frameRefreshTimer.current);
+        frameRefreshTimer.current = null;
+      }
+    };
+  }, [session?.session.id]);
+
+  const scheduleFrameRefresh = (delayMs: number) => {
+    if (!session) return;
+    if (frameRefreshTimer.current !== null) {
+      window.clearTimeout(frameRefreshTimer.current);
+    }
+    frameRefreshTimer.current = window.setTimeout(() => {
+      frameRefreshTimer.current = null;
+      setFrameRevision((value) => value + 1);
+    }, delayMs);
+  };
 
   useEffect(() => {
     if (!session) return undefined;
@@ -189,6 +204,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     try {
       await sendGasMixerTap(session.session_token, point.x, point.y);
       setSessionNotice("Tap delivered to the mixer agent");
+      scheduleFrameRefresh(0);
     } catch (error) {
       setSessionNotice(null);
       const message = error instanceof Error ? error.message : "Unable to send mixer input";
@@ -248,6 +264,8 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
                     src={frameUrl}
                     alt="Live image of the exact Raspberry Pi gas mixer interface"
                     onClick={(event) => void sendTap(event)}
+                    onLoad={() => scheduleFrameRefresh(500)}
+                    onError={() => scheduleFrameRefresh(1_500)}
                     draggable={false}
                   />
                   {session.session.mode === "control" ? (
