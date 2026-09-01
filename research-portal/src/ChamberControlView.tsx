@@ -5,6 +5,7 @@ import {
   Loader2,
   MousePointer2,
   MonitorUp,
+  RefreshCw,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -102,6 +103,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const [frameRevision, setFrameRevision] = useState(0);
+  const [frameRefreshBusy, setFrameRefreshBusy] = useState(false);
   const frameRefreshTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -196,6 +198,24 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     onBack();
   };
 
+  const refreshFrameNow = async () => {
+    if (!session || frameRefreshBusy) return;
+    const activeSessionId = session.session.id;
+    setFrameRefreshBusy(true);
+    setSessionError(null);
+    try {
+      const renewed = await refreshGasMixerSession(session.session_token);
+      setSession((current) => current?.session.id === activeSessionId ? renewed : current);
+      setFrameRevision((value) => value + 1);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to refresh the mixer screen";
+      if (/invalid or expired/i.test(message)) setSession(null);
+      setSessionError(message);
+    } finally {
+      setFrameRefreshBusy(false);
+    }
+  };
+
   const sendTap = async (event: React.MouseEvent<HTMLImageElement>) => {
     if (!session || session.session.mode !== "control") return;
     const point = normalizedMixerPoint(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
@@ -256,9 +276,22 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
                       {session.session.mode === "control" ? "Control session" : "View-only session"}
                     </span>
                     <small>Secure lease auto-renews while this page is open</small>
-                    <button type="button" onClick={() => void closeSession()} aria-label="End mixer session">
-                      <X size={15} /> End
-                    </button>
+                    <span className="gas-mixer-session-buttons">
+                      <button
+                        type="button"
+                        onClick={() => void refreshFrameNow()}
+                        disabled={frameRefreshBusy}
+                        aria-label="Refresh mixer screen"
+                      >
+                        {frameRefreshBusy
+                          ? <Loader2 className="chart-loading-spinner" size={15} />
+                          : <RefreshCw size={15} />}
+                        {frameRefreshBusy ? "Refreshing" : "Refresh"}
+                      </button>
+                      <button type="button" onClick={() => void closeSession()} aria-label="End mixer session">
+                        <X size={15} /> End
+                      </button>
+                    </span>
                   </div>
                   <img
                     src={frameUrl}

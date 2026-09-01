@@ -6287,6 +6287,8 @@ select {
 
 .gas-mixer-session-bar small { color: #94a69d; }
 
+.gas-mixer-session-buttons { justify-content: flex-end; }
+
 .gas-mixer-session-bar button {
   min-height: 28px;
   padding: 0 9px;
@@ -6296,6 +6298,11 @@ select {
   color: #e8f0ec;
   cursor: pointer;
   font: inherit;
+}
+
+.gas-mixer-session-bar button:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .gas-mixer-live-stage img {
