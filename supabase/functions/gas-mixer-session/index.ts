@@ -138,7 +138,7 @@ serve(async (request) => {
 
   if (
     payload.action === "send_input" || payload.action === "end_session" ||
-    payload.action === "refresh_session"
+    payload.action === "refresh_session" || payload.action === "refresh_frame"
   ) {
     if (
       typeof payload.session_token !== "string" ||
@@ -170,7 +170,10 @@ serve(async (request) => {
       );
     }
 
-    if (payload.action === "refresh_session") {
+    if (
+      payload.action === "refresh_session" ||
+      payload.action === "refresh_frame"
+    ) {
       const capability = capabilityForSessionMode(activeSession.mode);
       const { data: allowed, error: accessError } = await userClient.rpc(
         "has_system_admin_installation_access",
@@ -198,6 +201,27 @@ serve(async (request) => {
         return jsonResponse(
           { error: "The Gas Mixer agent is not online" },
           409,
+          origin,
+        );
+      }
+
+      if (payload.action === "refresh_frame") {
+        const { data: refreshedFrameLink, error: refreshedFrameLinkError } =
+          await serviceClient.storage.from(frameBucket).createSignedUrl(
+            framePath,
+            gasMixerSessionTtlSeconds,
+          );
+        if (refreshedFrameLinkError || !refreshedFrameLink?.signedUrl) {
+          return jsonResponse(
+            { error: "Unable to refresh the live mixer frame" },
+            503,
+            origin,
+          );
+        }
+
+        return jsonResponse(
+          { ok: true, frame_url: refreshedFrameLink.signedUrl },
+          200,
           origin,
         );
       }

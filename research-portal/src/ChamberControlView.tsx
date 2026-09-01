@@ -22,6 +22,7 @@ import {
   createGasMixerSession,
   endGasMixerSession,
   loadGasMixerRemoteStatus,
+  refreshGasMixerFrame,
   refreshGasMixerSession,
   sendGasMixerTap,
 } from "./chamberControlClient";
@@ -204,8 +205,10 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     setFrameRefreshBusy(true);
     setSessionError(null);
     try {
-      const renewed = await refreshGasMixerSession(session.session_token);
-      setSession((current) => current?.session.id === activeSessionId ? renewed : current);
+      const refreshed = await refreshGasMixerFrame(session.session_token);
+      setSession((current) => current?.session.id === activeSessionId
+        ? { ...current, frame_url: refreshed.frame_url }
+        : current);
       setFrameRevision((value) => value + 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to refresh the mixer screen";

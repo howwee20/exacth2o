@@ -41,6 +41,20 @@ export async function refreshGasMixerSession(
   return data;
 }
 
+export async function refreshGasMixerFrame(
+  sessionToken: string,
+): Promise<{ frame_url: string }> {
+  const { data, error } = await supabase.functions.invoke<{ ok: boolean; frame_url: string }>(
+    "gas-mixer-session",
+    { body: { action: "refresh_frame", session_token: sessionToken } },
+  );
+  if (error) throw await gasMixerFunctionError(error, "Unable to refresh the Gas Mixer screen");
+  if (!data?.frame_url) {
+    throw new Error("The refreshed Gas Mixer frame response was incomplete");
+  }
+  return { frame_url: data.frame_url };
+}
+
 export async function sendGasMixerTap(
   sessionToken: string,
   normalizedX: number,
