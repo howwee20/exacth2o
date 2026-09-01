@@ -26,7 +26,7 @@ $properties = @(
     "enabled=true",
     "bridge_ready=$($Commission.IsPresent.ToString().ToLowerInvariant())",
     "poll_ms=1000",
-    "log_path=C:\ProgramData\ExactH2O\LightingBridge\lighting-agent.log"
+    "log_path=C:/ProgramData/ExactH2O/LightingBridge/lighting-agent.log"
 )
 $properties | Out-File (Join-Path $target "lighting-agent.properties") -Encoding ascii -Force
 

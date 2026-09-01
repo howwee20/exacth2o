@@ -13,8 +13,8 @@ while ($true) {
     try {
         $matches = & $jps -l 2>&1 | Select-String "PhenoSystemControl.Main"
         foreach ($match in $matches) {
-            $pid = ($match.Line -split "\s+")[0]
-            & $java -cp "$tools;$attachJar" com.exacth2o.lighting.LightingAttach $pid $agentJar $properties 2>&1 |
+            $controllerPid = ($match.Line -split "\s+")[0]
+            & $java -cp "$tools;$attachJar" com.exacth2o.lighting.LightingAttach $controllerPid $agentJar $properties 2>&1 |
                 Out-File -FilePath $log -Append -Encoding ascii
         }
     } catch {
