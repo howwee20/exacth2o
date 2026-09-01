@@ -5,8 +5,8 @@ $jps = Join-Path $jdkRoot "bin\jps.exe"
 $java = Join-Path $jdkRoot "bin\java.exe"
 $tools = Join-Path $jdkRoot "lib\tools.jar"
 $attachJar = Join-Path $bridgeRoot "exacth2o-lighting-attach.jar"
-$agentJar = Join-Path $bridgeRoot "exacth2o-lighting-agent.jar"
-$properties = Join-Path $bridgeRoot "lighting-agent.properties"
+$agentJar = Join-Path $bridgeRoot "exacth2o-lighting-agent-v2.jar"
+$properties = Join-Path $bridgeRoot "lighting-agent-v2.properties"
 $log = Join-Path $bridgeRoot "attach-loop.log"
 
 while ($true) {

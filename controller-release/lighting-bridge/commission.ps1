@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$propertiesPath = "C:\ProgramData\ExactH2O\LightingBridge\lighting-agent.properties"
+$propertiesPath = "C:\ProgramData\ExactH2O\LightingBridge\lighting-agent-v2.properties"
 if (-not (Test-Path $propertiesPath)) { throw "Lighting bridge is not installed" }
 
 $content = Get-Content $propertiesPath

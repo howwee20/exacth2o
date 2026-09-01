@@ -1588,6 +1588,12 @@ select {
   color: #0b5f4f;
 }
 
+.portal-launch-card.is-chamber-control .portal-launch-copy strong {
+  font-family: var(--portal-mono);
+  font-weight: 780;
+  letter-spacing: 0.03em;
+}
+
 .portal-launch-card:focus-visible {
   border-color: var(--portal-water);
   outline: 3px solid rgba(26, 107, 74, 0.16);

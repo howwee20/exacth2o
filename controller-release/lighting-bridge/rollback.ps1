@@ -1,13 +1,18 @@
 $ErrorActionPreference = "Continue"
 $target = "C:\ProgramData\ExactH2O\LightingBridge"
 $taskName = "ExactH2O Lighting Bridge"
-$propertiesPath = Join-Path $target "lighting-agent.properties"
+$propertiesPaths = @(
+    (Join-Path $target "lighting-agent.properties"),
+    (Join-Path $target "lighting-agent-v2.properties")
+)
 
-if (Test-Path $propertiesPath) {
-    $content = Get-Content $propertiesPath | ForEach-Object {
-        if ($_ -match '^enabled=') { 'enabled=false' } else { $_ }
+foreach ($propertiesPath in $propertiesPaths) {
+    if (Test-Path $propertiesPath) {
+        $content = Get-Content $propertiesPath | ForEach-Object {
+            if ($_ -match '^enabled=') { 'enabled=false' } else { $_ }
+        }
+        $content | Out-File $propertiesPath -Encoding ascii -Force
     }
-    $content | Out-File $propertiesPath -Encoding ascii -Force
 }
 
 schtasks.exe /Delete /TN $taskName /F 2>$null | Out-Null

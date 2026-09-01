@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Agent-Class: com.exacth2o.lighting.LightingAgentV2
+Premain-Class: com.exacth2o.lighting.LightingAgentV2
+Can-Redefine-Classes: false
+Can-Retransform-Classes: false
+

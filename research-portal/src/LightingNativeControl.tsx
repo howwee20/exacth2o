@@ -161,7 +161,6 @@ export function LightingNativeControl() {
             <div><dt>Requested</dt><dd>{status?.requested_intensity ?? 0}</dd></div>
             <div><dt>Controller</dt><dd>{status?.controller_intensity ?? 0}</dd></div>
             <div><dt>Last changed by</dt><dd>{status ? lightingSourceLabel(status.last_source) : "Waiting"}</dd></div>
-            <div><dt>Hardware readback</dt><dd>Not available on this controller</dd></div>
           </dl>
           <div className="lighting-native-receipt">
             {loading || phase === "sending" ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
