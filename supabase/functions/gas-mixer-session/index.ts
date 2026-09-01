@@ -154,7 +154,7 @@ serve(async (request) => {
     const { data: activeSession, error: activeSessionError } =
       await serviceClient
         .from("gas_mixer_remote_sessions")
-        .select("id,user_id,mode,status,expires_at")
+        .select("id,user_id,mode,status,issued_at,expires_at,metadata")
         .eq("project_id", gasMixerProjectId)
         .eq("device_id", gasMixerDeviceId)
         .eq("token_hash", tokenHash)
@@ -226,24 +226,6 @@ serve(async (request) => {
         );
       }
 
-      const renewedExpiresAt = sessionExpiresAt();
-      const { data: renewedSession, error: renewalError } = await serviceClient
-        .from("gas_mixer_remote_sessions")
-        .update({
-          expires_at: renewedExpiresAt,
-          last_activity_at: new Date().toISOString(),
-        })
-        .eq("id", activeSession.id)
-        .select("id,mode,issued_at,expires_at")
-        .single();
-      if (renewalError || !renewedSession) {
-        return jsonResponse(
-          { error: "Unable to renew the remote session" },
-          503,
-          origin,
-        );
-      }
-
       const { data: renewedFrameLink, error: renewedFrameLinkError } =
         await serviceClient.storage.from(frameBucket).createSignedUrl(
           framePath,
@@ -257,12 +239,52 @@ serve(async (request) => {
         );
       }
 
+      const renewedAtMs = Date.now();
+      const renewedAt = new Date(renewedAtMs).toISOString();
+      const renewedExpiresAt = sessionExpiresAt(renewedAtMs);
+      const renewedTokenBytes = crypto.getRandomValues(new Uint8Array(32));
+      const renewedSessionToken = base64Url(renewedTokenBytes);
+      const renewedTokenHash = await sha256Hex(renewedSessionToken);
+      const currentMetadata: Record<string, unknown> = activeSession.metadata &&
+          typeof activeSession.metadata === "object" &&
+          !Array.isArray(activeSession.metadata)
+        ? activeSession.metadata as Record<string, unknown>
+        : {};
+      const currentRenewalCount = Number(currentMetadata.renewal_count);
+      const { data: renewedSession, error: renewalError } = await serviceClient
+        .from("gas_mixer_remote_sessions")
+        .update({
+          token_hash: renewedTokenHash,
+          issued_at: renewedAt,
+          expires_at: renewedExpiresAt,
+          last_activity_at: renewedAt,
+          metadata: {
+            ...currentMetadata,
+            original_issued_at: currentMetadata.original_issued_at ??
+              activeSession.issued_at,
+            renewal_count: Number.isFinite(currentRenewalCount)
+              ? currentRenewalCount + 1
+              : 1,
+            last_renewed_at: renewedAt,
+          },
+        })
+        .eq("id", activeSession.id)
+        .select("id,mode,issued_at,expires_at")
+        .single();
+      if (renewalError || !renewedSession) {
+        return jsonResponse(
+          { error: "Unable to renew the remote session" },
+          503,
+          origin,
+        );
+      }
+
       return jsonResponse(
         {
           ok: true,
           session: renewedSession,
           frame_url: renewedFrameLink.signedUrl,
-          session_token: payload.session_token,
+          session_token: renewedSessionToken,
         },
         200,
         origin,

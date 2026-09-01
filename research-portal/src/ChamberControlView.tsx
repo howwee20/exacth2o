@@ -148,9 +148,10 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
         }
         setSession((current) => current?.session.id === activeSessionId ? null : current);
         setSessionNotice(null);
-        setSessionError(error instanceof Error
-          ? error.message
-          : "The secure mixer session ended. Request control again.");
+        const message = error instanceof Error ? error.message : "";
+        setSessionError(/invalid or expired/i.test(message)
+          ? null
+          : message || "The secure mixer session ended. Request control again.");
       }
     };
 
