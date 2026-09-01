@@ -76,7 +76,7 @@ class NativeCloudWorker(QObject):
         self._timer.start()
         self.tick()
 
-    @Slot(dict, int, bool)
+    @Slot(dict, object, bool)
     def publish_state(self, state, revision, sync_requested):
         self._state = state
         self._revision = revision
@@ -127,7 +127,10 @@ class NativeCloudWorker(QObject):
 
 
 class NativeBridge(QObject):
-    state_ready = Signal(dict, int, bool)
+    # Epoch-millisecond revisions exceed Qt's signed 32-bit `int`. Carry the
+    # Python integer as an object so PySide does not raise OverflowError before
+    # the state reaches the cloud worker.
+    state_ready = Signal(dict, object, bool)
     ack_ready = Signal(dict)
 
     def __init__(self, model, mfcs, parent=None):
