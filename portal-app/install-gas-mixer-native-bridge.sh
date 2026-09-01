@@ -9,6 +9,8 @@ fi
 app_root="$HOME/dev/pi-mfc-gui"
 entrypoint="$app_root/pi-mfc-gui.py"
 bridge_url="https://exacth2o.com/portal-app/gas-mixer-native-bridge.py"
+bridge_fallback_url="https://raw.githubusercontent.com/howwee20/exacth2o/3bba577195b945a80e9fd2e4b0e2e2358e1a896d/portal-app/gas-mixer-native-bridge.py"
+bridge_sha256="1b6fdd7fe4d201324a94d928ee525b690a98c9a6c6461156cf51850debc0b603"
 state_root="$HOME/.local/state/exacth2o-gas-mixer-native-bridge"
 backup_root="$state_root/backups/$(date +%Y%m%d-%H%M%S)"
 
@@ -19,7 +21,11 @@ if [ -f "$app_root/native_bridge.py" ]; then
   cp -p "$app_root/native_bridge.py" "$backup_root/native_bridge.py"
 fi
 
-curl -fsSL "$bridge_url" -o "$app_root/native_bridge.py.new"
+if ! curl -fsSL --connect-timeout 10 --max-time 60 "$bridge_url" -o "$app_root/native_bridge.py.new"; then
+  echo "Primary download unavailable; using the pinned GitHub release."
+  curl -fsSL --connect-timeout 10 --max-time 60 "$bridge_fallback_url" -o "$app_root/native_bridge.py.new"
+fi
+printf '%s  %s\n' "$bridge_sha256" "$app_root/native_bridge.py.new" | sha256sum -c -
 python3 -m py_compile "$app_root/native_bridge.py.new"
 mv "$app_root/native_bridge.py.new" "$app_root/native_bridge.py"
 chmod 600 "$app_root/native_bridge.py"
