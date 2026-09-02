@@ -1588,12 +1588,6 @@ select {
   color: #0b5f4f;
 }
 
-.portal-launch-card.is-chamber-control .portal-launch-copy strong {
-  font-family: var(--portal-mono);
-  font-weight: 780;
-  letter-spacing: 0.03em;
-}
-
 .portal-launch-card:focus-visible {
   border-color: var(--portal-water);
   outline: 3px solid rgba(26, 107, 74, 0.16);
@@ -5985,6 +5979,7 @@ select {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.93);
   box-shadow: 0 22px 54px rgba(14, 26, 20, 0.08);
+  font-family: var(--portal-mono);
 }
 
 .chamber-module > header {
@@ -6520,6 +6515,8 @@ select {
 }
 
 .lighting-native-state dl {
+  display: grid;
+  align-content: center;
   margin: 0;
   padding: 18px 20px;
 }
@@ -6530,6 +6527,10 @@ select {
   gap: 16px;
   padding: 11px 0;
   border-bottom: 1px solid #e1e9e5;
+}
+
+.lighting-native-state dl div:last-child {
+  border-bottom: 0;
 }
 
 .lighting-native-state dt {

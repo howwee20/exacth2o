@@ -103,7 +103,7 @@ export function LightingNativeControl() {
   return (
     <section className="chamber-module is-lighting">
       <header className="is-iconless">
-        <div><h2>Lighting Automation</h2></div>
+        <div><h2>Lights</h2></div>
         <span className={`chamber-status ${ready ? "is-online" : "is-offline"}`}>
           {loading ? "Checking" : ready ? "Ready" : "Commissioning"}
         </span>
@@ -158,8 +158,6 @@ export function LightingNativeControl() {
 
         <div className="lighting-native-state" aria-live="polite">
           <dl>
-            <div><dt>Requested</dt><dd>{status?.requested_intensity ?? 0}</dd></div>
-            <div><dt>Controller</dt><dd>{status?.controller_intensity ?? 0}</dd></div>
             <div><dt>Last changed by</dt><dd>{status ? lightingSourceLabel(status.last_source) : "Waiting"}</dd></div>
           </dl>
           <div className="lighting-native-receipt">
