@@ -477,6 +477,7 @@ serve(async (request) => {
   const { data: access, error: accessError } = await admin
     .from("portal_access")
     .select("role")
+    .eq("access_scope", "project")
     .eq("project_id", projectId)
     .eq("user_id", userData.user.id)
     .maybeSingle();

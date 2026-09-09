@@ -648,4 +648,6 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
     \$\$;
   " >/dev/null
 
+psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/gas_mixer_researcher_access.sql" >/dev/null
+
 echo "ExactH2O database baseline restored and verified."

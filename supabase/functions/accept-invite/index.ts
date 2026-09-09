@@ -17,6 +17,7 @@ type InviteRow = {
   email: string;
   role: string;
   expires_at: string;
+  access_scope: "project" | "gas_mixer";
   accepted_at: string | null;
 };
 
@@ -139,7 +140,7 @@ serve(async (request) => {
   const tokenHash = await sha256Hex(token);
   const { data: inviteData, error: inviteError } = await admin
     .from("project_invites")
-    .select("id, project_id, email, role, expires_at, accepted_at")
+    .select("id, project_id, email, role, expires_at, accepted_at, access_scope")
     .eq("token_hash", tokenHash)
     .maybeSingle();
   const invite = inviteData as InviteRow | null;
@@ -244,18 +245,20 @@ serve(async (request) => {
     return jsonResponse({ error: "Could not record terms acceptance" }, 500, origin);
   }
 
-  const membership = await admin
-    .from("project_members")
-    .upsert({
-      project_id: invite.project_id,
-      user_id: userId,
-      role: acceptedRoles.projectMemberRole,
-    }, {
-      onConflict: "project_id,user_id",
-    });
+  if (invite.access_scope === "project") {
+    const membership = await admin
+      .from("project_members")
+      .upsert({
+        project_id: invite.project_id,
+        user_id: userId,
+        role: acceptedRoles.projectMemberRole,
+      }, {
+        onConflict: "project_id,user_id",
+      });
 
-  if (membership.error) {
-    return jsonResponse({ error: "Could not grant project access" }, 500, origin);
+    if (membership.error) {
+      return jsonResponse({ error: "Could not grant project access" }, 500, origin);
+    }
   }
 
   const accepted = await admin

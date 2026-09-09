@@ -97,7 +97,7 @@ serve(async (request) => {
   }
 
   const { data: allowed, error: accessError } = await userClient.rpc(
-    "has_system_admin_installation_access",
+    "has_gas_mixer_native_access",
     {
       check_project_id: gasMixerProjectId,
       check_device_id: gasMixerDeviceId,
@@ -105,7 +105,7 @@ serve(async (request) => {
     },
   );
   if (accessError || allowed !== true) {
-    return jsonResponse({ error: "System-admin installation access is required" }, 403, origin);
+    return jsonResponse({ error: "Gas mixer access is required" }, 403, origin);
   }
 
   const { data: existing } = await serviceClient.from("gas_mixer_native_commands")

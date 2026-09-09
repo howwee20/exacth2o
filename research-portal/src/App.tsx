@@ -99,6 +99,9 @@ import {
 import { WalkerAdminTile } from "./WalkerObservationView";
 import {
   ChamberControlAdminTile,
+  GasMixerResearcherTile,
+  GasMixerResearcherHome,
+  GasMixerResearcherView,
   ChamberControlView,
 } from "./ChamberControlView";
 import {
@@ -228,6 +231,8 @@ type PortalAccess = {
   email: string | null;
   projectId: string;
   deviceId: string | null;
+  accessScope: string;
+  gasMixerAllowed: boolean;
 } | null;
 
 type InviteAcceptResponse = {
@@ -3417,6 +3422,7 @@ function PortalResearcherHome({
   onOpenExperiment,
   onNewExperiment,
   onEditExperiment,
+  onOpenMixer,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
@@ -3424,6 +3430,7 @@ function PortalResearcherHome({
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onNewExperiment: () => void;
   onEditExperiment: (experiment: PortalExperiment) => void;
+  onOpenMixer?: () => void;
 }) {
   return (
     <section className="portal-admin-main" aria-label="Research experiments">
@@ -3436,6 +3443,7 @@ function PortalResearcherHome({
         </div>
       ) : null}
       <div className="portal-launch-grid">
+        {onOpenMixer ? <GasMixerResearcherTile onOpen={onOpenMixer} /> : null}
         <ExperimentLaunchCards
           data={data}
           experiments={experiments}
@@ -5529,9 +5537,10 @@ export default function App() {
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
   ).length;
   const isAdmin = portalAccess?.role === "admin";
-  const canReadProjectData = hasProjectDataReadAccess(portalAccess?.role);
-  const canUseExperimentSettings = hasExperimentSettingsAccess(portalAccess?.role);
-  const canCreateExperiment = portalAccess?.role === "admin" || portalAccess?.role === "researcher";
+  const projectAccess = portalAccess?.accessScope === "project";
+  const canReadProjectData = projectAccess && hasProjectDataReadAccess(portalAccess?.role);
+  const canUseExperimentSettings = projectAccess && hasExperimentSettingsAccess(portalAccess?.role);
+  const canCreateExperiment = canUseExperimentSettings;
   const activeProjectId = portalAccess?.projectId ?? "";
   const activeDeviceId = portalAccess?.deviceId ?? "";
 
@@ -5622,7 +5631,7 @@ export default function App() {
         const accessResponse = await withSupabaseTimeout(
           supabase
             .from("portal_access")
-            .select("project_id, role, email, created_at")
+            .select("project_id, role, email, created_at, access_scope")
             .eq("user_id", userId)
             .order("created_at", { ascending: true })
             .limit(20),
@@ -5636,6 +5645,19 @@ export default function App() {
           requestedProjectId,
         );
         if (!accessRow) return { data: null };
+
+        const mixerAccess = await withSupabaseTimeout(
+          supabase.rpc("has_gas_mixer_native_access", {
+            check_project_id: "44444444-4444-4444-8444-444444444441",
+            check_device_id: "gas-mixer:b827eb548a44",
+            check_capability: "remote_view",
+          }), portalAccessTimeoutMs, "Gas mixer access",
+        );
+        if (mixerAccess.error) throw mixerAccess.error;
+        const gas_mixer_allowed = mixerAccess.data === true;
+        if (accessRow.access_scope !== "project") {
+          return { data: { ...accessRow, device_id: null, gas_mixer_allowed } };
+        }
 
         const deviceResponse = await withSupabaseTimeout(
           supabase
@@ -5652,6 +5674,7 @@ export default function App() {
         return {
           data: {
             ...accessRow,
+            gas_mixer_allowed,
             device_id: selectProjectDevice(deviceResponse.data ? [deviceResponse.data] : []),
           },
         };
@@ -5676,6 +5699,8 @@ export default function App() {
         email: response.data?.email ?? null,
         projectId: response.data?.project_id ?? "",
         deviceId: response.data?.device_id ?? null,
+        accessScope: response.data?.access_scope ?? "none",
+        gasMixerAllowed: response.data?.gas_mixer_allowed === true,
       };
       if (!access.projectId) {
         setPortalAccess(null);
@@ -7616,6 +7641,22 @@ export default function App() {
     );
   }
 
+  if (!isAdmin && portalView === "chamber" && portalAccess.gasMixerAllowed) {
+    return <GasMixerResearcherView onBack={() => setPortalView("home")} />;
+  }
+
+  if (!projectAccess) {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        <GasMixerResearcherHome
+          allowed={portalAccess.gasMixerAllowed}
+          onOpen={() => setPortalView("chamber")}
+        />
+      </main>
+    );
+  }
+
   if (isAdmin && portalView === "home") {
     return (
       <main className="dashboard-shell portal-admin-shell">
@@ -7685,6 +7726,7 @@ export default function App() {
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
         <PortalResearcherHome
+          onOpenMixer={portalAccess.gasMixerAllowed ? () => setPortalView("chamber") : undefined}
           data={data}
           experiments={availableExperiments}
           canCreateExperiment={canCreateExperiment}

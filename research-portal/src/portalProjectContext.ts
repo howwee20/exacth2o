@@ -1,6 +1,7 @@
 export type PortalAccessRow = {
   project_id: string;
   role: string;
+  access_scope?: string;
   email: string | null;
   created_at?: string | null;
 };
