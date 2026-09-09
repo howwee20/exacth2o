@@ -51,6 +51,12 @@ done < <(
       '
 )
 
+# The September observation grant deliberately requires four existing admins.
+# A schema-only restore has no auth data. Seed those prerequisites only in this
+# disposable local test database; production migrations stay unchanged.
+cp "$repo_root/scripts/fixtures/walker-admin-grant.sql" \
+  "$restore_workdir/migrations/20260901212959_walker_admin_test_fixture.sql"
+
 sed -i.bak \
   's/project_id = ".*"/project_id = "exacth2o-baseline-restore"/' \
   "$restore_workdir/config.toml"
