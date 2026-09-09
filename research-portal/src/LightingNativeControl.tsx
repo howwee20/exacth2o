@@ -4,6 +4,7 @@ import {
   lightingMaxIntensity,
   lightingMinIntensity,
   lightingSourceLabel,
+  lightingStatusIsFresh,
   normalizeLightingIntensity,
   type LightingNativeStatus,
 } from "./lightingNative";
@@ -20,16 +21,23 @@ export function LightingNativeControl() {
   const [phase, setPhase] = useState<ControlPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
   const dirty = useRef(false);
   const pendingCommand = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
+    let refreshing = false;
     const refresh = () => {
+      setNow(Date.now());
+      if (refreshing) return;
+      refreshing = true;
       loadLightingNativeStatus()
         .then((next) => {
           if (!active) return;
           setStatus(next);
+          setConnectionError(null);
           if (!dirty.current) setDraftIntensity(next.controller_intensity);
 
           if (next.last_command && pendingCommand.current === next.last_command.id) {
@@ -49,9 +57,10 @@ export function LightingNativeControl() {
         })
         .catch((reason) => {
           if (!active) return;
-          setError(reason instanceof Error ? reason.message : "Lighting state is unavailable");
+          setConnectionError(reason instanceof Error ? reason.message : "Lighting state is unavailable");
         })
         .finally(() => {
+          refreshing = false;
           if (active) setLoading(false);
         });
     };
@@ -64,7 +73,8 @@ export function LightingNativeControl() {
     };
   }, []);
 
-  const ready = status?.bridge_ready === true && status.remote_control_allowed;
+  const ready = !connectionError && lightingStatusIsFresh(status, now) && status?.remote_control_allowed === true;
+  const visibleError = connectionError ?? error;
   const lightOn = (status?.controller_intensity ?? 0) > 0;
 
   const commit = async (rawIntensity: number) => {
@@ -78,6 +88,7 @@ export function LightingNativeControl() {
       return;
     }
 
+    pendingCommand.current = "sending";
     dirty.current = true;
     setDraftIntensity(intensity);
     setPhase("sending");
@@ -86,6 +97,7 @@ export function LightingNativeControl() {
       const result = await sendLightingIntensity(intensity, status.state_revision);
       pendingCommand.current = result.command.id;
     } catch (reason) {
+      pendingCommand.current = null;
       dirty.current = false;
       setPhase("failed");
       setError(reason instanceof Error ? reason.message : "Unable to send the lighting value");
@@ -105,7 +117,7 @@ export function LightingNativeControl() {
       <header className="is-iconless">
         <div><h2>Lights</h2></div>
         <span className={`chamber-status ${ready ? "is-online" : "is-offline"}`}>
-          {loading ? "Checking" : ready ? "Ready" : "Commissioning"}
+          {loading ? "Checking" : ready ? "Ready" : "Disconnected"}
         </span>
       </header>
 
@@ -162,13 +174,13 @@ export function LightingNativeControl() {
           </dl>
           <div className="lighting-native-receipt">
             {loading || phase === "sending" ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
-            {error ? <><AlertTriangle size={16} /><span>{error}</span></> : null}
-            {!loading && !error ? (
+            {visibleError ? <><AlertTriangle size={16} /><span>{visibleError}</span></> : null}
+            {!loading && !visibleError ? (
               <span>{ready
                 ? phase === "confirmed"
-                  ? "Applied and observed in the Windows controller"
+                  ? "Applied in the Windows controller"
                   : "Synchronized with the Windows controller"
-                : "Windows bridge pending"}</span>
+                : "Windows controller disconnected"}</span>
             ) : null}
           </div>
         </div>

@@ -52,3 +52,9 @@ export function lightingSourceLabel(source: LightingNativeStatus["last_source"])
   if (source === "local") return "Windows controller";
   return "Controller startup";
 }
+
+export function lightingStatusIsFresh(status: LightingNativeStatus | null, now = Date.now()) {
+  if (!status?.bridge_ready || !status.last_bridge_at) return false;
+  const heartbeat = Date.parse(status.last_bridge_at);
+  return Number.isFinite(heartbeat) && heartbeat <= now + 5_000 && now - heartbeat < 15_000;
+}

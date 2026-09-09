@@ -39,7 +39,7 @@ import javax.swing.SwingUtilities;
  * open MaintenanceGUI on Swing's event-dispatch thread.
  */
 public final class LightingAgentV2 {
-    private static final String VERSION = "exacth2o-lighting-bridge-2.0.0";
+    private static final String VERSION = "exacth2o-lighting-bridge-2.1.0";
     private static final String MAINTENANCE_GUI = "PhenoSystemControl.gui.MaintenanceGUI";
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
@@ -76,6 +76,9 @@ public final class LightingAgentV2 {
         private int processId;
         private int maintenanceWindowIdentity;
         private double lastObservedIntensity = Double.NaN;
+        private int consecutiveFailures;
+        private long lastFailureLogMs;
+        private String lastFailure;
 
         Bridge(File configurationFile) {
             this.configurationFile = configurationFile;
@@ -102,10 +105,20 @@ public final class LightingAgentV2 {
                         String syncResponse = post(configuration, syncPayload(configuration, controllerIntensity));
                         Command command = parseCommand(syncResponse);
                         if (command != null) applyCommand(configuration, command);
+                        if (consecutiveFailures > 0) log("Cloud connection restored.");
+                        consecutiveFailures = 0;
+                        lastFailure = null;
                     } catch (Throwable error) {
-                        log("Synchronization retry: " + rootMessage(error));
+                        consecutiveFailures = Math.min(consecutiveFailures + 1, 10);
+                        String reason = rootMessage(error);
+                        long now = System.currentTimeMillis();
+                        if (!reason.equals(lastFailure) || now - lastFailureLogMs >= 60000L) {
+                            log("Cloud unavailable; retrying automatically: " + reason);
+                            lastFailureLogMs = now;
+                            lastFailure = reason;
+                        }
                     }
-                    Thread.sleep(pollMs);
+                    Thread.sleep(retryDelay(pollMs, consecutiveFailures));
                 }
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
@@ -278,6 +291,7 @@ public final class LightingAgentV2 {
         private String post(Properties configuration, String payload) throws Exception {
             URL endpoint = new URL(configuration.getProperty("endpoint"));
             HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection();
+            try {
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(8000);
             connection.setReadTimeout(12000);
@@ -299,11 +313,13 @@ public final class LightingAgentV2 {
                 ? connection.getInputStream()
                 : connection.getErrorStream();
             String responseBody = readAll(input);
-            connection.disconnect();
             if (status < 200 || status >= 300) {
                 throw new IllegalStateException("HTTP " + status + ": " + responseBody);
             }
             return responseBody;
+            } finally {
+                connection.disconnect();
+            }
         }
 
         private void log(String message) {
@@ -323,6 +339,7 @@ public final class LightingAgentV2 {
                 ));
                 File parent = logFile.getParentFile();
                 if (parent != null) parent.mkdirs();
+                rotateLog(logFile);
                 OutputStream output = new FileOutputStream(logFile, true);
                 try {
                     output.write((isoTime(new Date()) + " " + message + System.lineSeparator()).getBytes(UTF8));
@@ -332,6 +349,25 @@ public final class LightingAgentV2 {
             } catch (Throwable ignored) {
                 // Logging must never affect the running chamber controller.
             }
+        }
+    }
+
+    static long retryDelay(long pollMs, int failures) {
+        return failures <= 0 ? pollMs : Math.min(20000L, pollMs * (1L << Math.min(failures, 5)));
+    }
+
+    static void rotateLog(File logFile) throws Exception {
+        if (logFile.length() < 1024L * 1024L) return;
+        File oldest = new File(logFile.getPath() + ".3");
+        if (oldest.exists() && !oldest.delete()) throw new java.io.IOException("Cannot rotate oldest log");
+        for (int i = 2; i >= 1; i--) {
+            File source = new File(logFile.getPath() + "." + i);
+            if (source.exists() && !source.renameTo(new File(logFile.getPath() + "." + (i + 1)))) {
+                throw new java.io.IOException("Cannot rotate archived log");
+            }
+        }
+        if (!logFile.renameTo(new File(logFile.getPath() + ".1"))) {
+            throw new java.io.IOException("Cannot rotate active log");
         }
     }
 
