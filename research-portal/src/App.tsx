@@ -2235,7 +2235,6 @@ function WalkerExperimentView({ onBack }: { onBack: () => void }) {
     [series, timeBounds, timeWindow],
   );
   const boardGroups = useMemo(() => walkerSensorsByBoard(sensors), [sensors]);
-  const hasLivePoints = series.some((item) => item.points.length > 0);
 
   const toggleSensor = (sensorId: number) => {
     setSelectedSensorIds((current) =>
@@ -2296,16 +2295,6 @@ function WalkerExperimentView({ onBack }: { onBack: () => void }) {
               loading={loading}
               xDomain={timeBounds}
             />
-            {!loading && !hasLivePoints ? (
-              <div className="walker-live-empty">
-                <strong>No recent Walker readings yet</strong>
-                <span>
-                  {snapshot?.publisher.status === "healthy"
-                    ? "The one-way publisher is connected. This graph will populate when Walker sensing creates new rows."
-                    : "The 72-hour graph will populate after the approved one-way publisher starts."}
-                </span>
-              </div>
-            ) : null}
           </section>
           <div className="chart-bottom-controls">
             <TimeRangeControl

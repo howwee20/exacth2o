@@ -10,7 +10,7 @@ app_root="$HOME/dev/pi-mfc-gui"
 entrypoint="$app_root/pi-mfc-gui.py"
 bridge_url="https://exacth2o.com/portal-app/gas-mixer-native-bridge.py"
 bridge_fallback_url="https://raw.githubusercontent.com/howwee20/exacth2o/ej-supabase-research-portal/portal-app/gas-mixer-native-bridge.py"
-bridge_sha256="2fe6b9cd7494f215fcd9d5d70a81c122006da54f27d600e916ea2b279ebcf78d"
+bridge_sha256="b08d718f7eaae76f0abbc11eb9766803dfcfa6fbc3e1ffc2283748b61cbabec3"
 state_root="$HOME/.local/state/exacth2o-gas-mixer-native-bridge"
 backup_root="$state_root/backups/$(date +%Y%m%d-%H%M%S)"
 

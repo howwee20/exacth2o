@@ -67,6 +67,7 @@ jobs:
           node --test supabase/functions/_shared/installation-config.test.mjs
           node --test supabase/functions/_shared/operation-ledger.test.mjs
           node --test supabase/functions/_shared/gas-mixer-native-policy.test.mjs
+          python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
           node --test supabase/functions/_shared/lighting-native-policy.test.mjs
           node --test supabase/functions/notification-dispatcher/notification-policy.test.mjs
           node --test supabase/functions/rd-admin-lab/pagination-policy.test.mjs

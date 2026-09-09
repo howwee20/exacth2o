@@ -7,10 +7,14 @@ the physical touchscreen, so there cannot be a second hardware controller.
 """
 
 import hashlib
+from datetime import datetime
 import json
+import logging
+from logging.handlers import RotatingFileHandler
 import math
 import os
 import queue
+import random
 import threading
 import time
 import urllib.error
@@ -21,8 +25,41 @@ from PySide2.QtCore import QObject, QTimer, Slot
 from config import err_thresh, mfc_config
 
 
-BRIDGE_VERSION = "exacth2o-gas-mixer-native-bridge/2.1.0"
+BRIDGE_VERSION = "exacth2o-gas-mixer-native-bridge/2.1.1"
 CONFIG_PATH = os.path.expanduser("~/.config/exacth2o-gas-mixer-agent/config.json")
+REQUEST_TIMEOUT_SECONDS = 20
+POLL_INTERVAL_SECONDS = 2
+MAX_RETRY_SECONDS = 30
+
+
+class QuietRotatingFileHandler(RotatingFileHandler):
+    def handleError(self, record):
+        # The legacy mixer redirects stderr into its instrument display too.
+        # Even a full/unwritable log disk must not flood or break that display.
+        pass
+
+
+def _cloud_logger():
+    logger = logging.getLogger("exacth2o.native-cloud")
+    if not logger.handlers:
+        logger.propagate = False
+        logger.setLevel(logging.INFO)
+        try:
+            directory = os.path.expanduser(
+                "~/.local/state/exacth2o-gas-mixer-native-bridge"
+            )
+            os.makedirs(directory, mode=0o700, exist_ok=True)
+            handler = QuietRotatingFileHandler(
+                os.path.join(directory, "cloud.log"),
+                maxBytes=262144,
+                backupCount=2,
+                encoding="utf-8",
+            )
+            handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        except OSError:
+            handler = logging.NullHandler()
+        logger.addHandler(handler)
+    return logger
 
 
 def _post_json(endpoint, token, payload):
@@ -37,7 +74,7 @@ def _post_json(endpoint, token, payload):
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         value = response.read()
         if response.status < 200 or response.status >= 300:
             raise RuntimeError("native bridge endpoint returned {}".format(response.status))
@@ -79,6 +116,14 @@ class NativeCloudWorker(object):
         self._acknowledgements = queue.Queue()
         self._stop = threading.Event()
         self._thread = None
+        self._logger = _cloud_logger()
+        self._request_action = "configuration"
+        self._request_started_at = None
+
+    def _post(self, payload):
+        self._request_action = payload["action"]
+        self._request_started_at = time.monotonic()
+        return _post_json(self._endpoint, self._token, payload)
 
     def start(self):
         self._thread = threading.Thread(
@@ -136,11 +181,7 @@ class NativeCloudWorker(object):
             except queue.Empty:
                 return
             try:
-                _post_json(
-                    self._endpoint,
-                    self._token,
-                    dict({"action": "ack"}, **payload)
-                )
+                self._post(dict({"action": "ack"}, **payload))
             except Exception:
                 # Keep the acknowledgement durable in memory for the next
                 # network attempt instead of blocking or crashing the GUI.
@@ -151,7 +192,7 @@ class NativeCloudWorker(object):
         state, revision, sync_requested, sequence = self._state_snapshot()
         now = time.monotonic()
         if state is not None and now - self._last_heartbeat >= 10:
-            _post_json(self._endpoint, self._token, {
+            self._post({
                 "action": "heartbeat",
                 "bridge_ready": True,
                 "bridge_version": BRIDGE_VERSION,
@@ -165,7 +206,7 @@ class NativeCloudWorker(object):
             ).encode("utf-8")
             state_hash = hashlib.sha256(encoded).hexdigest()
             if state_hash != self._last_state_hash or sync_requested:
-                _post_json(self._endpoint, self._token, {
+                self._post({
                     "action": "state",
                     "state_revision": revision,
                     "applied_state": state,
@@ -174,7 +215,7 @@ class NativeCloudWorker(object):
                 })
                 self._mark_state_sent(sequence, state_hash)
         self._send_acknowledgements()
-        poll = _post_json(self._endpoint, self._token, {"action": "poll"})
+        poll = self._post({"action": "poll"})
         for command in poll.get("commands", []):
             command_id = command.get("id")
             if command_id and command_id not in self._command_ids:
@@ -182,25 +223,42 @@ class NativeCloudWorker(object):
                 self._commands.put(command)
 
     def _run(self):
+        failures = 0
+        last_error_log = None
         while not self._stop.is_set():
+            delay = POLL_INTERVAL_SECONDS
             try:
                 if not self._endpoint:
                     self._endpoint, self._token = _native_endpoint()
                 self._tick()
-            except (
-                urllib.error.URLError,
-                urllib.error.HTTPError,
-                OSError,
-                RuntimeError,
-                ValueError,
-            ) as error:
-                print("Native bridge cloud error: {}".format(error))
+                if failures:
+                    self._logger.info("Cloud connection recovered after %d failed attempts", failures)
+                failures = 0
+                last_error_log = None
             except Exception as error:
-                # A bridge defect must take the bridge offline, never the
-                # scientific instrument UI. Keep retrying and leave the Qt
-                # main thread and mixer model untouched.
-                print("Native bridge unexpected error: {}".format(error))
-            self._stop.wait(0.25)
+                failures += 1
+                delay = min(
+                    MAX_RETRY_SECONDS,
+                    (2 ** min(failures, 5)) * random.uniform(0.8, 1.2),
+                )
+                now = time.monotonic()
+                if last_error_log is None or now - last_error_log >= 60:
+                    # Do not log payloads, tokens, response bodies, or exception
+                    # text; preserve useful transport evidence outside the GUI.
+                    self._logger.warning(
+                        "Cloud request failed action=%s error=%s http_status=%s "
+                        "elapsed=%.2fs failures=%d retry=%.1fs",
+                        self._request_action,
+                        type(error).__name__,
+                        error.code if isinstance(error, urllib.error.HTTPError) else "-",
+                        now - self._request_started_at if self._request_started_at is not None else 0,
+                        failures,
+                        delay,
+                    )
+                    last_error_log = now
+            # Both normal polling and outage backoff remain interruptible and
+            # entirely off the Qt/hardware thread. Only the newest state is sent.
+            self._stop.wait(delay)
 
 
 class NativeBridge(QObject):
@@ -318,6 +376,9 @@ class NativeBridge(QObject):
                 self._worker.acknowledge(self._command_results[command_id])
                 continue
             try:
+                expires_at = datetime.fromisoformat(command["expires_at"].replace("Z", "+00:00"))
+                if expires_at.tzinfo is None or expires_at.timestamp() <= time.time():
+                    raise RuntimeError("Mixer command expired before delivery")
                 if int(command.get("expected_revision")) != self._revision:
                     raise RuntimeError("Mixer state revision changed")
                 payload = command.get("payload") or {}
