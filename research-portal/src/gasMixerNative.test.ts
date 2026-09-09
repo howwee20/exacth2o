@@ -3,6 +3,8 @@ import {
   applyGasMixerNativeField,
   formatGasMixerNativeValue,
   gasMixerNativeDisplayOrder,
+  gasMixerNativeConnection,
+  type GasMixerNativeStatus,
   gasMixerNativeFieldSpec,
   initialGasMixerNativeState,
   normalizeGasMixerNativeValue,
@@ -53,5 +55,34 @@ describe("native gas mixer contract", () => {
     expect(state.channels.E.setpoint).toBe(0.4);
     expect(state.channels.A.setpoint).toBe(0.6);
     expect(() => applyGasMixerNativeField(state, "mfc.D.setpoint", 1_001)).toThrow("Setpoint exceeds total flow");
+  });
+});
+
+
+describe("mixer connection interlocks", () => {
+  const now = Date.parse("2026-09-09T19:10:00Z");
+  const status = {
+    bridge_ready: true, remote_control_allowed: true,
+    last_bridge_at: "2026-09-09T19:09:59Z",
+  } as GasMixerNativeStatus;
+
+  it("disables edits when a previously ready response becomes stale", () => {
+    expect(gasMixerNativeConnection(status, now).canControl).toBe(true);
+    expect(gasMixerNativeConnection(status, now + 44_000)).toMatchObject({
+      canControl: false, label: "Disconnected",
+    });
+  });
+
+  it("disables edits after a status request fails and restores them on recovery", () => {
+    expect(gasMixerNativeConnection(status, now, true).canControl).toBe(false);
+    expect(gasMixerNativeConnection(status, now, false).canControl).toBe(true);
+  });
+
+  it("distinguishes view-only access and an unconnected device", () => {
+    expect(gasMixerNativeConnection({ ...status, remote_control_allowed: false }, now))
+      .toMatchObject({ online: true, canControl: false, label: "View only" });
+    expect(gasMixerNativeConnection({ ...status, last_bridge_at: null }, now))
+      .toMatchObject({ canControl: false, label: "Not connected" });
+    expect(gasMixerNativeConnection(null, now).canControl).toBe(false);
   });
 });

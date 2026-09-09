@@ -5,6 +5,7 @@ import {
   cloneGasMixerNativeState,
   formatGasMixerNativeValue,
   gasFormulaLabel,
+  gasMixerNativeConnection,
   gasMixerNativeDisplayOrder,
   gasMixerNativeFieldSpec,
   initialGasMixerNativeState,
@@ -135,17 +136,24 @@ export function GasMixerNativeControl() {
   const [fieldPhase, setFieldPhase] = useState<Record<string, FieldPhase>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requestFailed, setRequestFailed] = useState(false);
+  const [now, setNow] = useState(Date.now);
   const dirtyFields = useRef(new Set<GasMixerNativeField>());
   const pendingCommands = useRef(new Map<GasMixerNativeField, string>());
   const initialized = useRef(false);
 
   useEffect(() => {
     let active = true;
+    let refreshing = false;
     const refresh = () => {
+      setNow(Date.now());
+      if (refreshing) return;
+      refreshing = true;
       loadGasMixerNativeStatus()
         .then((next) => {
           if (!active) return;
           setStatus(next);
+          setRequestFailed(false);
           if (!initialized.current || dirtyFields.current.size === 0) {
             setDraft(cloneGasMixerNativeState(next.requested_state));
             initialized.current = true;
@@ -169,9 +177,11 @@ export function GasMixerNativeControl() {
         })
         .catch((reason) => {
           if (!active) return;
+          setRequestFailed(true);
           setError(reason instanceof Error ? reason.message : "Native mixer state is unavailable");
         })
         .finally(() => {
+          refreshing = false;
           if (active) setLoading(false);
         });
     };
@@ -183,7 +193,8 @@ export function GasMixerNativeControl() {
     };
   }, []);
 
-  const ready = status?.bridge_ready === true && status.remote_control_allowed;
+  const connection = gasMixerNativeConnection(status, now, requestFailed);
+  const ready = connection.canControl;
   const applied = status?.applied_state ?? fallback;
   const observed = status?.observed_state ?? fallback;
 
@@ -225,7 +236,7 @@ export function GasMixerNativeControl() {
       <header className="is-iconless">
         <div><h2>Gas Mixer V2</h2></div>
         <span className={`chamber-status ${ready ? "is-online" : "is-offline"}`}>
-          {loading ? "Checking" : ready ? "Ready" : "Commissioning"}
+          {loading ? "Checking" : connection.label}
         </span>
       </header>
 
@@ -300,7 +311,11 @@ export function GasMixerNativeControl() {
             {loading ? <Loader2 className="chart-loading-spinner" size={18} /> : null}
             {error ? <><AlertTriangle size={16} /><span>{error}</span></> : null}
             {!loading && !error ? (
-              <span>{ready ? "Synchronized" : "Bridge pending"}</span>
+              <span>{connection.online
+                ? "Connected — values reported by the mixer"
+                : status?.last_bridge_at
+                  ? `Controls unavailable. Last contact ${new Date(status.last_bridge_at).toLocaleString()}. Displayed values are from the last update.`
+                  : "Waiting for the mixer to connect. Controls unavailable."}</span>
             ) : null}
           </div>
         </div>

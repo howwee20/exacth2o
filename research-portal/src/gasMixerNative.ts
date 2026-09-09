@@ -62,6 +62,24 @@ export type GasMixerNativeStatus = {
   } | null;
 };
 
+// Match the server's 45-second heartbeat limit even when polling fails.
+export function gasMixerNativeConnection(
+  status: GasMixerNativeStatus | null,
+  now: number,
+  requestFailed = false,
+) {
+  const lastSeen = Date.parse(status?.last_bridge_at ?? "");
+  const fresh = Number.isFinite(lastSeen) && now - lastSeen < 45_000;
+  const online = !requestFailed && status?.bridge_ready === true && fresh;
+  const canControl = online && status?.remote_control_allowed === true;
+  const label = requestFailed ? "Connection lost"
+    : !status ? "Unavailable"
+    : !Number.isFinite(lastSeen) ? "Not connected"
+    : !online ? "Disconnected"
+    : canControl ? "Ready" : "View only";
+  return { online, canControl, label };
+}
+
 export const gasMixerNativeChannelConfig: readonly GasMixerNativeChannelConfig[] = [
   { address: "A", formula: "N2", balance: true, ratio_unit: "%", flow_unit: "SLPM" },
   { address: "B", formula: "O2", balance: false, ratio_unit: "%", flow_unit: "SLPM" },
