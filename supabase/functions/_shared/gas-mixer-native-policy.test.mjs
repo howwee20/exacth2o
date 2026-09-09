@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyNativeField,
+  nativeAckPreviousStatuses,
   bridgeIsReady,
   normalizeNativeField,
   normalizeNativeMachineState,
@@ -59,4 +60,16 @@ test("device state validation rejects changed physical channel identities", () =
   const altered = structuredClone(state);
   altered.channels.D.formula = "N2";
   assert.throws(() => normalizeNativeMachineState(altered));
+});
+
+
+test("late acceptance cannot overwrite an applied receipt after a network retry", () => {
+  assert.equal(nativeAckPreviousStatuses("accepted").includes("applied"), false);
+  assert.equal(nativeAckPreviousStatuses("applied").includes("accepted"), true);
+  for (const status of ["accepted", "applied", "verified", "rejected", "failed"]) {
+    for (const terminal of ["verified", "rejected", "failed", "expired"]) {
+      assert.equal(nativeAckPreviousStatuses(status).includes(terminal), false);
+    }
+  }
+  assert.deepEqual(nativeAckPreviousStatuses("invalid"), []);
 });

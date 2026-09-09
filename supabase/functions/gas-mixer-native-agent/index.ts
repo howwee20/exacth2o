@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { normalizeNativeMachineState } from "../_shared/gas-mixer-native-policy.mjs";
+import { nativeAckPreviousStatuses, normalizeNativeMachineState } from "../_shared/gas-mixer-native-policy.mjs";
 
 const gasMixerProjectId = "44444444-4444-4444-8444-444444444441";
 const gasMixerDeviceId = "gas-mixer:b827eb548a44";
@@ -135,7 +135,7 @@ serve(async (request) => {
       .eq("id", commandId)
       .eq("project_id", gasMixerProjectId)
       .eq("device_id", gasMixerDeviceId)
-      .in("status", ["queued", "accepted", "applied"]);
+      .in("status", nativeAckPreviousStatuses(status));
     return error ? response({ error: "Unable to acknowledge native mixer command" }, 503) : response({ ok: true });
   }
 

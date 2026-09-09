@@ -155,3 +155,13 @@ export function normalizeNativeMachineState(value) {
   }
   return state;
 }
+
+
+// Retries can arrive out of order. Never move an applied command backwards.
+export function nativeAckPreviousStatuses(status) {
+  if (status === "accepted") return ["queued", "accepted"];
+  if (["applied", "verified", "rejected", "failed"].includes(status)) {
+    return ["queued", "accepted", "applied"];
+  }
+  return [];
+}
