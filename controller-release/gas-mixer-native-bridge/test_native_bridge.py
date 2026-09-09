@@ -128,7 +128,7 @@ class NativeCloudTests(unittest.TestCase):
         native._model.set_use_licor.assert_called_once_with(True)
         self.assertEqual(
             [call.args[0]["status"] for call in native._worker.acknowledge.call_args_list],
-            ["accepted", "verified", "verified"],
+            ["accepted", "applied", "applied"],
         )
 
     def test_log_write_failure_does_not_leak_into_mixer_console(self):

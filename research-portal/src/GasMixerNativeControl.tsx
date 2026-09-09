@@ -162,7 +162,7 @@ export function GasMixerNativeControl() {
           if (next.last_command?.field &&
               pendingCommands.current.get(next.last_command.field) === next.last_command.id) {
             const commandField = next.last_command.field;
-            if (next.last_command.status === "verified") {
+            if (["applied", "verified"].includes(next.last_command.status)) {
               pendingCommands.current.delete(commandField);
               dirtyFields.current.delete(commandField);
               setFieldPhase((current) => ({ ...current, [commandField]: "confirmed" }));
@@ -312,7 +312,9 @@ export function GasMixerNativeControl() {
             {error ? <><AlertTriangle size={16} /><span>{error}</span></> : null}
             {!loading && !error ? (
               <span>{connection.online
-                ? "Connected — values reported by the mixer"
+                ? status?.last_command?.status === "applied"
+                  ? "Setting applied in the mixer. Physical flow is not verified; check observed readings."
+                  : "Connected — values reported by the mixer"
                 : status?.last_bridge_at
                   ? `Controls unavailable. Last contact ${new Date(status.last_bridge_at).toLocaleString()}. Displayed values are from the last update.`
                   : "Waiting for the mixer to connect. Controls unavailable."}</span>

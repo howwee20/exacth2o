@@ -25,7 +25,7 @@ from PySide2.QtCore import QObject, QTimer, Slot
 from config import err_thresh, mfc_config
 
 
-BRIDGE_VERSION = "exacth2o-gas-mixer-native-bridge/2.1.1"
+BRIDGE_VERSION = "exacth2o-gas-mixer-native-bridge/2.1.2"
 CONFIG_PATH = os.path.expanduser("~/.config/exacth2o-gas-mixer-agent/config.json")
 REQUEST_TIMEOUT_SECONDS = 20
 POLL_INTERVAL_SECONDS = 2
@@ -404,7 +404,8 @@ class NativeBridge(QObject):
                 else:
                     raise RuntimeError("Unsupported native mixer field")
                 self.publish_snapshot()
-                result = {"command_id": command_id, "status": "verified"}
+                # Model application is not proof of instrument delivery.
+                result = {"command_id": command_id, "status": "applied"}
                 self._command_results[command_id] = result
                 self._worker.acknowledge(result)
             except Exception as error:

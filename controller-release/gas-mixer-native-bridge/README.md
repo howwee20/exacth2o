@@ -33,3 +33,8 @@ the mixer display. The existing local gas/MFC error reporting is unchanged.
 
 Run the hardware-free failure tests with:
 `python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'`.
+
+
+### Version 2.1.2 acknowledgement correction
+
+The bridge reports `applied` after invoking the existing Qt model. It does not report `verified`: model setters and cached delivered values cannot establish fresh physical flow or serial-write success. The portal treats `applied` as a software receipt and explicitly states that physical flow remains unverified. Instrument feedback timestamps, settling tolerances, and retained per-command evidence are required before physical verification can be implemented. No MFC addresses, calibration, balance behavior, or serial ownership change in this release.
