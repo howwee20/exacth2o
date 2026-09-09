@@ -363,18 +363,7 @@ export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
 }
 
 export function GasMixerResearcherView({ onBack }: { onBack: () => void }) {
-  return (
-    <main className="dashboard-shell chamber-control-shell">
-      <section className="chamber-control-page">
-        <header className="chamber-control-heading">
-          <button type="button" className="chamber-back-button" onClick={onBack}>
-            <ArrowLeft size={17} /> Home
-          </button>
-        </header>
-        <div className="chamber-module-stack"><GasMixerNativeControl /></div>
-      </section>
-    </main>
-  );
+  return <ChamberControlView onBack={onBack} />;
 }
 
 export function GasMixerResearcherHome({ allowed, onOpen }: { allowed: boolean; onOpen: () => void }) {

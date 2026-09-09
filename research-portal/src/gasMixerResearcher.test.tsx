@@ -16,10 +16,14 @@ describe("mixer researcher screens", () => {
     expect(html).not.toContain("<button");
     expect(html).toContain("access is unavailable");
   });
-  it("opens only the native form with no remote-screen or lighting controls", () => {
+  it("includes native controls, the original live remote screen, and lighting in the same tile", () => {
     const html = renderToStaticMarkup(<GasMixerResearcherView onBack={() => {}} />);
     expect(html).toContain("Gas Mixer");
-    expect(html).toContain("Home");
-    expect(html).not.toMatch(/Secure view|Request control|Lights|live image|Lighting/i);
+    expect(html).toContain("Gas Mixer V2");
+    expect(html).toContain("Secure view");
+    expect(html).toContain("Request control");
+    expect(html).toContain("Lights");
+    expect(html).toContain("Back");
+    expect(html).not.toMatch(/New Experiment|Walker/);
   });
 });

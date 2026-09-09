@@ -170,13 +170,10 @@ serve(async (request) => {
       );
     }
 
-    if (
-      payload.action === "refresh_session" ||
-      payload.action === "refresh_frame"
-    ) {
+    if (payload.action !== "end_session") {
       const capability = capabilityForSessionMode(activeSession.mode);
       const { data: allowed, error: accessError } = await userClient.rpc(
-        "has_system_admin_installation_access",
+        "has_gas_mixer_module_access",
         {
           check_project_id: gasMixerProjectId,
           check_device_id: gasMixerDeviceId,
@@ -185,12 +182,18 @@ serve(async (request) => {
       );
       if (accessError || allowed !== true) {
         return jsonResponse(
-          { error: "System-admin installation access is required" },
+          { error: "Gas mixer installation access is required" },
           403,
           origin,
         );
       }
 
+    }
+
+    if (
+      payload.action === "refresh_session" ||
+      payload.action === "refresh_frame"
+    ) {
       const { data: deviceStatus, error: deviceError } = await serviceClient
         .from("gas_mixer_device_status")
         .select("connected,last_heartbeat_at,local_session_available")
@@ -382,7 +385,7 @@ serve(async (request) => {
 
   const capability = capabilityForSessionMode(mode);
   const { data: allowed, error: accessError } = await userClient.rpc(
-    "has_system_admin_installation_access",
+    "has_gas_mixer_module_access",
     {
       check_project_id: gasMixerProjectId,
       check_device_id: gasMixerDeviceId,
@@ -391,7 +394,7 @@ serve(async (request) => {
   );
   if (accessError || allowed !== true) {
     return jsonResponse(
-      { error: "System-admin installation access is required" },
+      { error: "Gas mixer installation access is required" },
       403,
       origin,
     );

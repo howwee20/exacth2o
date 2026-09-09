@@ -36,10 +36,29 @@ begin
     or public.has_gas_mixer_native_access(null,gas_device,'remote_view') then
     raise exception 'Mixer permission escaped its native device scope';
   end if;
+  if not public.has_gas_mixer_module_access(gas_project,gas_device,'remote_control')
+    or not public.has_gas_mixer_module_access(gas_project,'lighting:beagle','remote_control') then
+    raise exception 'Researcher lacks a required Gas Mixer tile module';
+  end if;
+  snapshot := public.gas_mixer_remote_status(gas_project,gas_device);
+  if snapshot->>'remote_control_allowed' <> 'true' then raise exception 'Remote control permission missing'; end if;
+  snapshot := public.lighting_native_status(gas_project,'lighting:beagle');
+  if snapshot->>'remote_control_allowed' <> 'true' then raise exception 'Lighting permission missing'; end if;
+  if public.has_gas_mixer_module_access('33333333-3333-4333-8333-333333333331',gas_device,'remote_view')
+    or public.has_gas_mixer_module_access(gas_project,'wrong-device','remote_view')
+    or public.has_gas_mixer_module_access(gas_project,gas_device,'observe')
+    or public.has_gas_mixer_module_access(null,gas_device,'remote_view') then
+    raise exception 'Module access escaped its installation scope';
+  end if;
   update public.gas_mixer_researcher_access set can_control=false where user_id=u;
   if public.has_gas_mixer_native_access(gas_project,gas_device,'remote_control')
     or not public.has_gas_mixer_native_access(gas_project,gas_device,'remote_view') then
     raise exception 'Read-only grant is incorrect';
+  end if;
+  if public.has_gas_mixer_module_access(gas_project,gas_device,'remote_control')
+    or public.has_gas_mixer_module_access(gas_project,'lighting:beagle','remote_control')
+    or not public.has_gas_mixer_module_access(gas_project,'lighting:beagle','remote_view') then
+    raise exception 'Read-only module grant is incorrect';
   end if;
   update public.gas_mixer_researcher_access set revoked_at=now() where user_id=u;
   if public.has_gas_mixer_native_access(gas_project,gas_device,'remote_view') then
@@ -50,12 +69,24 @@ begin
     raise exception 'Revoked researcher could read mixer state';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform public.gas_mixer_remote_status(gas_project,gas_device);
+    raise exception 'Revoked researcher could read remote status';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.lighting_native_status(gas_project,'lighting:beagle');
+    raise exception 'Revoked researcher could read lighting status';
+  exception when insufficient_privilege then null;
+  end;
   perform set_config('request.jwt.claim.sub',stranger::text,true);
-  if public.has_gas_mixer_native_access(gas_project,gas_device,'remote_view') then
+  if public.has_gas_mixer_native_access(gas_project,gas_device,'remote_view')
+    or public.has_gas_mixer_module_access(gas_project,gas_device,'remote_view') then
     raise exception 'Unrelated user received mixer access';
   end if;
   perform set_config('request.jwt.claim.sub','',true);
-  if public.has_gas_mixer_native_access(gas_project,gas_device,'remote_view') then
+  if public.has_gas_mixer_native_access(gas_project,gas_device,'remote_view')
+    or public.has_gas_mixer_module_access(gas_project,'lighting:beagle','remote_view') then
     raise exception 'Anonymous user received mixer access';
   end if;
   if has_table_privilege('authenticated','public.gas_mixer_researcher_access','INSERT')
