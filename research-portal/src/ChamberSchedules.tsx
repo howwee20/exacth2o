@@ -116,7 +116,6 @@ export function ChamberSchedules() {
       </div>
     </header>
     <div className="schedule-content">
-      <p className="schedule-help">Runs with your browser closed. Keep both controllers online. Manual portal changes pause schedules for that device.</p>
       {overview && !overview.scheduler_online ? <p className="schedule-error" role="alert">The scheduler has not reported a recent successful check. Do not rely on upcoming runs until it reconnects.</p> : null}
       {loading ? <p><Loader2 size={18} className="chart-loading-spinner" /> Loading schedules…</p> : null}
       {connectionError || error ? <p className="schedule-error" role="alert">{connectionError ?? error}</p> : null}
@@ -156,7 +155,7 @@ export function ChamberSchedules() {
         {overview.can_control ? <div className="schedule-actions">{schedule.enabled ? <button type="button" disabled={busy} onClick={() => pause(schedule.id)}><Pause size={14} /> Pause</button> : null}<button type="button" disabled={busy} onClick={() => open(schedule)}><Pencil size={14} /> {schedule.enabled ? "Edit" : "Edit / resume"}</button></div> : null}
       </article>)}</div>
       {overview && overview.runs.length > 0 ? <details className="schedule-history" open={overview.runs.some(r => ["failed", "partial", "missed"].includes(r.status))}><summary>Recent runs</summary><div className="schedule-history-scroll"><table><thead><tr><th>Lab time / schedule</th><th>Result</th><th>Details</th></tr></thead><tbody>{overview.runs.map(run => <tr key={run.id}><td>{timeLabel(run.due_at)}<br /><strong>{run.name}</strong></td><td>{run.status === "applied" ? "Controller applied" : run.status}<small>Gas: {run.gas_status}<br />Lights: {run.light_status}</small></td><td>{run.detail ?? "Waiting for controller confirmation"}</td></tr>)}</tbody></table></div></details> : null}
-      <details className="schedule-rules"><summary>How schedules run</summary><p>Gas runs first, then lights. Changes are checked every 5 seconds; recipes take several steps. If a run cannot finish within 2 minutes, it is marked missed or failed and paused. Old runs are never replayed. Check live settings after any partial failure.</p><p>Manual portal changes pause that device’s schedules. Pause before using local controls or a separate lighting timeline. Pausing does not switch equipment off. Review and enable the schedule to resume.</p><p>All times use America/Detroit. A nonexistent spring clock-change time is skipped; a repeated fall time runs once at standard time. Controllers need internet. No email alerts are sent; results appear here.</p></details>
+      <details className="schedule-rules"><summary>Using schedules</summary><p>Schedules apply the saved settings. For combined schedules, gas changes first, then lights.</p><p>Changing a device through the portal pauses its schedules. Pause schedules before using local controls. Pausing leaves the current settings in place.</p><p>Keep controllers online. Failed or missed runs pause the schedule; check Recent runs before resuming. Times follow the lab’s time zone.</p></details>
     </div>
   </section>;
 }
