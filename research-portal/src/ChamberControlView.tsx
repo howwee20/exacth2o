@@ -28,6 +28,7 @@ import {
 } from "./chamberControlClient";
 import { GasMixerNativeControl } from "./GasMixerNativeControl";
 import { LightingNativeControl } from "./LightingNativeControl";
+import { ChamberSchedules } from "./ChamberSchedules";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -260,6 +261,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
           </section>
         ) : (
           <div className="chamber-module-stack">
+            <ChamberSchedules />
             <GasMixerNativeControl />
 
             <section className="chamber-module is-gas-mixer">

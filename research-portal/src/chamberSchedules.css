@@ -1,0 +1,42 @@
+.chamber-schedules { font-family: "IBM Plex Mono", monospace; }
+.chamber-schedules header small { display:block; margin-top:6px; color:#718078; font-size:11px; }
+.schedule-content { padding:22px; }
+.schedule-help { color:#68776e; font-size:12px; line-height:1.65; margin:0 0 18px; }
+.schedule-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.chamber-schedules button { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 12px; border:1px solid #ccd5d0; border-radius:7px; background:white; color:#284b3c; font:inherit; font-size:12px; cursor:pointer; }
+.chamber-schedules button:disabled { opacity:.5; cursor:default; }
+.chamber-schedules button:focus-visible,.chamber-schedules input:focus-visible,.chamber-schedules select:focus-visible { outline:2px solid #4a9273; outline-offset:3px; }
+.schedule-form { border:1px solid #cedbd2; background:#f7faf8; border-radius:10px; padding:20px; margin:20px 0; }
+.schedule-form-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.schedule-form fieldset { border:0; padding:0; margin:0; min-width:0; }
+.schedule-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; }
+.schedule-fields label,.schedule-light { display:flex; flex-direction:column; gap:8px; font-size:12px; color:#45564b; }
+.chamber-schedules input:not([type=checkbox]),.chamber-schedules select { box-sizing:border-box; width:100%; min-width:0; background:white; border:1px solid #bdcbc2; border-radius:6px; padding:10px; color:#203e2f; font:inherit; }
+.chamber-schedules input:disabled { color:#94a299; background:#f0f2f0; }
+.schedule-days,.schedule-targets { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0; }
+.schedule-days button[aria-pressed=true] { background:#285840; color:white; border-color:#285840; }
+.schedule-targets { gap:24px; }
+.schedule-targets label,.schedule-check { display:flex; align-items:center; gap:9px; font-size:13px; }
+.schedule-check { margin:18px 0; }
+.chamber-schedules input[type=checkbox] { width:17px; height:17px; accent-color:#285840; }
+.schedule-recipe { border-top:1px solid #d6e1d9; padding-top:18px; }
+.schedule-light { max-width:370px; margin:20px 0; }
+.chamber-schedules .schedule-primary,.schedule-review button { color:white; background:#285840; border-color:#285840; }
+.schedule-review { margin-top:18px; border-top:1px solid #c6d6cc; padding-top:18px; font-size:13px; line-height:1.7; }
+.schedule-empty { display:flex; gap:12px; align-items:center; padding:26px 0; color:#697b6e; font-size:13px; }
+.schedule-list article { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; padding:20px 0; border-top:1px solid #e1e6e2; }
+.schedule-list p { font-size:13px; margin:9px 0; line-height:1.6; }
+.schedule-list small { font-size:11px; color:#6a7d70; line-height:1.8; }
+.schedule-badge { display:inline-block; font-size:10px; margin-left:10px; padding:4px 7px; border-radius:5px; color:#637167; background:#edf0ed; }
+.schedule-badge.is-enabled { color:#215d3d; background:#ddf4e5; }
+.schedule-error { color:#9b322d; background:#fff0ee; border:1px solid #efcbc6; border-radius:6px; padding:12px; font-size:13px; }
+.schedule-notice { color:#285840; background:#eaf5ef; padding:12px; border-radius:6px; font-size:13px; }
+.schedule-history,.schedule-rules { margin-top:20px; border-top:1px solid #e1e6e2; padding-top:16px; font-size:12px; }
+.schedule-history summary,.schedule-rules summary { cursor:pointer; color:#375641; }
+.schedule-history-scroll { overflow:auto; margin-top:14px; }
+.schedule-history table { width:100%; border-collapse:collapse; text-align:left; }
+.schedule-history td,.schedule-history th { padding:12px 10px; border-bottom:1px solid #e1e6e2; vertical-align:top; line-height:1.7; }
+.schedule-history td:first-child { min-width:160px; }
+.schedule-history td small { display:block; color:#718078; font-size:10px; }
+.schedule-rules p { line-height:1.8; color:#68776e; }
+@media(max-width:650px) { .chamber-schedules>header { flex-wrap:wrap; gap:16px; } .schedule-content { padding:16px; } .schedule-list article { flex-direction:column; gap:12px; } .schedule-form { padding:14px; } .schedule-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
