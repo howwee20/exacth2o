@@ -1,6 +1,6 @@
 # Gas mixer and lighting schedules
 
-Schedules are shared within the existing Gas Mixer installation. Researchers with control access can create, edit, pause, and resume them. The existing native controls, remote screen, and lighting controls remain available.
+Schedules are shared within the existing Gas Mixer installation. Researchers with control access can create, edit, pause, resume, and delete them. The existing native controls, remote screen, and lighting controls remain available.
 
 - Lab timezone: America/Detroit. Daily/custom weekday and one-time schedules, start/end dates, exact gas recipes, and optional lighting intensity.
 - PostgreSQL cron checks every five seconds. It stores due occurrences and advances the next run in the same transaction, with a unique schedule/version/due-time constraint and an advisory lock. No browser, persistent user JWT, new device software, or Mac connection is needed.
@@ -15,3 +15,5 @@ Schedules are shared within the existing Gas Mixer installation. Researchers wit
 Deployment: apply `supabase/migrations/20260910140000_chamber_schedules.sql` and deploy the built portal. The migration creates no active schedules. Rollback operationally by unscheduling `exacth2o-chamber-schedules` and disabling `chamber_schedules.enabled`; retain run history. Removing the UI does not disable stored schedules.
 
 Verification for this release is limited to static/build checks and database transactions that were rolled back. No live gas or lighting actuation was performed. Researcher acceptance testing remains outstanding.
+
+Lifecycle polish: Resume is a direct action that revalidates the saved schedule and permissions. Ended schedules offer Change time. Delete pauses the schedule, hides it from the active list, and retains run history. Stale versions are rejected so another researcher’s edits cannot be silently deleted or resumed. Selected weekdays have checkmarks and a text summary; help is a small hover/focus/tap icon.
