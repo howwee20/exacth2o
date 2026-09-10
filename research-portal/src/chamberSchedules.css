@@ -39,7 +39,20 @@
 .schedule-history td:first-child { min-width:160px; }
 .schedule-history td small { display:block; color:#718078; font-size:10px; }
 .schedule-rules p { line-height:1.8; color:#68776e; }
-@media(max-width:650px) { .chamber-schedules>header { flex-wrap:wrap; gap:16px; } .schedule-content { padding:16px; } .schedule-list article { flex-direction:column; gap:12px; } .schedule-form { padding:14px; } .schedule-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) {
+  .chamber-module.chamber-schedules>header.is-iconless { grid-template-columns:minmax(0,1fr); gap:16px; padding:18px 16px; }
+  .chamber-schedules>header>.schedule-actions { width:100%; }
+  .chamber-schedules>header>.schedule-actions button { flex:1 1 120px; min-height:44px; }
+  .schedule-content { padding:16px; }
+  .schedule-list article { flex-direction:column; gap:12px; }
+  .schedule-list article>div { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .schedule-form { padding:14px; }
+  .schedule-form-title { flex-wrap:wrap; }
+  .schedule-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .chamber-schedules input:not([type=checkbox]),.chamber-schedules select { font-size:16px; max-width:100%; }
+  .schedule-history td:first-child { min-width:0; }
+  .schedule-history td,.schedule-history th { padding:10px 6px; overflow-wrap:anywhere; }
+}
 /* Explicit lifecycle actions and selection cues. */
 .schedule-content { position:relative; padding-bottom:42px; }
 .schedule-form { scroll-margin-top:24px; }
@@ -63,4 +76,4 @@
 .schedule-help-tooltip { position:absolute; bottom:30px; right:0; width:min(330px,calc(100vw - 76px)); padding:16px; background:#fff; border:1px solid #ccd8d0; border-radius:10px; box-shadow:0 8px 28px #203b2824; color:#425a4b; font-size:12px; line-height:1.65; }
 .schedule-help-tooltip p { margin:10px 0 0; }
 @media(max-width:850px) { .schedule-list article { flex-wrap:wrap; } .schedule-row-controls { flex-shrink:1; } }
-@media(max-width:500px) { .schedule-day-heading { align-items:flex-start; flex-direction:column; } .schedule-days { gap:6px; } .schedule-days button { padding:8px; } }
+@media(max-width:500px) { .schedule-fields { grid-template-columns:minmax(0,1fr); } .schedule-day-heading { align-items:flex-start; flex-direction:column; } .schedule-days { gap:6px; } .schedule-days button { padding:8px; } }
