@@ -1,5 +1,6 @@
 -- Cloud schedules reuse the existing authenticated device bridges. No device
 -- credentials or user sessions are stored; no schedule is enabled by migration.
+create extension if not exists pg_cron;
 create table public.chamber_schedules (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id),
