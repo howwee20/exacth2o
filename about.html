@@ -66,18 +66,18 @@
   /* TEAM SECTION */
   .team-section { padding: 6rem 4rem; background: var(--bg); }
   .team-inner { max-width: 1400px; margin: 0 auto; }
-  .team-intro-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 4rem; align-items: end; margin-bottom: 5rem; padding-bottom: 4rem; border-bottom: 1px solid var(--rule); }
+  .team-intro-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 3rem; align-items: center; margin-bottom: 4rem; padding-bottom: 4rem; border-bottom: 1px solid var(--rule); }
+  .team-group-photo { display: block; width: 100%; height: auto; }
   .team-intro-desc { font-size: 1.05rem; line-height: 1.8; opacity: 0.65; padding-top: 0.5rem; }
 
-  .founders-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
-  .founders-grid-secondary { grid-template-columns: 1fr; width: calc(100% / 3); margin-top: 2px; }
+  .founders-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
   .founder-card { background: var(--bg); display: flex; flex-direction: column; transition: background 0.3s; }
   .founder-card:hover { background: var(--water-pale); }
-  .founder-photo { width: 100%; height: 300px; overflow: hidden; background: var(--mist); }
+  .founder-photo { width: 100%; aspect-ratio: 4 / 5; overflow: hidden; background: var(--mist); }
   .founder-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
   .founder-photo-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(160deg, var(--bg-dark) 0%, #1a3020 100%); }
   .founder-initials { font-family: var(--serif); font-size: 4rem; color: var(--accent); opacity: 0.6; line-height: 1; }
-  .founder-info { padding: 2.2rem; flex: 1; }
+  .founder-info { padding: 1.6rem; flex: 1; }
   .founder-num { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; color: var(--water); opacity: 0.5; margin-bottom: 1rem; }
   .founder-name { font-family: var(--serif); font-size: 1.8rem; color: var(--ink); margin-bottom: 0.3rem; line-height: 1.1; }
   .founder-title { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--water); margin-bottom: 1.5rem; opacity: 0.8; }
@@ -107,14 +107,20 @@
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
   .reveal.visible { opacity: 1; transform: none; }
 
+  @media (max-width: 1100px) {
+    .founders-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  }
+
   @media (max-width: 900px) {
     nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
     .page-header, .team-section, .cta-strip { padding: 4rem 1.5rem; }
     .page-header { padding-top: 7rem; }
+    .team-section { padding-top: 6rem; }
     .team-intro-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-    .founders-grid { grid-template-columns: 1fr; }
-    .founders-grid-secondary { width: 100%; }
     footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
+  }
+  @media (max-width: 600px) {
+    .founders-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -145,14 +151,18 @@
 <div class="team-section">
   <div class="team-inner">
     <div class="team-intro-grid reveal">
-      <div><div class="section-label">Leadership</div><h2 class="section-title">Built by scientists,<br>for scientists</h2></div>
-      <p class="team-intro-desc">exactH2O was founded by a team with deep expertise spanning plant physiology, environmental sensing, and instrument engineering. Every design decision reflects years of firsthand frustration with imprecise irrigation in research settings — and the conviction that it could be done better.</p>
+      <img class="team-group-photo" src="team-group-20260913.webp" width="1800" height="1198" alt="The exactH2O team together outdoors" fetchpriority="high" decoding="async">
+      <div>
+        <div class="section-label">Leadership</div>
+        <h2 class="section-title">Built by scientists,<br>for scientists</h2>
+        <p class="team-intro-desc">exactH2O was founded by a team with deep expertise spanning plant physiology, environmental sensing, and instrument engineering. Every design decision reflects years of firsthand frustration with imprecise irrigation in research settings — and the conviction that it could be done better.</p>
+      </div>
     </div>
     <div class="founders-grid reveal">
 
       <div class="founder-card">
         <div class="founder-photo">
-          <img src="ceo.jpg" alt="Binod Basyal" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="team-portrait-3-20260913.webp" width="1000" height="1504" loading="lazy" decoding="async" alt="Binod Basyal" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">BB</div></div>
         </div>
         <div class="founder-info">
@@ -168,7 +178,7 @@
 
       <div class="founder-card">
         <div class="founder-photo">
-          <img src="cto.jpg" alt="Berkley Walker" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="team-portrait-1-20260913.webp" width="1000" height="1503" loading="lazy" decoding="async" alt="Berkley Walker" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">BW</div></div>
         </div>
         <div class="founder-info">
@@ -184,7 +194,7 @@
 
       <div class="founder-card">
         <div class="founder-photo">
-          <img src="coo.jpg" alt="Jacob Hicks" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="team-portrait-4-20260913.webp" width="1000" height="1504" loading="lazy" decoding="async" alt="Jacob Hicks" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">JH</div></div>
         </div>
         <div class="founder-info">
@@ -198,18 +208,15 @@
         </div>
       </div>
 
-    </div>
-    <div class="founders-grid founders-grid-secondary reveal">
-
       <div class="founder-card">
         <div class="founder-photo">
-          <img src="ej-howe.jpg?v=20260706-ej-photo-2" alt="EJ Howe" style="object-position: center 36%; transform: scale(1.04);" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+          <img src="team-portrait-2-20260913.webp" width="1000" height="1504" loading="lazy" decoding="async" alt="EJ Howe" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
           <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">EH</div></div>
         </div>
         <div class="founder-info">
           <div class="founder-num">04 —</div>
           <h3 class="founder-name">EJ Howe</h3>
-          <div class="founder-title">VP OF PRODUCT &amp; SYSTEMS ENGINEERING</div>
+          <div class="founder-title">Chief Product Officer</div>
           <p class="founder-bio">EJ is a 2026 graduate of Michigan State University who designed and built exactH2O&rsquo;s web-based platform. He also provides hands-on instrumentation support across the company&rsquo;s sensor systems and greenhouse deployments, helping turn the technology into a reliable research product.</p>
           <div class="founder-links">
             <a href="mailto:ej@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>ej@exacth2o.com</a>
