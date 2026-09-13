@@ -101,15 +101,15 @@ nav {
 }
 
 /* Cinematic homepage: real equipment, full-bleed photography, restrained type. */
-.cinema-hero { position: relative; min-height: max(780px, calc(100svh - var(--header-height, 90px))); height: auto; isolation: isolate; background: #080b09; color: #fff; overflow: hidden; }
-.cinema-photos, .cinema-photo { position: absolute; inset: 0; }
+.cinema-hero { position: relative; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); min-height: max(780px, calc(100svh - var(--header-height, 90px))); height: auto; isolation: isolate; background: var(--bg-dark); color: #fff; overflow: hidden; }
+.cinema-photos { position: relative; grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; }
+.cinema-photo { position: absolute; inset: 0; }
 .cinema-photo { opacity: 0; transition: opacity 1.1s ease; }
 .cinema-photo.is-active { opacity: 1; }
 .cinema-photo img { width: 100%; height: 100%; object-fit: cover; object-position: var(--desktop-position, 50% 50%); }
-.cinema-hero::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.12) 85%),linear-gradient(0deg,rgba(0,0,0,.8),transparent 60%,rgba(0,0,0,.32)); }
-.cinema-content { position: relative; z-index: 2; height: auto; min-height: inherit; max-width: 1560px; margin: auto; padding: 4rem 6vw; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; }
+.cinema-content { position: relative; grid-column: 1; grid-row: 1; min-width: 0; z-index: 2; height: auto; padding: 4rem clamp(1.5rem,4vw,4rem); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; background: var(--bg-dark); }
 .cinema-title { font-family: var(--serif); font-size: clamp(3.5rem,5vw,5.8rem); line-height: 1.0; font-weight: 400; letter-spacing: -.02em; max-width: 14ch; }
-.cinema-title em { font-style: italic; color: #fff; }
+.cinema-title em { font-style: italic; color: #7bc3b4; }
 .cinema-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.5rem; width: 100%; max-width: 580px; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,.25); }
 .cinema-stats div { display: flex; flex-direction: column; gap: .5rem; }
 .cinema-stats dt { order: 2; font-family: var(--mono); font-size: .75rem; line-height: 1.5; letter-spacing: .04em; text-transform: uppercase; color: #fff; }
@@ -125,8 +125,9 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
 .nav-links a:hover,.nav-links a.active { color: var(--accent); }
 .nav-cta { background: var(--water); padding: .4rem 1rem; border: 0; border-radius: 2px; font-size: .75rem !important; letter-spacing: .06em !important; }
 .nav-cta:hover { background: var(--water-light) !important; }
-@media(max-width: 760px) {
- .cinema-hero { height: auto; min-height: max(820px, calc(100svh - var(--header-height, 90px))); }
+@media(max-width: 900px) {
+ .cinema-hero { grid-template-columns: 1fr; height: auto; min-height: 0; }
+ .cinema-photos { grid-column: 1; grid-row: 2; height: clamp(320px,75vw,560px); }
  .cinema-content { padding: 3rem 1.5rem; }
  .cinema-stats { gap: 1rem; }
  .cinema-stats dd { font-size: 1.7rem; }
@@ -135,7 +136,6 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
  .cinema-actions { gap: 1.3rem; margin-top: 1.5rem; }
  .cinema-button { min-width: 180px; }
  .cinema-photo img { object-position: var(--mobile-position, 50% 50%); }
- .cinema-hero::after { background: linear-gradient(0deg,rgba(0,0,0,.92),rgba(0,0,0,.32) 75%,rgba(0,0,0,.5)); }
 }
 @media(prefers-reduced-motion:reduce) { .cinema-photo,nav { transition: none; } }
 
@@ -424,46 +424,37 @@ footer a:hover { color: var(--accent); }
 <!-- HOMEPAGE OPENING -->
 <section class="cinema-hero" aria-labelledby="cinema-title" aria-roledescription="carousel" aria-label="ExactH2O equipment photographs">
   <div class="cinema-photos">
-    <div class="cinema-photo is-active" role="group" aria-roledescription="slide" aria-label="1 of 14: Greenhouse installation">
+    <div class="cinema-photo is-active" role="group" aria-roledescription="slide" aria-label="1 of 11: Greenhouse installation">
       <img src="product1.avif" alt="ExactH2O controllers connected to individually irrigated research pots in a greenhouse" width="1600" height="1200" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src='product1.jpg'" style="--desktop-position: 50% 55%; --mobile-position: 63% 50%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="2 of 14: Irrigation control hardware" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="2 of 11: Irrigation control hardware" aria-hidden="true">
       <img src="product2.avif" alt="ExactH2O irrigation control hardware" width="1600" height="1200" decoding="async" onerror="this.onerror=null;this.src='product2.jpg'" style="--desktop-position: 65% 50%; --mobile-position: 65% 50%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="3 of 14: Sensors in the greenhouse" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="3 of 11: Sensors in the greenhouse" aria-hidden="true">
       <img src="product3.avif" alt="Soil moisture sensing equipment installed in a research pot" width="1200" height="1600" decoding="async" onerror="this.onerror=null;this.src='product3.jpg'" style="--desktop-position: 50% 37%; --mobile-position: 58% 45%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="4 of 14" aria-hidden="true">
-      <img src="hero-greenhouse-4211-20260913.webp" alt="Young plant with a soil moisture sensor and blue irrigation ring" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 20%; --mobile-position: 55% 35%;">
-    </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="5 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="4 of 11" aria-hidden="true">
       <img src="hero-greenhouse-4209-20260913.webp" alt="Overhead view of research pots with color-coded irrigation rings" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 57%; --mobile-position: 58% 55%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="6 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="5 of 11" aria-hidden="true">
       <img src="hero-greenhouse-4202-20260913.webp" alt="Rows of individually irrigated plants at different growth stages" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 66%; --mobile-position: 55% 55%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="7 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="6 of 11" aria-hidden="true">
       <img src="hero-greenhouse-4201-20260913.webp" alt="Close view of a seedling, moisture sensor, and irrigation ring" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 34%; --mobile-position: 55% 45%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="8 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="7 of 11" aria-hidden="true">
       <img src="hero-greenhouse-3684-20260913.webp" alt="Irrigation valve manifold with color-coded tubing connected to research pots" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 24%; --mobile-position: 40% 42%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="9 of 14" aria-hidden="true">
-      <img src="hero-greenhouse-3647-20260913.webp" alt="Greenhouse benches with sensor-equipped plants and irrigation wiring" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 56%; --mobile-position: 57% 55%;">
-    </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="10 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="8 of 11" aria-hidden="true">
       <img src="hero-greenhouse-3565-20260913.webp" alt="Research pots and irrigation equipment beneath greenhouse grow lights" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 54%; --mobile-position: 52% 50%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="11 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="9 of 11" aria-hidden="true">
       <img src="hero-greenhouse-4135-20260913.webp" alt="Tall green plants growing in individually irrigated pots inside the greenhouse" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 56%; --mobile-position: 52% 48%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="12 of 14" aria-hidden="true">
-      <img src="hero-greenhouse-3981-20260913.webp" alt="Rows of research pots with red, blue, and green irrigation rings in a greenhouse" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 48%; --mobile-position: 48% 50%;">
-    </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="13 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="10 of 11" aria-hidden="true">
       <img src="hero-greenhouse-3895-20260913.webp" alt="Greenhouse benches with young plants and sensor-equipped pots at different growth stages" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 58%; --mobile-position: 62% 50%;">
     </div>
-    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="14 of 14" aria-hidden="true">
+    <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="11 of 11" aria-hidden="true">
       <img src="hero-greenhouse-3602-20260913.webp" alt="Potted grasses with moisture sensors, white irrigation rings, and color-coded tubing" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 45%; --mobile-position: 65% 45%;">
     </div>
   </div>
