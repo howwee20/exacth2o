@@ -409,6 +409,19 @@ footer .footer-logo { flex: none; width: 126px; }
   footer { flex-direction: column; align-items: center; gap: 1.5rem; }
   .footer-identity, .footer-details { align-items: center; text-align: center; }
 }
+
+/* Portrait video beside the published research. */
+.strip-header { grid-template-columns: minmax(0,1fr) minmax(0,1.35fr) minmax(160px,210px); gap: 2rem; align-items: center; }
+.research-video { position: relative; width: 100%; max-width: 210px; margin: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--bg-dark); }
+.research-video video { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
+@media (max-width: 900px) {
+  .strip-header { grid-template-columns: minmax(0,1fr) 180px; gap: 1.75rem; }
+  .strip-header > div:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .strip-header { grid-template-columns: 1fr; }
+  .research-video { max-width: 240px; }
+}
 </style>
 </head>
 <body>
@@ -509,6 +522,11 @@ footer .footer-logo { flex: none; width: 126px; }
       </div>
       <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study</a>
     </aside>
+    <figure class="research-video" aria-label="ExactH2O greenhouse installation video">
+      <video id="researchVideo" autoplay muted loop playsinline preload="metadata" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
+        <source src="/research-video-20260913.mp4" type="video/mp4">
+      </video>
+    </figure>
     </div>
 
     <div class="features-grid reveal">

@@ -439,8 +439,8 @@
 
   .app-intro-grid {
     display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 4rem;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
     align-items: start;
     margin-bottom: 5rem;
     padding-bottom: 4rem;
@@ -759,6 +759,8 @@ footer .footer-logo { flex: none; width: 126px; }
   footer { flex-direction: column; align-items: center; gap: 1.5rem; }
   .footer-identity, .footer-details { align-items: center; text-align: center; }
 }
+  .app-intro-grid .section-title { margin-bottom: 0; }
+  .app-intro-copy { font-size: 1.05rem; line-height: 1.8; color: #536157; max-width: 85ch; }
 </style>
 </head>
 <body>
@@ -799,7 +801,7 @@ footer .footer-logo { flex: none; width: 126px; }
       <div class="section-label">Application Areas</div>
       <h2 class="section-title">Three domains,<br>one system</h2>
     </div>
-    <p style="font-size:1.05rem; line-height:1.8; opacity:0.72; padding-top: 0.5rem;">
+    <p class="app-intro-copy">
       ExactH2O is built for controlled-environment work where water must be measured, repeated, and explained. One platform supports configurable sensors, per-pot or per-zone targets, sampling cadence, and a continuous record across stress studies, phenotyping, and greenhouse operations.
     </p>
   </div>

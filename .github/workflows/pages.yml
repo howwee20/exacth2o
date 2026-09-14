@@ -155,6 +155,7 @@ jobs:
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp team-*-20260913.webp site-dist/
           cp hero-greenhouse-*-20260913.webp site-dist/
+          cp research-video-20260913.mp4 research-video-poster-20260913.jpg site-dist/
           cp product1.jpg product2.jpg product3.jpg site-dist/
           cp smart-scheduling-20260821.jpg sensor.jpg web-dashboard-20260804.jpg web-dashboard-20260831.webp easy-scaling-20260804.jpg data-visualization-20260804.jpg site-dist/
           cp product1.avif product2.avif product3.avif site-dist/

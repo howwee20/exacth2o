@@ -58,34 +58,35 @@
   .section-title { font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
 
   /* QUOTE LAYOUT */
-  .quote-section { padding: 8.5rem 4rem 6rem; background: var(--bg); }
-  .quote-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 5rem; align-items: start; }
+  .quote-section { padding: 8rem 4rem 4rem; background: var(--bg); }
+  .quote-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 4rem; align-items: start; }
   .q-sidebar { position: sticky; top: 7rem; }
-  .q-intro { font-size: 0.9rem; line-height: 1.75; opacity: 0.6; margin-bottom: 2.5rem; }
-  .q-points { display: flex; flex-direction: column; margin-bottom: 2.5rem; }
-  .q-point { padding: 1.1rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 2.2rem 1fr; gap: 0.8rem; align-items: start; }
+  .q-intro { font-size: 0.95rem; line-height: 1.7; color: #536157; margin-bottom: 1.5rem; }
+  .q-points { display: flex; flex-direction: column; margin-bottom: 1.75rem; }
+  .q-point { padding: .9rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 2.2rem 1fr; gap: 0.8rem; align-items: start; }
   .q-point-icon { color: var(--water); font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; margin-top: 0.1rem; }
   .q-point-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.2rem; }
-  .q-point-desc { font-size: 0.8rem; line-height: 1.6; opacity: 0.55; }
+  .q-point-desc { font-size: .85rem; line-height: 1.6; color: #536157; }
   .q-direct { background: var(--bg-dark); padding: 1.5rem; }
   .q-direct-label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.8rem; }
-  .q-direct p { font-size: 0.85rem; color: rgba(244,241,235,0.6); line-height: 1.6; }
+  .q-direct p { font-size: 0.85rem; color: #c4d0c7; line-height: 1.6; }
   .q-direct a { color: var(--accent); text-decoration: none; }
   .q-direct a:hover { text-decoration: underline; }
 
   /* FORM */
-  .quote-form-wrap { background: var(--card-bg, #fff); border: 1px solid var(--rule); padding: 3rem; }
+  .quote-form-wrap { background: var(--card-bg, #fff); border: 1px solid var(--rule); padding: 2.25rem; }
   .form-title { font-family: var(--serif); font-size: 1.6rem; color: var(--ink); margin-bottom: 0.4rem; }
-  .form-subtitle { font-size: 0.88rem; opacity: 0.55; margin-bottom: 2.5rem; }
+  .form-subtitle { font-size: 0.9rem; color: #536157; margin-bottom: 1.75rem; }
 
   /* Success / Error messages */
   .form-msg { display: none; padding: 1.2rem 1.5rem; border-radius: 2px; font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.03em; margin-bottom: 2rem; }
   .form-msg.success { background: var(--water-pale); border: 1px solid var(--water); color: var(--water); }
   .form-msg.error { background: #fdf0f0; border: 1px solid #c0392b; color: #c0392b; }
 
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
-  .form-group { margin-bottom: 1.5rem; }
-  .form-group label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); opacity: 0.6; margin-bottom: 0.5rem; }
+  .form-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
+  .form-row .form-group { margin-bottom: 0; min-width: 0; }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-group label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: #3e5045; margin-bottom: 0.5rem; }
   .req { color: var(--water); }
   .form-group input, .form-group select, .form-group textarea {
     width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--rule); border-radius: 2px;
@@ -93,15 +94,16 @@
     transition: border-color 0.2s, box-shadow 0.2s; appearance: none; -webkit-appearance: none;
   }
   .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-    outline: none; border-color: var(--water-light); box-shadow: 0 0 0 3px rgba(46,158,110,0.1);
+    outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12);
   }
   .form-group textarea { resize: vertical; min-height: 130px; }
 
   /* Honeypot — invisible to humans, visible to bots */
   .hp-trap { opacity: 0; position: absolute; top: 0; left: 0; height: 0; width: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 
-  .submit-btn { width: 100%; background: var(--water); color: #fff; padding: 1.1rem; border: none; border-radius: 2px; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; }
-  .submit-btn:hover:not(:disabled) { background: var(--water-light); }
+  .submit-btn { width: 100%; background: #2563eb; color: #fff; padding: 1.1rem; border: none; border-radius: 2px; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; }
+  .submit-btn:hover:not(:disabled) { background: #1d4ed8; }
+  .submit-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 4px; }
   .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
   /* CTA */
@@ -133,6 +135,37 @@
     .quote-form-wrap { padding: 2rem 1.5rem; }
     .cta-strip { padding: 4rem 1.5rem; }
     footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
+  }
+/* Compact footer with clear visual hierarchy. */
+footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
+.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+footer .footer-logo { flex: none; width: 126px; }
+.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
+.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
+.footer-support:hover { color: #fff; }
+.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
+.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
+.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
+.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
+@media (max-width: 600px) {
+  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
+  .footer-identity, .footer-details { align-items: center; text-align: center; }
+}
+
+  .form-group select { padding-right: 2.75rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23536157' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 16px; }
+  .form-group input::placeholder, .form-group textarea::placeholder { color: #66736b; opacity: 1; }
+  .form-hint { font-size: .8125rem; color: #536157; line-height: 1.6; margin: -.1rem 0 .65rem; }
+  .q-direct a { overflow-wrap: anywhere; }
+  @media (max-width: 900px) {
+    .quote-inner { gap: 2rem; }
+    .q-intro { margin-bottom: 1rem; }
+    .q-points { margin-bottom: 1rem; }
+    .q-point { padding: .55rem 0; }
+    .q-point-title { margin-bottom: 0; }
+    .q-direct { padding: 1rem 1.25rem; }
+    .q-direct-label { margin-bottom: .35rem; }
+    .form-row { gap: 1.25rem; }
+    .form-group input, .form-group select, .form-group textarea { font-size: 1rem; }
   }
 </style>
 </head>
@@ -166,15 +199,15 @@
     <div class="q-sidebar">
       <div class="section-label">Get Started</div>
       <h2 class="section-title">Custom-fitted<br>to your setup</h2>
-      <p class="q-intro">No two irrigation systems are identical. We size each deployment around your substrate, zone count, data requirements, and budget.</p>
+      <p class="q-intro">Tell us what you grow and how your facility is set up. We’ll help size a system around your needs and budget.</p>
       <div class="q-points">
-        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Quick Response</div><div class="q-point-desc">We'll respond quickly during business hours with questions or a preliminary recommendation.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">Tailored Solutions</div><div class="q-point-desc">From single-bench research installations to multi-range commercial greenhouse operations — every quote is specific to your needs.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">03</span><div><div class="q-point-title">No Obligation</div><div class="q-point-desc">Consultation and quote are completely free. No commitment required.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Quick Response</div><div class="q-point-desc">Our team responds during business hours.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">Tailored Solutions</div><div class="q-point-desc">Sized for your benches, pots, and irrigation zones.</div></div></div>
+        <div class="q-point"><span class="q-point-icon">03</span><div><div class="q-point-title">No Obligation</div><div class="q-point-desc">Free consultation and quote. No commitment required.</div></div></div>
       </div>
       <div class="q-direct">
         <div class="q-direct-label">Direct Contact</div>
-        <p>Prefer email? Reach us at <a href="mailto:support@exacth2o.com">support@exacth2o.com</a> — we're happy to discuss your project before a formal quote.</p>
+        <p>Prefer email?<br><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></p>
       </div>
     </div>
 
@@ -237,7 +270,8 @@
           </div>
           <div class="form-group">
             <label for="message">Project Details <span class="req">*</span></label>
-            <textarea id="message" name="message" required placeholder="Tell us about your irrigation needs, research goals, existing setup, or any specific requirements…" maxlength="3000"></textarea>
+            <p class="form-hint" id="projectHint">Include your approximate pot count, growing media, irrigation zones, and research goals. Estimates are fine.</p>
+            <textarea id="message" name="message" required aria-describedby="projectHint" placeholder="Tell us about your project and what you need the system to do…" maxlength="3000"></textarea>
           </div>
           <button type="submit" class="submit-btn" id="submitBtn">Submit Quote Request</button>
         </form>
@@ -248,9 +282,17 @@
 </div>
 
 <footer>
-  <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
-  <div>© 2026 exactH2O · All rights reserved</div>
-  <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
+  <div class="footer-identity">
+    <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
+    <div class="made-in-america">
+      <svg viewBox="0 0 190 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="190" height="100" fill="#fff"/><rect y="0.0000" width="190" height="7.6923" fill="#b22234"/><rect y="15.3846" width="190" height="7.6923" fill="#b22234"/><rect y="30.7692" width="190" height="7.6923" fill="#b22234"/><rect y="46.1538" width="190" height="7.6923" fill="#b22234"/><rect y="61.5385" width="190" height="7.6923" fill="#b22234"/><rect y="76.9231" width="190" height="7.6923" fill="#b22234"/><rect y="92.3077" width="190" height="7.6923" fill="#b22234"/><rect width="76" height="53.8462" fill="#3c3b6e"/><defs><polygon id="made-in-america-star" points="0.000,-3.080 0.694,-0.955 2.929,-0.952 1.122,0.365 1.810,2.492 0.000,1.180 -1.810,2.492 -1.122,0.365 -2.929,-0.952 -0.694,-0.955" fill="#fff"/></defs><use href="#made-in-america-star" x="6.333" y="5.385"/><use href="#made-in-america-star" x="19.000" y="5.385"/><use href="#made-in-america-star" x="31.667" y="5.385"/><use href="#made-in-america-star" x="44.333" y="5.385"/><use href="#made-in-america-star" x="57.000" y="5.385"/><use href="#made-in-america-star" x="69.667" y="5.385"/><use href="#made-in-america-star" x="12.667" y="10.769"/><use href="#made-in-america-star" x="25.333" y="10.769"/><use href="#made-in-america-star" x="38.000" y="10.769"/><use href="#made-in-america-star" x="50.667" y="10.769"/><use href="#made-in-america-star" x="63.333" y="10.769"/><use href="#made-in-america-star" x="6.333" y="16.154"/><use href="#made-in-america-star" x="19.000" y="16.154"/><use href="#made-in-america-star" x="31.667" y="16.154"/><use href="#made-in-america-star" x="44.333" y="16.154"/><use href="#made-in-america-star" x="57.000" y="16.154"/><use href="#made-in-america-star" x="69.667" y="16.154"/><use href="#made-in-america-star" x="12.667" y="21.538"/><use href="#made-in-america-star" x="25.333" y="21.538"/><use href="#made-in-america-star" x="38.000" y="21.538"/><use href="#made-in-america-star" x="50.667" y="21.538"/><use href="#made-in-america-star" x="63.333" y="21.538"/><use href="#made-in-america-star" x="6.333" y="26.923"/><use href="#made-in-america-star" x="19.000" y="26.923"/><use href="#made-in-america-star" x="31.667" y="26.923"/><use href="#made-in-america-star" x="44.333" y="26.923"/><use href="#made-in-america-star" x="57.000" y="26.923"/><use href="#made-in-america-star" x="69.667" y="26.923"/><use href="#made-in-america-star" x="12.667" y="32.308"/><use href="#made-in-america-star" x="25.333" y="32.308"/><use href="#made-in-america-star" x="38.000" y="32.308"/><use href="#made-in-america-star" x="50.667" y="32.308"/><use href="#made-in-america-star" x="63.333" y="32.308"/><use href="#made-in-america-star" x="6.333" y="37.692"/><use href="#made-in-america-star" x="19.000" y="37.692"/><use href="#made-in-america-star" x="31.667" y="37.692"/><use href="#made-in-america-star" x="44.333" y="37.692"/><use href="#made-in-america-star" x="57.000" y="37.692"/><use href="#made-in-america-star" x="69.667" y="37.692"/><use href="#made-in-america-star" x="12.667" y="43.077"/><use href="#made-in-america-star" x="25.333" y="43.077"/><use href="#made-in-america-star" x="38.000" y="43.077"/><use href="#made-in-america-star" x="50.667" y="43.077"/><use href="#made-in-america-star" x="63.333" y="43.077"/><use href="#made-in-america-star" x="6.333" y="48.462"/><use href="#made-in-america-star" x="19.000" y="48.462"/><use href="#made-in-america-star" x="31.667" y="48.462"/><use href="#made-in-america-star" x="44.333" y="48.462"/><use href="#made-in-america-star" x="57.000" y="48.462"/><use href="#made-in-america-star" x="69.667" y="48.462"/></svg>
+      <span>MADE IN USA</span>
+    </div>
+  </div>
+  <div class="footer-details">
+    <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
+    <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
+  </div>
 </footer>
 
 <script>
