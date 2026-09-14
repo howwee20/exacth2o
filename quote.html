@@ -39,8 +39,8 @@
   .nav-links { display: flex; gap: 2.5rem; list-style: none; }
   .nav-links a { font-family: var(--mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,241,235,0.55); text-decoration: none; opacity: 1; transition: opacity 0.2s; }
   .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
-  .nav-cta { background: var(--water); color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: var(--water-light) !important; }
+  .nav-cta { background: #2563eb; color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
+  .nav-cta:hover { background: #1d4ed8 !important; }
   .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
   .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
   .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
@@ -111,8 +111,8 @@
   .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
   .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
   .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
+  .cta-strip .btn-primary { background: #2563eb; color: #fff; font-size: 0.8rem; position: relative; z-index: 1; }
+  .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
 
   /* FOOTER */
   footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
@@ -245,12 +245,6 @@
     </div>
 
   </div>
-</div>
-
-<div class="cta-strip reveal">
-  <h2>Ready to optimize your irrigation?</h2>
-  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
-  <a href="/quote" class="btn-primary">Get Started Today</a>
 </div>
 
 <footer>

@@ -37,8 +37,8 @@
   .nav-links { display: flex; gap: 2.5rem; list-style: none; }
   .nav-links a { font-family: var(--mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,241,235,0.55); text-decoration: none; opacity: 1; transition: opacity 0.2s; }
   .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
-  .nav-cta { background: var(--water); color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: var(--water-light) !important; }
+  .nav-cta { background: #2563eb; color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
+  .nav-cta:hover { background: #1d4ed8 !important; }
   .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
   .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
   .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
@@ -50,54 +50,60 @@
   .mobile-menu a:hover { opacity: 0.7; }
   .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
 
-  /* PAGE HEADER */
-  .page-header { background: var(--bg); padding: 9rem 4rem 5rem; border-bottom: 1px solid var(--rule); }
-  .ph-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.8rem; }
-  .ph-eyebrow::before { content: ''; width: 2rem; height: 1px; background: var(--water); display: block; }
-  .page-header h1 { font-family: var(--serif); font-size: clamp(3rem, 5vw, 5rem); line-height: 1.0; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 1.5rem; }
-  .page-header h1 em { font-style: italic; color: var(--water); }
-  .ph-sub { font-size: 1.05rem; line-height: 1.75; color: var(--ink); opacity: 0.65; max-width: 55ch; border-left: 2px solid var(--water-light); padding-left: 1.25rem; }
-
-  /* SECTION HELPERS */
-  .section-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.7rem; }
-  .section-label::before { content: ''; width: 1.5rem; height: 1px; background: var(--water); display: block; }
-  .section-title { font-family: var(--serif); font-size: clamp(2.2rem, 3.5vw, 3.4rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 2rem; }
-
-  /* CONTACT SECTION */
-  .contact-section { padding: 6rem 4rem; background: var(--bg); }
-  .contact-inner { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 6rem; align-items: start; }
-  .contact-desc { font-size: 1rem; line-height: 1.8; opacity: 0.65; margin-top: 0.5rem; }
-  .contact-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--rule); border: 1px solid var(--rule); }
-  .contact-card { background: var(--bg); padding: 2.2rem; transition: background 0.3s; }
-  .contact-card:hover { background: var(--water-pale); }
-  .cc-icon { color: var(--water); width: 44px; height: 44px; margin-bottom: 1.2rem; }
-  .cc-title { font-family: var(--serif); font-size: 1.3rem; color: var(--ink); margin-bottom: 0.6rem; }
-  .cc-desc { font-size: 0.85rem; line-height: 1.65; opacity: 0.6; margin-bottom: 1.2rem; }
-  .cc-link { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em; color: var(--water); text-decoration: none; border-bottom: 1px solid rgba(26,107,74,0.3); padding-bottom: 0.15rem; transition: border-color 0.2s; }
-  .cc-link:hover { border-color: var(--water); }
-
-  /* FAQ SECTION */
-  .faq-section { padding: 6rem 4rem; background: var(--mist); }
-  .faq-inner { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 6rem; align-items: start; }
-  .faq-list { display: flex; flex-direction: column; }
-  .faq-item { border-bottom: 1px solid var(--rule); overflow: hidden; }
-  .faq-question { padding: 1.4rem 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.95rem; font-weight: 600; color: var(--ink); transition: color 0.2s; user-select: none; }
+  /* Support workspace. */
+  .support-shell { max-width: 1240px; margin: 0 auto; padding: 8.5rem 4rem 3.5rem; }
+  .support-heading { margin-bottom: 2.75rem; }
+  .support-eyebrow { font-family: var(--mono); font-size: .6875rem; letter-spacing: .14em; text-transform: uppercase; color: var(--water); margin-bottom: .8rem; }
+  .support-heading h1 { font-family: var(--serif); font-size: clamp(2.6rem,4.5vw,3.75rem); line-height: 1.05; font-weight: 400; letter-spacing: -.025em; margin-bottom: 1rem; }
+  .support-heading p { font-size: 1rem; color: #536157; line-height: 1.7; max-width: 60ch; }
+  .support-workspace { display: grid; grid-template-columns: minmax(270px,.8fr) minmax(0,1.4fr); gap: 3rem; align-items: start; }
+  .support-contact { background: var(--bg-dark); color: #f4f1eb; border-radius: 8px; padding: 2rem; }
+  .support-contact-icon { display: block; width: 30px; height: 30px; color: #7bc3b4; margin-bottom: 1.4rem; }
+  .support-contact h2 { font-family: var(--serif); font-size: 1.8rem; font-weight: 400; line-height: 1.15; margin-bottom: .8rem; }
+  .support-contact > p { color: #b9c5bc; font-size: .875rem; line-height: 1.65; }
+  .support-contact-button { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; min-height: 48px; padding: .8rem 1rem; border-radius: 3px; background: #2563eb; color: #fff; font-size: .875rem; font-weight: 600; text-decoration: none; transition: background .2s; }
+  .support-contact-button:hover { background: #1d4ed8; }
+  .support-address { display: block; color: #c4d0c7; font-size: .8125rem; text-decoration: none; margin-top: .75rem; overflow-wrap: anywhere; }
+  .support-address:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+  .support-message-guide { margin-top: 1.75rem; padding-top: 1.4rem; border-top: 1px solid rgba(244,241,235,.18); }
+  .support-message-guide h3 { font-size: .75rem; font-weight: 500; color: #e0e7e1; margin-bottom: .85rem; }
+  .support-message-guide ul { list-style: none; display: grid; gap: .7rem; }
+  .support-message-guide li { padding-left: .9rem; position: relative; color: #b9c5bc; font-size: .8125rem; line-height: 1.5; }
+  .support-message-guide li::before { content: ""; position: absolute; left: 0; top: .55em; width: 3px; height: 3px; border-radius: 50%; background: #7bc3b4; }
+  .support-faq { padding-top: .25rem; }
+  .support-faq h2 { font-family: var(--serif); font-size: 1.8rem; font-weight: 400; line-height: 1.2; margin-bottom: 1.5rem; }
+  .faq-item { border-top: 1px solid var(--rule); }
+  .faq-item:last-child { border-bottom: 1px solid var(--rule); }
+  .faq-question { display: flex; justify-content: space-between; align-items: center; gap: 1rem; list-style: none; padding: 1.25rem 0; font-size: .9375rem; font-weight: 600; cursor: pointer; }
+  .faq-question::-webkit-details-marker { display: none; }
   .faq-question:hover { color: var(--water); }
-  .faq-toggle { font-family: var(--mono); font-size: 1.1rem; color: var(--water); transition: transform 0.3s; flex-shrink: 0; margin-left: 1rem; }
-  .faq-item.open .faq-toggle { transform: rotate(45deg); }
-  .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
-  .faq-answer-inner { padding: 0 0 1.4rem; font-size: 0.88rem; line-height: 1.75; opacity: 0.65; }
-  .faq-item.open .faq-answer { max-height: 300px; }
+  .faq-toggle { flex: none; font-family: var(--mono); font-size: 1.1rem; font-weight: 400; color: var(--water); }
+  .faq-item[open] .faq-toggle { transform: rotate(45deg); }
+  .faq-answer { color: #536157; font-size: .875rem; line-height: 1.75; padding: 0 1.5rem 1.35rem 0; }
+  .faq-answer a { color: #2563eb; text-underline-offset: 3px; }
+  .support-portal-link { display: inline-flex; align-items: center; gap: .65rem; color: #2563eb; font-size: .8125rem; font-weight: 500; margin-top: 1.5rem; text-decoration: none; }
+  .support-portal-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 
-  /* CTA */
-  .btn-primary { background: var(--water); color: #fff; padding: 0.85rem 2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: background 0.2s; }
-  .btn-primary:hover { background: var(--water-light); }
-  .cta-strip { background: var(--bg-dark); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(244,241,235,0.08); }
-  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
+
+
+
+  main a:focus-visible, .faq-question:focus-visible { outline: 2px solid #2563eb; outline-offset: 5px; }
+  .support-contact a:focus-visible { outline-color: #9dbfff; }
+  @media (max-width: 900px) {
+    .support-shell { padding: 7rem 1.5rem 3rem; }
+    .support-workspace { gap: 2rem; }
+    .support-contact { padding: 1.5rem; }
+  }
+  @media (max-width: 700px) {
+    .support-workspace { grid-template-columns: 1fr; gap: 2.5rem; }
+    .support-heading { margin-bottom: 2rem; }
+
+  }
+
+  .support-heading h1 em { font-style: italic; color: var(--water); }
+  .support-message-guide p { color: #b9c5bc; font-size: .8125rem; line-height: 1.65; }
+  .support-message-guide a { display: inline-block; margin-top: .85rem; color: #c4d0c7; font-size: .8125rem; text-underline-offset: 4px; }
+
 
   /* FOOTER */
   footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
@@ -111,12 +117,23 @@
 
   @media (max-width: 900px) {
     nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .contact-section, .faq-section, .cta-strip { padding: 4rem 1.5rem; }
-    .page-header { padding-top: 7rem; }
-    .contact-inner, .faq-inner { grid-template-columns: 1fr; gap: 3rem; }
-    .contact-cards { grid-template-columns: 1fr; }
     footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
   }
+/* Compact footer with clear visual hierarchy. */
+footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
+.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+footer .footer-logo { flex: none; width: 126px; }
+.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
+.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
+.footer-support:hover { color: #fff; }
+.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
+.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
+.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
+.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
+@media (max-width: 600px) {
+  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
+  .footer-identity, .footer-details { align-items: center; text-align: center; }
+}
 </style>
 </head>
 <body>
@@ -143,96 +160,72 @@
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
 
-<div class="page-header">
-  <div class="ph-eyebrow">Support</div>
-  <h1>We're here to<br><em>help you</em> succeed</h1>
-  <p class="ph-sub">From installation to data analysis, our team provides hands-on support from people who understand both the biology and the engineering.</p>
-</div>
+<main class="support-shell">
+  <header class="support-heading">
+    <div class="support-eyebrow">Support</div>
+    <h1>We're here to<br><em>help you</em> succeed</h1>
+    <p>From installation to data analysis, our team provides hands-on support from people who understand both the biology and the engineering.</p>
+  </header>
 
-<div class="contact-section">
-  <div class="contact-inner reveal">
-    <div>
-      <div class="section-label">Get in Touch</div>
-      <h2 class="section-title">How can we<br>help you?</h2>
-      <p class="contact-desc">Whether you're troubleshooting an installation, planning a new experiment, or just have a question — reach out. We provide a quick response during business hours.</p>
-    </div>
-    <div class="contact-cards">
-      <div class="contact-card">
-        <svg class="cc-icon" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="10" width="36" height="26" rx="3"/><path d="M4 14 L22 26 L40 14"/></svg>
-        <h3 class="cc-title">Email Support</h3>
-        <p class="cc-desc">For technical questions, sensor troubleshooting, calibration help, and general inquiries. We provide a quick response during business hours.</p>
-        <a href="mailto:support@exacth2o.com" class="cc-link">support@exacth2o.com</a>
+  <div class="support-workspace">
+    <section class="support-contact" aria-labelledby="support-contact-title">
+      <svg class="support-contact-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="6" width="26" height="20" rx="3"/><path d="m4 8 12 9L28 8"/></svg>
+      <h2 id="support-contact-title">Email Support</h2>
+      <p>For technical questions, sensor troubleshooting, calibration help, and general inquiries. We provide a quick response during business hours.</p>
+      <a href="mailto:support@exacth2o.com?subject=ExactH2O%20support" class="support-contact-button">Email support</a>
+      <a href="mailto:support@exacth2o.com" class="support-address">support@exacth2o.com</a>
+      <div class="support-message-guide">
+        <h3>Training Included with Purchase</h3>
+        <p>On-site installation support and staff training are included with your exactH2O system purchase so your team can begin with a clear, working setup.</p>
+        <a href="/quote">Discuss your installation</a>
       </div>
-      <div class="contact-card">
-        <svg class="cc-icon" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M22 4 C12 4 4 12 4 22 C4 32 12 40 22 40 C32 40 40 32 40 22 C40 12 32 4 22 4Z"/><path d="M22 22 L22 14"/><circle cx="22" cy="28" r="1.5" fill="currentColor" stroke="none"/></svg>
-        <h3 class="cc-title">Quote &amp; Consultation</h3>
-        <p class="cc-desc">Not sure what configuration you need? Request a free consultation. We'll review your facility, experimental setup, and research goals before recommending a system.</p>
-        <a href="/quote" class="cc-link">Request a free quote →</a>
-      </div>
-      <div class="contact-card">
-        <svg class="cc-icon" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 36 C8 28 36 28 36 36"/><circle cx="22" cy="16" r="8"/><circle cx="10" cy="18" r="5"/><circle cx="34" cy="18" r="5"/></svg>
-        <h3 class="cc-title">Training Included with Purchase</h3>
-        <p class="cc-desc">On-site installation support and staff training are included with your exactH2O system purchase so your team can begin with a clear, working setup.</p>
-        <a href="/quote" class="cc-link">Discuss your installation →</a>
-      </div>
-    </div>
+    </section>
+
+    <section class="support-faq" aria-labelledby="support-faq-title">
+      <h2 id="support-faq-title">Common questions</h2>
+      <details class="faq-item" open>
+        <summary class="faq-question">Where is exactH2O designed to be used?<span class="faq-toggle" aria-hidden="true">+</span></summary>
+        <p class="faq-answer">exactH2O is designed for controlled-environment plant research, research greenhouses, commercial greenhouses, bench systems, and container-based experiments. We confirm the right sensor and irrigation setup during the quote process.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">How is a system sized for my greenhouse?<span class="faq-toggle" aria-hidden="true">+</span></summary>
+        <p class="faq-answer">System size depends on the number of benches, pots, treatment zones, sensors, and independently controlled irrigation lines. We review the facility and experimental requirements before recommending a configuration.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">Can I review and export my data?<span class="faq-toggle" aria-hidden="true">+</span></summary>
+        <p class="faq-answer">The web portal provides live readings, historical views, irrigation history, and data export for analysis. We confirm any required formats or integrations while planning the system.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">What happens if a sensor stops reporting?<span class="faq-toggle" aria-hidden="true">+</span></summary>
+        <p class="faq-answer">The portal shows sensor status and identifies missing or stale readings so the team can investigate the affected location. exactH2O support can help troubleshoot the sensor, connection, or replacement path.</p>
+      </details>
+      <details class="faq-item">
+        <summary class="faq-question">What is included with installation?<span class="faq-toggle" aria-hidden="true">+</span></summary>
+        <p class="faq-answer">Installation planning, on-site setup, and on-site staff training are included with purchase. The schedule depends on the system size and facility, and is confirmed before delivery.</p>
+      </details>
+    </section>
   </div>
-</div>
 
-<div class="faq-section">
-  <div class="faq-inner reveal">
-    <div>
-      <div class="section-label">FAQ</div>
-      <h2 class="section-title">Common<br>questions</h2>
-      <p style="font-size:0.9rem;line-height:1.75;opacity:0.6;margin-top:0.5rem;">Send us your question and our team will respond quickly.</p>
-    </div>
-    <div class="faq-list">
-      <div class="faq-item open">
-        <div class="faq-question" onclick="toggleFAQ(this)">Where is exactH2O designed to be used?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">exactH2O is designed for controlled-environment plant research, research greenhouses, commercial greenhouses, bench systems, and container-based experiments. We confirm the right sensor and irrigation setup during the quote process.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">How is a system sized for my greenhouse?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">System size depends on the number of benches, pots, treatment zones, sensors, and independently controlled irrigation lines. We review the facility and experimental requirements before recommending a configuration.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">Can I review and export my data?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">The web portal provides live readings, historical views, irrigation history, and data export for analysis. We confirm any required formats or integrations while planning the system.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">What happens if a sensor stops reporting?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">The portal shows sensor status and identifies missing or stale readings so the team can investigate the affected location. exactH2O support can help troubleshoot the sensor, connection, or replacement path.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">What is included with installation?<span class="faq-toggle">+</span></div>
-        <div class="faq-answer"><div class="faq-answer-inner">Installation planning, on-site setup, and on-site staff training are included with purchase. The schedule depends on the system size and facility, and is confirmed before delivery.</div></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="cta-strip reveal">
-  <h2>Ready to optimize your irrigation?</h2>
-  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
-  <a href="/quote" class="btn-primary">Get Started Today</a>
-</div>
+</main>
 
 <footer>
-  <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
-  <div>© 2026 exactH2O · All rights reserved</div>
-  <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
+  <div class="footer-identity">
+    <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
+    <div class="made-in-america">
+      <svg viewBox="0 0 190 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="190" height="100" fill="#fff"/><rect y="0.0000" width="190" height="7.6923" fill="#b22234"/><rect y="15.3846" width="190" height="7.6923" fill="#b22234"/><rect y="30.7692" width="190" height="7.6923" fill="#b22234"/><rect y="46.1538" width="190" height="7.6923" fill="#b22234"/><rect y="61.5385" width="190" height="7.6923" fill="#b22234"/><rect y="76.9231" width="190" height="7.6923" fill="#b22234"/><rect y="92.3077" width="190" height="7.6923" fill="#b22234"/><rect width="76" height="53.8462" fill="#3c3b6e"/><defs><polygon id="made-in-america-star" points="0.000,-3.080 0.694,-0.955 2.929,-0.952 1.122,0.365 1.810,2.492 0.000,1.180 -1.810,2.492 -1.122,0.365 -2.929,-0.952 -0.694,-0.955" fill="#fff"/></defs><use href="#made-in-america-star" x="6.333" y="5.385"/><use href="#made-in-america-star" x="19.000" y="5.385"/><use href="#made-in-america-star" x="31.667" y="5.385"/><use href="#made-in-america-star" x="44.333" y="5.385"/><use href="#made-in-america-star" x="57.000" y="5.385"/><use href="#made-in-america-star" x="69.667" y="5.385"/><use href="#made-in-america-star" x="12.667" y="10.769"/><use href="#made-in-america-star" x="25.333" y="10.769"/><use href="#made-in-america-star" x="38.000" y="10.769"/><use href="#made-in-america-star" x="50.667" y="10.769"/><use href="#made-in-america-star" x="63.333" y="10.769"/><use href="#made-in-america-star" x="6.333" y="16.154"/><use href="#made-in-america-star" x="19.000" y="16.154"/><use href="#made-in-america-star" x="31.667" y="16.154"/><use href="#made-in-america-star" x="44.333" y="16.154"/><use href="#made-in-america-star" x="57.000" y="16.154"/><use href="#made-in-america-star" x="69.667" y="16.154"/><use href="#made-in-america-star" x="12.667" y="21.538"/><use href="#made-in-america-star" x="25.333" y="21.538"/><use href="#made-in-america-star" x="38.000" y="21.538"/><use href="#made-in-america-star" x="50.667" y="21.538"/><use href="#made-in-america-star" x="63.333" y="21.538"/><use href="#made-in-america-star" x="6.333" y="26.923"/><use href="#made-in-america-star" x="19.000" y="26.923"/><use href="#made-in-america-star" x="31.667" y="26.923"/><use href="#made-in-america-star" x="44.333" y="26.923"/><use href="#made-in-america-star" x="57.000" y="26.923"/><use href="#made-in-america-star" x="69.667" y="26.923"/><use href="#made-in-america-star" x="12.667" y="32.308"/><use href="#made-in-america-star" x="25.333" y="32.308"/><use href="#made-in-america-star" x="38.000" y="32.308"/><use href="#made-in-america-star" x="50.667" y="32.308"/><use href="#made-in-america-star" x="63.333" y="32.308"/><use href="#made-in-america-star" x="6.333" y="37.692"/><use href="#made-in-america-star" x="19.000" y="37.692"/><use href="#made-in-america-star" x="31.667" y="37.692"/><use href="#made-in-america-star" x="44.333" y="37.692"/><use href="#made-in-america-star" x="57.000" y="37.692"/><use href="#made-in-america-star" x="69.667" y="37.692"/><use href="#made-in-america-star" x="12.667" y="43.077"/><use href="#made-in-america-star" x="25.333" y="43.077"/><use href="#made-in-america-star" x="38.000" y="43.077"/><use href="#made-in-america-star" x="50.667" y="43.077"/><use href="#made-in-america-star" x="63.333" y="43.077"/><use href="#made-in-america-star" x="6.333" y="48.462"/><use href="#made-in-america-star" x="19.000" y="48.462"/><use href="#made-in-america-star" x="31.667" y="48.462"/><use href="#made-in-america-star" x="44.333" y="48.462"/><use href="#made-in-america-star" x="57.000" y="48.462"/><use href="#made-in-america-star" x="69.667" y="48.462"/></svg>
+      <span>MADE IN USA</span>
+    </div>
+  </div>
+  <div class="footer-details">
+    <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
+    <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
+  </div>
 </footer>
 
 <script>
   function toggleMenu() {
     document.getElementById('mobileMenu').classList.toggle('active');
     document.getElementById('hamburger').classList.toggle('active');
-  }
-  function toggleFAQ(el) {
-    const item = el.parentElement;
-    const wasOpen = item.classList.contains('open');
-    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-    if (!wasOpen) item.classList.add('open');
   }
   const revealEls = document.querySelectorAll('.reveal');
   const obs = new IntersectionObserver(entries => {
