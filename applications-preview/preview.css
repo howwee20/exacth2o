@@ -1,0 +1,25 @@
+:root{--portal-water:#2563eb;--portal-water-light:#3b82f6;--preview-scale:1;--preview-stage-height:644px}
+body{margin:0;background:#f4f1eb}.dashboard-header{display:none!important}.preview-home{overflow:hidden}.portal-admin-main.is-assistant-below{width:100%;max-width:none;min-height:0;padding:26px 20px;margin:0}.portal-admin-main.is-assistant-below .portal-new-experiment-action{width:calc(var(--preview-canvas-width,826px) * var(--preview-scale));max-width:100%;margin:0 auto 12px}.portal-new-experiment-action>button{background:#2563eb;border-color:#1d4ed8;box-shadow:none}.portal-launch-grid{position:relative;display:block;width:var(--preview-canvas-width,826px);height:644px;left:50%;margin:0 0 0 calc(var(--preview-canvas-width,826px) / -2);transform:scale(var(--preview-scale));transform-origin:top center;max-width:none}.portal-experiment-column,.portal-experiment-stack,.portal-business-stack{display:contents}.portal-health-link,.portal-experiment-stack::before,.portal-launch-card::before{display:none!important}.preview-tile{position:absolute!important;width:var(--preview-tile-width,392px)!important;height:204px!important;min-height:0!important;justify-self:auto!important;margin:0!important}.preview-tile>.portal-launch-card{height:100%}.portal-launch-card.is-health{padding:20px;gap:16px}.portal-launch-card.is-health .portal-launch-title{font-size:1.08rem}.portal-launch-card.is-health .portal-launch-copy strong{font-size:.95rem}.portal-launch-card.is-health .portal-launch-copy em{font-size:.82rem}.portal-launch-card.is-walker-live,.portal-launch-card.is-chamber-control{background:linear-gradient(145deg,#fff,#eff6ff);border-color:#bdd3ee}.portal-launch-card.is-walker-live .portal-launch-icon,.portal-launch-card.is-chamber-control .portal-launch-icon{background:#eff6ff;color:#2563eb}.experiment-shell{padding-top:70px}.experiment-corner-actions{top:12px}.walker-observation{padding-top:20px}.chamber-control-header{padding-top:20px}@media(max-width:900px){.portal-launch-grid{left:50%;margin-left:calc(var(--preview-canvas-width,826px) / -2);margin-right:0}.portal-admin-main.is-assistant-below{padding-left:0;padding-right:0}}
+
+.walker-experiment-shell .pot-group > div:last-child{grid-template-columns:1fr}.walker-experiment-shell .pot-reading{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}.walker-experiment-shell .pot-reading strong{flex-shrink:0}.walker-experiment-shell .pot-reading b{font-weight:500}.walker-experiment-shell .pot-toggle{min-height:34px;border-color:#d6ddd9;box-shadow:none}.walker-experiment-shell .pot-toggle:not(.is-on){opacity:.55}.walker-experiment-shell .control-panel{border-color:#d6ddd9;box-shadow:none}.walker-experiment-shell .chart-tools{box-shadow:none}.walker-experiment-shell .experiment-corner-actions{right:28px}
+
+.tile-connections{position:absolute;inset:0;width:var(--preview-canvas-width,826px);height:644px;overflow:visible;pointer-events:none}.tile-connections path{fill:none;stroke:#78a99a;stroke-width:1.5;stroke-dasharray:5 5;stroke-linejoin:round;stroke-linecap:round;animation:connection-flow 1.2s linear infinite}.preview-tile{z-index:1}
+
+@keyframes connection-flow{to{stroke-dashoffset:-20}}
+@media(prefers-reduced-motion:reduce){.tile-connections path{animation:none}}
+
+/* Keep the four experiment graphs visible together within the embedded viewport. */
+body:has(.is-experiment-overview){overflow:hidden}
+.experiment-shell:has(.is-experiment-overview){height:100svh;min-height:0;padding:52px 16px 12px}
+.experiment-shell:has(.is-experiment-overview) .experiment-view-title{height:36px;min-height:36px;padding-right:0}
+.experiment-shell .dashboard-main.is-experiment-overview{height:calc(100svh - 100px);min-height:0;display:block}
+.experiment-graph-overview{height:100%;min-height:0;grid-template-rows:36px minmax(0,1fr) 56px;gap:8px}
+.experiment-graph-grid{min-height:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10px}
+.experiment-graph-card{min-height:0;box-shadow:none}
+.experiment-graph-card-head{padding:8px 10px 2px;gap:6px;grid-template-columns:minmax(0,1fr) auto}
+.experiment-graph-card-head strong{font-size:clamp(10px,1.7vw,13px)}
+.experiment-graph-card-head em{display:none}
+.experiment-graph-card-head svg{grid-column:2;grid-row:1;width:13px;height:13px}
+.experiment-graph-chart{height:100%;min-height:0;overflow:hidden}
+.experiment-graph-chart .canvas-chart{height:100%;min-height:0}
+.experiment-graph-range{padding:4px 10px 0;min-height:0}

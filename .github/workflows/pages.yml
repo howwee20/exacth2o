@@ -117,6 +117,7 @@ jobs:
       - name: Build and verify the portal
         run: |
           npm run check --prefix research-portal
+          node research-portal/node_modules/vite/bin/vite.js build --config applications-preview/vite.config.mjs
           generated_changes="$(git status --porcelain --untracked-files=all -- portal-app portal.html)"
           if [ -n "$generated_changes" ]; then
             printf '%s\n' "$generated_changes"
@@ -159,6 +160,8 @@ jobs:
           cp product1.avif product2.avif product3.avif site-dist/
           cp sensor.avif site-dist/
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
+
+          cp -R applications-demo-app site-dist/
 
           cp portal-app/assets/* site-dist/portal-app/assets/
           cp portal-app/gas-mixer-agent.py portal-app/pi-agent-update.sh site-dist/portal-app/

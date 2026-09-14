@@ -551,8 +551,8 @@
 
   /* ── WHY EXACTH2O ── */
   .why-section {
-    background: var(--bg-dark);
-    color: #f4f1eb;
+    background: var(--bg);
+    color: var(--ink);
     padding: 6rem 4rem;
     position: relative;
     z-index: 2;
@@ -565,19 +565,23 @@
     gap: 6rem;
     align-items: start;
   }
-  .why-section .section-label { color: var(--accent); }
-  .why-section .section-label::before { background: var(--accent); }
-  .why-section .section-title { color: #f4f1eb; }
+  .why-section .section-label { color: var(--water); }
+  .why-section .section-label::before { background: var(--water); }
+  .why-section .section-title { color: var(--ink); }
 
   .why-bullets {
     list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 4rem;
+  }
+  @media (max-width: 900px) {
+    .why-bullets { grid-template-columns: 1fr; }
   }
   .why-bullet {
     padding: 1.4rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid var(--rule);
     display: grid;
     grid-template-columns: 2rem 1fr;
     gap: 1.2rem;
@@ -600,7 +604,7 @@
   .why-bullet-icon {
     width: 1.2rem;
     height: 1.2rem;
-    color: var(--accent);
+    color: var(--water);
     margin-top: 0.15rem;
     flex-shrink: 0;
   }
@@ -608,12 +612,12 @@
     font-family: var(--sans);
     font-size: 0.95rem;
     font-weight: 600;
-    color: #f4f1eb;
+    color: var(--ink);
     margin-bottom: 0.25rem;
   }
   .why-bullet-desc {
     font-size: 0.85rem;
-    color: rgba(244,241,235,0.5);
+    color: #536157;
     line-height: 1.6;
   }
 
@@ -726,6 +730,35 @@
     .app-card { padding: 1rem; }
     .app-card-image { margin-bottom: 1.25rem; }
   }
+  /* Public, isolated portal demonstration. */
+  .applications { padding-top: calc(var(--applications-header-height, 90px) + 48px); }
+  .portal-opening { padding: 24px clamp(16px,3vw,48px) 48px; }
+  .portal-demo-frame { display: block; width: 100%; max-width: 900px; height: min(710px, calc(100svh - var(--applications-header-height, 90px) - 48px)); margin: 0 auto; border: 3px solid #78998a; border-radius: 12px; background: #f4f1eb; scroll-margin-top: 7rem; }
+  .nav-cta, .cta-strip .btn-primary { background: #2563eb; color: #fff; }
+  .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
+  .nav-cta:hover { background: #1d4ed8 !important; }
+
+  .application-flow { position: relative; }
+  .application-flow-lines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: hidden; }
+  .application-flow-lines path { fill: none; stroke: #78a99a; stroke-width: 1.5; stroke-dasharray: 5 5; stroke-linecap: round; stroke-linejoin: round; animation: application-flow 1.2s linear infinite; }
+  @keyframes application-flow { to { stroke-dashoffset: -20; } }
+  @media (prefers-reduced-motion: reduce) { .application-flow-lines path { animation: none; } }
+
+/* Compact footer with clear visual hierarchy. */
+footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
+.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+footer .footer-logo { flex: none; width: 126px; }
+.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
+.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
+.footer-support:hover { color: #fff; }
+.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
+.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
+.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
+.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
+@media (max-width: 600px) {
+  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
+  .footer-identity, .footer-details { align-items: center; text-align: center; }
+}
 </style>
 </head>
 <body>
@@ -757,108 +790,8 @@
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-left">
-    <div class="hero-eyebrow">Applications</div>
-    <h1 class="hero-title">Make water a<br><em>controlled</em><br>variable</h1>
-    <p class="hero-intro">
-      ExactH2O connects per-pot water measurement, irrigation control, and a continuous data record for plant stress, phenotyping, and greenhouse work.
-    </p>
-    <div class="hero-actions">
-      <a class="btn-primary" href="#application-areas">Explore application areas</a>
-      <a class="btn-secondary" href="/quote">Request more info</a>
-    </div>
-  </div>
-  <div class="hero-right">
-    <div class="hero-right-inner">
-      <figure class="experiment-shell">
-        <div class="experiment-legend" aria-label="Chart legend">
-          <span class="legend-item"><span class="legend-line"></span>Control</span>
-          <span class="legend-item"><span class="legend-line is-dashed"></span>Treatment</span>
-        </div>
-        <div class="experiment-visual" aria-label="Interactive VWC response chart">
-          <svg class="experiment-chart" viewBox="0 0 760 560" role="img" aria-labelledby="experimentChartTitle experimentChartDesc" tabindex="0" xmlns="http://www.w3.org/2000/svg">
-          <title id="experimentChartTitle">Representative 72-hour VWC response chart</title>
-          <desc id="experimentChartDesc">Eleven representative control and treatment runs. Hover or click a line, or use the left and right arrow keys, to inspect it.</desc>
-          <defs>
-            <clipPath id="experimentTraceReveal">
-              <rect class="experiment-wipe" x="64" y="48" width="660" height="444" />
-            </clipPath>
-          </defs>
-
-          <rect x="0" y="0" width="760" height="560" fill="#fff" />
-          <text class="experiment-caption" x="64" y="34">Representative runs 41–51</text>
-
-          <line class="experiment-grid-line" x1="64" y1="68" x2="724" y2="68" />
-          <line class="experiment-grid-line" x1="64" y1="152" x2="724" y2="152" />
-          <line class="experiment-grid-line" x1="64" y1="236" x2="724" y2="236" />
-          <line class="experiment-grid-line" x1="64" y1="320" x2="724" y2="320" />
-          <line class="experiment-grid-line" x1="64" y1="404" x2="724" y2="404" />
-          <line class="experiment-grid-line" x1="64" y1="488" x2="724" y2="488" />
-
-          <line class="experiment-grid-line is-vertical" x1="64" y1="48" x2="64" y2="492" />
-          <line class="experiment-grid-line is-vertical" x1="196" y1="48" x2="196" y2="492" />
-          <line class="experiment-grid-line is-vertical" x1="328" y1="48" x2="328" y2="492" />
-          <line class="experiment-grid-line is-vertical" x1="460" y1="48" x2="460" y2="492" />
-          <line class="experiment-grid-line is-vertical" x1="592" y1="48" x2="592" y2="492" />
-          <line class="experiment-grid-line is-vertical" x1="724" y1="48" x2="724" y2="492" />
-
-          <path class="experiment-axis" fill="none" d="M64 48 L64 492 L724 492" />
-          <text class="experiment-tick-label" x="44" y="72" text-anchor="end">60</text>
-          <text class="experiment-tick-label" x="44" y="156" text-anchor="end">50</text>
-          <text class="experiment-tick-label" x="44" y="240" text-anchor="end">40</text>
-          <text class="experiment-tick-label" x="44" y="324" text-anchor="end">30</text>
-          <text class="experiment-tick-label" x="44" y="408" text-anchor="end">20</text>
-          <text class="experiment-tick-label" x="44" y="492" text-anchor="end">10</text>
-          <text class="experiment-axis-label" x="18" y="270" transform="rotate(-90 18 270)" text-anchor="middle">VWC (%)</text>
-          <text class="experiment-tick-label" x="64" y="526" text-anchor="middle">0</text>
-          <text class="experiment-tick-label" x="724" y="526" text-anchor="end">72 hours</text>
-          <line class="experiment-crosshair" x1="456" y1="48" x2="456" y2="492" />
-
-          <g clip-path="url(#experimentTraceReveal)" fill="none">
-            <path class="experiment-trace" data-trace-id="run-41" data-label="Run 41" data-detail="Control" data-value="27.8% VWC" fill="none" stroke="#2563eb" d="M64 168 C118 165 158 166 196 166 C230 170 264 194 306 218 C352 246 404 244 460 242 C514 243 548 270 594 300 C640 326 692 326 724 340" />
-            <path class="experiment-trace is-dashed" data-trace-id="run-42" data-label="Run 42" data-detail="Treatment" data-value="21.8% VWC" fill="none" stroke="#a855f7" d="M64 188 C118 184 160 185 196 188 C242 198 280 226 320 252 C368 282 426 278 470 276 C526 282 570 314 606 340 C646 366 690 368 724 382" />
-            <path class="experiment-trace" data-trace-id="run-43" data-label="Run 43" data-detail="Control" data-value="23.6% VWC" fill="none" stroke="#22c55e" d="M64 214 C114 210 162 210 196 214 C236 224 270 250 312 274 C356 296 414 292 462 290 C514 294 552 318 598 342 C644 364 686 362 724 374" />
-            <path class="experiment-trace is-dashed" data-trace-id="run-44" data-label="Run 44" data-detail="Treatment" data-value="19.7% VWC" fill="none" stroke="#0ea5e9" d="M64 240 C118 238 162 238 196 242 C238 254 278 280 316 302 C362 326 416 322 462 320 C516 324 562 348 604 370 C648 392 690 390 724 406" />
-            <path class="experiment-trace" data-trace-id="run-45" data-label="Run 45" data-detail="Control" data-value="25.8% VWC" fill="none" stroke="#f97316" d="M64 316 C116 312 162 314 196 318 C234 330 284 342 328 344 C384 342 430 338 474 338 C528 342 568 348 606 348 C650 346 690 344 724 356" />
-            <path class="experiment-trace is-dashed" data-trace-id="run-46" data-label="Run 46" data-detail="Treatment" data-value="10.4% VWC" fill="none" stroke="#e11d48" d="M64 296 C116 292 160 294 196 296 C242 306 282 340 322 374 C366 410 416 410 462 410 C512 414 556 442 598 458 C646 474 688 470 724 484" />
-            <path class="experiment-trace" data-trace-id="run-47" data-label="Run 47" data-detail="Control" data-value="14.8% VWC" fill="none" stroke="#14b8a6" d="M64 360 C118 356 160 358 196 362 C236 374 282 410 326 436 C372 458 420 454 464 454 C514 454 548 454 594 454 C642 452 690 450 724 446" />
-            <path class="experiment-trace is-dashed" data-trace-id="run-48" data-label="Run 48" data-detail="Treatment" data-value="12.6% VWC" fill="none" stroke="#f59e0b" d="M64 284 C118 280 160 282 196 286 C236 300 282 326 326 350 C372 376 424 376 468 376 C516 382 556 416 600 436 C644 454 688 456 724 466" />
-            <path class="experiment-trace is-muted" data-trace-id="run-49" data-label="Run 49" data-detail="Control" data-value="14.4% VWC" fill="none" stroke="#16a34a" d="M64 212 C116 210 160 208 196 210 C236 222 276 260 316 306 C360 352 412 358 462 360 C512 364 552 396 596 424 C642 450 684 452 724 450" />
-            <path class="experiment-trace is-dashed is-muted" data-trace-id="run-50" data-label="Run 50" data-detail="Treatment" data-value="21.6% VWC" fill="none" stroke="#7c3aed" d="M64 178 C118 174 160 176 196 178 C240 190 282 220 324 246 C372 270 422 268 468 270 C522 274 564 306 606 334 C650 364 690 368 724 390" />
-            <path class="experiment-trace is-muted" data-trace-id="run-51" data-label="Run 51" data-detail="Control" data-value="15.3% VWC" fill="none" stroke="#0891b2" d="M64 318 C118 316 160 318 196 320 C232 340 270 384 310 420 C350 454 402 456 456 454 C502 452 536 444 572 442 C626 438 680 438 724 442" />
-          </g>
-
-          <g class="trace-end">
-            <circle data-trace-id="run-41" cx="724" cy="340" r="3.6" fill="#2563eb" />
-            <circle data-trace-id="run-42" cx="724" cy="382" r="3.6" fill="#a855f7" />
-            <circle data-trace-id="run-43" cx="724" cy="374" r="3.6" fill="#22c55e" />
-            <circle data-trace-id="run-44" cx="724" cy="406" r="3.6" fill="#0ea5e9" />
-            <circle data-trace-id="run-45" cx="724" cy="356" r="3.6" fill="#f97316" />
-            <circle data-trace-id="run-46" cx="724" cy="484" r="3.6" fill="#e11d48" />
-            <circle data-trace-id="run-47" cx="724" cy="446" r="3.6" fill="#14b8a6" />
-            <circle data-trace-id="run-48" cx="724" cy="466" r="3.6" fill="#f59e0b" />
-            <circle data-trace-id="run-49" cx="724" cy="450" r="3.6" fill="#16a34a" />
-            <circle data-trace-id="run-50" cx="724" cy="390" r="3.6" fill="#7c3aed" />
-            <circle data-trace-id="run-51" cx="724" cy="442" r="3.6" fill="#0891b2" />
-          </g>
-
-          <g class="experiment-readout">
-            <rect x="456" y="150" width="174" height="86" rx="8" fill="rgba(255,255,255,0.94)" stroke="#e2e8f0" />
-            <rect class="tooltip-accent" x="456" y="150" width="4" height="86" rx="2" />
-            <text class="tooltip-title" x="474" y="178" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="14" font-weight="800">Run 41</text>
-            <text class="tooltip-detail" x="474" y="202" fill="#64748b" font-family="Instrument Sans, sans-serif" font-size="12" font-weight="600">Control</text>
-            <text class="tooltip-value" x="474" y="222" fill="#172033" font-family="Instrument Sans, sans-serif" font-size="18" font-weight="800">27.8% VWC</text>
-          </g>
-        </svg>
-        </div>
-        <p class="experiment-status sr-only" aria-live="polite"></p>
-      </figure>
-    </div>
-  </div>
-</section>
-
+<div class="application-flow">
+  <svg class="application-flow-lines" aria-hidden="true"></svg>
 <!-- APPLICATIONS -->
 <div class="applications" id="application-areas">
   <div class="app-intro-grid reveal">
@@ -933,16 +866,14 @@
   </div>
 </div>
 
+<!-- PORTAL -->
+<section class="portal-opening" aria-label="Explore the portal">
+  <iframe class="portal-demo-frame" src="/applications-demo-app/index.html" title="ExactH2O experiment portal with sample readings" sandbox="allow-scripts allow-same-origin allow-downloads" loading="eager"></iframe>
+</section>
+
 <!-- WHY EXACTH2O -->
 <div class="why-section">
   <div class="why-inner">
-    <div>
-      <div class="section-label">Why ExactH2O</div>
-      <h2 class="section-title">Built for controlled<br>environments</h2>
-      <p style="font-size:0.95rem; line-height:1.8; color:rgba(244,241,235,0.55); margin-top:1rem;">
-        Every design decision in ExactH2O was made with experimental rigor as the primary constraint. The result is a system that supports both defensible research and day-to-day greenhouse operation.
-      </p>
-    </div>
     <ul class="why-bullets">
       <li class="why-bullet">
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -990,6 +921,8 @@
   </div>
 </div>
 
+</div><!-- /application-flow -->
+
 <div class="cta-strip reveal">
   <h2>Ready to optimize your irrigation?</h2>
   <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
@@ -998,12 +931,73 @@
 
 <!-- FOOTER -->
 <footer>
-  <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
-  <div>© 2026 exactH2O · All rights reserved</div>
-  <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
+  <div class="footer-identity">
+    <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
+    <div class="made-in-america">
+      <svg viewBox="0 0 190 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="190" height="100" fill="#fff"/><rect y="0.0000" width="190" height="7.6923" fill="#b22234"/><rect y="15.3846" width="190" height="7.6923" fill="#b22234"/><rect y="30.7692" width="190" height="7.6923" fill="#b22234"/><rect y="46.1538" width="190" height="7.6923" fill="#b22234"/><rect y="61.5385" width="190" height="7.6923" fill="#b22234"/><rect y="76.9231" width="190" height="7.6923" fill="#b22234"/><rect y="92.3077" width="190" height="7.6923" fill="#b22234"/><rect width="76" height="53.8462" fill="#3c3b6e"/><defs><polygon id="made-in-america-star" points="0.000,-3.080 0.694,-0.955 2.929,-0.952 1.122,0.365 1.810,2.492 0.000,1.180 -1.810,2.492 -1.122,0.365 -2.929,-0.952 -0.694,-0.955" fill="#fff"/></defs><use href="#made-in-america-star" x="6.333" y="5.385"/><use href="#made-in-america-star" x="19.000" y="5.385"/><use href="#made-in-america-star" x="31.667" y="5.385"/><use href="#made-in-america-star" x="44.333" y="5.385"/><use href="#made-in-america-star" x="57.000" y="5.385"/><use href="#made-in-america-star" x="69.667" y="5.385"/><use href="#made-in-america-star" x="12.667" y="10.769"/><use href="#made-in-america-star" x="25.333" y="10.769"/><use href="#made-in-america-star" x="38.000" y="10.769"/><use href="#made-in-america-star" x="50.667" y="10.769"/><use href="#made-in-america-star" x="63.333" y="10.769"/><use href="#made-in-america-star" x="6.333" y="16.154"/><use href="#made-in-america-star" x="19.000" y="16.154"/><use href="#made-in-america-star" x="31.667" y="16.154"/><use href="#made-in-america-star" x="44.333" y="16.154"/><use href="#made-in-america-star" x="57.000" y="16.154"/><use href="#made-in-america-star" x="69.667" y="16.154"/><use href="#made-in-america-star" x="12.667" y="21.538"/><use href="#made-in-america-star" x="25.333" y="21.538"/><use href="#made-in-america-star" x="38.000" y="21.538"/><use href="#made-in-america-star" x="50.667" y="21.538"/><use href="#made-in-america-star" x="63.333" y="21.538"/><use href="#made-in-america-star" x="6.333" y="26.923"/><use href="#made-in-america-star" x="19.000" y="26.923"/><use href="#made-in-america-star" x="31.667" y="26.923"/><use href="#made-in-america-star" x="44.333" y="26.923"/><use href="#made-in-america-star" x="57.000" y="26.923"/><use href="#made-in-america-star" x="69.667" y="26.923"/><use href="#made-in-america-star" x="12.667" y="32.308"/><use href="#made-in-america-star" x="25.333" y="32.308"/><use href="#made-in-america-star" x="38.000" y="32.308"/><use href="#made-in-america-star" x="50.667" y="32.308"/><use href="#made-in-america-star" x="63.333" y="32.308"/><use href="#made-in-america-star" x="6.333" y="37.692"/><use href="#made-in-america-star" x="19.000" y="37.692"/><use href="#made-in-america-star" x="31.667" y="37.692"/><use href="#made-in-america-star" x="44.333" y="37.692"/><use href="#made-in-america-star" x="57.000" y="37.692"/><use href="#made-in-america-star" x="69.667" y="37.692"/><use href="#made-in-america-star" x="12.667" y="43.077"/><use href="#made-in-america-star" x="25.333" y="43.077"/><use href="#made-in-america-star" x="38.000" y="43.077"/><use href="#made-in-america-star" x="50.667" y="43.077"/><use href="#made-in-america-star" x="63.333" y="43.077"/><use href="#made-in-america-star" x="6.333" y="48.462"/><use href="#made-in-america-star" x="19.000" y="48.462"/><use href="#made-in-america-star" x="31.667" y="48.462"/><use href="#made-in-america-star" x="44.333" y="48.462"/><use href="#made-in-america-star" x="57.000" y="48.462"/><use href="#made-in-america-star" x="69.667" y="48.462"/></svg>
+      <span>MADE IN USA</span>
+    </div>
+  </div>
+  <div class="footer-details">
+    <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
+    <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
+  </div>
 </footer>
 
+<script id="application-flow-script">
+(() => {
+  const wrapper = document.querySelector('.application-flow');
+  const svg = wrapper.querySelector('.application-flow-lines');
+  const intro = wrapper.querySelector('.app-intro-grid');
+  const cards = [...wrapper.querySelectorAll('.app-card')];
+  const frame = wrapper.querySelector('.portal-demo-frame');
+  const green = wrapper.querySelector('.why-section');
+  // Layout coordinates ignore reveal transforms, so the connections stay anchored.
+  function box(element) {
+    let x = 0, y = 0, node = element;
+    while (node && node !== wrapper) { x += node.offsetLeft; y += node.offsetTop; node = node.offsetParent; }
+    return {x, y, width: element.offsetWidth, height: element.offsetHeight};
+  }
+  function draw() {
+    const tiles = cards.map(box), portal = box(frame);
+    const firstTop = Math.min(...tiles.map(c => c.y));
+    const lastBottom = Math.max(...tiles.map(c => c.y + c.height));
+    const merge = lastBottom + (portal.y - lastBottom) / 2;
+    const target = portal.x + portal.width / 2;
+    const lines = [];
+    if (tiles.every(c => Math.abs(c.y - firstTop) < 5)) {
+      tiles.forEach(c => {
+        const middle = c.x + c.width / 2;
+        lines.push(`M ${middle} ${c.y + c.height} V ${merge} H ${target}`);
+      });
+    } else {
+      // On stacked layouts, route around the cards instead of across their text.
+      const right = Math.max(...tiles.map(c => c.x + c.width)) + 12;
+      tiles.forEach(c => {
+        lines.push(`M ${c.x + c.width} ${c.y + c.height - 22} H ${right}`);
+      });
+      lines.push(`M ${right} ${tiles[0].y + tiles[0].height - 22} V ${merge} H ${target}`);
+    }
+    lines.push(`M ${target} ${merge} V ${portal.y}`);
+    svg.setAttribute('viewBox', `0 0 ${wrapper.offsetWidth} ${wrapper.offsetHeight}`);
+    svg.replaceChildren(...lines.map(d => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d); return path;
+    }));
+  }
+  let pending = 0;
+  function schedule() { cancelAnimationFrame(pending); pending = requestAnimationFrame(draw); }
+  const observer = new ResizeObserver(schedule);
+  [wrapper, intro, ...cards, frame].forEach(element => observer.observe(element));
+  window.addEventListener('resize', schedule);
+  document.fonts?.ready.then(schedule);
+  schedule();
+})();
+</script>
 <script>
+  const applicationsHeader = document.querySelector('nav');
+  new ResizeObserver(() => document.documentElement.style.setProperty('--applications-header-height', applicationsHeader.getBoundingClientRect().height + 'px')).observe(applicationsHeader);
+
   function toggleMenu() {
     const menu = document.getElementById('mobileMenu');
     const hamburger = document.getElementById('hamburger');
