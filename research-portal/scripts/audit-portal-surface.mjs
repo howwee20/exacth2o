@@ -1,13 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const [bundle, applications, appSource, stressImage, phenotypingImage, greenhouseImage] = await Promise.all([
+const [bundle, applications, appSource, stressImage, phenotypingImage, greenhouseImage, demoPage] = await Promise.all([
   readFile(resolve("../portal-app/assets/portal.js"), "utf8"),
   readFile(resolve("../applications.html"), "utf8"),
   readFile(resolve("src/App.tsx"), "utf8"),
   readFile(resolve("../applications-plant-stress-20260804.jpg")),
   readFile(resolve("../applications-plant-phenotyping-20260804.jpg")),
   readFile(resolve("../applications-research-greenhouse-20260804.jpg")),
+  readFile(resolve("../applications-demo-app/index.html"), "utf8"),
 ]);
 
 const requiredPortalCopy = [
@@ -32,8 +33,8 @@ const forbiddenApplicationsCopy = [
   ">72 hr</text>",
 ];
 const requiredApplicationsCopy = [
-  ">0</text>",
-  ">72 hours</text>",
+  'src="/applications-demo-app/index.html"',
+  'title="ExactH2O experiment portal with sample readings"',
   "/applications-plant-stress-20260804.jpg",
   "/applications-plant-phenotyping-20260804.jpg",
   "/applications-research-greenhouse-20260804.jpg",
@@ -69,7 +70,28 @@ if (retainedApplicationsCopy.length) {
 
 const missingApplicationsCopy = requiredApplicationsCopy.filter((value) => !applications.includes(value));
 if (missingApplicationsCopy.length) {
-  throw new Error(`Applications page is missing required graph labels: ${missingApplicationsCopy.join(", ")}`);
+  throw new Error(`Applications page is missing required demo or application content: ${missingApplicationsCopy.join(", ")}`);
+}
+
+// The public demo must stay a separate, network-disabled build.
+const demoFrame = applications.match(/<iframe\b[^>]*class="portal-demo-frame"[^>]*>/)?.[0];
+const sandbox = demoFrame?.match(/sandbox="([^"]*)"/)?.[1].split(/\s+/) || [];
+if (!sandbox.includes("allow-scripts") || sandbox.some((token) =>
+  !["allow-scripts", "allow-same-origin", "allow-downloads"].includes(token))) {
+  throw new Error("Applications demo iframe has missing or unexpected sandbox permissions.");
+}
+const demoPolicy = demoPage.match(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*content="([^"]+)"/)?.[1];
+const directives = new Map((demoPolicy || "").split(";").map((item) => {
+  const [name, ...values] = item.trim().split(/\s+/);
+  return [name, values.join(" ")];
+}));
+for (const name of ["connect-src", "form-action", "base-uri"]) {
+  if (directives.get(name) !== "'none'") {
+    throw new Error(`Applications demo must disable ${name}.`);
+  }
+}
+if (!demoPage.includes('src="/applications-demo-app/assets/demo.js"')) {
+  throw new Error("Applications demo must load its own bundle.");
 }
 
 const isBaselineJpeg = (image) =>
@@ -83,4 +105,4 @@ if (invalidApplicationImages.length) {
   throw new Error(`Applications page retained a non-baseline JPEG: ${invalidApplicationImages.map(([name]) => name).join(", ")}`);
 }
 
-console.log("Portal surface audit passed: pot-colored watering markers, lean graph labels, and baseline application JPEGs are present.");
+console.log("Portal surface audit passed: pot-colored watering markers, sandboxed network-disabled demo, and baseline application JPEGs are present.");
