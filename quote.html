@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Get a Quote — exactH2O</title>
+<meta name="description" content="Request a free ExactH2O quote for your facility, irrigation zones, and research goals. Get a system configuration tailored to your setup.">
 <script>
 (function () {
   var canonicalPath = "/quote";
@@ -167,7 +168,27 @@ footer .footer-logo { flex: none; width: 126px; }
     .form-row { gap: 1.25rem; }
     .form-group input, .form-group select, .form-group textarea { font-size: 1rem; }
   }
+
+/* Shared accessible mobile navigation. */
+.hamburger { border: 0; padding: 0; background: transparent; }
+.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
+.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
+.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
+.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
+@media (max-width: 900px) {
+  .hamburger { box-sizing: content-box; padding: 12px 8px; }
+  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
+  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+}
+
+.field-error { color: #a22d24; font-size: .8125rem; line-height: 1.5; margin-top: .4rem; }
+.form-group [aria-invalid="true"] { border-color: #a22d24; }
+.validation-summary { color: #a22d24; font-size: .875rem; }
+.validation-summary:not(:empty) { margin-bottom: 1rem; }
+.form-msg { margin-bottom: 1rem; }
+.form-group input, .form-group select, .form-group textarea, .form-msg { scroll-margin-top: 7rem; }
 </style>
+<script src="/site-navigation.js" defer></script>
 </head>
 <body>
 
@@ -181,10 +202,10 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/quote" class="active">Get Quote</a></li>
     <li><a href="/portal" class="nav-cta">Portal</a></li>
   </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true">
+  <button class="mob-close" type="button" aria-label="Close navigation" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
@@ -192,13 +213,14 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/quote" onclick="toggleMenu()">Get Quote</a>
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
+<main id="main-content">
 
 <div class="quote-section">
   <div class="quote-inner reveal">
 
     <div class="q-sidebar">
       <div class="section-label">Get Started</div>
-      <h2 class="section-title">Custom-fitted<br>to your setup</h2>
+      <h1 class="section-title">Custom-fitted<br>to your setup</h1>
       <p class="q-intro">Tell us what you grow and how your facility is set up. We’ll help size a system around your needs and budget.</p>
       <div class="q-points">
         <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Quick Response</div><div class="q-point-desc">Our team responds during business hours.</div></div></div>
@@ -213,10 +235,10 @@ footer .footer-logo { flex: none; width: 126px; }
 
     <div>
       <div class="quote-form-wrap">
-        <div class="form-msg success" id="successMsg">Quote request received. We will follow up shortly.</div>
-        <div class="form-msg error" id="errorMsg">Could not save request. Please email us directly at support@exacth2o.com.</div>
 
-        <h3 class="form-title">Request Your Quote</h3>
+
+
+        <h2 class="form-title">Request Your Quote</h2>
         <p class="form-subtitle">Fill out the form below and we'll be in touch soon</p>
 
         <form id="quoteForm" novalidate>
@@ -228,11 +250,13 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="form-row">
             <div class="form-group">
               <label for="name">Full Name <span class="req">*</span></label>
-              <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100">
+              <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100" aria-describedby="nameError">
+              <p class="field-error" id="nameError" hidden></p>
             </div>
             <div class="form-group">
               <label for="email">Email Address <span class="req">*</span></label>
-              <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200">
+              <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200" aria-describedby="emailError">
+              <p class="field-error" id="emailError" hidden></p>
             </div>
           </div>
           <div class="form-row">
@@ -247,7 +271,7 @@ footer .footer-logo { flex: none; width: 126px; }
           </div>
           <div class="form-group">
             <label for="application">Application Type <span class="req">*</span></label>
-            <select id="application" name="application" required>
+            <select id="application" name="application" required aria-describedby="applicationError">
               <option value="">Please select…</option>
               <option value="Plant Research / Drought Studies">Plant Research / Drought Studies</option>
               <option value="Research Greenhouse Operations">Research Greenhouse Operations</option>
@@ -256,6 +280,7 @@ footer .footer-logo { flex: none; width: 126px; }
               <option value="Commercial Greenhouse Operations">Commercial Greenhouse Operations</option>
               <option value="Other">Other (describe below)</option>
             </select>
+              <p class="field-error" id="applicationError" hidden></p>
           </div>
           <div class="form-group">
             <label for="timeline">Expected Timeline</label>
@@ -271,8 +296,12 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="form-group">
             <label for="message">Project Details <span class="req">*</span></label>
             <p class="form-hint" id="projectHint">Include your approximate pot count, growing media, irrigation zones, and research goals. Estimates are fine.</p>
-            <textarea id="message" name="message" required aria-describedby="projectHint" placeholder="Tell us about your project and what you need the system to do…" maxlength="3000"></textarea>
+            <textarea id="message" name="message" required aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="3000"></textarea>
+              <p class="field-error" id="messageError" hidden></p>
           </div>
+          <p class="validation-summary" id="validationSummary" role="alert" aria-atomic="true"></p>
+          <div class="form-msg success" id="successMsg" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
+          <div class="form-msg error" id="errorMsg" role="alert" aria-atomic="true" tabindex="-1"></div>
           <button type="submit" class="submit-btn" id="submitBtn">Submit Quote Request</button>
         </form>
       </div>
@@ -280,6 +309,8 @@ footer .footer-logo { flex: none; width: 126px; }
 
   </div>
 </div>
+
+</main>
 
 <footer>
   <div class="footer-identity">
@@ -296,14 +327,47 @@ footer .footer-logo { flex: none; width: 126px; }
 </footer>
 
 <script>
-  function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
-  }
+
 
   const QUOTE_FUNCTION_URL = 'https://zmhdclcjrkntrpynozvo.functions.supabase.co/submit-quote';
 
   let submitted = false; // prevents duplicate submissions
+
+  const requiredFields = ['name', 'email', 'application', 'message'];
+  const validationSummary = document.getElementById('validationSummary');
+  function fieldError(id) {
+    const value = document.getElementById(id).value.trim();
+    if (!value) return { name: 'Enter your full name.', email: 'Enter your email address.', application: 'Choose an application type.', message: 'Tell us a little about your project.' }[id];
+    if (id === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address, such as name@example.com.';
+    return '';
+  }
+  function showFieldError(id) {
+    const input = document.getElementById(id);
+    const error = document.getElementById(id + 'Error');
+    const message = fieldError(id);
+    error.textContent = message;
+    error.hidden = !message;
+    if (message) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+    return Boolean(message);
+  }
+  function focusNotice(element) {
+    element.focus({ preventScroll: true });
+    element.scrollIntoView({ behavior: 'auto', block: 'center' });
+  }
+  requiredFields.forEach(id => {
+    const input = document.getElementById(id);
+    const clearCorrectedError = () => {
+      if (input.hasAttribute('aria-invalid')) {
+        showFieldError(id);
+        const remaining = requiredFields.filter(key => document.getElementById(key).hasAttribute('aria-invalid')).length;
+        validationSummary.textContent = remaining ? 'Please correct ' + remaining + (remaining === 1 ? ' field.' : ' fields.') : '';
+      }
+    };
+    input.addEventListener('input', clearCorrectedError);
+    input.addEventListener('change', clearCorrectedError);
+  });
+
 
   document.getElementById('quoteForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -329,18 +393,13 @@ footer .footer-logo { flex: none; width: 126px; }
     const application = this.querySelector('[name="application"]').value;
     const message = this.querySelector('[name="message"]').value.trim();
 
-    if (!name || !email || !application || !message) {
-      errorMsg.textContent = 'Please fill in all required fields.';
-      errorMsg.style.display = 'block';
+    const invalidFields = requiredFields.filter(showFieldError);
+    if (invalidFields.length) {
+      validationSummary.textContent = 'Please correct ' + invalidFields.length + (invalidFields.length === 1 ? ' field.' : ' fields.');
+      focusNotice(document.getElementById(invalidFields[0]));
       return;
     }
-
-    // Simple email format check
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errorMsg.textContent = 'Please enter a valid email address.';
-      errorMsg.style.display = 'block';
-      return;
-    }
+    validationSummary.textContent = '';
 
     btn.disabled = true;
     btn.textContent = 'Sending…';
@@ -372,9 +431,10 @@ footer .footer-logo { flex: none; width: 126px; }
 
       if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
+        successMsg.textContent = 'Quote request received. We will follow up shortly.';
         this.reset();
         btn.textContent = 'Sent';
-        successMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        focusNotice(successMsg);
       } else {
         throw new Error(result.error || 'Server error');
       }
@@ -384,6 +444,7 @@ footer .footer-logo { flex: none; width: 126px; }
       btn.textContent = 'Submit Quote Request';
       errorMsg.textContent = 'Could not save request. Please email us directly at support@exacth2o.com.';
       errorMsg.style.display = 'block';
+      focusNotice(errorMsg);
     }
   });
 

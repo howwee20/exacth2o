@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>exactH2O — Precision Irrigation System</title>
+<meta name="description" content="ExactH2O provides sensor-based irrigation control and web monitoring for plant research and greenhouse operations.">
 <script>
 (function () {
   var canonicalPath = "/";
@@ -413,7 +414,13 @@ footer .footer-logo { flex: none; width: 126px; }
 /* Portrait video beside the published research. */
 .strip-header { grid-template-columns: minmax(0,1fr) minmax(0,1.35fr) minmax(160px,210px); gap: 2rem; align-items: center; }
 .research-video { position: relative; width: 100%; max-width: 210px; margin: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--bg-dark); }
-.research-video video { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
+.research-video video, .research-video-still { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; filter: brightness(.82) contrast(1.08); }
+.research-video video { display: block; }
+.research-video-still { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .research-video video { display: none; }
+  .research-video-still { display: block; }
+}
 @media (max-width: 900px) {
   .strip-header { grid-template-columns: minmax(0,1fr) 180px; gap: 1.75rem; }
   .strip-header > div:first-child { grid-column: 1 / -1; }
@@ -422,7 +429,20 @@ footer .footer-logo { flex: none; width: 126px; }
   .strip-header { grid-template-columns: 1fr; }
   .research-video { max-width: 240px; }
 }
+
+/* Shared accessible mobile navigation. */
+.hamburger { border: 0; padding: 0; background: transparent; }
+.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
+.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
+.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
+.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
+@media (max-width: 900px) {
+  .hamburger { box-sizing: content-box; padding: 12px 8px; }
+  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
+  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+}
 </style>
+<script src="/site-navigation.js" defer></script>
 </head>
 <body>
 
@@ -437,14 +457,12 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/quote">Get Quote</a></li>
     <li><a href="/portal" class="nav-cta">Portal</a></li>
   </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </div>
+  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
 
 <!-- MOBILE MENU -->
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true">
+  <button class="mob-close" type="button" aria-label="Close navigation" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
@@ -452,6 +470,7 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/quote" onclick="toggleMenu()">Get Quote</a>
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
+<main id="main-content">
 
 <!-- HOMEPAGE OPENING -->
 <section class="cinema-hero" aria-labelledby="cinema-title" aria-roledescription="carousel" aria-label="ExactH2O equipment photographs">
@@ -523,7 +542,8 @@ footer .footer-logo { flex: none; width: 126px; }
       <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study</a>
     </aside>
     <figure class="research-video" aria-label="ExactH2O greenhouse installation video">
-      <video id="researchVideo" autoplay muted loop playsinline preload="metadata" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
+      <img class="research-video-still" src="/research-video-poster-20260913.jpg" alt="Research pots with ExactH2O sensors and irrigation lines">
+      <video id="researchVideo" muted loop playsinline preload="none" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
         <source src="/research-video-20260913.mp4" type="video/mp4">
       </video>
     </figure>
@@ -624,6 +644,8 @@ footer .footer-logo { flex: none; width: 126px; }
 </div>
 
 <!-- FOOTER -->
+</main>
+
 <footer>
   <div class="footer-identity">
     <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
@@ -672,10 +694,7 @@ footer .footer-logo { flex: none; width: 126px; }
   sizeHomeHeader();
   syncRotation();
 
-  function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
-  }
+
 
   const revealEls = document.querySelectorAll('.reveal');
   const obs = new IntersectionObserver(entries => {
@@ -733,6 +752,18 @@ footer .footer-logo { flex: none; width: 126px; }
     if (event.key === 'Escape') hideFeaturePreview();
   });
 
+</script>
+<script>
+(() => {
+  const video = document.getElementById('researchVideo');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const syncVideo = () => {
+    if (reducedMotion.matches) video.pause();
+    else video.play().catch(() => {});
+  };
+  reducedMotion.addEventListener('change', syncVideo);
+  syncVideo();
+})();
 </script>
 </body>
 </html>

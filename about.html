@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>About Us — exactH2O</title>
+<meta name="description" content="Meet the scientists and engineers behind ExactH2O, a sensor-based irrigation system for plant research and greenhouse operations.">
 <script>
 (function () {
   var canonicalPath = "/about";
@@ -122,7 +123,35 @@
     .founder-card { grid-template-columns: 1fr; gap: 1.5rem; padding-bottom: 2.5rem; }
     .founder-photo { max-width: 280px; }
   }
+/* Compact footer with clear visual hierarchy. */
+footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
+.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+footer .footer-logo { flex: none; width: 126px; }
+.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
+.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
+.footer-support:hover { color: #fff; }
+.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
+.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
+.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
+.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
+@media (max-width: 600px) {
+  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
+  .footer-identity, .footer-details { align-items: center; text-align: center; }
+}
+
+/* Shared accessible mobile navigation. */
+.hamburger { border: 0; padding: 0; background: transparent; }
+.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
+.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
+.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
+.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
+@media (max-width: 900px) {
+  .hamburger { box-sizing: content-box; padding: 12px 8px; }
+  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
+  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+}
 </style>
+<script src="/site-navigation.js" defer></script>
 </head>
 <body>
 
@@ -136,10 +165,10 @@
     <li><a href="/quote">Get Quote</a></li>
     <li><a href="/portal" class="nav-cta">Portal</a></li>
   </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true">
+  <button class="mob-close" type="button" aria-label="Close navigation" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
@@ -147,6 +176,7 @@
   <a href="/quote" onclick="toggleMenu()">Get Quote</a>
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
+<main id="main-content">
 
 <div class="team-section">
   <div class="team-inner">
@@ -154,7 +184,7 @@
       <img class="team-group-photo" src="team-group-20260913.webp" width="1800" height="1198" alt="The exactH2O team together outdoors" fetchpriority="high" decoding="async">
       <div>
         <div class="section-label">Leadership</div>
-        <h2 class="section-title">Built by scientists,<br>for scientists</h2>
+        <h1 class="section-title">Built by scientists,<br>for scientists</h1>
         <p class="team-intro-desc">exactH2O was founded by a team with deep expertise spanning plant physiology, environmental sensing, and instrument engineering. Every design decision reflects years of firsthand frustration with imprecise irrigation in research settings — and the conviction that it could be done better.</p>
       </div>
     </div>
@@ -234,17 +264,24 @@
   <a href="/quote" class="btn-primary">Get Started Today</a>
 </div>
 
+</main>
+
 <footer>
-  <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
-  <div>© 2026 exactH2O · All rights reserved</div>
-  <div><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></div>
+  <div class="footer-identity">
+    <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
+    <div class="made-in-america">
+      <svg viewBox="0 0 190 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="190" height="100" fill="#fff"/><rect y="0.0000" width="190" height="7.6923" fill="#b22234"/><rect y="15.3846" width="190" height="7.6923" fill="#b22234"/><rect y="30.7692" width="190" height="7.6923" fill="#b22234"/><rect y="46.1538" width="190" height="7.6923" fill="#b22234"/><rect y="61.5385" width="190" height="7.6923" fill="#b22234"/><rect y="76.9231" width="190" height="7.6923" fill="#b22234"/><rect y="92.3077" width="190" height="7.6923" fill="#b22234"/><rect width="76" height="53.8462" fill="#3c3b6e"/><defs><polygon id="made-in-america-star" points="0.000,-3.080 0.694,-0.955 2.929,-0.952 1.122,0.365 1.810,2.492 0.000,1.180 -1.810,2.492 -1.122,0.365 -2.929,-0.952 -0.694,-0.955" fill="#fff"/></defs><use href="#made-in-america-star" x="6.333" y="5.385"/><use href="#made-in-america-star" x="19.000" y="5.385"/><use href="#made-in-america-star" x="31.667" y="5.385"/><use href="#made-in-america-star" x="44.333" y="5.385"/><use href="#made-in-america-star" x="57.000" y="5.385"/><use href="#made-in-america-star" x="69.667" y="5.385"/><use href="#made-in-america-star" x="12.667" y="10.769"/><use href="#made-in-america-star" x="25.333" y="10.769"/><use href="#made-in-america-star" x="38.000" y="10.769"/><use href="#made-in-america-star" x="50.667" y="10.769"/><use href="#made-in-america-star" x="63.333" y="10.769"/><use href="#made-in-america-star" x="6.333" y="16.154"/><use href="#made-in-america-star" x="19.000" y="16.154"/><use href="#made-in-america-star" x="31.667" y="16.154"/><use href="#made-in-america-star" x="44.333" y="16.154"/><use href="#made-in-america-star" x="57.000" y="16.154"/><use href="#made-in-america-star" x="69.667" y="16.154"/><use href="#made-in-america-star" x="12.667" y="21.538"/><use href="#made-in-america-star" x="25.333" y="21.538"/><use href="#made-in-america-star" x="38.000" y="21.538"/><use href="#made-in-america-star" x="50.667" y="21.538"/><use href="#made-in-america-star" x="63.333" y="21.538"/><use href="#made-in-america-star" x="6.333" y="26.923"/><use href="#made-in-america-star" x="19.000" y="26.923"/><use href="#made-in-america-star" x="31.667" y="26.923"/><use href="#made-in-america-star" x="44.333" y="26.923"/><use href="#made-in-america-star" x="57.000" y="26.923"/><use href="#made-in-america-star" x="69.667" y="26.923"/><use href="#made-in-america-star" x="12.667" y="32.308"/><use href="#made-in-america-star" x="25.333" y="32.308"/><use href="#made-in-america-star" x="38.000" y="32.308"/><use href="#made-in-america-star" x="50.667" y="32.308"/><use href="#made-in-america-star" x="63.333" y="32.308"/><use href="#made-in-america-star" x="6.333" y="37.692"/><use href="#made-in-america-star" x="19.000" y="37.692"/><use href="#made-in-america-star" x="31.667" y="37.692"/><use href="#made-in-america-star" x="44.333" y="37.692"/><use href="#made-in-america-star" x="57.000" y="37.692"/><use href="#made-in-america-star" x="69.667" y="37.692"/><use href="#made-in-america-star" x="12.667" y="43.077"/><use href="#made-in-america-star" x="25.333" y="43.077"/><use href="#made-in-america-star" x="38.000" y="43.077"/><use href="#made-in-america-star" x="50.667" y="43.077"/><use href="#made-in-america-star" x="63.333" y="43.077"/><use href="#made-in-america-star" x="6.333" y="48.462"/><use href="#made-in-america-star" x="19.000" y="48.462"/><use href="#made-in-america-star" x="31.667" y="48.462"/><use href="#made-in-america-star" x="44.333" y="48.462"/><use href="#made-in-america-star" x="57.000" y="48.462"/><use href="#made-in-america-star" x="69.667" y="48.462"/></svg>
+      <span>MADE IN USA</span>
+    </div>
+  </div>
+  <div class="footer-details">
+    <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
+    <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
+  </div>
 </footer>
 
 <script>
-  function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
-  }
+
   const revealEls = document.querySelectorAll('.reveal');
   const obs = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });

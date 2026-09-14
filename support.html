@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Support — exactH2O</title>
+<meta name="description" content="Get ExactH2O technical support, installation and training information, and answers to common sensor and irrigation questions.">
 <script>
 (function () {
   var canonicalPath = "/support";
@@ -134,7 +135,20 @@ footer .footer-logo { flex: none; width: 126px; }
   footer { flex-direction: column; align-items: center; gap: 1.5rem; }
   .footer-identity, .footer-details { align-items: center; text-align: center; }
 }
+
+/* Shared accessible mobile navigation. */
+.hamburger { border: 0; padding: 0; background: transparent; }
+.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
+.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
+.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
+.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
+@media (max-width: 900px) {
+  .hamburger { box-sizing: content-box; padding: 12px 8px; }
+  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
+  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+}
 </style>
+<script src="/site-navigation.js" defer></script>
 </head>
 <body>
 
@@ -148,10 +162,10 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/quote">Get Quote</a></li>
     <li><a href="/portal" class="nav-cta">Portal</a></li>
   </ul>
-  <div class="hamburger" id="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
-<div class="mobile-menu" id="mobileMenu">
-  <span class="mob-close" onclick="toggleMenu()">✕ close</span>
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true">
+  <button class="mob-close" type="button" aria-label="Close navigation" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
@@ -223,10 +237,7 @@ footer .footer-logo { flex: none; width: 126px; }
 </footer>
 
 <script>
-  function toggleMenu() {
-    document.getElementById('mobileMenu').classList.toggle('active');
-    document.getElementById('hamburger').classList.toggle('active');
-  }
+
   const revealEls = document.querySelectorAll('.reveal');
   const obs = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });

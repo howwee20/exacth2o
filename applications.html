@@ -761,7 +761,20 @@ footer .footer-logo { flex: none; width: 126px; }
 }
   .app-intro-grid .section-title { margin-bottom: 0; }
   .app-intro-copy { font-size: 1.05rem; line-height: 1.8; color: #536157; max-width: 85ch; }
+
+/* Shared accessible mobile navigation. */
+.hamburger { border: 0; padding: 0; background: transparent; }
+.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
+.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
+.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
+.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
+@media (max-width: 900px) {
+  .hamburger { box-sizing: content-box; padding: 12px 8px; }
+  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
+  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+}
 </style>
+<script src="/site-navigation.js" defer></script>
 </head>
 <body>
 
@@ -776,14 +789,12 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/quote">Get Quote</a></li>
     <li><a href="/portal" class="nav-cta">Portal</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
+  <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
 
 <!-- MOBILE MENU -->
-<div class="mobile-menu" id="mobileMenu" aria-hidden="true">
-  <button class="mob-close" type="button" onclick="toggleMenu()">✕ close</button>
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true">
+  <button class="mob-close" type="button" aria-label="Close navigation" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
@@ -791,6 +802,7 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/quote" onclick="toggleMenu()">Get Quote</a>
   <a href="/portal" onclick="toggleMenu()">Portal</a>
 </div>
+<main id="main-content">
 
 <div class="application-flow">
   <svg class="application-flow-lines" aria-hidden="true"></svg>
@@ -799,7 +811,7 @@ footer .footer-logo { flex: none; width: 126px; }
   <div class="app-intro-grid reveal">
     <div>
       <div class="section-label">Application Areas</div>
-      <h2 class="section-title">Three domains,<br>one system</h2>
+      <h1 class="section-title">Three domains,<br>one system</h1>
     </div>
     <p class="app-intro-copy">
       ExactH2O is built for controlled-environment work where water must be measured, repeated, and explained. One platform supports configurable sensors, per-pot or per-zone targets, sampling cadence, and a continuous record across stress studies, phenotyping, and greenhouse operations.
@@ -932,6 +944,8 @@ footer .footer-logo { flex: none; width: 126px; }
 </div>
 
 <!-- FOOTER -->
+</main>
+
 <footer>
   <div class="footer-identity">
     <a href="/" class="footer-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
@@ -1000,15 +1014,7 @@ footer .footer-logo { flex: none; width: 126px; }
   const applicationsHeader = document.querySelector('nav');
   new ResizeObserver(() => document.documentElement.style.setProperty('--applications-header-height', applicationsHeader.getBoundingClientRect().height + 'px')).observe(applicationsHeader);
 
-  function toggleMenu() {
-    const menu = document.getElementById('mobileMenu');
-    const hamburger = document.getElementById('hamburger');
-    const isOpen = menu.classList.toggle('active');
-    hamburger.classList.toggle('active', isOpen);
-    hamburger.setAttribute('aria-expanded', String(isOpen));
-    hamburger.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
-    menu.setAttribute('aria-hidden', String(!isOpen));
-  }
+
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const experimentVisuals = document.querySelectorAll('.experiment-visual');
