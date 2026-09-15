@@ -153,7 +153,7 @@ jobs:
 
           cp site-navigation.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html exacth2o-logo.jpeg site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
-          cp team-*-20260913.webp site-dist/
+          cp team-*-20260913.webp team-binod-20260915.png site-dist/
           cp hero-greenhouse-*-20260913.webp site-dist/
           cp research-video-20260913.mp4 research-video-poster-20260913.jpg site-dist/
           cp product1.jpg product2.jpg product3.jpg site-dist/

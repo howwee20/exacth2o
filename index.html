@@ -417,9 +417,12 @@ footer .footer-logo { flex: none; width: 126px; }
 .research-video video, .research-video-still { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; filter: brightness(.82) contrast(1.08); }
 .research-video video { display: block; }
 .research-video-still { display: none; }
+.media-playback { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 3; padding: .65rem 1rem; border: 1px solid #fff; border-radius: 4px; background: #163d32; color: #fff; font: inherit; font-size: .85rem; cursor: pointer; white-space: nowrap; }
+.media-playback[hidden] { display: none; }
+.media-playback:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
-  .research-video video { display: none; }
-  .research-video-still { display: block; }
+  .research-video:not(.motion-enabled) video { display: none; }
+  .research-video:not(.motion-enabled) .research-video-still { display: block; }
 }
 @media (max-width: 900px) {
   .strip-header { grid-template-columns: minmax(0,1fr) 180px; gap: 1.75rem; }
@@ -474,7 +477,8 @@ footer .footer-logo { flex: none; width: 126px; }
 
 <!-- HOMEPAGE OPENING -->
 <section class="cinema-hero" aria-labelledby="cinema-title" aria-roledescription="carousel" aria-label="ExactH2O equipment photographs">
-  <div class="cinema-photos">
+  <div class="cinema-photos" id="cinema-photos">
+    <button class="media-playback" id="slideshowPlayback" type="button" aria-controls="cinema-photos" hidden>Play slideshow</button>
     <div class="cinema-photo is-active" role="group" aria-roledescription="slide" aria-label="1 of 11: Greenhouse installation">
       <img src="product1.avif" alt="ExactH2O controllers connected to individually irrigated research pots in a greenhouse" width="1600" height="1200" fetchpriority="high" decoding="async" onerror="this.onerror=null;this.src='product1.jpg'" style="--desktop-position: 50% 55%; --mobile-position: 63% 50%;">
     </div>
@@ -543,9 +547,10 @@ footer .footer-logo { flex: none; width: 126px; }
     </aside>
     <figure class="research-video" aria-label="ExactH2O greenhouse installation video">
       <img class="research-video-still" src="/research-video-poster-20260913.jpg" alt="Research pots with ExactH2O sensors and irrigation lines">
-      <video id="researchVideo" muted loop playsinline preload="none" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
+      <video id="researchVideo" muted loop playsinline preload="metadata" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
         <source src="/research-video-20260913.mp4" type="video/mp4">
       </video>
+      <button class="media-playback" id="videoPlayback" type="button" aria-controls="researchVideo" hidden>Play video</button>
     </figure>
     </div>
 
@@ -662,9 +667,12 @@ footer .footer-logo { flex: none; width: 126px; }
 
 <script>
 
-  // Automatic rotation respects reduced motion and stops off-screen, hidden, or focused.
+  // Keep media initialization independent of the decorative page effects.
+  (() => {
+  // Reduced-motion visitors can explicitly opt into the slideshow.
   const cinema = document.querySelector('.cinema-hero');
   const photos = [...document.querySelectorAll('.cinema-photo')];
+  const slideshowButton = document.getElementById('slideshowPlayback');
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let photoIndex = 0, rotationTimer = null, rotationPaused = motion.matches, cinemaVisible = true;
   function showPhotograph(index) {
@@ -676,23 +684,34 @@ footer .footer-logo { flex: none; width: 126px; }
   }
   function syncRotation() {
     clearInterval(rotationTimer);
-    if (!rotationPaused && cinemaVisible && !document.hidden && !cinema.contains(document.activeElement)) {
+    slideshowButton.hidden = !motion.matches;
+    slideshowButton.textContent = rotationPaused ? 'Play slideshow' : 'Pause slideshow';
+    const contentFocused = cinema.contains(document.activeElement) && document.activeElement !== slideshowButton;
+    if (!rotationPaused && cinemaVisible && !document.hidden && !contentFocused) {
       rotationTimer = setInterval(() => showPhotograph(photoIndex + 1), 7000);
     }
   }
   cinema.addEventListener('focusin', syncRotation);
   cinema.addEventListener('focusout', () => setTimeout(syncRotation, 0));
   document.addEventListener('visibilitychange', syncRotation);
-  motion.addEventListener('change', () => { rotationPaused = motion.matches; syncRotation(); });
-  new IntersectionObserver(([entry]) => { cinemaVisible = entry.isIntersecting; syncRotation(); }).observe(cinema);
+  slideshowButton.addEventListener('click', () => { rotationPaused = !rotationPaused; syncRotation(); });
+  const onMotionChange = () => { rotationPaused = motion.matches; syncRotation(); };
+  if (motion.addEventListener) motion.addEventListener('change', onMotionChange);
+  else motion.addListener(onMotionChange);
+  window.addEventListener('pageshow', syncRotation);
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => { cinemaVisible = entry.isIntersecting; syncRotation(); }).observe(cinema);
+  }
+  syncRotation();
+  })();
   const homeNav = document.querySelector('nav');
   // The solid header occupies its own row above the photographs.
   function sizeHomeHeader() {
     document.documentElement.style.setProperty('--header-height', `${homeNav.getBoundingClientRect().height}px`);
   }
-  new ResizeObserver(sizeHomeHeader).observe(homeNav);
+  if ('ResizeObserver' in window) new ResizeObserver(sizeHomeHeader).observe(homeNav);
+  else window.addEventListener('resize', sizeHomeHeader);
   sizeHomeHeader();
-  syncRotation();
 
 
 
@@ -756,12 +775,59 @@ footer .footer-logo { flex: none; width: 126px; }
 <script>
 (() => {
   const video = document.getElementById('researchVideo');
+  const button = document.getElementById('videoPlayback');
+  const frame = video.closest('.research-video');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const syncVideo = () => {
-    if (reducedMotion.matches) video.pause();
-    else video.play().catch(() => {});
+  let manualPlayback = false;
+  let playPending = false;
+  const shouldPlay = () => (!reducedMotion.matches || manualPlayback) && !document.hidden;
+  const updateButton = () => {
+    button.hidden = !reducedMotion.matches && !video.paused;
+    button.textContent = video.paused ? 'Play video' : 'Pause video';
   };
-  reducedMotion.addEventListener('change', syncVideo);
+  const syncVideo = () => {
+    frame.classList.toggle('motion-enabled', manualPlayback);
+    video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+    video.autoplay = !reducedMotion.matches || manualPlayback;
+    if (!shouldPlay()) {
+      video.pause();
+      updateButton();
+      return;
+    }
+    if (playPending || !video.paused) return;
+    playPending = true;
+    // A blocked autoplay must leave an actual user-gesture play option.
+    Promise.resolve(video.play()).then(() => {
+      if (!shouldPlay()) video.pause();
+    }).catch(() => {
+      button.hidden = false;
+    }).finally(() => {
+      playPending = false;
+      updateButton();
+    });
+  };
+  button.addEventListener('click', () => {
+    if (reducedMotion.matches && manualPlayback && !video.paused) {
+      manualPlayback = false;
+      syncVideo();
+    } else {
+      manualPlayback = true;
+      if (video.error) video.load();
+      syncVideo();
+    }
+  });
+  const onMotionChange = () => { manualPlayback = false; syncVideo(); };
+  if (reducedMotion.addEventListener) reducedMotion.addEventListener('change', onMotionChange);
+  else reducedMotion.addListener(onMotionChange);
+  video.addEventListener('playing', updateButton);
+  video.addEventListener('pause', updateButton);
+  video.addEventListener('error', updateButton);
+  video.addEventListener('canplay', syncVideo);
+  video.addEventListener('ended', syncVideo);
+  document.addEventListener('visibilitychange', syncVideo);
+  window.addEventListener('pageshow', syncVideo);
   syncVideo();
 })();
 </script>
