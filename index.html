@@ -238,7 +238,7 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
 .artifact-sensor-photo { object-fit: cover; object-position: center 52%; }
 .artifact-dashboard-photo { object-fit: contain; object-position: center; }
 
-/* Desktop-only enlarged preview for the product photographs */
+/* Click-to-open enlarged preview for the product photographs */
 .feature-image-preview {
   position: fixed; inset: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: center;
@@ -247,7 +247,7 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 180ms ease, visibility 180ms ease;
 }
-.feature-image-preview.is-visible { opacity: 1; visibility: visible; }
+.feature-image-preview.is-visible { opacity: 1; visibility: visible; pointer-events: auto; cursor: zoom-out; }
 .feature-image-preview img {
   display: block; width: auto; height: auto;
   max-width: min(900px, 88vw); max-height: 84vh;
@@ -380,10 +380,6 @@ footer a:hover { color: var(--accent); }
     height: clamp(260px, 70vw, 360px); margin: 0 0 1.75rem;
   }
   footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
-}
-@media (hover: none), (pointer: coarse) {
-  .feat-card-img { cursor: default; }
-  .feature-image-preview { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .feature-artifact,.feature-image-preview,.feature-image-preview img { transition: none; }
@@ -744,29 +740,37 @@ footer .footer-logo { flex: none; width: 126px; }
   const featurePreviewSources = document.querySelectorAll('.feat-card-img--sensor, .feat-card-img--dashboard');
   const featurePreview = document.querySelector('.feature-image-preview');
   const featurePreviewImage = featurePreview?.querySelector('img');
-  const hoverPreviewAvailable = window.matchMedia('(hover: hover) and (pointer: fine)');
 
   function showFeaturePreview(source) {
-    if (!hoverPreviewAvailable.matches || !source || !featurePreview || !featurePreviewImage) return;
+    if (!source || !featurePreview || !featurePreviewImage) return;
     const image = source.querySelector('img');
     if (!image) return;
     featurePreviewImage.src = image.currentSrc || image.src;
     featurePreviewImage.alt = image.alt;
     featurePreview.classList.add('is-visible');
     featurePreview.setAttribute('aria-hidden', 'false');
+    source.setAttribute('aria-expanded', 'true');
   }
 
   function hideFeaturePreview() {
     featurePreview?.classList.remove('is-visible');
     featurePreview?.setAttribute('aria-hidden', 'true');
+    featurePreviewSources.forEach(source => source.setAttribute('aria-expanded', 'false'));
   }
 
   featurePreviewSources.forEach(source => {
-    source.addEventListener('mouseenter', () => showFeaturePreview(source));
-    source.addEventListener('mouseleave', hideFeaturePreview);
-    source.addEventListener('focus', () => showFeaturePreview(source));
+    source.setAttribute('role', 'button');
+    source.setAttribute('aria-expanded', 'false');
+    source.addEventListener('click', () => showFeaturePreview(source));
+    source.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        showFeaturePreview(source);
+      }
+    });
     source.addEventListener('blur', hideFeaturePreview);
   });
+  featurePreview?.addEventListener('click', hideFeaturePreview);
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') hideFeaturePreview();
   });
