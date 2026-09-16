@@ -1,15 +1,20 @@
-/* Compact striped logo within the original footer identity area. */
-footer .footer-logo.brand-finale {
-  position: relative;
-  width: 180px;
-  height: 32px;
-  aspect-ratio: auto;
-  padding: 0;
-  overflow: visible;
+/* Centered animation occupies the existing footer, without a new section. */
+footer { position: relative; }
+.brand-finale {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(200px, 23vw, 300px);
+  pointer-events: none;
 }
-.brand-finale svg { position: absolute; top: -6px; left: 0; display: block; width: 180px; height: auto; overflow: visible; }
+.brand-finale svg { display: block; width: 100%; height: auto; overflow: visible; }
 .brand-finale-type { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 240px; font-weight: 600; font-style: italic; }
-.brand-water-level { transform: translateY(var(--brand-water-offset, 0px)); }
+.brand-water-level { transform: translateY(var(--brand-water-offset, 225px)); transition: transform .35s ease-out; }
 @media (max-width: 768px) {
   footer .footer-identity { align-items: flex-start; align-self: flex-start; }
+  .brand-finale { width: min(40vw, 200px); left: auto; right: 1.5rem; top: 2.25rem; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-water-level { transition: none; }
 }
