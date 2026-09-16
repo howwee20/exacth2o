@@ -34,6 +34,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -3646,13 +3647,35 @@ function SalesSupportView({
   loading,
   error,
   onBackHome,
+  onDeleteQuote,
 }: {
   data: SalesSupportData;
   loading: boolean;
   error: string | null;
   onBackHome: () => void;
+  onDeleteQuote: (quoteId: string) => Promise<void>;
 }) {
   const [selectedDetail, setSelectedDetail] = useState<SupportSelectedDetail | null>(null);
+  const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deletingRef = useRef(false);
+
+  async function deleteQuote(quote: QuoteRequestRow) {
+    if (deletingRef.current || !window.confirm(`Permanently delete the quote request from ${quote.name}? Its linked quote conversation will also be removed. This cannot be undone.`)) return;
+    deletingRef.current = true;
+    setDeletingQuoteId(quote.id);
+    setDeleteError(null);
+    try {
+      await onDeleteQuote(quote.id);
+      setSelectedDetail(null);
+    } catch (err) {
+      setDeleteError(errorMessage(err));
+    } finally {
+      deletingRef.current = false;
+      setDeletingQuoteId(null);
+    }
+  }
+
   const supportThreads = data.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
   const messagesByThread = useMemo(() => {
     const messages = new Map<string, SupportMessageRow>();
@@ -3742,10 +3765,10 @@ function SalesSupportView({
         ) : null}
       </header>
 
-      {error ? (
+      {deleteError || error ? (
         <div className="banner error">
           <AlertTriangle size={18} />
-          {error}
+          {deleteError || error}
         </div>
       ) : null}
 
@@ -3809,6 +3832,16 @@ function SalesSupportView({
                     <Mail size={14} />
                     Reply
                   </a>
+                  <button
+                    type="button"
+                    className="settings-secondary-button support-delete-button"
+                    disabled={deletingQuoteId !== null}
+                    onClick={() => void deleteQuote(quote)}
+                    aria-label={`Delete quote request from ${quote.name}`}
+                  >
+                    {deletingQuoteId === quote.id ? <Loader2 size={14} className="chart-loading-spinner" /> : <Trash2 size={14} />}
+                    {deletingQuoteId === quote.id ? "Deleting…" : "Delete"}
+                  </button>
                 </div>
               </article>
             )) : (
@@ -5412,6 +5445,7 @@ export default function App() {
   const [valveEvents, setValveEvents] = useState<ValveEvent[]>([]);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
+  const salesSupportLoadId = useRef(0);
   const [salesSupportData, setSalesSupportData] = useState<SalesSupportData>(initialSalesSupportData);
   const [salesSupportLoading, setSalesSupportLoading] = useState(false);
   const [salesSupportError, setSalesSupportError] = useState<string | null>(null);
@@ -5837,6 +5871,7 @@ export default function App() {
   }, [activeDeviceId, activeProjectId, canReadProjectData]);
 
   const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
+    const loadId = ++salesSupportLoadId.current;
     if (!isAdmin || !activeProjectId) {
       setSalesSupportData(initialSalesSupportData);
       return;
@@ -5886,6 +5921,7 @@ export default function App() {
       if (threadsResponse.error) throw threadsResponse.error;
       if (messagesResponse.error) throw messagesResponse.error;
 
+      if (loadId !== salesSupportLoadId.current) return;
       setSalesSupportData({
         quotes: (quotesResponse.data ?? []) as QuoteRequestRow[],
         threads: (threadsResponse.data ?? []) as SupportThreadRow[],
@@ -5897,6 +5933,27 @@ export default function App() {
       if (!silent) setSalesSupportLoading(false);
     }
   }, [activeProjectId, isAdmin]);
+
+  const deleteQuoteRequest = useCallback(async (quoteId: string) => {
+    if (!isAdmin || !activeProjectId) throw new Error("Admin access is required to delete quotes.");
+    const { error } = await withSupabaseTimeout(
+      supabase.rpc("delete_quote_request", { p_project_id: activeProjectId, p_quote_id: quoteId }),
+      supabaseQueryTimeoutMs,
+      "Delete quote request",
+    );
+    if (error) throw error;
+    // Discard earlier queue reads so they cannot restore a just-deleted item.
+    salesSupportLoadId.current += 1;
+    setSalesSupportData((current) => {
+      const removedThreads = new Set(current.threads.filter((thread) => thread.quote_request_id === quoteId).map((thread) => thread.id));
+      return {
+        quotes: current.quotes.filter((quote) => quote.id !== quoteId),
+        threads: current.threads.filter((thread) => !removedThreads.has(thread.id)),
+        messages: current.messages.filter((message) => !removedThreads.has(message.thread_id)),
+      };
+    });
+    void loadSalesSupport({ silent: true });
+  }, [activeProjectId, isAdmin, loadSalesSupport]);
 
   const loadRdAccess = useCallback(async () => {
     if (!isAdmin) {
@@ -7796,6 +7853,7 @@ export default function App() {
           data={salesSupportData}
           loading={salesSupportLoading}
           error={salesSupportError}
+          onDeleteQuote={deleteQuoteRequest}
           onBackHome={() => setPortalView("home")}
         />
       </main>

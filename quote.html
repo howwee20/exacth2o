@@ -187,6 +187,16 @@ footer .footer-logo { flex: none; width: 126px; }
 .validation-summary:not(:empty) { margin-bottom: 1rem; }
 .form-msg { margin-bottom: 1rem; }
 .form-group input, .form-group select, .form-group textarea, .form-msg { scroll-margin-top: 7rem; }
+
+/* H2O logo color on quote and support actions. */
+:root { --h2o-brand: #91e4d2; --h2o-brand-hover: #7bc3b4; }
+.cta-strip .btn-primary, .support-contact-button, .submit-btn {
+  background: var(--h2o-brand); color: #0e1a14;
+}
+.cta-strip .btn-primary:hover, .support-contact-button:hover, .submit-btn:hover:not(:disabled) {
+  background: var(--h2o-brand-hover) !important; color: #0e1a14;
+}
+.nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
 </style>
 <script src="/site-navigation.js" defer></script>
 </head>

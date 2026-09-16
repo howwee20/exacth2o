@@ -9687,3 +9687,7 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.support-delete-button { color: #a12b2b; border-color: #e6baba; }
+.support-delete-button:hover:not(:disabled) { background: #fff1f1; border-color: #a12b2b; }
+.support-delete-button:disabled { opacity: .55; cursor: wait; }

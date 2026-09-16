@@ -410,7 +410,7 @@ footer .footer-logo { flex: none; width: 126px; }
 /* Portrait video beside the published research. */
 .strip-header { grid-template-columns: minmax(0,1fr) minmax(0,1.35fr) minmax(160px,210px); gap: 2rem; align-items: center; }
 .research-video { position: relative; width: 100%; max-width: 210px; margin: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--bg-dark); }
-.research-video video, .research-video-still { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; filter: brightness(.82) contrast(1.08); }
+.research-video video, .research-video-still { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; filter: brightness(.77) contrast(1.08); }
 .research-video video { display: block; }
 .research-video-still { display: none; }
 .media-playback { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 3; padding: .65rem 1rem; border: 1px solid #fff; border-radius: 4px; background: #163d32; color: #fff; font: inherit; font-size: .85rem; cursor: pointer; white-space: nowrap; }
@@ -440,6 +440,16 @@ footer .footer-logo { flex: none; width: 126px; }
   .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
   .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
 }
+
+/* H2O logo color on quote and support actions. */
+:root { --h2o-brand: #91e4d2; --h2o-brand-hover: #7bc3b4; }
+.cta-strip .btn-primary, .support-contact-button, .submit-btn {
+  background: var(--h2o-brand); color: #0e1a14;
+}
+.cta-strip .btn-primary:hover, .support-contact-button:hover, .submit-btn:hover:not(:disabled) {
+  background: var(--h2o-brand-hover) !important; color: #0e1a14;
+}
+.nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
 </style>
 <script src="/site-navigation.js" defer></script>
 </head>
