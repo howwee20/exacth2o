@@ -10,11 +10,8 @@ footer { position: relative; }
 }
 .brand-finale svg { display: block; width: 100%; height: auto; overflow: visible; }
 .brand-finale-type { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 240px; font-weight: 600; font-style: italic; }
-.brand-water-level { transform: translateY(var(--brand-water-offset, 225px)); transition: transform .35s ease-out; }
+/* Both words remain scan lines, including the transient colored splash. */
 @media (max-width: 768px) {
   footer .footer-identity { align-items: flex-start; align-self: flex-start; }
   .brand-finale { width: min(40vw, 200px); left: auto; right: 1.5rem; top: 2.25rem; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .brand-water-level { transition: none; }
 }

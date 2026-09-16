@@ -339,12 +339,13 @@ footer .footer-logo { flex: none; width: 126px; }
 <svg viewBox="0 0 1040 250" aria-hidden="true" focusable="false">
     <defs>
       <pattern id="brand-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#c5cec7"/></pattern>
-      <clipPath id="brand-water-fill"><rect class="brand-water-level" width="1040" height="250"/></clipPath>
+      <pattern id="brand-water-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#91e4d2"/></pattern>
+      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
     </defs>
     <g class="brand-finale-type">
       <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)" opacity=".22">H2O</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="#91e4d2" clip-path="url(#brand-water-fill)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
     </g>
   </svg>
   </div>
