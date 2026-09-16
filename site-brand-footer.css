@@ -1,17 +1,15 @@
-/* Striped wordmark: only H2O fills, from bottom to top. */
-.brand-finale {
-  background: #0e1a14;
-  padding: clamp(2rem, 5vw, 5rem) 4vw 1rem;
-  overflow: hidden;
+/* Compact striped logo within the original footer identity area. */
+footer .footer-logo.brand-finale {
+  position: relative;
+  width: 180px;
+  height: 32px;
+  aspect-ratio: auto;
+  padding: 0;
+  overflow: visible;
 }
-.brand-finale svg { display: block; width: 100%; max-width: 1800px; margin: 0 auto; height: auto; overflow: visible; }
+.brand-finale svg { position: absolute; top: -6px; left: 0; display: block; width: 180px; height: auto; overflow: visible; }
 .brand-finale-type { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 240px; font-weight: 600; font-style: italic; }
-.brand-water-level { animation: brand-water-rise 8s ease-in-out infinite; }
-@keyframes brand-water-rise {
-  0%, 8% { transform: translateY(225px); }
-  65%, 85% { transform: translateY(0); }
-  100% { transform: translateY(225px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .brand-water-level { animation: none; transform: translateY(0); }
+.brand-water-level { transform: translateY(var(--brand-water-offset, 0px)); }
+@media (max-width: 768px) {
+  footer .footer-identity { align-items: flex-start; align-self: flex-start; }
 }

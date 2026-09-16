@@ -151,7 +151,7 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist/portal-app/assets
 
-          cp site-navigation.js site-brand-footer.css CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html exacth2o-logo.jpeg site-dist/
+          cp site-navigation.js site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html exacth2o-logo.jpeg site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp team-*-20260913.webp team-binod-20260915.png site-dist/
           cp hero-greenhouse-*-20260913.webp site-dist/
