@@ -28,16 +28,21 @@ function Preview(){
     const healthPosition=positions.get('System Health');if(!healthPosition)return;
     const health={x:healthPosition.x*spread,y:healthPosition.y};
     connections.setAttribute('viewBox',`0 0 ${canvasWidth} 644`);
-    paths.forEach(({title,path},i)=>{
+    const first=positions.get('Experiment 1');
+    const gutter=Math.min((first?.x||0)*spread,health.x)-14;
+    const healthCenter=health.y+102;
+    paths.forEach(({title,path})=>{
      const position=positions.get(title);if(!position)return;
      const from={x:position.x*spread,y:position.y};
-     const endX=health.x+tileWidth*(i+1)/4;
-     if(from.y+204<health.y-40){
-      const gutter=Math.min(from.x,health.x)-14;
-      path.setAttribute('d',`M ${from.x} ${from.y+102} H ${gutter} V ${health.y+102} H ${health.x}`);
+     if(title==='Experiment 1'){
+      path.setAttribute('d',`M ${from.x} ${from.y+102} H ${gutter+8} Q ${gutter} ${from.y+102} ${gutter} ${from.y+110} V ${healthCenter-8} Q ${gutter} ${healthCenter} ${gutter+8} ${healthCenter} H ${health.x}`);
+     }else if(title==='Experiment 2'){
+      // Join the Experiment 1 trunk from the left edge of Experiment 2.
+      path.setAttribute('d',`M ${from.x} ${from.y+102} H ${gutter}`);
      }else{
-      const middle=(from.y+204+health.y)/2;
-      path.setAttribute('d',`M ${from.x+tileWidth/2} ${from.y+204} V ${middle} H ${endX} V ${health.y}`);
+      // Drop beside System Health and enter its right edge without crossing a card.
+      const lane=from.x+tileWidth/2;
+      path.setAttribute('d',`M ${lane} ${from.y+204} V ${healthCenter-8} Q ${lane} ${healthCenter} ${lane-8} ${healthCenter} H ${health.x+tileWidth}`);
      }
     });
    }

@@ -1024,7 +1024,7 @@ select {
   width: 100%;
   min-height: 48px;
   border: none;
-  background: var(--portal-water);
+  background: #2563eb;
   color: #ffffff;
   cursor: pointer;
   font-family: var(--portal-mono);
@@ -1034,11 +1034,11 @@ select {
 }
 
 .portal-submit-btn:hover {
-  background: var(--portal-water-light);
+  background: #1d4ed8;
 }
 
 .portal-submit-btn:disabled {
-  background: rgba(26, 107, 74, 0.44);
+  background: rgba(37, 99, 235, 0.44);
   cursor: not-allowed;
 }
 
@@ -1315,21 +1315,22 @@ select {
   gap: 8px;
   flex: 0 0 auto;
   padding: 0 18px;
-  border: 1px solid #155f42;
+  border: 1px solid #2563eb;
   border-radius: 999px;
-  background: linear-gradient(135deg, #1a6b4a, #27875f);
+  background: #2563eb;
   color: #fff;
   cursor: pointer;
   font-family: var(--portal-mono);
   font-size: 0.7rem;
   font-weight: 780;
   letter-spacing: 0.03em;
-  box-shadow: 0 10px 24px rgba(26, 107, 74, 0.2);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
 }
 
 .portal-new-experiment-action > button:hover,
 .portal-new-experiment-action > button:focus-visible {
-  outline: 3px solid rgba(26, 107, 74, 0.16);
+  background: #1d4ed8;
+  outline: 3px solid rgba(37, 99, 235, 0.2);
   transform: translateY(-1px);
 }
 

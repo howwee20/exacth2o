@@ -967,7 +967,7 @@ footer .footer-logo { flex: none; width: 126px; }
   const intro = wrapper.querySelector('.app-intro-grid');
   const cards = [...wrapper.querySelectorAll('.app-card')];
   const frame = wrapper.querySelector('.portal-demo-frame');
-  const green = wrapper.querySelector('.why-section');
+  const benefits = wrapper.querySelector('.why-inner');
   // Layout coordinates ignore reveal transforms, so the connections stay anchored.
   function box(element) {
     let x = 0, y = 0, node = element;
@@ -995,6 +995,13 @@ footer .footer-logo { flex: none; width: 126px; }
       lines.push(`M ${right} ${tiles[0].y + tiles[0].height - 22} V ${merge} H ${target}`);
     }
     lines.push(`M ${target} ${merge} V ${portal.y}`);
+    const bulletBox = box(benefits);
+    const inset = Math.min(24, bulletBox.x - 8);
+    const left = bulletBox.x - inset, right = bulletBox.x + bulletBox.width + inset;
+    const top = bulletBox.y - 24, bottom = bulletBox.y + bulletBox.height + 24;
+    lines.push(`M ${target} ${portal.y + portal.height} V ${top}`);
+    // A closed, animated perimeter surrounds all six benefits.
+    lines.push(`M ${target} ${top} H ${right - 12} Q ${right} ${top} ${right} ${top + 12} V ${bottom - 12} Q ${right} ${bottom} ${right - 12} ${bottom} H ${left + 12} Q ${left} ${bottom} ${left} ${bottom - 12} V ${top + 12} Q ${left} ${top} ${left + 12} ${top} H ${target} Z`);
     svg.setAttribute('viewBox', `0 0 ${wrapper.offsetWidth} ${wrapper.offsetHeight}`);
     svg.replaceChildren(...lines.map(d => {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1004,7 +1011,7 @@ footer .footer-logo { flex: none; width: 126px; }
   let pending = 0;
   function schedule() { cancelAnimationFrame(pending); pending = requestAnimationFrame(draw); }
   const observer = new ResizeObserver(schedule);
-  [wrapper, intro, ...cards, frame].forEach(element => observer.observe(element));
+  [wrapper, intro, ...cards, frame, benefits].forEach(element => observer.observe(element));
   window.addEventListener('resize', schedule);
   document.fonts?.ready.then(schedule);
   schedule();
