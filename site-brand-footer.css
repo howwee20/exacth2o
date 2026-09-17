@@ -3,8 +3,8 @@ footer { position: relative; }
 .brand-finale {
   position: absolute;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  bottom: 0;
+  transform: translateX(-50%);
   width: clamp(200px, 23vw, 300px);
   pointer-events: none;
 }
@@ -13,5 +13,5 @@ footer { position: relative; }
 /* Both words remain scan lines, including the transient colored splash. */
 @media (max-width: 768px) {
   footer .footer-identity { align-items: flex-start; align-self: flex-start; }
-  .brand-finale { width: min(40vw, 200px); left: auto; right: 1.5rem; top: 2.25rem; transform: none; }
+  .brand-finale { width: min(40vw, 200px); left: auto; right: 1.5rem; bottom: 0; transform: none; }
 }
