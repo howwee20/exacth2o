@@ -1,0 +1,254 @@
+/* Shared Settings primitives: status chips, identifiers, offline banner, empty states. */
+
+.settings-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid #e0e4ea;
+  border-radius: 999px;
+  background: #f7f8fa;
+  color: #4f5966;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.settings-chip svg {
+  flex: 0 0 auto;
+}
+
+.settings-chip.is-ok {
+  border-color: #bce9c8;
+  background: #f5fcf7;
+  color: #17693a;
+}
+
+.settings-chip.is-warning {
+  border-color: #f1d7aa;
+  background: #fffaf1;
+  color: #8a5a0b;
+}
+
+.settings-chip.is-bad {
+  border-color: #f2c7c7;
+  background: #fff6f6;
+  color: #b42318;
+}
+
+.settings-chip.is-info {
+  border-color: #c6defc;
+  background: #f4f9ff;
+  color: #1c63b8;
+}
+
+.settings-copyable {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.settings-copyable code,
+.settings-identity {
+  min-width: 0;
+  color: #20242c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.settings-copyable button {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e4ea;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #5b6472;
+  cursor: pointer;
+}
+
+.settings-copyable button:hover {
+  background: #f7f8fa;
+  color: #151a22;
+}
+
+.settings-empty-value {
+  color: #8a93a2;
+  font-weight: 500;
+}
+
+.settings-offline-banner {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 1px solid #f1d7aa;
+  border-radius: 10px;
+  background: #fffaf1;
+  color: #5f3f07;
+}
+
+.settings-offline-banner svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.settings-offline-banner strong {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.settings-offline-banner p {
+  margin: 4px 0 0;
+  color: #7a5a1e;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.settings-empty-state {
+  display: grid;
+  gap: 4px;
+  padding: 26px 24px;
+  border: 1px dashed #d9dee6;
+  border-radius: 10px;
+  background: #fbfcfd;
+  color: #20242c;
+  text-align: center;
+}
+
+.settings-empty-state strong {
+  font-size: 14.5px;
+  font-weight: 650;
+}
+
+.settings-empty-state p {
+  margin: 0;
+  color: #6f7784;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.settings-principle {
+  margin: 0;
+  padding: 14px 18px;
+  border-left: 3px solid #2f8cff;
+  border-radius: 0 10px 10px 0;
+  background: #f4f9ff;
+  color: #283141;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.settings-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 -8px;
+}
+
+.settings-section-heading h3 {
+  margin: 0;
+  color: #20242c;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.settings-section-heading p {
+  margin: 0;
+  color: #6f7784;
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.settings-mobile-bar {
+  display: none;
+}
+
+.settings-nav-badge {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(47, 140, 255, 0.12);
+  color: #1c63b8;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+  .settings-mobile-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(24, 37, 55, 0.08);
+    background: #ffffff;
+  }
+
+  .settings-mobile-bar strong {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    color: #171b23;
+    font-size: 15px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-mobile-bar button {
+    flex: 0 0 auto;
+    min-width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 10px;
+    border: 1px solid #e4e8ef;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #2c323b;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .settings-section-heading {
+    display: grid;
+    gap: 4px;
+  }
+
+  .settings-section-heading p {
+    text-align: left;
+  }
+}

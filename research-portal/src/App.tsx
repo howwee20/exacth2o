@@ -16,8 +16,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
-  Database,
+  Cpu,
   Download,
+  Droplets,
   FileArchive,
   Gauge,
   Loader2,
@@ -25,6 +26,7 @@ import {
   LogOut,
   Mail,
   Maximize2,
+  Menu,
   MessageSquare,
   Minimize2,
   Pencil,
@@ -33,8 +35,9 @@ import {
   Server,
   Settings as SettingsIcon,
   ShieldCheck,
-  SlidersHorizontal,
   Trash2,
+  Users,
+  Waypoints,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -94,6 +97,13 @@ import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
+import { ControllerOfflineBanner, CopyableId, SettingsEmptyState, StatusChip } from "./SettingsChrome";
+import {
+  controllerPresence,
+  hardwareInventory,
+  relativeAgeText,
+  sensorsReportingText,
+} from "./settingsPresentation";
 import {
   loadPortalExperimentCatalog,
 } from "./experimentClient";
@@ -301,8 +311,9 @@ type SettingsNavItem = {
   id: SettingsSection;
   label: string;
   description: string;
-  group: "Live System" | "Controls" | "Data" | "Admin";
+  group: "System" | "Setup" | "Watering behavior" | "Data";
   icon: LucideIcon;
+  badge?: string;
 };
 
 type BoardConfig = {
@@ -567,49 +578,49 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: "overview",
     label: "Overview",
-    description: "Live state",
-    group: "Live System",
+    description: "What the controller is doing now, and when the portal last heard from it.",
+    group: "System",
     icon: Gauge,
-  },
-  {
-    id: "pairings",
-    label: "Pairings",
-    description: "Pots and targets",
-    group: "Controls",
-    icon: SlidersHorizontal,
-  },
-  {
-    id: "calibrations",
-    label: "Calibrations",
-    description: "Sensor calibration",
-    group: "Controls",
-    icon: Activity,
-  },
-  {
-    id: "water",
-    label: "Water Control",
-    description: "Watering",
-    group: "Controls",
-    icon: ShieldCheck,
-  },
-  {
-    id: "groups",
-    label: "Groups",
-    description: "Plant groups",
-    group: "Controls",
-    icon: Database,
   },
   {
     id: "hardware",
     label: "Hardware",
-    description: "Boards and sensors",
-    group: "Controls",
-    icon: Lock,
+    description: "The sensors and valve outputs this installation reports. Identity comes from the hardware; labels come from people.",
+    group: "Setup",
+    icon: Cpu,
+  },
+  {
+    id: "pairings",
+    label: "Pairings",
+    description: "Which valve waters which pot, and the settings each pot runs with.",
+    group: "Setup",
+    icon: Waypoints,
+  },
+  {
+    id: "water",
+    label: "Watering",
+    description: "Targets, pulse limits, and experiment state. You choose the targets; calibration only measures how each pot responds.",
+    group: "Watering behavior",
+    icon: Droplets,
+  },
+  {
+    id: "calibrations",
+    label: "Sensor calibration",
+    description: "Fit a sensor's raw signal to reference water-content measurements.",
+    group: "Watering behavior",
+    icon: Activity,
+  },
+  {
+    id: "groups",
+    label: "Groups",
+    description: "Plant groups used for targets, charts, and exports.",
+    group: "Watering behavior",
+    icon: Users,
   },
   {
     id: "exports",
     label: "Exports",
-    description: "Files",
+    description: "Download readings and configuration files.",
     group: "Data",
     icon: FileArchive,
   },
@@ -916,20 +927,8 @@ function runtimeStateIsFresh(runtimeState?: DeviceRuntimeState | null) {
   return Number.isFinite(freshUntil) && freshUntil > Date.now();
 }
 
-function controllerStateLabel(runtimeState?: DeviceRuntimeState | null) {
-  const state = runtimeState?.controller_state?.trim();
-  if (!state) return "Not synced";
-  const label = state.toUpperCase();
-  return runtimeStateIsFresh(runtimeState) ? label : `STALE (${label})`;
-}
-
-function configHashLabel(configState?: DeviceConfigState | null) {
-  const hash = configState?.config_hash?.trim();
-  return hash ? hash.slice(0, 10) : "Not synced";
-}
-
 function syncedCount(value?: number | null) {
-  return value == null || !Number.isFinite(value) ? "Not synced" : Math.trunc(value).toLocaleString();
+  return value == null || !Number.isFinite(value) ? "—" : Math.trunc(value).toLocaleString();
 }
 
 function formatTargetVwc(value: number | null | undefined) {
@@ -2527,6 +2526,7 @@ function PortalSettingsPanel({
   );
   const [boardResetPin, setBoardResetPin] = useState("16");
   const [destructiveConfirm, setDestructiveConfirm] = useState(false);
+  const [boardConfirm, setBoardConfirm] = useState(false);
   const [exportDataType, setExportDataType] = useState("readings");
   const selectedPairing = pairings.find((pairing) => pairing.name === singlePairingName) ?? pairings[0] ?? null;
   const controllerGroupNames = useMemo(() => Array.from(new Set(
@@ -2540,6 +2540,23 @@ function PortalSettingsPanel({
     )).sort((left, right) => left.localeCompare(right, undefined, { numeric: true })),
   [configState?.groups]);
   const csvReady = data.readings.length > 0;
+  const [navOpen, setNavOpen] = useState(false);
+  const presence = controllerPresence({
+    stateFreshUntil: runtimeState?.state_fresh_until,
+    stateObservedAt: runtimeState?.state_observed_at,
+    controllerState: runtimeState?.controller_state,
+    lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
+  });
+  const controllerIsLive = presence.status === "online";
+  const inventory = useMemo(() => hardwareInventory(pairings, data.readings), [pairings, data.readings]);
+  const lastReadingAt = runtimeState?.last_sensor_reading_at
+    ?? data.latestLiveReading?.device_recorded_at
+    ?? data.latestIngestTime;
+  const sensorsReporting = sensorsReportingText(runtimeState?.sensors_current, runtimeState?.sensors_expected);
+
+  useEffect(() => {
+    if (!open) setNavOpen(false);
+  }, [open]);
 
   useEffect(() => {
     if (!open || pairings.length === 0) return;
@@ -2706,73 +2723,103 @@ function PortalSettingsPanel({
 
   const renderSection = () => {
     if (activeSection === "overview") {
+      const wateringEnabled = runtimeState?.watering_enabled;
       return (
         <>
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>System Snapshot</h3>
+              <h3>Controller</h3>
               <div className="settings-rows">
                 <div className="settings-row">
-                  <span>Device status</span>
-                  <strong>{data.latestState?.health_status ?? "--"}</strong>
+                  <span>Connection</span>
+                  <strong><StatusChip tone={presence.tone}>{presence.label}</StatusChip></strong>
                 </div>
                 <div className="settings-row">
-                  <span>Controller state</span>
-                  <strong>{controllerStateLabel(runtimeState)}</strong>
+                  <span>{controllerIsLive ? "Experiment state" : "Last known experiment state"}</span>
+                  <strong>{presence.controllerState ?? <span className="settings-empty-value">Not reported</span>}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Device ID</span>
-                  <strong>{data.latestState?.device_id ?? "--"}</strong>
+                  <span>Controller last seen</span>
+                  <strong>
+                    {presence.lastSeenAt
+                      ? `${formatSettingsTimestamp(presence.lastSeenAt)} · ${relativeAgeText(presence.lastSeenAt)}`
+                      : <span className="settings-empty-value">Never</span>}
+                  </strong>
                 </div>
                 <div className="settings-row">
-                  <span>State observed</span>
-                  <strong>{formatSettingsTimestamp(runtimeState?.state_observed_at ?? data.latestState?.updated_at)}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Latest ingest</span>
-                  <strong>{formatSettingsTimestamp(data.latestIngestTime)}</strong>
+                  <span>Controller ID</span>
+                  <strong><CopyableId value={data.latestState?.device_id} label="controller ID" /></strong>
                 </div>
               </div>
             </section>
             <section className="settings-card">
-              <h3>Project Data</h3>
+              <h3>Sensors and readings</h3>
               <div className="settings-rows">
                 <div className="settings-row">
-                  <span>Configured pairings</span>
-                  <strong>{pairings.length}</strong>
+                  <span>Last reading received</span>
+                  <strong>
+                    {lastReadingAt
+                      ? `${formatSettingsTimestamp(lastReadingAt)} · ${relativeAgeText(lastReadingAt)}`
+                      : <span className="settings-empty-value">No readings yet</span>}
+                  </strong>
                 </div>
                 <div className="settings-row">
-                  <span>Visible on chart</span>
-                  <strong>{visiblePotCount}</strong>
+                  <span>{controllerIsLive ? "Sensors reporting" : "Sensors reporting when last seen"}</span>
+                  <strong>{sensorsReporting ?? <span className="settings-empty-value">Not reported</span>}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Live rows</span>
+                  <span>Readings from the live controller</span>
                   <strong>{data.totalLiveReadings.toLocaleString()}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Snapshot rows</span>
+                  <span>Readings from the imported archive</span>
                   <strong>{data.totalImportedReadings.toLocaleString()}</strong>
                 </div>
               </div>
             </section>
             <section className="settings-card">
-              <h3>Controller Mirror</h3>
+              <h3>Watering</h3>
               <div className="settings-rows">
                 <div className="settings-row">
-                  <span>Public URL</span>
-                  <strong>{formatHealthBoolean(runtimeStateIsFresh(runtimeState) ? runtimeState?.public_url_reachable : null, "Reachable", "Down")}</strong>
+                  <span>{controllerIsLive ? "Automatic watering" : "Automatic watering when last seen"}</span>
+                  <strong>
+                    {wateringEnabled == null
+                      ? <span className="settings-empty-value">Not reported</span>
+                      : <StatusChip tone={!controllerIsLive ? "unknown" : wateringEnabled ? "ok" : "warning"}>{wateringEnabled ? "Enabled" : "Disabled"}</StatusChip>}
+                  </strong>
                 </div>
                 <div className="settings-row">
-                  <span>Watering</span>
-                  <strong>{formatHealthBoolean(runtimeStateIsFresh(runtimeState) ? runtimeState?.watering_enabled : null, "Enabled", "Disabled")}</strong>
+                  <span>Last watering event</span>
+                  <strong>
+                    {runtimeState?.watering_last_event_at
+                      ? `${formatSettingsTimestamp(runtimeState.watering_last_event_at)} · ${relativeAgeText(runtimeState.watering_last_event_at)}`
+                      : <span className="settings-empty-value">None recorded</span>}
+                  </strong>
                 </div>
                 <div className="settings-row">
-                  <span>Jobs loaded</span>
-                  <strong>{syncedCount(runtimeStateIsFresh(runtimeState) ? runtimeState?.scheduler_jobs_loaded : null)}</strong>
+                  <span>Watering schedules loaded</span>
+                  <strong>
+                    {runtimeState?.scheduler_jobs_loaded == null
+                      ? <span className="settings-empty-value">Not reported</span>
+                      : Math.trunc(runtimeState.scheduler_jobs_loaded).toLocaleString()}
+                  </strong>
+                </div>
+              </div>
+            </section>
+            <section className="settings-card">
+              <h3>This experiment</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>Configured pots</span>
+                  <strong>{pairings.length}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Runtime sync</span>
-                  <strong>{formatSettingsTimestamp(runtimeState?.updated_at)}</strong>
+                  <span>Pots shown on the chart</span>
+                  <strong>{visiblePotCount}</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Plant groups</span>
+                  <strong>{projectGroups.length}</strong>
                 </div>
               </div>
             </section>
@@ -2800,9 +2847,68 @@ function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
+          <div className="settings-section-heading">
+            <h3>Current pairings</h3>
+            <p>{pairings.length} {pairings.length === 1 ? "pot" : "pots"} · from the project records</p>
+          </div>
+          {pairings.length === 0 ? (
+            <SettingsEmptyState title="No pairings yet">
+              A pairing links one valve output to the sensor in the pot it waters. Add the first one below.
+            </SettingsEmptyState>
+          ) : (
+            <div className="settings-table-wrap is-scrollable">
+              <table className="settings-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Pot</th>
+                    <th scope="col">Sensor</th>
+                    <th scope="col">Valve</th>
+                    <th scope="col">Group</th>
+                    <th scope="col">Target</th>
+                    <th scope="col">Pulse</th>
+                    <th scope="col">Checks</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Verified</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pairings.map((pairing) => (
+                    <tr key={pairing.id}>
+                      <td>
+                        <b>{pairing.pot_number}</b>
+                        <span>{pairing.name}</span>
+                      </td>
+                      <td><code className="settings-identity">{pairing.sensor_key}</code></td>
+                      <td><code className="settings-identity">{pairing.valve_key}</code></td>
+                      <td>{pairingGroupName(pairing)}</td>
+                      <td>{formatTargetVwc(pairing.wtc_percent_limit)}</td>
+                      <td>{formatSecondsFromMs(pairing.valve_open_time_ms)}</td>
+                      <td>Every {formatIntervalFromMs(pairing.measurement_interval_ms)}</td>
+                      <td>Entered by hand</td>
+                      <td><span className="settings-empty-value">Not yet verified</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="settings-toolbar">
+            <p>
+              Pairings entered by hand have not been physically verified. Autocalibrate is being built to discover and
+              verify them; until then, check each hose against this table when you install or move pots.
+            </p>
+            <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
+              <Download size={14} />
+              Pairings CSV
+            </button>
+          </div>
+          <div className="settings-section-heading">
+            <h3>Change pairings</h3>
+            <p>Requests are queued for the controller and confirmed when it applies them.</p>
+          </div>
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>Edit One Pairing</h3>
+              <h3>Edit one pairing</h3>
               <form className="settings-form" onSubmit={submitSinglePairingUpdate}>
                 <label>
                   Pairing
@@ -2834,20 +2940,20 @@ function PortalSettingsPanel({
                     </select>
                   </label>
                   <label>
-                    VWC %
+                    Target VWC %
                     <input type="number" min="0" max="80" step="0.1" value={singleTarget} onChange={(event) => setSingleTarget(event.target.value)} required />
                   </label>
                   <label>
-                    Open sec
+                    Pulse length (sec)
                     <input type="number" min="1" max="120" step="1" value={singleOpenSeconds} onChange={(event) => setSingleOpenSeconds(event.target.value)} required />
                   </label>
                   <label>
-                    Interval sec
+                    Check every (sec)
                     <input type="number" min="30" max="3600" step="30" value={singleIntervalSeconds} onChange={(event) => setSingleIntervalSeconds(event.target.value)} required />
                   </label>
                 </div>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy || !selectedPairing}>
-                  Set pairing
+                  Save pairing
                 </button>
                 {isAdmin ? (
                   <>
@@ -2872,7 +2978,7 @@ function PortalSettingsPanel({
               </form>
             </section>
             <section className="settings-card">
-              <h3>Bulk Edit Targets</h3>
+              <h3>Set targets for a group</h3>
               <form className="settings-form" onSubmit={submitBulkPairingUpdate}>
                 <label>
                   Group
@@ -2886,26 +2992,26 @@ function PortalSettingsPanel({
                 </label>
                 <div className="settings-field-grid">
                   <label>
-                    VWC %
+                    Target VWC %
                     <input type="number" min="0" max="80" step="0.1" value={bulkTarget} onChange={(event) => setBulkTarget(event.target.value)} required />
                   </label>
                   <label>
-                    Open sec
+                    Pulse length (sec)
                     <input type="number" min="1" max="120" step="1" value={bulkOpenSeconds} onChange={(event) => setBulkOpenSeconds(event.target.value)} required />
                   </label>
                   <label>
-                    Interval sec
+                    Check every (sec)
                     <input type="number" min="30" max="3600" step="30" value={bulkIntervalSeconds} onChange={(event) => setBulkIntervalSeconds(event.target.value)} required />
                   </label>
                 </div>
                 <button type="submit" className="settings-primary-button" disabled={controlBusy || pairingsForGroup(bulkGroup).length === 0}>
-                  Set group targets
+                  Save group targets
                 </button>
               </form>
             </section>
             <section className="settings-card">
-                <h3>Create Pairing</h3>
-                <form className="settings-form" onSubmit={submitCreatePairing}>
+              <h3>Add a pairing</h3>
+              <form className="settings-form" onSubmit={submitCreatePairing}>
                 <div className="settings-field-grid is-two">
                   <label>
                     Name
@@ -2938,52 +3044,14 @@ function PortalSettingsPanel({
                   </label>
                 </div>
                 <label>
-                  Initial VWC %
+                  Initial target VWC %
                   <input type="number" min="0" max="80" step="0.1" value={newPairingTarget} onChange={(event) => setNewPairingTarget(event.target.value)} required />
                 </label>
                 <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
-                  Create pairing
+                  Add pairing
                 </button>
-                </form>
-              </section>
-          </div>
-          <div className="settings-toolbar">
-            <p>Current pot, sensor, valve, target, open-time, and measurement interval state synced from the portal project tables.</p>
-            <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
-              <Download size={14} />
-              Pairings CSV
-            </button>
-          </div>
-          <div className="settings-table-wrap">
-            <table className="settings-table">
-              <thead>
-                <tr>
-                  <th>Pot</th>
-                  <th>Sensor</th>
-                  <th>Valve</th>
-                  <th>Group</th>
-                  <th>Target</th>
-                  <th>Open</th>
-                  <th>Interval</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pairings.map((pairing) => (
-                  <tr key={pairing.id}>
-                    <td>
-                      <b>{pairing.pot_number}</b>
-                      <span>{pairing.name}</span>
-                    </td>
-                    <td>{pairing.sensor_key}</td>
-                    <td>{pairing.valve_key}</td>
-                    <td>{pairingGroupName(pairing)}</td>
-                    <td>{formatTargetVwc(pairing.wtc_percent_limit)}</td>
-                    <td>{formatSecondsFromMs(pairing.valve_open_time_ms)}</td>
-                    <td>{formatIntervalFromMs(pairing.measurement_interval_ms)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              </form>
+            </section>
           </div>
         </>
       );
@@ -3009,10 +3077,17 @@ function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
+          <p className="settings-principle">
+            <strong>You choose the targets.</strong> Calibration and Autocalibrate only measure how each pot responds to
+            water; they never pick a biological target for you.
+          </p>
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>Current Targets</h3>
+              <h3>Current targets</h3>
               <div className="settings-rows">
+                {projectGroups.length === 0 ? (
+                  <p className="settings-muted">No groups have targets yet. Set them under Pairings.</p>
+                ) : null}
                 {projectGroups.map((group) => {
                   const targets = Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit))));
                   return (
@@ -3025,7 +3100,7 @@ function PortalSettingsPanel({
               </div>
             </section>
             <section className="settings-card">
-              <h3>Manual Watering</h3>
+              <h3>Manual watering</h3>
               <form className="settings-form" onSubmit={submitManualWater}>
                 <label>
                   Group
@@ -3048,15 +3123,45 @@ function PortalSettingsPanel({
               <p className="settings-muted">Targets and automatic watering settings are live. A bounded manual pulse unlocks only after the physical valve-close check.</p>
             </section>
             <section className="settings-card">
-              <h3>Experiment State</h3>
+              <h3>Pulse and safety limits</h3>
               <div className="settings-rows">
                 <div className="settings-row">
-                  <span>Controller</span>
-                  <strong>{controllerStateLabel(runtimeState)}</strong>
+                  <span>Pulse length</span>
+                  <strong>1–120 sec per pot</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Time between checks</span>
+                  <strong>30 sec–60 min</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Target range</span>
+                  <strong>0–80% VWC</strong>
+                </div>
+                <div className="settings-row">
+                  <span>Manual pulse</span>
+                  <strong><StatusChip tone="unknown">Locked</StatusChip></strong>
+                </div>
+              </div>
+              <p className="settings-muted">The controller waters in short pulses, then waits and measures again before deciding whether to pulse again. Per-pot pulse length and check interval are set under Pairings.</p>
+            </section>
+            <section className="settings-card">
+              <h3>Experiment state</h3>
+              <div className="settings-rows">
+                <div className="settings-row">
+                  <span>{controllerIsLive ? "Controller" : "Last known state"}</span>
+                  <strong>
+                    {presence.controllerState
+                      ? <StatusChip tone={controllerIsLive ? "ok" : "unknown"}>{presence.controllerState}</StatusChip>
+                      : <span className="settings-empty-value">Not reported</span>}
+                  </strong>
                 </div>
                 <div className="settings-row">
                   <span>Observed</span>
-                  <strong>{formatSettingsTimestamp(runtimeState?.state_observed_at)}</strong>
+                  <strong>
+                    {runtimeState?.state_observed_at
+                      ? `${formatSettingsTimestamp(runtimeState.state_observed_at)} · ${relativeAgeText(runtimeState.state_observed_at)}`
+                      : <span className="settings-empty-value">Never</span>}
+                  </strong>
                 </div>
               </div>
               <label className="settings-check">
@@ -3087,7 +3192,7 @@ function PortalSettingsPanel({
           {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>Create Group</h3>
+              <h3>Create a group</h3>
               <form className="settings-form" onSubmit={submitCreateGroup}>
                 <label>
                   Group name
@@ -3107,8 +3212,8 @@ function PortalSettingsPanel({
               </form>
             </section>
             <section className="settings-card">
-                <h3>Remove Group</h3>
-                <form className="settings-form" onSubmit={submitRemoveGroup}>
+              <h3>Remove a group</h3>
+              <form className="settings-form" onSubmit={submitRemoveGroup}>
                 <label>
                   Group
                   <select value={removeGroupName} onChange={(event) => setRemoveGroupName(event.target.value)}>
@@ -3121,9 +3226,16 @@ function PortalSettingsPanel({
                 <button type="submit" className="settings-danger-button" disabled={controlBusy || (!removeGroupName && !groupName)}>
                   Remove group
                 </button>
-                </form>
-              </section>
+              </form>
+            </section>
           </div>
+          <div className="settings-section-heading">
+            <h3>Current groups</h3>
+            <p>{projectGroups.length} {projectGroups.length === 1 ? "group" : "groups"}</p>
+          </div>
+          {projectGroups.length === 0 ? (
+            <SettingsEmptyState title="No groups yet">Create a group, then assign pots to it under Pairings.</SettingsEmptyState>
+          ) : null}
           <div className="settings-grid">
             {projectGroups.map((group) => (
               <section className="settings-card" key={group.label}>
@@ -3155,32 +3267,42 @@ function PortalSettingsPanel({
           {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>Hardware</h3>
+              <h3>Installed hardware</h3>
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>Sensors</span>
-                  <strong>{uniqueSensors.size || "--"}</strong>
+                  <strong>{uniqueSensors.size || <span className="settings-empty-value">None</span>}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Valves</span>
-                  <strong>{uniqueValves.size || "--"}</strong>
+                  <span>Valve outputs</span>
+                  <strong>{uniqueValves.size || <span className="settings-empty-value">None</span>}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Boards</span>
-                  <strong>{mirroredBoardCount || "--"}</strong>
+                  <span>Valve driver boards</span>
+                  <strong>{mirroredBoardCount || <span className="settings-empty-value">Not reported</span>}</strong>
                 </div>
               </div>
             </section>
             <section className="settings-card">
-              <h3>Config Sync</h3>
-              <div className="settings-rows">
+              <h3>Controller configuration copy</h3>
+              {!configState ? (
+                <p className="settings-muted">
+                  The controller has not shared its configuration with the portal yet. Counts on this page come from the
+                  project records instead.
+                </p>
+              ) : null}
+              <div className="settings-rows" hidden={!configState}>
                 <div className="settings-row">
-                  <span>Pairings</span>
-                  <strong>{syncedCount(configState?.pairing_count ?? pairings.length)}</strong>
+                  <span>Last copied from controller</span>
+                  <strong>
+                    {configState?.observed_at
+                      ? `${formatSettingsTimestamp(configState.observed_at)} · ${relativeAgeText(configState.observed_at)}`
+                      : <span className="settings-empty-value">Never</span>}
+                  </strong>
                 </div>
                 <div className="settings-row">
-                  <span>Calibrations</span>
-                  <strong>{syncedCount(configState?.calibration_count)}</strong>
+                  <span>Pairings / calibrations</span>
+                  <strong>{syncedCount(configState?.pairing_count ?? pairings.length)} / {syncedCount(configState?.calibration_count)}</strong>
                 </div>
                 <div className="settings-row">
                   <span>Sensors / valves</span>
@@ -3191,47 +3313,132 @@ function PortalSettingsPanel({
                   <strong>{syncedCount(configState?.group_count)}</strong>
                 </div>
                 <div className="settings-row">
-                  <span>Config hash</span>
-                  <strong>{configHashLabel(configState)}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Config observed</span>
-                  <strong>{formatSettingsTimestamp(configState?.observed_at)}</strong>
+                  <span>Configuration fingerprint</span>
+                  <strong><CopyableId value={configState?.config_hash?.trim() || null} label="configuration fingerprint" maxLength={14} /></strong>
                 </div>
               </div>
             </section>
-            {isAdmin ? <section className="settings-card">
-              <h3>Protected Operations</h3>
-              <p className="settings-muted">Sensor initialization, board addresses, reset pins, credentials, firmware, and recovery stay administrator-only.</p>
-              <button type="button" disabled>
-                <Lock size={14} /> Sensor initialization locked
-              </button>
-            </section> : null}
           </div>
-          {isAdmin ? <section className="settings-card">
-            <h3>Board Configuration</h3>
-            <form className="settings-form settings-inline-form" onSubmit={submitBoardConfig}>
-              <label>
-                Board addresses
-                <input value={boardAddresses} onChange={(event) => setBoardAddresses(event.target.value)} placeholder="0x20, 0x24, 0x26" required />
-              </label>
-              <label>
-                Reset pin
-                <input type="number" min="0" max="40" step="1" value={boardResetPin} onChange={(event) => setBoardResetPin(event.target.value)} required />
-              </label>
-              <button type="submit" className="settings-danger-button" disabled={controlBusy || !destructiveConfirm}>
-                Update board
-              </button>
-            </form>
-          </section> : null}
+          <div className="settings-section-heading">
+            <h3>Sensors</h3>
+            <p>Identity is reported by the sensor. The label is the pot it is currently assigned to.</p>
+          </div>
+          {inventory.sensors.length === 0 ? (
+            <SettingsEmptyState title="No sensors reported">Sensors appear here once they are part of a pairing.</SettingsEmptyState>
+          ) : (
+            <div className="settings-table-wrap is-compact">
+              <table className="settings-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Sensor identity</th>
+                    <th scope="col">Assigned label</th>
+                    <th scope="col">Last reading</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inventory.sensors.map((sensor) => (
+                    <tr key={sensor.identity}>
+                      <td><code className="settings-identity">{sensor.identity}</code></td>
+                      <td>{sensor.label ?? "Unlabeled"}{sensor.potNumber != null ? ` · Pot ${sensor.potNumber}` : ""}</td>
+                      <td>
+                        {sensor.lastReadingAt
+                          ? `${formatSettingsTimestamp(sensor.lastReadingAt)} · ${relativeAgeText(sensor.lastReadingAt)}`
+                          : <span className="settings-empty-value">None in the loaded window</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="settings-section-heading">
+            <h3>Valve outputs</h3>
+            <p>Identity is the driver board address and channel. It does not change when a hose is moved.</p>
+          </div>
+          {inventory.valves.length === 0 ? (
+            <SettingsEmptyState title="No valve outputs reported">Valve outputs appear here once they are part of a pairing.</SettingsEmptyState>
+          ) : (
+            <div className="settings-table-wrap is-compact">
+              <table className="settings-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Valve identity</th>
+                    <th scope="col">Board</th>
+                    <th scope="col">Channel</th>
+                    <th scope="col">Assigned label</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inventory.valves.map((valve) => (
+                    <tr key={valve.identity}>
+                      <td><code className="settings-identity">{valve.identity}</code></td>
+                      <td>{valve.board ?? "—"}</td>
+                      <td>{valve.channel ?? "—"}</td>
+                      <td>{valve.label ?? "Unlabeled"}{valve.potNumber != null ? ` · Pot ${valve.potNumber}` : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="settings-section-heading">
+            <h3>Valve driver boards</h3>
+            <p>Reported by the controller.</p>
+          </div>
           <div className="settings-list">
-            {(boardConfigs.length ? boardConfigs : [{ address: "--", resetPin: "--" }]).map((config, index) => (
+            {boardConfigs.length === 0 ? (
+              <div className="settings-list-row">
+                <span>No boards reported</span>
+                <em>The controller has not sent its board list.</em>
+              </div>
+            ) : boardConfigs.map((config, index) => (
               <div className="settings-list-row" key={`${config.address}-${index}`}>
                 <span>Board {index + 1}</span>
                 <em>Address {config.address} · Reset pin {config.resetPin}</em>
               </div>
             ))}
           </div>
+          {isAdmin ? (
+            <>
+              <div className="settings-section-heading">
+                <h3>Administrator operations</h3>
+                <p>Visible to administrators only.</p>
+              </div>
+              <div className="settings-grid">
+                <section className="settings-card">
+                  <h3>Board configuration</h3>
+                  <form className="settings-form" onSubmit={submitBoardConfig}>
+                    <label>
+                      Board addresses
+                      <input value={boardAddresses} onChange={(event) => setBoardAddresses(event.target.value)} placeholder="0x20, 0x24, 0x26" required />
+                    </label>
+                    <label>
+                      Reset pin
+                      <input type="number" min="0" max="40" step="1" value={boardResetPin} onChange={(event) => setBoardResetPin(event.target.value)} required />
+                    </label>
+                    <label className="settings-check">
+                      <input
+                        type="checkbox"
+                        checked={boardConfirm}
+                        onChange={(event) => setBoardConfirm(event.target.checked)}
+                      />
+                      <span>Confirm board configuration change</span>
+                    </label>
+                    <button type="submit" className="settings-danger-button" disabled={controlBusy || !boardConfirm}>
+                      Update board
+                    </button>
+                  </form>
+                </section>
+                <section className="settings-card">
+                  <h3>Protected operations</h3>
+                  <p className="settings-muted">Sensor initialization, board addresses, reset pins, credentials, firmware, and recovery stay administrator-only.</p>
+                  <button type="button" className="settings-locked-button" disabled>
+                    <Lock size={14} /> Sensor initialization locked
+                  </button>
+                </section>
+              </div>
+            </>
+          ) : null}
         </>
       );
     }
@@ -3242,7 +3449,7 @@ function PortalSettingsPanel({
           {commandStatusPanel}
           <div className="settings-grid">
             <section className="settings-card">
-              <h3>Readings Export</h3>
+              <h3>Readings</h3>
               <p className="settings-muted">Downloads the clean readings currently loaded in the portal.</p>
               <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv || !csvReady}>
                 <Download size={14} />
@@ -3256,8 +3463,8 @@ function PortalSettingsPanel({
               ) : null}
             </section>
             <section className="settings-card">
-              <h3>Configuration Export</h3>
-              <p className="settings-muted">Download pairings or export device data.</p>
+              <h3>Configuration</h3>
+              <p className="settings-muted">Download the pairings table, or the groups, sensors, valves, and calibrations last reported by the controller.</p>
               <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
                 <Download size={14} />
                 Download pairings CSV
@@ -3287,18 +3494,35 @@ function PortalSettingsPanel({
     return null;
   };
 
+  const selectSection = (section: SettingsSection) => {
+    onSectionChange(section);
+    setNavOpen(false);
+  };
+
   return (
     <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label="Portal settings">
-      <section className="settings-modal">
-        <aside className="settings-sidebar" aria-label="Settings sections">
+      <section className={`settings-modal${navOpen ? " is-nav-open" : ""}`}>
+        <div className="settings-mobile-bar">
+          <button
+            type="button"
+            onClick={() => setNavOpen((current) => !current)}
+            aria-expanded={navOpen}
+            aria-controls="settings-sidebar"
+          >
+            {navOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
+            Sections
+          </button>
+          <strong>{activeItem.label}</strong>
+          <button type="button" onClick={onClose} aria-label="Close settings">
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+        {navOpen ? <button type="button" className="settings-nav-scrim" aria-label="Close sections" onClick={() => setNavOpen(false)} /> : null}
+        <aside className="settings-sidebar" id="settings-sidebar" aria-label="Settings sections">
           <button type="button" className="settings-back-button" onClick={onClose}>
-            <X size={16} />
+            <ArrowLeft size={16} aria-hidden="true" />
             Back to portal
           </button>
-          <div className="settings-search" aria-hidden="true">
-            <Search size={15} />
-            <span>Search settings...</span>
-          </div>
           <nav>
             {availableSettingsNavGroups.map((group) => (
               <div className="settings-sidebar-group" key={group.label}>
@@ -3309,11 +3533,13 @@ function PortalSettingsPanel({
                     <button
                       key={item.id}
                       type="button"
-                      className={item.id === activeSection ? "is-active" : ""}
-                      onClick={() => onSectionChange(item.id)}
+                      className={item.id === activeItem.id ? "is-active" : ""}
+                      aria-current={item.id === activeItem.id ? "page" : undefined}
+                      onClick={() => selectSection(item.id)}
                     >
-                      <Icon size={16} />
+                      <Icon size={16} aria-hidden="true" />
                       <span>{item.label}</span>
+                      {item.badge ? <em className="settings-nav-badge">{item.badge}</em> : null}
                     </button>
                   );
                 })}
@@ -3322,7 +3548,7 @@ function PortalSettingsPanel({
           </nav>
           <div className="settings-account-actions">
             <button type="button" className="settings-sign-out-button" onClick={onSignOut}>
-              <LogOut size={16} />
+              <LogOut size={16} aria-hidden="true" />
               Sign out
             </button>
           </div>
@@ -3330,14 +3556,30 @@ function PortalSettingsPanel({
         <section className={`settings-content is-${activeSection}`}>
           <header className="settings-content-header">
             <div>
-              <p>{activeItem.description}</p>
-              <h2>{activeItem.label}</h2>
+              <p className="settings-content-eyebrow">{activeSection === "assistant" ? "Assistant" : activeItem.group}</p>
+              <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
+              <p className="settings-content-lede">
+                {activeSection === "assistant"
+                  ? "Describe a settings change in plain language, then review it before anything is queued."
+                  : activeItem.description}
+              </p>
             </div>
-            <button type="button" className="settings-close-button" onClick={onClose} aria-label="Close settings">
-              <X size={18} />
-            </button>
+            <div className="settings-content-actions">
+              <StatusChip tone={presence.tone}>
+                {presence.status === "never" ? presence.label : `Controller ${presence.label.toLowerCase()}`}
+              </StatusChip>
+              <button type="button" className="settings-close-button" onClick={onClose} aria-label="Close settings">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
           </header>
-          <div className="settings-section-body">{renderSection()}</div>
+          <div className="settings-section-body">
+            <ControllerOfflineBanner
+              presence={presence}
+              formattedLastSeen={formatSettingsTimestamp(presence.lastSeenAt)}
+            />
+            {renderSection()}
+          </div>
         </section>
       </section>
     </div>
