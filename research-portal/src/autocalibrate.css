@@ -184,9 +184,7 @@
 .autocal-stepper strong,
 .autocal-stepper em {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .autocal-stepper strong {
@@ -548,6 +546,12 @@
   border-color: #c6defc;
 }
 
+@media (max-width: 1180px) {
+  .autocal-stepper {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
   .autocal-run-grid {
     grid-template-columns: 1fr;
@@ -566,11 +570,6 @@
 
   .autocal-stepper li {
     align-items: flex-start;
-  }
-
-  .autocal-stepper strong {
-    overflow: visible;
-    white-space: normal;
   }
 
   .autocal-approval-actions button {
