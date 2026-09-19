@@ -31,6 +31,7 @@ import {
   Minimize2,
   Pencil,
   Plus,
+  Radar,
   Search,
   Server,
   Settings as SettingsIcon,
@@ -97,6 +98,7 @@ import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
+import { Autocalibrate } from "./Autocalibrate";
 import { ControllerOfflineBanner, CopyableId, SettingsEmptyState, StatusChip } from "./SettingsChrome";
 import {
   controllerPresence,
@@ -301,6 +303,7 @@ type SettingsSection =
   | "overview"
   | "assistant"
   | "pairings"
+  | "autocalibrate"
   | "calibrations"
   | "water"
   | "groups"
@@ -595,6 +598,14 @@ const settingsNavItems: SettingsNavItem[] = [
     description: "Which valve waters which pot, and the settings each pot runs with.",
     group: "Setup",
     icon: Waypoints,
+  },
+  {
+    id: "autocalibrate",
+    label: "Autocalibrate",
+    description: "Discover which valve waters which sensor instead of matching them by hand. This release runs as a simulation only.",
+    group: "Setup",
+    icon: Radar,
+    badge: "Sim",
   },
   {
     id: "water",
@@ -2466,7 +2477,7 @@ function PortalSettingsPanel({
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
   const availableSettingsNavItems = isObservationOnlyExperiment(experiment)
-    ? settingsNavItems.filter((item) => ["overview", "calibrations", "exports"].includes(item.id))
+    ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id))
     : settingsNavItems;
   const availableSettingsNavGroups = Array.from(
     availableSettingsNavItems.reduce((groups, item) => {
@@ -2895,7 +2906,7 @@ function PortalSettingsPanel({
           <div className="settings-toolbar">
             <p>
               Pairings entered by hand have not been physically verified. Autocalibrate is being built to discover and
-              verify them; until then, check each hose against this table when you install or move pots.
+              verify them. Today it runs as a simulation only and never changes this table.
             </p>
             <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
               <Download size={14} />
@@ -3054,6 +3065,18 @@ function PortalSettingsPanel({
             </section>
           </div>
         </>
+      );
+    }
+
+    if (activeSection === "autocalibrate") {
+      // Read-only inputs only: the simulation gets no command queue and no write path.
+      return (
+        <Autocalibrate
+          projectId={projectId}
+          experimentId={experiment.id}
+          experimentName={experiment.name}
+          pairings={pairings}
+        />
       );
     }
 
@@ -3574,10 +3597,12 @@ function PortalSettingsPanel({
             </div>
           </header>
           <div className="settings-section-body">
-            <ControllerOfflineBanner
-              presence={presence}
-              formattedLastSeen={formatSettingsTimestamp(presence.lastSeenAt)}
-            />
+            {activeSection === "autocalibrate" ? null : (
+              <ControllerOfflineBanner
+                presence={presence}
+                formattedLastSeen={formatSettingsTimestamp(presence.lastSeenAt)}
+              />
+            )}
             {renderSection()}
           </div>
         </section>

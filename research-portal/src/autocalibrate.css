@@ -1,0 +1,590 @@
+/* Autocalibrate (simulation). Reuses the Settings card, table, and button styles. */
+
+.autocal {
+  display: grid;
+  gap: 22px;
+}
+
+.autocal-sim-badge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #c6defc;
+  border-radius: 10px;
+  background: #f4f9ff;
+  color: #1c4f8f;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.autocal-sim-badge strong {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #2f8cff;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.autocal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8ebef;
+}
+
+.autocal-tabs button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #4f5966;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.autocal-tabs button:hover {
+  background: #f3f4f6;
+  color: #151a22;
+}
+
+.autocal-tabs button.is-active {
+  border-color: #c6defc;
+  background: #f4f9ff;
+  color: #1c63b8;
+}
+
+.autocal-setup {
+  display: grid;
+  gap: 22px;
+}
+
+.autocal-choice {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.autocal-choice.is-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.autocal .autocal-choice legend {
+  margin-bottom: 7px;
+  padding: 0;
+  color: #5b6472;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.autocal .autocal-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e1e6ee;
+  border-radius: 10px;
+  color: #6f7784;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.autocal .autocal-choice label:has(input:checked) {
+  border-color: #8cc5ff;
+  background: #f4f9ff;
+}
+
+.autocal .autocal-choice label.is-disabled {
+  background: #f7f8fa;
+  cursor: not-allowed;
+}
+
+.autocal .autocal-choice input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+}
+
+.autocal-choice strong {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #20242c;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.autocal-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.autocal-stepper li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #e8ebef;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #6f7784;
+}
+
+.autocal-stepper li.is-current {
+  border-color: #8cc5ff;
+  background: #f4f9ff;
+  color: #1c63b8;
+}
+
+.autocal-stepper li.is-done {
+  color: #17693a;
+}
+
+.autocal-stepper li.is-stopped {
+  border-color: #f1d7aa;
+  background: #fffaf1;
+  color: #8a5a0b;
+}
+
+.autocal-step-index {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.autocal-stepper strong,
+.autocal-stepper em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocal-stepper strong {
+  color: #20242c;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.autocal-stepper em {
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.autocal-runbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.autocal-progress {
+  flex: 1 1 260px;
+  display: grid;
+  gap: 6px;
+  color: #4f5966;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.autocal-progress progress {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: #e8ebef;
+  accent-color: #2f8cff;
+}
+
+.autocal-progress progress::-webkit-progress-bar {
+  background: #e8ebef;
+}
+
+.autocal-progress progress::-webkit-progress-value {
+  background: #2f8cff;
+}
+
+.autocal-progress progress::-moz-progress-bar {
+  background: #2f8cff;
+}
+
+.autocal-run-actions,
+.autocal-approval-actions,
+.autocal-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.autocal-row-actions {
+  flex-wrap: nowrap;
+}
+
+.autocal-run-actions button[aria-pressed="true"] {
+  border-color: #8cc5ff;
+  background: #f4f9ff;
+  color: #1c63b8;
+}
+
+.autocal-run-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.autocal-run-side {
+  display: grid;
+  gap: 18px;
+}
+
+.autocal-logline {
+  min-height: 40px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #edf0f4;
+  color: #4f5966;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.autocal-matrix,
+.autocal-traces {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.autocal-matrix figcaption {
+  display: grid;
+  gap: 3px;
+}
+
+.autocal-matrix figcaption strong {
+  color: #20242c;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.autocal-matrix figcaption span,
+.autocal-traces figcaption,
+.autocal-matrix-readout {
+  margin: 0;
+  color: #6f7784;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.autocal-matrix-readout {
+  min-height: 19px;
+  color: #283141;
+  font-weight: 600;
+}
+
+.autocal-matrix canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.autocal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #4f5966;
+  font-size: 12.5px;
+}
+
+.autocal-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.autocal-legend span {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+}
+
+.autocal-legend .autocal-legend-ramp {
+  width: 56px;
+  background: linear-gradient(90deg, rgb(238, 244, 251), rgb(11, 74, 153));
+}
+
+.autocal-legend-ring {
+  border: 2px solid #0f172a;
+  background: rgb(60, 118, 184);
+}
+
+.autocal-legend-hatch {
+  border: 1px solid #c9ced6;
+  background: repeating-linear-gradient(135deg, #eceef1 0 3px, #9aa2ad 3px 4px);
+}
+
+.autocal-legend-empty {
+  border: 1px solid #dfe3e8;
+  background: #f4f5f7;
+}
+
+.autocal-traces svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.autocal-grid {
+  stroke: #edf0f4;
+  stroke-width: 1;
+}
+
+.autocal-axis {
+  fill: #7a8390;
+  font-size: 10.5px;
+}
+
+.autocal-trace-quiet {
+  fill: none;
+  stroke: #b8c0cc;
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.autocal-trace-main,
+.autocal-trace-second {
+  fill: none;
+  stroke: #1c63b8;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.autocal-trace-second {
+  stroke: #5b9be6;
+  stroke-dasharray: 5 3;
+}
+
+.autocal-trace-label {
+  fill: #283141;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+}
+
+.autocal-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.autocal-summary div {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.autocal-summary strong {
+  color: #171b23;
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.autocal-summary span {
+  color: #6f7784;
+  font-size: 13px;
+}
+
+.autocal-answer-key {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed #c6defc;
+  border-radius: 10px;
+  background: #f9fbff;
+  color: #3f4652;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.autocal .autocal-table td {
+  white-space: normal;
+  min-width: 120px;
+}
+
+.autocal .autocal-table td:first-child {
+  display: table-cell;
+}
+
+.autocal .autocal-table td:first-child span.autocal-subtle,
+.autocal-subtle {
+  display: block;
+  margin-top: 3px;
+  color: #7a8390;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.autocal-table tr.is-different td {
+  background: #fffaf1;
+}
+
+.autocal-different {
+  color: #8a5a0b;
+  font-weight: 700;
+}
+
+.autocal-confidence {
+  min-width: 128px;
+  display: grid;
+  gap: 5px;
+  color: #283141;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.autocal-confidence-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8ebef;
+}
+
+.autocal-confidence-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #2f8cff;
+}
+
+.autocal-findings,
+.autocal-plain-list {
+  display: grid;
+  gap: 0;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.autocal-findings li,
+.autocal-plain-list li {
+  display: flex;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid #edf0f4;
+  color: #4f5966;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.autocal-findings li:first-child,
+.autocal-plain-list li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.autocal-findings svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #b7791f;
+}
+
+.autocal-findings strong,
+.autocal-plain-list strong {
+  color: #20242c;
+  font-weight: 650;
+}
+
+.autocal-findings p {
+  margin: 2px 0 0;
+}
+
+.autocal-plain-list li {
+  flex-direction: column;
+  gap: 3px;
+}
+
+.autocal-approval {
+  border-color: #c6defc;
+}
+
+@media (max-width: 980px) {
+  .autocal-run-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .autocal-stepper,
+  .autocal-choice.is-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .autocal-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .autocal-stepper li {
+    align-items: flex-start;
+  }
+
+  .autocal-stepper strong {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .autocal-approval-actions button {
+    width: 100%;
+    height: auto;
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 420px) {
+  .autocal-choice.is-row {
+    grid-template-columns: 1fr;
+  }
+}

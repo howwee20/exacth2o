@@ -25,11 +25,50 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
   - imported Matt/Balena rows: `balena-export-v2:%`
   - future live device rows: `live-device:%`
 
+## Settings
+
+Settings is organized for researchers: **Overview** (controller presence and last
+readings), **Hardware** (sensor and valve-output identities, kept apart from the
+labels people assign), **Pairings** (which valve waters which pot), **Autocalibrate**,
+**Watering**, **Sensor calibration**, **Groups**, and **Exports**. When the mirrored
+controller state is past `state_fresh_until`, every page shows one offline banner and
+values are worded as last known state. Every change still goes through the
+`create-control-command` Edge Function with its existing role checks.
+
+## Autocalibrate (simulation only)
+
+Autocalibrate discovers which valve waters which sensor. In this release it runs
+against a deterministic, seeded simulator in the browser (`src/autocal/`), up to 100
+pots, and is labeled SIMULATION throughout:
+
+- `simulator.ts` models a hidden valve-to-sensor layout plus per-pot gain, lag,
+  settling, drying drift, sensor noise, and fault presets (dead, raw-count, stuck, or
+  noisy sensors; saturated pots; stuck, weak, or disconnected valves; cross-talk,
+  split, duplicate, and swapped hoses; slow or overshooting soil).
+- `engine.ts` runs sensor validation, one-valve-at-a-time discovery into a
+  valve-by-sensor response matrix, a globally consistent one-to-one assignment
+  (`assignment.ts`), conservative response characterization, and a continuous-
+  verification demonstration. A silent valve gets exactly one longer pulse, then a
+  safe failure. Confidence reflects the margin over rival sensors and valves, not
+  just response strength.
+- `store.ts` keeps saved runs as **proposed, not applied** records in this browser's
+  local storage (run ID, project, experiment, mode, status, timestamps, algorithm and
+  configuration version, seed, proposed valve/sensor/pot label, confidence, evidence,
+  faults, topology version). There is no apply path.
+
+Safety boundary, enforced by `src/autocal/autocal.test.ts`: the simulation modules and
+`Autocalibrate.tsx` may not import Supabase or the control-command path or make any
+network call, and the screen receives the current pairings as read-only props. A
+simulated result says nothing about real hardware. Running on a real bench and
+applying a proposal both require separate commissioning authorization and are shown
+disabled.
+
 ## What this is not
 
 - No service role key in the frontend.
 - No open public signup that automatically grants project access.
-- No fake live data.
+- No fake live data. Simulated Autocalibrate runs are labeled as simulation and never
+  mix with readings, pairings, or controller state.
 - No direct browser-to-device irrigation actuation.
 - No frontend mutation of valve mappings, calibrations, or board config.
 - No device-side command executor in this static site; queued commands require
