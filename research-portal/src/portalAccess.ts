@@ -12,10 +12,3 @@ export function hasExperimentSettingsAccess(role: PortalRole | null | undefined)
 export function hasProjectDataReadAccess(role: PortalRole | null | undefined) {
   return role === "admin" || role === "researcher" || role === "viewer";
 }
-
-export function hasRdSystemAdminAccess(
-  role: PortalRole | null | undefined,
-  explicitlyAllowed: boolean,
-) {
-  return role === "admin" && explicitlyAllowed;
-}

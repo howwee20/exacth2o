@@ -27,6 +27,14 @@ const forbiddenPortalCopy = [
   "made-up installation",
   "SimulatedBench",
   "exacth2o.autocalibration.v1",
+  // The Response Curve lab was removed from ExactH2O. Nothing of it may ship.
+  "rd-admin-lab",
+  "Response Curve",
+  "rdReplayFixture",
+  "training_dataset_hash",
+  // Privileged credentials never belong in a browser bundle.
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "RD_WORKER_TOKEN",
 ];
 const requiredCommissioningCopy = [
   "REAL HARDWARE",

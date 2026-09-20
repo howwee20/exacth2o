@@ -129,5 +129,3 @@ manual observation writes `delivery_evidence`, the truthful result is
   sending domain and recipients.
 - Populate and physically confirm canonical pot positions and hardware
   bindings for each installation.
-- Keep Response Curve R&D isolated until immutable calibration, holdout
-  evaluation, uncertainty, promotion, and rollback criteria are approved.

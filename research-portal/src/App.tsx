@@ -67,7 +67,6 @@ import {
 import {
   hasExperimentSettingsAccess,
   hasProjectDataReadAccess,
-  hasRdSystemAdminAccess,
   parsePortalRole,
   type PortalRole,
 } from "./portalAccess";
@@ -94,7 +93,6 @@ import {
   supportEmail,
 } from "./softwareTerms";
 import type { LatestState, PairingRow, SensorReading, ValveEvent } from "./types";
-import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
@@ -127,9 +125,6 @@ import {
   type WalkerLiveSnapshot,
 } from "./walkerObservation";
 import { loadWalkerLiveSnapshot } from "./walkerObservationClient";
-import { loadRdLabAccess, loadRdLabSnapshot } from "./rdClient";
-import { mergeRdHistoryPage } from "./rdPagination";
-import type { RdLabSnapshot } from "./rdTypes";
 import {
   experimentCardDescription,
   isCalibrationExperiment,
@@ -238,8 +233,7 @@ type WateringOverlayTooltip = WateringOverlayMarker & {
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
-type PortalView = "home" | "experiment" | "health" | "support" | "rd" | "walker" | "chamber";
-type RdAccessStatus = "unknown" | "allowed" | "denied";
+type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber";
 
 type PortalAccess = {
   role: PortalRole;
@@ -3769,14 +3763,12 @@ function PortalAdminHome({
   healthLoading,
   salesSupportData,
   salesSupportLoading,
-  rdAccessAllowed,
   experiments,
   onOpenExperiment,
   onNewExperiment,
   onEditExperiment,
   onOpenHealth,
   onOpenSupport,
-  onOpenRd,
   onOpenWalker,
   onOpenChamber,
 }: {
@@ -3785,14 +3777,12 @@ function PortalAdminHome({
   healthLoading: boolean;
   salesSupportData: SalesSupportData;
   salesSupportLoading: boolean;
-  rdAccessAllowed: boolean;
   experiments: readonly PortalExperiment[];
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onNewExperiment: () => void;
   onEditExperiment: (experiment: PortalExperiment) => void;
   onOpenHealth: () => void;
   onOpenSupport: () => void;
-  onOpenRd: () => void;
   onOpenWalker: () => void;
   onOpenChamber: () => void;
 }) {
@@ -3853,13 +3843,6 @@ function PortalAdminHome({
           <WalkerAdminTile onOpen={onOpenWalker} />
 
           <ChamberControlAdminTile onOpen={onOpenChamber} />
-
-          {rdAccessAllowed ? (
-            <button type="button" className="portal-launch-card is-rd" onClick={onOpenRd}>
-              <span className="portal-launch-title">R&amp;D · Response Curve Model</span>
-              <span className="portal-launch-action">Open Lab</span>
-            </button>
-          ) : null}
 
           <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
             <span className="portal-launch-top">
@@ -5756,12 +5739,6 @@ export default function App() {
   const [salesSupportData, setSalesSupportData] = useState<SalesSupportData>(initialSalesSupportData);
   const [salesSupportLoading, setSalesSupportLoading] = useState(false);
   const [salesSupportError, setSalesSupportError] = useState<string | null>(null);
-  const [rdAccessStatus, setRdAccessStatus] = useState<RdAccessStatus>("unknown");
-  const [rdSnapshot, setRdSnapshot] = useState<RdLabSnapshot | null>(null);
-  const [rdLoading, setRdLoading] = useState(false);
-  const [rdError, setRdError] = useState<string | null>(null);
-  const [rdHistoryLoading, setRdHistoryLoading] = useState(false);
-  const [rdHistoryError, setRdHistoryError] = useState<string | null>(null);
 
   const dataRef = useRef(data);
   const valveEventsRef = useRef(valveEvents);
@@ -6261,53 +6238,6 @@ export default function App() {
     });
     void loadSalesSupport({ silent: true });
   }, [activeProjectId, isAdmin, loadSalesSupport]);
-
-  const loadRdAccess = useCallback(async () => {
-    if (!isAdmin) {
-      setRdAccessStatus("denied");
-      setRdSnapshot(null);
-      return;
-    }
-    setRdAccessStatus("unknown");
-    try {
-      setRdAccessStatus(await loadRdLabAccess() ? "allowed" : "denied");
-    } catch {
-      // The R&D allowlist is independent from the normal portal-admin role.
-      // Fail closed without coupling access to the much larger lab snapshot.
-      setRdAccessStatus("denied");
-    }
-  }, [isAdmin]);
-
-  const loadRdSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
-    if (!isAdmin || rdAccessStatus !== "allowed") return;
-    const silent = options.silent === true;
-    if (!silent) setRdLoading(true);
-    try {
-      const snapshot = await loadRdLabSnapshot();
-      setRdSnapshot(snapshot);
-      setRdError(null);
-      setRdHistoryError(null);
-    } catch (err) {
-      setRdError(errorMessage(err));
-    } finally {
-      if (!silent) setRdLoading(false);
-    }
-  }, [isAdmin, rdAccessStatus]);
-
-  const loadMoreRdHistory = useCallback(async () => {
-    const cursor = rdSnapshot?.pagination?.next_cursor ?? null;
-    if (!cursor || rdHistoryLoading || rdAccessStatus !== "allowed") return;
-    setRdHistoryLoading(true);
-    setRdHistoryError(null);
-    try {
-      const page = await loadRdLabSnapshot({ historyCursor: cursor });
-      setRdSnapshot((current) => current ? mergeRdHistoryPage(current, page) : page);
-    } catch (err) {
-      setRdHistoryError(errorMessage(err));
-    } finally {
-      setRdHistoryLoading(false);
-    }
-  }, [rdAccessStatus, rdHistoryLoading, rdSnapshot?.pagination?.next_cursor]);
 
   const runPortalRefresh = useCallback(
     async ({ incremental }: RefreshOptions) => {
@@ -6969,7 +6899,6 @@ export default function App() {
     setSalesSupportData(initialSalesSupportData);
     setSalesSupportLoading(false);
     setSalesSupportError(null);
-    setRdSnapshot(null);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
   }
@@ -7318,12 +7247,6 @@ export default function App() {
       setConfigState(null);
       setValveEvents([]);
       setSalesSupportData(initialSalesSupportData);
-      setRdAccessStatus("unknown");
-      setRdSnapshot(null);
-      setRdLoading(false);
-      setRdError(null);
-      setRdHistoryLoading(false);
-      setRdHistoryError(null);
       setData(initialLoadState);
       dataRef.current = initialLoadState;
       valveEventsRef.current = [];
@@ -7378,30 +7301,6 @@ export default function App() {
     if (!sessionReady || !isAdmin) return;
     void loadSalesSupport();
   }, [isAdmin, loadSalesSupport, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !isAdmin) return;
-    void loadRdAccess();
-  }, [isAdmin, loadRdAccess, sessionReady, sessionRevision]);
-
-  useEffect(() => {
-    if (
-      !sessionReady || !isAdmin || rdAccessStatus !== "allowed" ||
-      portalView !== "rd"
-    ) return;
-    void loadRdSnapshot();
-  }, [isAdmin, loadRdSnapshot, portalView, rdAccessStatus, sessionReady]);
-
-  useEffect(() => {
-    if (
-      !sessionReady || !isAdmin || rdAccessStatus !== "allowed" ||
-      portalView !== "rd"
-    ) return undefined;
-    const pollId = window.setInterval(() => {
-      void loadRdSnapshot({ silent: true });
-    }, healthSnapshotPollMs);
-    return () => window.clearInterval(pollId);
-  }, [isAdmin, loadRdSnapshot, portalView, rdAccessStatus, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -8032,7 +7931,6 @@ export default function App() {
           healthLoading={healthLoading}
           salesSupportData={salesSupportData}
           salesSupportLoading={salesSupportLoading}
-          rdAccessAllowed={hasRdSystemAdminAccess(portalAccess.role, rdAccessStatus === "allowed")}
           onOpenExperiment={openExperiment}
           onNewExperiment={() => {
             setEditingExperiment(null);
@@ -8044,10 +7942,6 @@ export default function App() {
           }}
           onOpenHealth={() => setPortalView("health")}
           onOpenSupport={() => setPortalView("support")}
-          onOpenRd={() => {
-            setRdError(null);
-            setPortalView("rd");
-          }}
           onOpenWalker={() => setPortalView("walker")}
           onOpenChamber={() => setPortalView("chamber")}
         />
@@ -8165,40 +8059,6 @@ export default function App() {
           onDeleteQuote={deleteQuoteRequest}
           onBackHome={() => setPortalView("home")}
         />
-      </main>
-    );
-  }
-
-  if (isAdmin && portalView === "rd") {
-    return (
-      <main className="dashboard-shell portal-admin-shell rd-preview-shell">
-        {portalHeader}
-        {rdSnapshot ? (
-          <>
-            {rdError ? (
-              <div className="rd-refresh-notice" role="status">
-                Showing the last successful snapshot. Refresh will retry automatically.
-              </div>
-            ) : null}
-            <ResponseCurveLab
-              snapshot={rdSnapshot}
-              onBack={() => setPortalView("home")}
-              historyLoading={rdHistoryLoading}
-              historyError={rdHistoryError}
-              onLoadMoreHistory={rdSnapshot.pagination?.has_more ? loadMoreRdHistory : undefined}
-            />
-          </>
-        ) : (
-          <section className="rd-load-state" aria-live="polite">
-            {rdLoading ? <Loader2 className="chart-loading-spinner" size={30} aria-hidden="true" /> : <AlertTriangle size={28} aria-hidden="true" />}
-            <h1>{rdLoading ? "Loading Response Curve" : "Response Curve is temporarily unavailable"}</h1>
-            <p>{rdLoading ? "Loading the latest bounded lab snapshot." : "The model is still running. Only this display request failed."}</p>
-            <div>
-              <button type="button" className="header-action" onClick={() => setPortalView("home")}>Home</button>
-              {!rdLoading ? <button type="button" className="header-action" onClick={() => void loadRdSnapshot()}>Retry</button> : null}
-            </div>
-          </section>
-        )}
       </main>
     );
   }
