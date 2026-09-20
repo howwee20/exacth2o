@@ -444,7 +444,7 @@
     align-items: start;
     margin-bottom: 5rem;
     padding-bottom: 4rem;
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 0;
     background: var(--bg);
     position: relative;
     z-index: 2;
@@ -1023,6 +1023,25 @@ footer .footer-logo { flex: none; width: 126px; }
       lines.push(`M ${right} ${tiles[0].y + tiles[0].height - 22} V ${merge} H ${target}`);
     }
     lines.push(`M ${target} ${merge} V ${portal.y}`);
+    // Lead-in: out of the intro tile, along the right edge, back to the middle, then down to each card.
+    const tile = box(wrapper.querySelector('.app-intro-copy'));
+    const edge = Math.max(...tiles.map(c => c.x + c.width));
+    const tileRight = tile.x + tile.width, tileMid = tile.y + tile.height / 2;
+    const gap = firstTop - (tile.y + tile.height);
+    if (gap > 40) {
+      const turn = tile.y + tile.height + gap * 0.42, split = tile.y + tile.height + gap * 0.72;
+      const r = 12, centre = (Math.min(...tiles.map(c => c.x)) + edge) / 2;
+      const sideBySide = tiles.every(c => Math.abs(c.y - firstTop) < 5);
+      const end = sideBySide ? centre : tiles[0].x + tiles[0].width / 2;
+      const out = edge - tileRight > r * 2
+        ? `M ${tileRight} ${tileMid} H ${edge - r} Q ${edge} ${tileMid} ${edge} ${tileMid + r} V ${turn - r} Q ${edge} ${turn} ${edge - r} ${turn}`
+        : `M ${tileRight - r} ${tile.y + tile.height} V ${turn}`;
+      lines.push(`${out} H ${end + r} Q ${end} ${turn} ${end} ${turn + r} V ${sideBySide ? split : firstTop}`);
+      if (sideBySide) tiles.forEach(c => {
+        const middle = c.x + c.width / 2;
+        lines.push(`M ${centre} ${split} H ${middle} V ${c.y}`);
+      });
+    }
     const bulletBox = box(benefits);
     const inset = Math.min(24, bulletBox.x - 8);
     const left = bulletBox.x - inset, right = bulletBox.x + bulletBox.width + inset;
@@ -1039,7 +1058,7 @@ footer .footer-logo { flex: none; width: 126px; }
   let pending = 0;
   function schedule() { cancelAnimationFrame(pending); pending = requestAnimationFrame(draw); }
   const observer = new ResizeObserver(schedule);
-  [wrapper, intro, ...cards, frame, benefits].forEach(element => observer.observe(element));
+  [wrapper, intro, wrapper.querySelector('.app-intro-copy'), ...cards, frame, benefits].forEach(element => observer.observe(element));
   window.addEventListener('resize', schedule);
   document.fonts?.ready.then(schedule);
   schedule();
