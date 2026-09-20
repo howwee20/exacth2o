@@ -257,6 +257,14 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
   transition: transform 220ms cubic-bezier(.2,.8,.2,1);
 }
 .feature-image-preview.is-visible img { transform: scale(1); }
+.feature-image-preview video {
+  display: none; height: min(84vh, 900px); width: auto; aspect-ratio: 9 / 16;
+  max-width: 88vw; object-fit: cover;
+  border-radius: 18px; box-shadow: 0 28px 90px rgba(5, 13, 9, 0.38); background: #0e1a14;
+}
+.feature-image-preview.is-video img { display: none; }
+.feature-image-preview.is-video video { display: block; }
+.research-video { cursor: zoom-in; }
 
 /* Native animated telemetry graph */
 .artifact-chart { display: grid; grid-template-rows: auto minmax(0,1fr); padding: 0.68rem; background: #fbfcfa; }
@@ -647,6 +655,7 @@ footer .footer-logo { flex: none; width: 126px; }
 
 <div class="feature-image-preview" aria-hidden="true">
   <img src="" alt="">
+  <video muted loop playsinline preload="none" aria-label="Research pots with ExactH2O sensors and irrigation lines"></video>
 </div>
 
 
@@ -765,16 +774,26 @@ footer .footer-logo { flex: none; width: 126px; }
     });
   });
 
-  const featurePreviewSources = document.querySelectorAll('.feat-card-img--sensor, .feat-card-img--dashboard');
+  const featurePreviewSources = document.querySelectorAll('.feat-card-img--sensor, .feat-card-img--dashboard, .research-video');
   const featurePreview = document.querySelector('.feature-image-preview');
   const featurePreviewImage = featurePreview?.querySelector('img');
+  const featurePreviewVideo = featurePreview?.querySelector('video');
 
   function showFeaturePreview(source) {
     if (!source || !featurePreview || !featurePreviewImage) return;
-    const image = source.querySelector('img');
-    if (!image) return;
-    featurePreviewImage.src = image.currentSrc || image.src;
-    featurePreviewImage.alt = image.alt;
+    const sourceVideo = source.querySelector('video');
+    const showVideo = Boolean(sourceVideo && featurePreviewVideo && getComputedStyle(sourceVideo).display !== 'none');
+    featurePreview.classList.toggle('is-video', showVideo);
+    if (showVideo) {
+      featurePreviewVideo.src = sourceVideo.currentSrc || sourceVideo.querySelector('source')?.src || '';
+      featurePreviewVideo.currentTime = sourceVideo.currentTime || 0;
+      featurePreviewVideo.play().catch(() => {});
+    } else {
+      const image = source.querySelector('img');
+      if (!image) return;
+      featurePreviewImage.src = image.currentSrc || image.src;
+      featurePreviewImage.alt = image.alt;
+    }
     featurePreview.classList.add('is-visible');
     featurePreview.setAttribute('aria-hidden', 'false');
     source.setAttribute('aria-expanded', 'true');
@@ -782,12 +801,14 @@ footer .footer-logo { flex: none; width: 126px; }
 
   function hideFeaturePreview() {
     featurePreview?.classList.remove('is-visible');
+    featurePreviewVideo?.pause();
     featurePreview?.setAttribute('aria-hidden', 'true');
     featurePreviewSources.forEach(source => source.setAttribute('aria-expanded', 'false'));
   }
 
   featurePreviewSources.forEach(source => {
     source.setAttribute('role', 'button');
+    if (!source.hasAttribute('tabindex')) source.setAttribute('tabindex', '0');
     source.setAttribute('aria-expanded', 'false');
     source.addEventListener('click', () => showFeaturePreview(source));
     source.addEventListener('keydown', event => {

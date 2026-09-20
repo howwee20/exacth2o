@@ -760,7 +760,13 @@ footer .footer-logo { flex: none; width: 126px; }
   .footer-identity, .footer-details { align-items: center; text-align: center; }
 }
   .app-intro-grid .section-title { margin-bottom: 0; }
-  .app-intro-copy { font-size: 1.05rem; line-height: 1.8; color: #536157; max-width: 85ch; }
+  .app-intro-copy {
+    margin: 0; padding: 1.6rem 1.75rem; max-width: 85ch;
+    font-size: 1.05rem; line-height: 1.8; color: #3f4d44;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--rule); border-left: 3px solid var(--water, #1a6b4a);
+    border-radius: 14px; box-shadow: 0 14px 32px rgba(14, 26, 20, 0.05);
+  }
 
 /* Shared accessible mobile navigation. */
 .hamburger { border: 0; padding: 0; background: transparent; }
