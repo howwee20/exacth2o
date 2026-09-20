@@ -3842,6 +3842,8 @@ function PortalAdminHome({
         <div className="portal-business-stack">
           <WalkerAdminTile onOpen={onOpenWalker} />
 
+          {/* Secondary tools: two half-width tiles sharing one tile slot. */}
+          <div className="portal-compact-row">
           <ChamberControlAdminTile onOpen={onOpenChamber} />
 
           <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
@@ -3862,6 +3864,7 @@ function PortalAdminHome({
               Open <ArrowRight size={14} />
             </span>
           </button>
+          </div>
         </div>
       </div>
 

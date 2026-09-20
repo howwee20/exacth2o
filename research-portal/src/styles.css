@@ -1529,11 +1529,14 @@ select {
   transform: translateY(-1px);
 }
 
+/* Every experiment tile shares one faded amber wash, whatever its mode. */
+.portal-launch-card.is-experiment,
 .portal-launch-card.is-observation {
   border-color: rgba(180, 83, 9, 0.2);
   background: linear-gradient(145deg, #ffffff, #fffbeb);
 }
 
+.portal-launch-card.is-experiment .portal-launch-icon,
 .portal-launch-card.is-observation .portal-launch-icon {
   background: #fffbeb;
   color: #b45309;
@@ -1646,9 +1649,70 @@ select {
   font-size: 0.62rem;
 }
 
+.portal-launch-card.is-support {
+  border-color: rgba(109, 40, 217, 0.2);
+  background: linear-gradient(145deg, #ffffff, #f5f3ff);
+}
+
 .portal-launch-card.is-support .portal-launch-icon {
-  background: #fff7ed;
-  color: #c2410c;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+/* Secondary tools share one tile slot as two half-width tiles. */
+.portal-compact-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.portal-compact-row > :only-child {
+  grid-column: 1 / -1;
+}
+
+/* Same height as a full tile, so the pair lines up with the row beside it. */
+.portal-compact-row > .portal-launch-card {
+  min-height: 199px;
+  gap: 10px;
+  padding: 16px;
+}
+
+.portal-compact-row .portal-launch-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.portal-compact-row .portal-launch-copy {
+  align-content: start;
+  gap: 4px;
+}
+
+.portal-compact-row .portal-launch-title {
+  font-size: 0.98rem;
+}
+
+.portal-compact-row .portal-launch-copy strong {
+  font-size: 0.84rem;
+}
+
+.portal-compact-row .portal-launch-copy em {
+  font-size: 0.74rem;
+}
+
+.portal-compact-row .portal-launch-action {
+  padding-top: 8px;
+  font-size: 0.62rem;
+}
+
+@media (max-width: 420px) {
+  .portal-compact-row {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-compact-row > .portal-launch-card {
+    min-height: 0;
+  }
 }
 
 .portal-launch-copy {
