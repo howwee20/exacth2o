@@ -23,3 +23,10 @@ body:has(.is-experiment-overview){overflow:hidden}
 .experiment-graph-chart{height:100%;min-height:0;overflow:hidden}
 .experiment-graph-chart .canvas-chart{height:100%;min-height:0}
 .experiment-graph-range{padding:4px 10px 0;min-height:0}
+
+/* Single-graph experiment views fit the embedded frame: pot list beside the chart, both sized to the frame, the list scrolling on its own. */
+.experiment-shell .dashboard-main:not(.is-experiment-overview){grid-template-columns:minmax(0,1fr) 208px!important;gap:12px;min-height:0!important;height:max(430px,calc(100vh - 148px));align-items:stretch}
+.experiment-shell .dashboard-main:not(.is-experiment-overview) .chart-card{min-height:0;height:100%}
+.experiment-shell .dashboard-main:not(.is-experiment-overview) .chart-panel-main{min-height:0;height:100%}
+.experiment-shell .dashboard-main:not(.is-experiment-overview) .canvas-chart{min-height:0!important;height:100%}
+.experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel{position:static!important;min-height:0;height:100%;max-height:100%;overflow:auto;width:auto!important}
