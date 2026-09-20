@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  controllerPillText,
   controllerPresence,
+  overviewNextAction,
+  sinceText,
   hardwareInventory,
   middleEllipsis,
   parseValveIdentity,
@@ -104,5 +107,49 @@ describe("hardware inventory", () => {
     });
     expect(inventory.sensors[1].lastReadingAt).toBeNull();
     expect(inventory.valves[1]).toMatchObject({ identity: "0x20:50", board: "0x20", channel: "50" });
+  });
+});
+
+describe("controller pill", () => {
+  const offline = controllerPresence({
+    stateFreshUntil: "2026-09-19T20:05:00.000Z",
+    stateObservedAt: "2026-09-19T19:59:00.000Z",
+    controllerState: "running",
+  }, Date.parse("2026-09-19T23:30:00.000Z"));
+
+  it("carries the offline time so nothing else has to repeat it", () => {
+    expect(controllerPillText(offline, Date.parse("2026-09-19T23:30:00.000Z"), "America/Detroit")).toBe("Controller offline · since 3:59 PM");
+    expect(controllerPillText(offline, Date.parse("2026-09-21T12:00:00.000Z"), "America/Detroit")).toBe("Controller offline · since Sep 19, 3:59 PM");
+  });
+
+  it("states online and never-seen plainly", () => {
+    expect(controllerPillText(controllerPresence({}, now))).toBe("No controller data yet");
+    const online = controllerPresence({ stateFreshUntil: "2026-09-19T20:05:00.000Z", stateObservedAt: "2026-09-19T19:59:50.000Z" }, now);
+    expect(controllerPillText(online, now)).toBe("Controller online");
+    expect(sinceText(null)).toBeNull();
+  });
+});
+
+describe("overview next action", () => {
+  const ready = { presence: "online" as const, pairingCount: 24, sensorsCurrent: 24, sensorsExpected: 24, wateringEnabled: true, sensingOnly: false, isAdmin: true };
+
+  it("puts the most urgent problem first", () => {
+    expect(overviewNextAction({ ...ready, presence: "never" }).title).toBe("Waiting for the controller");
+    expect(overviewNextAction({ ...ready, presence: "offline", pairingCount: 0 }).title).toBe("Check the controller's power and network");
+    expect(overviewNextAction({ ...ready, pairingCount: 0 })).toMatchObject({ section: "pairings", actionLabel: "Open Pairings" });
+    expect(overviewNextAction({ ...ready, sensorsCurrent: 22 })).toMatchObject({ title: "2 sensors are not reporting", section: "hardware" });
+    expect(overviewNextAction({ ...ready, sensorsCurrent: 23 }).title).toBe("1 sensor is not reporting");
+    expect(overviewNextAction({ ...ready, wateringEnabled: false })).toMatchObject({ section: "water" });
+  });
+
+  it("does not nag about watering on a sensing-only experiment, and only sends administrators to Autocalibrate", () => {
+    expect(overviewNextAction({ ...ready, wateringEnabled: false, sensingOnly: true }).section).toBe("autocalibrate");
+    expect(overviewNextAction(ready)).toMatchObject({ tone: "ok", section: "autocalibrate" });
+    expect(overviewNextAction({ ...ready, isAdmin: false })).toMatchObject({ title: "Everything looks ready", section: null });
+  });
+
+  it("never offers an action while the controller is away", () => {
+    expect(overviewNextAction({ ...ready, presence: "offline" }).actionLabel).toBeNull();
+    expect(overviewNextAction({ ...ready, presence: "never" }).actionLabel).toBeNull();
   });
 });

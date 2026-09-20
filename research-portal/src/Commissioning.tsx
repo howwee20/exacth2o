@@ -51,6 +51,7 @@ type CommissioningProps = {
   pairings: readonly PairingRow[];
   configHash: string | null;
   controlBusy: boolean;
+  controllerOnline: boolean;
   onQueueSettingsPlan: (plan: SettingsPlan, configHash: string) => Promise<void>;
 };
 
@@ -112,6 +113,7 @@ export function Commissioning({
   pairings,
   configHash,
   controlBusy,
+  controllerOnline,
   onQueueSettingsPlan,
 }: CommissioningProps) {
   const isAdmin = portalRole === "admin";
@@ -301,7 +303,7 @@ export function Commissioning({
     <>
       <section className="settings-card">
         <div className="settings-card-head">
-          <h3>1. Select pots in {experimentName}</h3>
+          <h3>1. Choose the pots to check in {experimentName}</h3>
           <StatusChip tone={selectionCountOk ? "ok" : "unknown"}>{pots.length} selected</StatusChip>
         </div>
         <p className="settings-muted">
@@ -362,7 +364,7 @@ export function Commissioning({
 
       <div className="settings-grid">
         <section className="settings-card">
-          <h3>2. Limits</h3>
+          <h3>2. Set the water limits</h3>
           <div className="settings-form">
             <div className="settings-field-grid is-two">
               <label>
@@ -387,9 +389,15 @@ export function Commissioning({
         </section>
 
         <section className="settings-card">
-          <h3>3. Prepare the pots</h3>
+          <h3>3. Get the pots ready</h3>
+          {controllerOnline ? null : (
+            <p className="settings-muted commission-offline-note">
+              The controller is offline. A settings change requested here is only queued and does not take effect until the
+              controller reconnects and confirms it. A run cannot start while it is offline.
+            </p>
+          )}
           {pots.length === 0 ? (
-            <p className="settings-muted">Select pots first.</p>
+            <p className="settings-muted">Choose pots first.</p>
           ) : autoWatering.length === 0 && slowCadence.length === 0 ? (
             <p className="settings-muted">Automatic watering is disabled on every selected pot and they measure at least every {commissioningIntervalSeconds}s. Nothing to prepare.</p>
           ) : (
@@ -457,7 +465,7 @@ export function Commissioning({
 
       <section className="settings-card">
         <div className="settings-card-head">
-          <h3>4. Preflight</h3>
+          <h3>4. Check that it is safe to start</h3>
           <button type="button" className="settings-secondary-button" onClick={() => void runPreflight()} disabled={preflightBusy || pots.length === 0}>
             <RefreshCw size={14} aria-hidden="true" /> {preflightBusy ? "Checking…" : report ? "Run preflight again" : "Run preflight"}
           </button>

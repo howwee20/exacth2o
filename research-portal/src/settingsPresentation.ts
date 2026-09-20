@@ -157,3 +157,110 @@ export function hardwareInventory(pairings: PairingRow[], readings: SensorReadin
 
   return { sensors: Array.from(sensors.values()), valves: Array.from(valves.values()) };
 }
+
+// "since 3:59 PM" on the same day, "since Sep 19, 3:59 PM" otherwise.
+export function sinceText(value: string | null | undefined, nowMs = Date.now(), timeZone?: string) {
+  const time = parseTime(value);
+  if (time == null) return null;
+  const date = new Date(time);
+  const day = (input: Date) => input.toLocaleDateString("en-US", { timeZone });
+  const clock = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone });
+  if (day(date) === day(new Date(nowMs))) return `since ${clock}`;
+  return `since ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone })}, ${clock}`;
+}
+
+// The single place the controller's connection is stated in Settings.
+export function controllerPillText(presence: ControllerPresence, nowMs = Date.now(), timeZone?: string) {
+  if (presence.status === "never") return "No controller data yet";
+  if (presence.status === "online") return "Controller online";
+  const since = sinceText(presence.lastSeenAt, nowMs, timeZone);
+  return since ? `Controller offline · ${since}` : "Controller offline";
+}
+
+export type OverviewSection = "pairings" | "water" | "autocalibrate" | "hardware";
+
+export type NextAction = {
+  tone: StatusTone;
+  title: string;
+  detail: string;
+  section: OverviewSection | null;
+  actionLabel: string | null;
+};
+
+export type OverviewInput = {
+  presence: ControllerPresence["status"];
+  pairingCount: number;
+  sensorsCurrent: number | null;
+  sensorsExpected: number | null;
+  wateringEnabled: boolean | null;
+  sensingOnly: boolean;
+  isAdmin: boolean;
+};
+
+// One plain-language answer to "what should I do next?", most urgent first.
+export function overviewNextAction(input: OverviewInput): NextAction {
+  if (input.presence === "never") {
+    return {
+      tone: "unknown",
+      title: "Waiting for the controller",
+      detail: "The controller has not reported to the portal yet. Settings here come from the project records until it connects.",
+      section: null,
+      actionLabel: null,
+    };
+  }
+  if (input.presence === "offline") {
+    return {
+      tone: "warning",
+      title: "Check the controller's power and network",
+      detail: "You can still review everything here. Readings and watering status update as soon as it reconnects.",
+      section: null,
+      actionLabel: null,
+    };
+  }
+  if (input.pairingCount === 0) {
+    return {
+      tone: "info",
+      title: "Pair your first pot",
+      detail: "Nothing can be watered until a valve is paired with the sensor in its pot.",
+      section: "pairings",
+      actionLabel: "Open Pairings",
+    };
+  }
+  const missing = input.sensorsCurrent != null && input.sensorsExpected != null
+    ? Math.max(0, Math.trunc(input.sensorsExpected) - Math.trunc(input.sensorsCurrent))
+    : 0;
+  if (missing > 0) {
+    return {
+      tone: "warning",
+      title: `${missing} ${missing === 1 ? "sensor is" : "sensors are"} not reporting`,
+      detail: "A pot with a silent sensor cannot be watered reliably. Check the sensor's cable and position.",
+      section: "hardware",
+      actionLabel: "See sensors",
+    };
+  }
+  if (!input.sensingOnly && input.wateringEnabled === false) {
+    return {
+      tone: "warning",
+      title: "Automatic watering is off",
+      detail: "Sensors are reporting, but the controller will not water on its own until the experiment is started.",
+      section: "water",
+      actionLabel: "Open Watering",
+    };
+  }
+  if (input.isAdmin) {
+    return {
+      tone: "ok",
+      title: "Ready. Pairings not yet checked at the bench",
+      detail: "Autocalibrate pulses one valve at a time and watches every sensor to confirm which valve waters which pot.",
+      section: "autocalibrate",
+      actionLabel: "Open Autocalibrate",
+    };
+  }
+  return {
+    tone: "ok",
+    title: "Everything looks ready",
+    detail: "The controller is online and every sensor is reporting.",
+    section: null,
+    actionLabel: null,
+  };
+}

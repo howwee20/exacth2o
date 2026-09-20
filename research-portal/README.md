@@ -27,13 +27,22 @@ Authenticated researcher dashboard for the existing exactH2O Supabase project.
 
 ## Settings
 
-Settings is organized for researchers: **Overview** (controller presence and last
-readings), **Hardware** (sensor and valve-output identities, kept apart from the
-labels people assign), **Pairings** (which valve waters which pot), **Autocalibrate**,
-**Watering**, **Sensor calibration**, **Groups**, and **Exports**. When the mirrored
-controller state is past `state_fresh_until`, every page shows one offline banner and
-values are worded as last known state. Every change still goes through the
-`create-control-command` Edge Function with its existing role checks.
+Settings is written for a scientist or operator and uses the portal's own tile
+language (paper background, white 8px tiles, slate text, tinted status pills, action
+blue). Navigation: **Overview** and **Watering** (experiment), **Pairings**,
+**Autocalibrate**, **Sensor calibration**, **Groups** (set up), **Exports** (data),
+and **Hardware** under Advanced.
+
+- Overview answers "is this experiment ready and what should I do next?": one next
+  step, then Experiment, Watering, Sensors, and Pairings tiles. Support detail
+  (controller last seen, reading counts, and the controller ID for administrators)
+  sits behind "Advanced details".
+- The controller's connection is stated once, in the header pill, including the
+  time: "Controller offline · since 3:59 PM". There is no page banner. Values from a
+  stale mirror are worded "when last seen".
+- Beside any action that would only be queued while the controller is away, a
+  contextual note says so, and a queued confirmation never reads as applied.
+- Every change still goes through `create-control-command` with its role checks.
 
 ## Autocalibrate (real hardware commissioning)
 

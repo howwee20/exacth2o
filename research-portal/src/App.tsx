@@ -99,10 +99,12 @@ import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
 import { Commissioning } from "./Commissioning";
-import { ControllerOfflineBanner, CopyableId, SettingsEmptyState, StatusChip } from "./SettingsChrome";
+import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "./SettingsChrome";
 import {
+  controllerPillText,
   controllerPresence,
   hardwareInventory,
+  overviewNextAction,
   relativeAgeText,
   sensorsReportingText,
 } from "./settingsPresentation";
@@ -314,9 +316,9 @@ type SettingsNavItem = {
   id: SettingsSection;
   label: string;
   description: string;
-  group: "System" | "Setup" | "Watering behavior" | "Data";
+  hint: string;
+  group: "Experiment" | "Set up" | "Data" | "Advanced";
   icon: LucideIcon;
-  badge?: string;
 };
 
 type BoardConfig = {
@@ -581,58 +583,66 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: "overview",
     label: "Overview",
-    description: "What the controller is doing now, and when the portal last heard from it.",
-    group: "System",
+    hint: "Is everything ready?",
+    description: "Whether this experiment is ready, and the next useful thing to do.",
+    group: "Experiment",
     icon: Gauge,
   },
   {
-    id: "hardware",
-    label: "Hardware",
-    description: "The sensors and valve outputs this installation reports. Identity comes from the hardware; labels come from people.",
-    group: "Setup",
-    icon: Cpu,
+    id: "water",
+    label: "Watering",
+    hint: "Targets and experiment state",
+    description: "Start or stop the experiment and see the target each group is held to. You choose the targets; calibration only measures how each pot responds.",
+    group: "Experiment",
+    icon: Droplets,
   },
   {
     id: "pairings",
     label: "Pairings",
-    description: "Which valve waters which pot, and the settings each pot runs with.",
-    group: "Setup",
+    hint: "Which valve waters which pot",
+    description: "Which valve waters which pot, and the target, pulse, and check interval each pot runs with.",
+    group: "Set up",
     icon: Waypoints,
   },
   {
     id: "autocalibrate",
     label: "Autocalibrate",
-    description: "Find out which valve waters which sensor by pulsing one valve at a time and watching every sensor, then review the result before anything changes.",
-    group: "Setup",
+    hint: "Check the hoses automatically",
+    description: "Pulses one valve at a time and watches every sensor to find out which valve waters which pot. Nothing changes until you review it.",
+    group: "Set up",
     icon: Radar,
-  },
-  {
-    id: "water",
-    label: "Watering",
-    description: "Targets, pulse limits, and experiment state. You choose the targets; calibration only measures how each pot responds.",
-    group: "Watering behavior",
-    icon: Droplets,
   },
   {
     id: "calibrations",
     label: "Sensor calibration",
+    hint: "Match a sensor to a reference",
     description: "Fit a sensor's raw signal to reference water-content measurements.",
-    group: "Watering behavior",
+    group: "Set up",
     icon: Activity,
   },
   {
     id: "groups",
     label: "Groups",
+    hint: "Organize pots",
     description: "Plant groups used for targets, charts, and exports.",
-    group: "Watering behavior",
+    group: "Set up",
     icon: Users,
   },
   {
     id: "exports",
     label: "Exports",
+    hint: "Download readings and settings",
     description: "Download readings and configuration files.",
     group: "Data",
     icon: FileArchive,
+  },
+  {
+    id: "hardware",
+    label: "Hardware",
+    hint: "Sensors, valves, and boards",
+    description: "The sensors and valve outputs this installation reports. Identity comes from the hardware; labels come from people.",
+    group: "Advanced",
+    icon: Cpu,
   },
 ];
 
@@ -2717,10 +2727,11 @@ function PortalSettingsPanel({
   const commandStatusPanel = (
     <>
       {controlNotice ? (
-        <div className="settings-callout is-success">
-          <CheckCircle2 size={18} />
+        <div className={`settings-callout ${controllerIsLive ? "is-success" : "is-warning"}`} role="status">
+          {controllerIsLive ? <CheckCircle2 size={18} aria-hidden="true" /> : <Clock3 size={18} aria-hidden="true" />}
           <div>
             <strong>{controlNotice}</strong>
+            {controllerIsLive ? null : <p>Queued only. The controller is offline, so this has not taken effect. It applies after the controller reconnects and confirms it.</p>}
           </div>
         </div>
       ) : null}
@@ -2738,107 +2749,119 @@ function PortalSettingsPanel({
 
   const renderSection = () => {
     if (activeSection === "overview") {
-      const wateringEnabled = runtimeState?.watering_enabled;
+      const wateringEnabled = runtimeState?.watering_enabled ?? null;
+      const sensingOnly = isObservationOnlyExperiment(experiment);
+      const canOpen = (section: SettingsSection) => availableSettingsNavItems.some((item) => item.id === section);
+      const next = overviewNextAction({
+        presence: presence.status,
+        pairingCount: pairings.length,
+        sensorsCurrent: runtimeState?.sensors_current ?? null,
+        sensorsExpected: runtimeState?.sensors_expected ?? null,
+        wateringEnabled,
+        sensingOnly,
+        isAdmin,
+      });
+      const lastKnown = controllerIsLive ? "" : " when last seen";
+      const missingSensors = runtimeState?.sensors_current != null && runtimeState?.sensors_expected != null
+        ? Math.max(0, Math.trunc(runtimeState.sensors_expected) - Math.trunc(runtimeState.sensors_current))
+        : null;
+      const when = (value?: string | null, empty = "Not yet") => (value
+        ? `${formatSettingsTimestamp(value)} · ${relativeAgeText(value)}`
+        : <span className="settings-empty-value">{empty}</span>);
       return (
         <>
-          <div className="settings-grid">
-            <section className="settings-card">
-              <h3>Controller</h3>
-              <div className="settings-rows">
+          <section className={`settings-next-step is-${next.tone}`} aria-label="Next step">
+            <div>
+              <p className="settings-next-step-eyebrow">Next step</p>
+              <h3>{next.title}</h3>
+              <p>{next.detail}</p>
+            </div>
+            {next.section && next.actionLabel && canOpen(next.section) ? (
+              <button type="button" className="settings-primary-button" onClick={() => onSectionChange(next.section as SettingsSection)}>
+                {next.actionLabel} <ArrowRight size={14} aria-hidden="true" />
+              </button>
+            ) : null}
+          </section>
+          <div className="settings-readiness-grid">
+            <ReadinessTile
+              icon={Gauge}
+              title="Experiment"
+              tone={!presence.controllerState ? "unknown" : controllerIsLive ? (presence.controllerState === "Running" ? "ok" : "warning") : "unknown"}
+              status={presence.controllerState ? `${presence.controllerState}${lastKnown}` : "Not reported"}
+              lines={[
+                { label: "Pots", value: pairings.length },
+                { label: "Plant groups", value: projectGroups.length },
+              ]}
+            />
+            <ReadinessTile
+              icon={Droplets}
+              title="Watering"
+              tone={sensingOnly ? "info" : wateringEnabled == null || !controllerIsLive ? "unknown" : wateringEnabled ? "ok" : "warning"}
+              status={sensingOnly ? "Sensing only" : wateringEnabled == null ? "Not reported" : `${wateringEnabled ? "Automatic" : "Off"}${lastKnown}`}
+              lines={[
+                { label: "Last watering", value: when(runtimeState?.watering_last_event_at, "None recorded") },
+              ]}
+              actionLabel={canOpen("water") ? "Open Watering" : undefined}
+              onAction={() => onSectionChange("water")}
+            />
+            <ReadinessTile
+              icon={Activity}
+              title="Sensors"
+              tone={!controllerIsLive || missingSensors == null ? "unknown" : missingSensors === 0 ? "ok" : "warning"}
+              status={sensorsReporting ? `${sensorsReporting} reporting${lastKnown}` : "Not reported"}
+              lines={[
+                { label: "Last reading", value: when(lastReadingAt, "No readings yet") },
+              ]}
+              actionLabel={canOpen("calibrations") ? "Open Sensor calibration" : undefined}
+              onAction={() => onSectionChange("calibrations")}
+            />
+            <ReadinessTile
+              icon={Waypoints}
+              title="Pairings"
+              tone={pairings.length ? "info" : "warning"}
+              status={pairings.length ? `${pairings.length} paired` : "None yet"}
+              lines={[
+                { label: "Checked at the bench", value: <span className="settings-empty-value">Not yet</span> },
+              ]}
+              actionLabel={canOpen("pairings") ? "Open Pairings" : isAdmin && canOpen("autocalibrate") ? "Open Autocalibrate" : undefined}
+              onAction={() => onSectionChange(canOpen("pairings") ? "pairings" : "autocalibrate")}
+            />
+          </div>
+          <details className="settings-advanced">
+            <summary>Advanced details</summary>
+            <div className="settings-rows">
+              <div className="settings-row">
+                <span>Controller last seen</span>
+                <strong>{when(presence.lastSeenAt, "Never")}</strong>
+              </div>
+              <div className="settings-row">
+                <span>Readings from the live controller</span>
+                <strong>{data.totalLiveReadings.toLocaleString()}</strong>
+              </div>
+              <div className="settings-row">
+                <span>Readings from the imported archive</span>
+                <strong>{data.totalImportedReadings.toLocaleString()}</strong>
+              </div>
+              <div className="settings-row">
+                <span>Watering schedules loaded</span>
+                <strong>
+                  {runtimeState?.scheduler_jobs_loaded == null
+                    ? <span className="settings-empty-value">Not reported</span>
+                    : Math.trunc(runtimeState.scheduler_jobs_loaded).toLocaleString()}
+                </strong>
+              </div>
+              <div className="settings-row">
+                <span>Pots shown on the chart</span>
+                <strong>{visiblePotCount}</strong>
+              </div>
+              {isAdmin ? (
                 <div className="settings-row">
-                  <span>Connection</span>
-                  <strong><StatusChip tone={presence.tone}>{presence.label}</StatusChip></strong>
-                </div>
-                <div className="settings-row">
-                  <span>{controllerIsLive ? "Experiment state" : "Last known experiment state"}</span>
-                  <strong>{presence.controllerState ?? <span className="settings-empty-value">Not reported</span>}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Controller last seen</span>
-                  <strong>
-                    {presence.lastSeenAt
-                      ? `${formatSettingsTimestamp(presence.lastSeenAt)} · ${relativeAgeText(presence.lastSeenAt)}`
-                      : <span className="settings-empty-value">Never</span>}
-                  </strong>
-                </div>
-                <div className="settings-row">
-                  <span>Controller ID</span>
+                  <span>Controller ID (for support)</span>
                   <strong><CopyableId value={data.latestState?.device_id} label="controller ID" /></strong>
                 </div>
-              </div>
-            </section>
-            <section className="settings-card">
-              <h3>Sensors and readings</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>Last reading received</span>
-                  <strong>
-                    {lastReadingAt
-                      ? `${formatSettingsTimestamp(lastReadingAt)} · ${relativeAgeText(lastReadingAt)}`
-                      : <span className="settings-empty-value">No readings yet</span>}
-                  </strong>
-                </div>
-                <div className="settings-row">
-                  <span>{controllerIsLive ? "Sensors reporting" : "Sensors reporting when last seen"}</span>
-                  <strong>{sensorsReporting ?? <span className="settings-empty-value">Not reported</span>}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Readings from the live controller</span>
-                  <strong>{data.totalLiveReadings.toLocaleString()}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Readings from the imported archive</span>
-                  <strong>{data.totalImportedReadings.toLocaleString()}</strong>
-                </div>
-              </div>
-            </section>
-            <section className="settings-card">
-              <h3>Watering</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>{controllerIsLive ? "Automatic watering" : "Automatic watering when last seen"}</span>
-                  <strong>
-                    {wateringEnabled == null
-                      ? <span className="settings-empty-value">Not reported</span>
-                      : <StatusChip tone={!controllerIsLive ? "unknown" : wateringEnabled ? "ok" : "warning"}>{wateringEnabled ? "Enabled" : "Disabled"}</StatusChip>}
-                  </strong>
-                </div>
-                <div className="settings-row">
-                  <span>Last watering event</span>
-                  <strong>
-                    {runtimeState?.watering_last_event_at
-                      ? `${formatSettingsTimestamp(runtimeState.watering_last_event_at)} · ${relativeAgeText(runtimeState.watering_last_event_at)}`
-                      : <span className="settings-empty-value">None recorded</span>}
-                  </strong>
-                </div>
-                <div className="settings-row">
-                  <span>Watering schedules loaded</span>
-                  <strong>
-                    {runtimeState?.scheduler_jobs_loaded == null
-                      ? <span className="settings-empty-value">Not reported</span>
-                      : Math.trunc(runtimeState.scheduler_jobs_loaded).toLocaleString()}
-                  </strong>
-                </div>
-              </div>
-            </section>
-            <section className="settings-card">
-              <h3>This experiment</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>Configured pots</span>
-                  <strong>{pairings.length}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Pots shown on the chart</span>
-                  <strong>{visiblePotCount}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Plant groups</span>
-                  <strong>{projectGroups.length}</strong>
-                </div>
-              </div>
-            </section>
-          </div>
+              ) : null}
+            </div>
+          </details>
           {commandStatusPanel}
         </>
       );
@@ -2882,8 +2905,6 @@ function PortalSettingsPanel({
                     <th scope="col">Target</th>
                     <th scope="col">Pulse</th>
                     <th scope="col">Checks</th>
-                    <th scope="col">Source</th>
-                    <th scope="col">Verified</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2899,8 +2920,6 @@ function PortalSettingsPanel({
                       <td>{formatTargetVwc(pairing.wtc_percent_limit)}</td>
                       <td>{formatSecondsFromMs(pairing.valve_open_time_ms)}</td>
                       <td>Every {formatIntervalFromMs(pairing.measurement_interval_ms)}</td>
-                      <td>Entered by hand</td>
-                      <td><span className="settings-empty-value">Not yet verified</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -2909,18 +2928,27 @@ function PortalSettingsPanel({
           )}
           <div className="settings-toolbar">
             <p>
-              Pairings entered by hand have not been physically verified. Autocalibrate can measure which valve waters
-              which sensor and propose corrections; this table only changes after an administrator reviews and applies them.
+              These pairings were entered by hand and have not been checked at the bench.
+              {isAdmin ? " Autocalibrate can check them; this table only changes after you review and apply its result." : ""}
             </p>
-            <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
-              <Download size={14} />
-              Pairings CSV
-            </button>
+            <div className="settings-toolbar-actions">
+              {isAdmin ? (
+                <button type="button" className="settings-secondary-button" onClick={() => onSectionChange("autocalibrate")}>
+                  <Radar size={14} aria-hidden="true" />
+                  Check with Autocalibrate
+                </button>
+              ) : null}
+              <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
+                <Download size={14} aria-hidden="true" />
+                Pairings CSV
+              </button>
+            </div>
           </div>
           <div className="settings-section-heading">
             <h3>Change pairings</h3>
-            <p>Requests are queued for the controller and confirmed when it applies them.</p>
+            <p>The controller applies a change, then reports back.</p>
           </div>
+          <QueuedChangeNote presence={presence} />
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Edit one pairing</h3>
@@ -3088,6 +3116,7 @@ function PortalSettingsPanel({
             pairings={pairings}
             configHash={configState?.config_hash?.trim() || null}
             controlBusy={controlBusy}
+            controllerOnline={controllerIsLive}
             onQueueSettingsPlan={onQueueSettingsPlan}
           />
         </>
@@ -3114,6 +3143,7 @@ function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
+          <QueuedChangeNote presence={presence} />
           <p className="settings-principle">
             <strong>You choose the targets.</strong> Calibration and Autocalibrate only measure how each pot responds to
             water; they never pick a biological target for you.
@@ -3227,6 +3257,7 @@ function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
+          <QueuedChangeNote presence={presence} />
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Create a group</h3>
@@ -3441,6 +3472,7 @@ function PortalSettingsPanel({
                 <h3>Administrator operations</h3>
                 <p>Visible to administrators only.</p>
               </div>
+              <QueuedChangeNote presence={presence} />
               <div className="settings-grid">
                 <section className="settings-card">
                   <h3>Board configuration</h3>
@@ -3574,9 +3606,11 @@ function PortalSettingsPanel({
                       aria-current={item.id === activeItem.id ? "page" : undefined}
                       onClick={() => selectSection(item.id)}
                     >
-                      <Icon size={16} aria-hidden="true" />
-                      <span>{item.label}</span>
-                      {item.badge ? <em className="settings-nav-badge">{item.badge}</em> : null}
+                      <Icon size={17} aria-hidden="true" />
+                      <span>
+                        <strong>{item.label}</strong>
+                        <em>{item.hint}</em>
+                      </span>
                     </button>
                   );
                 })}
@@ -3602,19 +3636,13 @@ function PortalSettingsPanel({
               </p>
             </div>
             <div className="settings-content-actions">
-              <StatusChip tone={presence.tone}>
-                {presence.status === "never" ? presence.label : `Controller ${presence.label.toLowerCase()}`}
-              </StatusChip>
+              <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip>
               <button type="button" className="settings-close-button" onClick={onClose} aria-label="Close settings">
                 <X size={18} aria-hidden="true" />
               </button>
             </div>
           </header>
           <div className="settings-section-body">
-            <ControllerOfflineBanner
-              presence={presence}
-              formattedLastSeen={formatSettingsTimestamp(presence.lastSeenAt)}
-            />
             {renderSection()}
           </div>
         </section>
