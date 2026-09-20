@@ -1,0 +1,302 @@
+/* Autocalibrate: real hardware commissioning. Reuses the Settings card, table,
+   form, and button styles; styles.css loads later, so shared-element overrides
+   are scoped under .commission. */
+
+.commission {
+  display: grid;
+  gap: 22px;
+}
+
+.commission-subtle {
+  display: block;
+  margin-top: 3px;
+  color: #7a8390;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.commission-select-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.commission .commission-table td {
+  min-width: 96px;
+  white-space: normal;
+}
+
+.commission .commission-table td:first-child {
+  display: table-cell;
+  min-width: 0;
+}
+
+.commission .commission-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+}
+
+.commission .commission-table tr.is-different td {
+  background: #fffaf1;
+}
+
+.commission-different {
+  color: #8a5a0b;
+  font-weight: 700;
+}
+
+.commission-response {
+  display: block;
+}
+
+.commission-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.commission-mode legend {
+  margin-bottom: 7px;
+  padding: 0;
+  color: #5b6472;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.commission .commission-mode label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e1e6ee;
+  border-radius: 10px;
+  color: #6f7784;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.commission .commission-mode label:has(input:checked) {
+  border-color: #8cc5ff;
+  background: #f4f9ff;
+}
+
+.commission .commission-mode input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+}
+
+.commission-mode strong {
+  display: block;
+  color: #20242c;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.commission-checks,
+.commission-plain,
+.commission-records,
+.commission-log {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.commission-checks li,
+.commission-records li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.commission-checks li:first-child,
+.commission-records li:first-child,
+.commission-plain li:first-child {
+  border-top: 0;
+}
+
+.commission-checks .settings-chip {
+  flex: 0 0 auto;
+  min-width: 78px;
+  justify-content: center;
+}
+
+.commission-checks strong,
+.commission-records strong {
+  color: #20242c;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.commission-checks p {
+  margin: 3px 0 0;
+  color: #6f7784;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.commission-records li {
+  align-items: center;
+}
+
+.commission-records li > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.commission-plain li {
+  display: grid;
+  gap: 3px;
+  padding: 10px 0;
+  border-top: 1px solid #edf0f4;
+  color: #4f5966;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.commission-plain strong {
+  color: #20242c;
+}
+
+.commission-start.is-real {
+  border-color: #f0caca;
+}
+
+.commission-real-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #f0caca;
+  border-radius: 10px;
+  background: #fff6f6;
+  color: #8f1d14;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.commission-real-banner svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.commission-real-banner.is-rehearsal {
+  border-color: #c6defc;
+  background: #f4f9ff;
+  color: #1c4f8f;
+}
+
+.commission .commission-confirm {
+  display: grid;
+  gap: 7px;
+  max-width: 420px;
+  color: #3f4652;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.commission-confirm code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #20242c;
+  font-size: 13px;
+}
+
+.commission .commission-confirm input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e1e6ee;
+  border-radius: 10px;
+  font: inherit;
+  letter-spacing: 0.02em;
+}
+
+.commission-stop {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  border: 1px solid #b42318;
+  border-radius: 10px;
+  background: #b42318;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.commission-stop:hover {
+  background: #8f1d14;
+}
+
+.commission-log li {
+  display: grid;
+  grid-template-columns: 92px 118px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid #edf0f4;
+  color: #3f4652;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.commission-log li:first-child {
+  border-top: 0;
+}
+
+.commission-log time {
+  color: #7a8390;
+  font-variant-numeric: tabular-nums;
+}
+
+.commission-log em {
+  color: #1c63b8;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.commission-restore,
+.commission-readback {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #edf0f4;
+}
+
+@media (max-width: 720px) {
+  .commission-mode {
+    grid-template-columns: 1fr;
+  }
+
+  .commission-log li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .commission-records li {
+    flex-wrap: wrap;
+  }
+
+  .commission-stop {
+    width: 100%;
+    justify-content: center;
+  }
+}

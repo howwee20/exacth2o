@@ -19,6 +19,19 @@ const requiredPortalCopy = [
 const forbiddenPortalCopy = [
   "Research workspace",
   "Open a tile to view results, or edit its reviewed settings.",
+  // Autocalibrate is real commissioning software. The simulator and mock
+  // controller are internal test infrastructure and must never ship.
+  "Simulator answer key",
+  "Start simulated run",
+  "Clean 24-pot installation",
+  "made-up installation",
+  "SimulatedBench",
+  "exacth2o.autocalibration.v1",
+];
+const requiredCommissioningCopy = [
+  "REAL HARDWARE",
+  "Run preflight",
+  "Physical validation",
 ];
 const forbiddenApplicationsCopy = [
   "Hover or click a run",
@@ -54,6 +67,11 @@ const requiredMarkerColorSource = [
 const missingMarkerColorSource = requiredMarkerColorSource.filter((value) => !appSource.includes(value));
 if (missingMarkerColorSource.length) {
   throw new Error("Portal source is missing per-pot watering marker colors.");
+}
+
+const missingCommissioningCopy = requiredCommissioningCopy.filter((value) => !bundle.includes(value));
+if (missingCommissioningCopy.length) {
+  throw new Error(`Portal production bundle is missing the commissioning workflow: ${missingCommissioningCopy.join(", ")}`);
 }
 
 const retainedPortalCopy = forbiddenPortalCopy.filter((value) => bundle.includes(value));

@@ -35,40 +35,62 @@ controller state is past `state_fresh_until`, every page shows one offline banne
 values are worded as last known state. Every change still goes through the
 `create-control-command` Edge Function with its existing role checks.
 
-## Autocalibrate (simulation only)
+## Autocalibrate (real hardware commissioning)
 
-Autocalibrate discovers which valve waters which sensor. In this release it runs
-against a deterministic, seeded simulator in the browser (`src/autocal/`), up to 100
-pots, and is labeled SIMULATION throughout:
+Autocalibrate finds out which valve physically waters which sensor. It is
+production commissioning software: the operator selects pots, passes preflight,
+confirms, and the portal pulses **one real valve at a time** while watching every
+selected sensor. There is no simulated or demo mode in the product.
 
-- `simulator.ts` models a hidden valve-to-sensor layout plus per-pot gain, lag,
-  settling, drying drift, sensor noise, and fault presets (dead, raw-count, stuck, or
-  noisy sensors; saturated pots; stuck, weak, or disconnected valves; cross-talk,
-  split, duplicate, and swapped hoses; slow or overshooting soil).
-- `engine.ts` runs sensor validation, one-valve-at-a-time discovery into a
-  valve-by-sensor response matrix, a globally consistent one-to-one assignment
-  (`assignment.ts`), conservative response characterization, and a continuous-
-  verification demonstration. A silent valve gets exactly one longer pulse, then a
-  safe failure. Confidence reflects the margin over rival sensors and valves, not
-  just response strength.
-- `store.ts` keeps saved runs as **proposed, not applied** records in this browser's
-  local storage (run ID, project, experiment, mode, status, timestamps, algorithm and
-  configuration version, seed, proposed valve/sensor/pot label, confidence, evidence,
-  faults, topology version). There is no apply path.
+How it reaches hardware (`src/commissioning/`):
 
-Safety boundary, enforced by `src/autocal/autocal.test.ts`: the simulation modules and
-`Autocalibrate.tsx` may not import Supabase or the control-command path or make any
-network call, and the screen receives the current pairings as read-only props. A
-simulated result says nothing about real hardware. Running on a real bench and
-applying a proposal both require separate commissioning authorization and are shown
-disabled.
+- **Pulses** are ordinary `manual_water` commands for exactly one pairing, sent
+  through the authenticated `create-control-command` Edge Function
+  (`supabasePorts.ts`). Every existing gate stays in force and is not bypassed:
+  `CONTROL_COMMAND_INTAKE_ENABLED`, `MANUAL_WATER_INTAKE_ENABLED`, role policy, the
+  database one-at-a-time and 60 s cooldown rule, the executor's
+  `EXACTH2O_CONTROL_EXECUTOR_DRY_RUN` and `EXACTH2O_MANUAL_WATER_ENABLED` gates,
+  and the controller-owned `/valves/pulse` timer with its single-valve mutex. If
+  any gate is closed the first pulse is refused, nothing is watered, and the run
+  stops. The adapter only ever reads tables and invokes that one function.
+- **Safe commissioning state** is controller `RUNNING` with automatic watering
+  disabled on every selected pot. `STOPPED` pauses the controller's measurement
+  loop, so no response could be measured. "Prepare the pots" queues one reviewed
+  `bulk_update_pairings` (disable watering, measure every 60 s) and records the
+  previous settings so they can be restored.
+- **Orchestration** (`orchestrator.ts`): baselines, then per valve: interlocks,
+  one bounded pulse, wait for the command's final status, observe all selected
+  sensors, at most one longer retry, then flag. Interlocks are re-checked before
+  every pulse: stop/abort, run time, pulse and water budget, stale controller,
+  unsafe state, automatic watering re-enabled, conflicting watering command, silent
+  sensor, unsettled sensors, and any command failure or timeout. A failed command
+  is never retried. Leaving the screen aborts the run; nothing is scheduled ahead.
+- **Rehearsal** runs the same orchestration against the live controller and
+  sensors without sending any valve command. It cannot produce a mapping.
+- **Evidence** keeps three facts apart for every pulse: command requested,
+  controller acknowledged, measured sensor response. None is treated as proof
+  that water reached a pot; physical validation is always shown as pending.
+- **Applying** a reviewed mapping uses the existing reviewed settings batch
+  (`topologyPlan.ts` -> `onQueueSettingsPlan`): stop, `delete_pairing` +
+  `create_pairing` carrying the pot's settings and calibration, restore state,
+  with the config-hash precondition and executor readback. The previous topology
+  is stored in the run record and an exact rollback plan is offered after readback.
+- **Records**: each run's full log and evidence are kept in the browser and can be
+  downloaded as JSON. Each pulse's `operation_intent` carries the run ID, so it can
+  be matched to `project_control_commands` and the platform operation ledger.
+
+`src/autocal/` (seeded bench simulator and engine) and
+`src/commissioning/testing/mockController.ts` are **internal test infrastructure
+only**. Tests fail if product code imports them, and `audit:portal-surface` fails
+the build if simulator copy appears in the shipped bundle. The Monday supervised
+test procedure is in `docs/autocalibration-commissioning-checklist.md`.
 
 ## What this is not
 
 - No service role key in the frontend.
 - No open public signup that automatically grants project access.
-- No fake live data. Simulated Autocalibrate runs are labeled as simulation and never
-  mix with readings, pairings, or controller state.
+- No fake live data. Autocalibrate never manufactures readings; when the live
+  prerequisites are missing it reports why and stays unavailable.
 - No direct browser-to-device irrigation actuation.
 - No frontend mutation of valve mappings, calibrations, or board config.
 - No device-side command executor in this static site; queued commands require

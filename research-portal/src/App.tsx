@@ -98,7 +98,7 @@ import { ResponseCurveLab } from "./ResponseCurveLab";
 import { CalibrationStudio } from "./CalibrationStudio";
 import { ExperimentBuilder } from "./ExperimentBuilder";
 import { SettingsAssistant } from "./SettingsAssistant";
-import { Autocalibrate } from "./Autocalibrate";
+import { Commissioning } from "./Commissioning";
 import { ControllerOfflineBanner, CopyableId, SettingsEmptyState, StatusChip } from "./SettingsChrome";
 import {
   controllerPresence,
@@ -602,10 +602,9 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: "autocalibrate",
     label: "Autocalibrate",
-    description: "Discover which valve waters which sensor instead of matching them by hand. This release runs as a simulation only.",
+    description: "Find out which valve waters which sensor by pulsing one valve at a time and watching every sensor, then review the result before anything changes.",
     group: "Setup",
     icon: Radar,
-    badge: "Sim",
   },
   {
     id: "water",
@@ -2440,6 +2439,7 @@ type PortalSettingsPanelProps = {
   controlNotice: string | null;
   controlError: string | null;
   assistantInitialPrompt?: string;
+  operatorEmail: string | null;
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
@@ -2467,6 +2467,7 @@ function PortalSettingsPanel({
   controlNotice,
   controlError,
   assistantInitialPrompt,
+  operatorEmail,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
@@ -2476,9 +2477,12 @@ function PortalSettingsPanel({
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
-  const availableSettingsNavItems = isObservationOnlyExperiment(experiment)
+  // Autocalibrate commissions the installation, not one experiment's watering, so it
+  // stays available when an experiment is sensing-only. It is administrator-only.
+  const availableSettingsNavItems = (isObservationOnlyExperiment(experiment)
     ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id))
-    : settingsNavItems;
+    : settingsNavItems
+  ).filter((item) => item.id !== "autocalibrate" || isAdmin);
   const availableSettingsNavGroups = Array.from(
     availableSettingsNavItems.reduce((groups, item) => {
       groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
@@ -2905,8 +2909,8 @@ function PortalSettingsPanel({
           )}
           <div className="settings-toolbar">
             <p>
-              Pairings entered by hand have not been physically verified. Autocalibrate is being built to discover and
-              verify them. Today it runs as a simulation only and never changes this table.
+              Pairings entered by hand have not been physically verified. Autocalibrate can measure which valve waters
+              which sensor and propose corrections; this table only changes after an administrator reviews and applies them.
             </p>
             <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
               <Download size={14} />
@@ -3069,14 +3073,24 @@ function PortalSettingsPanel({
     }
 
     if (activeSection === "autocalibrate") {
-      // Read-only inputs only: the simulation gets no command queue and no write path.
+      // Real hardware commissioning. Pulses go through the control-command service;
+      // pairing changes go through the same reviewed settings batch as the rest of Settings.
       return (
-        <Autocalibrate
-          projectId={projectId}
-          experimentId={experiment.id}
-          experimentName={experiment.name}
-          pairings={pairings}
-        />
+        <>
+          {commandStatusPanel}
+          <Commissioning
+            projectId={projectId}
+            deviceId={data.latestState?.device_id ?? runtimeState?.device_id ?? configState?.device_id ?? null}
+            operator={operatorEmail}
+            portalRole={portalRole}
+            experimentId={experiment.id}
+            experimentName={experiment.name}
+            pairings={pairings}
+            configHash={configState?.config_hash?.trim() || null}
+            controlBusy={controlBusy}
+            onQueueSettingsPlan={onQueueSettingsPlan}
+          />
+        </>
       );
     }
 
@@ -3597,12 +3611,10 @@ function PortalSettingsPanel({
             </div>
           </header>
           <div className="settings-section-body">
-            {activeSection === "autocalibrate" ? null : (
-              <ControllerOfflineBanner
-                presence={presence}
-                formattedLastSeen={formatSettingsTimestamp(presence.lastSeenAt)}
-              />
-            )}
+            <ControllerOfflineBanner
+              presence={presence}
+              formattedLastSeen={formatSettingsTimestamp(presence.lastSeenAt)}
+            />
             {renderSection()}
           </div>
         </section>
@@ -8033,6 +8045,7 @@ export default function App() {
           controlNotice={controlNotice}
           controlError={controlError}
           assistantInitialPrompt={settingsAssistantPrompt}
+          operatorEmail={portalAccess.email ?? null}
           onClose={() => setSettingsOpen(false)}
           onSectionChange={setSettingsSection}
           onPrepareCsvDownload={prepareCsvDownload}
@@ -8086,6 +8099,7 @@ export default function App() {
           controlNotice={controlNotice}
           controlError={controlError}
           assistantInitialPrompt={settingsAssistantPrompt}
+          operatorEmail={portalAccess.email ?? null}
           onClose={() => setSettingsOpen(false)}
           onSectionChange={setSettingsSection}
           onPrepareCsvDownload={prepareCsvDownload}
@@ -8195,6 +8209,7 @@ export default function App() {
           controlBusy={controlBusy}
           controlNotice={controlNotice}
           controlError={controlError}
+          operatorEmail={portalAccess.email ?? null}
           onClose={() => setSettingsOpen(false)}
           onSectionChange={setSettingsSection}
           onPrepareCsvDownload={prepareCsvDownload}

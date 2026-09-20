@@ -1,6 +1,7 @@
 import { createRng, type Rng } from "./random";
 
-// SIMULATION ONLY. Nothing in this module talks to a controller, a database, or
+// INTERNAL TEST INFRASTRUCTURE. Not part of the product and not shipped in the
+// portal bundle. Nothing in this module talks to a controller, a database, or
 // the network. It models a bench of pots so the discovery workflow can be
 // exercised while no hardware is involved.
 

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { assignOneToOne } from "./assignment";
+import { assignOneToOne } from "../topology/assignment";
 import {
   AutocalRun,
   confidenceLevel,
@@ -398,11 +398,10 @@ describe("safety boundary", () => {
 
   it("cannot reach Supabase, control commands, or the network from the simulation modules", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const sources = [
-      ...readdirSync(here).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts")).map((name) => join(here, name)),
-      join(here, "..", "Autocalibrate.tsx"),
-    ];
-    expect(sources.length).toBeGreaterThanOrEqual(6);
+    const sources = readdirSync(here)
+      .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
+      .map((name) => join(here, name));
+    expect(sources.length).toBeGreaterThanOrEqual(5);
     const forbidden = [
       /from\s+["'][^"']*supabase/i,
       /\bfetch\s*\(/,
