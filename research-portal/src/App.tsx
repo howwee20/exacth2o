@@ -303,7 +303,6 @@ type SettingsNavItem = {
   id: SettingsSection;
   label: string;
   description: string;
-  hint: string;
   group: "Experiment" | "Set up" | "Data" | "Advanced";
 };
 
@@ -569,56 +568,48 @@ const settingsNavItems: SettingsNavItem[] = [
   {
     id: "overview",
     label: "Overview",
-    hint: "Is everything ready?",
     description: "Whether this experiment is ready, and the next useful thing to do.",
     group: "Experiment",
   },
   {
     id: "water",
     label: "Watering",
-    hint: "Targets and experiment state",
     description: "Start or stop the experiment and see the target each group is held to. You choose the targets; calibration only measures how each pot responds.",
     group: "Experiment",
   },
   {
     id: "pairings",
     label: "Pairings",
-    hint: "Which valve waters which pot",
     description: "Which valve waters which pot, and the target, pulse, and check interval each pot runs with.",
     group: "Set up",
   },
   {
     id: "autocalibrate",
     label: "Autocalibrate",
-    hint: "Check the hoses automatically",
     description: "Pulses one valve at a time and watches every sensor to find out which valve waters which pot. Nothing changes until you review it.",
     group: "Set up",
   },
   {
     id: "calibrations",
     label: "Sensor calibration",
-    hint: "Match a sensor to a reference",
     description: "Fit a sensor's raw signal to reference water-content measurements.",
     group: "Set up",
   },
   {
     id: "groups",
     label: "Groups",
-    hint: "Organize pots",
     description: "Plant groups used for targets, charts, and exports.",
     group: "Set up",
   },
   {
     id: "exports",
     label: "Exports",
-    hint: "Download readings and settings",
     description: "Download readings and configuration files.",
     group: "Data",
   },
   {
     id: "hardware",
     label: "Hardware",
-    hint: "Sensors, valves, and boards",
     description: "The sensors and valve outputs this installation reports. Identity comes from the hardware; labels come from people.",
     group: "Advanced",
   },
@@ -3580,7 +3571,6 @@ function PortalSettingsPanel({
                     >
                       <span>
                         <strong>{item.label}</strong>
-                        <em>{item.hint}</em>
                       </span>
                     </button>
                 ))}
