@@ -16,11 +16,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
-  Cpu,
   Download,
-  Droplets,
-  FileArchive,
-  Gauge,
   Loader2,
   Lock,
   LogOut,
@@ -37,10 +33,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Trash2,
-  Users,
-  Waypoints,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { supabase } from "./supabase";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
@@ -312,7 +305,6 @@ type SettingsNavItem = {
   description: string;
   hint: string;
   group: "Experiment" | "Set up" | "Data" | "Advanced";
-  icon: LucideIcon;
 };
 
 type BoardConfig = {
@@ -580,7 +572,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Is everything ready?",
     description: "Whether this experiment is ready, and the next useful thing to do.",
     group: "Experiment",
-    icon: Gauge,
   },
   {
     id: "water",
@@ -588,7 +579,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Targets and experiment state",
     description: "Start or stop the experiment and see the target each group is held to. You choose the targets; calibration only measures how each pot responds.",
     group: "Experiment",
-    icon: Droplets,
   },
   {
     id: "pairings",
@@ -596,7 +586,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Which valve waters which pot",
     description: "Which valve waters which pot, and the target, pulse, and check interval each pot runs with.",
     group: "Set up",
-    icon: Waypoints,
   },
   {
     id: "autocalibrate",
@@ -604,7 +593,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Check the hoses automatically",
     description: "Pulses one valve at a time and watches every sensor to find out which valve waters which pot. Nothing changes until you review it.",
     group: "Set up",
-    icon: Radar,
   },
   {
     id: "calibrations",
@@ -612,7 +600,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Match a sensor to a reference",
     description: "Fit a sensor's raw signal to reference water-content measurements.",
     group: "Set up",
-    icon: Activity,
   },
   {
     id: "groups",
@@ -620,7 +607,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Organize pots",
     description: "Plant groups used for targets, charts, and exports.",
     group: "Set up",
-    icon: Users,
   },
   {
     id: "exports",
@@ -628,7 +614,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Download readings and settings",
     description: "Download readings and configuration files.",
     group: "Data",
-    icon: FileArchive,
   },
   {
     id: "hardware",
@@ -636,7 +621,6 @@ const settingsNavItems: SettingsNavItem[] = [
     hint: "Sensors, valves, and boards",
     description: "The sensors and valve outputs this installation reports. Identity comes from the hardware; labels come from people.",
     group: "Advanced",
-    icon: Cpu,
   },
 ];
 
@@ -2778,7 +2762,6 @@ function PortalSettingsPanel({
           </section>
           <div className="settings-readiness-grid">
             <ReadinessTile
-              icon={Gauge}
               title="Experiment"
               tone={!presence.controllerState ? "unknown" : controllerIsLive ? (presence.controllerState === "Running" ? "ok" : "warning") : "unknown"}
               status={presence.controllerState ? `${presence.controllerState}${lastKnown}` : "Not reported"}
@@ -2788,7 +2771,6 @@ function PortalSettingsPanel({
               ]}
             />
             <ReadinessTile
-              icon={Droplets}
               title="Watering"
               tone={sensingOnly ? "info" : wateringEnabled == null || !controllerIsLive ? "unknown" : wateringEnabled ? "ok" : "warning"}
               status={sensingOnly ? "Sensing only" : wateringEnabled == null ? "Not reported" : `${wateringEnabled ? "Automatic" : "Off"}${lastKnown}`}
@@ -2799,7 +2781,6 @@ function PortalSettingsPanel({
               onAction={() => onSectionChange("water")}
             />
             <ReadinessTile
-              icon={Activity}
               title="Sensors"
               tone={!controllerIsLive || missingSensors == null ? "unknown" : missingSensors === 0 ? "ok" : "warning"}
               status={sensorsReporting ? `${sensorsReporting} reporting${lastKnown}` : "Not reported"}
@@ -2810,7 +2791,6 @@ function PortalSettingsPanel({
               onAction={() => onSectionChange("calibrations")}
             />
             <ReadinessTile
-              icon={Waypoints}
               title="Pairings"
               tone={pairings.length ? "info" : "warning"}
               status={pairings.length ? `${pairings.length} paired` : "None yet"}
@@ -3590,9 +3570,7 @@ function PortalSettingsPanel({
             {availableSettingsNavGroups.map((group) => (
               <div className="settings-sidebar-group" key={group.label}>
                 <p className="settings-sidebar-group-label">{group.label}</p>
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
+                {group.items.map((item) => (
                     <button
                       key={item.id}
                       type="button"
@@ -3600,14 +3578,12 @@ function PortalSettingsPanel({
                       aria-current={item.id === activeItem.id ? "page" : undefined}
                       onClick={() => selectSection(item.id)}
                     >
-                      <Icon size={17} aria-hidden="true" />
                       <span>
                         <strong>{item.label}</strong>
                         <em>{item.hint}</em>
                       </span>
                     </button>
-                  );
-                })}
+                ))}
               </div>
             ))}
           </nav>
@@ -3631,9 +3607,6 @@ function PortalSettingsPanel({
             </div>
             <div className="settings-content-actions">
               <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip>
-              <button type="button" className="settings-close-button" onClick={onClose} aria-label="Close settings">
-                <X size={18} aria-hidden="true" />
-              </button>
             </div>
           </header>
           <div className="settings-section-body">

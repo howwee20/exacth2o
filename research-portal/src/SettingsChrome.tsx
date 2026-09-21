@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, CircleHelp, Copy, Info, WifiOff, XCircle, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, CircleHelp, Copy, Info, WifiOff, XCircle } from "lucide-react";
 import { middleEllipsis, type ControllerPresence, type StatusTone } from "./settingsPresentation";
 import "./settingsChrome.css";
 
@@ -72,7 +72,6 @@ export function QueuedChangeNote({ presence }: { presence: ControllerPresence })
 }
 
 export function ReadinessTile({
-  icon: Icon,
   title,
   tone,
   status,
@@ -80,7 +79,6 @@ export function ReadinessTile({
   actionLabel,
   onAction,
 }: {
-  icon: LucideIcon;
   title: string;
   tone: StatusTone;
   status: string;
@@ -91,7 +89,6 @@ export function ReadinessTile({
   return (
     <section className="settings-readiness-tile">
       <header>
-        <span className="settings-readiness-icon" aria-hidden="true"><Icon size={18} /></span>
         <h3>{title}</h3>
         <StatusChip tone={tone}>{status}</StatusChip>
       </header>

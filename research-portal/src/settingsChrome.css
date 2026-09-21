@@ -13,13 +13,13 @@
 .settings-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
   background: #f1f5f9;
   color: #475569;
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -240,7 +240,7 @@
 }
 
 .settings-next-step.is-ok { border-left-color: #16a34a; }
-.settings-next-step.is-info { border-left-color: #2563eb; }
+.settings-next-step.is-info { border-left-color: var(--settings-action); }
 .settings-next-step.is-warning { border-left-color: #d97706; }
 
 .settings-next-step-eyebrow {
@@ -297,18 +297,6 @@
   gap: 12px;
 }
 
-.settings-readiness-icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 1px solid rgba(14, 26, 20, 0.08);
-  border-radius: 6px;
-  background: #f4f7fb;
-  color: #2563eb;
-}
-
 .settings-readiness-tile h3 {
   min-width: 0;
   flex: 1 1 auto;
@@ -325,9 +313,9 @@
 }
 
 .settings-readiness-tile dl > div {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.85fr);
   align-items: baseline;
-  justify-content: space-between;
   gap: 16px;
   padding: 9px 0;
   border-top: 1px solid rgba(14, 26, 20, 0.08);
@@ -343,6 +331,7 @@
   margin: 0;
   color: #253244;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
@@ -354,14 +343,14 @@
   padding: 4px 0;
   border: 0;
   background: transparent;
-  color: #2563eb;
+  color: var(--settings-action);
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
 }
 
 .settings-text-action:hover {
-  color: #1d4ed8;
+  color: var(--settings-action-hover);
   text-decoration: underline;
 }
 
