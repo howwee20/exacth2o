@@ -9,7 +9,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><
 // "DEMO" sits directly under the ExactH2O logo on every screen. The logo link is a clipped fixed-size
 // box, so the mark is a positioned sibling in the header rather than a child of the link. Headers
 // re-render between sign-in and the dashboard, so the mark is re-applied whenever the document changes.
-function place(mark:HTMLElement,logo:HTMLElement){mark.style.left=logo.offsetLeft+'px';mark.style.top=(logo.offsetTop+logo.offsetHeight+3)+'px';}
+function place(mark:HTMLElement,logo:HTMLElement){mark.style.left=(logo.offsetLeft+logo.offsetWidth/2)+'px';mark.style.top=(logo.offsetTop+logo.offsetHeight+3)+'px';}
 function markLogos(){
  for(const logo of document.querySelectorAll<HTMLElement>('.portal-logo,.dashboard-logo')){
   const header=logo.parentElement;if(!header)continue;
