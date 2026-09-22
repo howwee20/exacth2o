@@ -115,6 +115,7 @@ jobs:
         run: |
           npm run check --prefix research-portal
           node research-portal/node_modules/vite/bin/vite.js build --config applications-preview/vite.config.mjs
+          node research-portal/node_modules/vite/bin/vite.js build --config demo-preview/vite.config.mjs
           generated_changes="$(git status --porcelain --untracked-files=all -- portal-app portal.html)"
           if [ -n "$generated_changes" ]; then
             printf '%s\n' "$generated_changes"
@@ -148,7 +149,7 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist/portal-app/assets
 
-          cp site-navigation.js site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html exacth2o-logo.jpeg site-dist/
+          cp site-navigation.js site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp team-*-20260913.webp team-binod-20260915.png site-dist/
           cp hero-greenhouse-*-20260913.webp site-dist/
@@ -160,6 +161,7 @@ jobs:
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
 
           cp -R applications-demo-app site-dist/
+          cp -R demo-app site-dist/
 
           cp portal-app/assets/* site-dist/portal-app/assets/
           cp portal-app/gas-mixer-agent.py portal-app/pi-agent-update.sh site-dist/portal-app/

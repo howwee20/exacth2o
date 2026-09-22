@@ -173,6 +173,10 @@ const wateringOverlayMaxSampleSpanMs = 30 * 60 * 1000;
 const importedPrefix = "balena-export-v2:%";
 const livePrefix = "live-device:%";
 const rememberEmailKey = "exacth2o.portal.rememberEmail";
+// The shared demo account lives in the sample-data portal at /demo. Its sign-in is handed over
+// there without contacting Supabase, so the demo never touches real accounts or data.
+const demoAccountEmail = "demo@exacth2o.com";
+const demoHandoffKey = "exacth2o.portal.demoHandoff";
 type ViewMode = "group" | "traces" | "individual" | "qc";
 type ExperimentGraphMode = "vwc" | "watering" | "overlay";
 
@@ -6712,6 +6716,14 @@ export default function App() {
 
   async function signIn(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    if (
+      email.trim().toLowerCase() === demoAccountEmail &&
+      !window.location.pathname.startsWith("/demo")
+    ) {
+      window.sessionStorage.setItem(demoHandoffKey, JSON.stringify({ email: email.trim().toLowerCase(), password }));
+      window.location.assign("/demo");
+      return;
+    }
     setLoading(true);
     setError(null);
     setLoginError(null);
