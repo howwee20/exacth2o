@@ -1,2 +1,2 @@
-.demo-account-badge{position:fixed;right:16px;bottom:16px;z-index:60;padding:9px 13px;border-radius:999px;background:#1f3a2e;color:#e6f2ea;font:500 12px/1 "Instrument Sans",system-ui,sans-serif;letter-spacing:.02em;box-shadow:0 6px 20px rgba(0,0,0,.18);pointer-events:none}
-.demo-account-badge[hidden]{display:none}
+.portal-logo:has(.demo-account-mark),.dashboard-logo:has(.demo-account-mark){display:inline-flex;flex-direction:column;align-items:flex-start;gap:3px}
+.demo-account-mark{display:block;padding-left:2px;font:600 11px/1 "DM Mono","SFMono-Regular",Menlo,monospace;letter-spacing:.26em;text-transform:uppercase;color:#b9dcc7}

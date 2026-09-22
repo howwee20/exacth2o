@@ -20,9 +20,5 @@ export default defineConfig({root,base:'/demo-app/',publicDir:false,resolve:{ali
  for(const [start,end,text] of edits.sort((a,b)=>b[0]-a[0]))code=code.slice(0,start)+text+code.slice(end);
  code=code.replace('<h1 className="experiment-view-title">Walker Pi 5</h1>','<h1 className="experiment-view-title">Experiment 3</h1>');
  code=code.replace('nextSnapshot.sensors.map((sensor) => sensor.source_sensor_id)','nextSnapshot.sensors.filter((_, index) => index % 16 === 0).map((sensor) => sensor.source_sensor_id)');
- const palette=['#356c94','#487f75','#8b785b','#6c7196','#568598','#8b6673'];
- const color=(key)=>JSON.stringify(palette)+'[Math.floor(('+key+'-1)/16)%6]';
- const start=code.indexOf('function walkerChartSeries('),end=code.indexOf('function controlCommandLabel(',start);
- code=code.slice(0,start)+code.slice(start,end).replace('colorForPotNumber(potNumber)',color('potNumber')).replace('colorForPotNumber(colorSeed)',color('colorSeed'))+code.slice(end);
  return 'import {fixture} from '+JSON.stringify(path.join(root,'fixtures.ts'))+';\nimport {demoSession} from '+JSON.stringify(path.join(root,'offline.ts'))+';\n'+code;
  }},react()],build:{outDir:path.join(repo,'demo-app'),emptyOutDir:true,rollupOptions:{output:{entryFileNames:'assets/demo.js',assetFileNames:'assets/[name][extname]'}}}});
