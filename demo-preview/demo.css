@@ -1,2 +1,1 @@
-.portal-logo:has(.demo-account-mark),.dashboard-logo:has(.demo-account-mark){display:inline-flex;flex-direction:column;align-items:flex-start;gap:3px}
-.demo-account-mark{display:block;padding-left:2px;font:600 11px/1 "DM Mono","SFMono-Regular",Menlo,monospace;letter-spacing:.26em;text-transform:uppercase;color:#b9dcc7}
+.demo-account-mark{position:absolute;z-index:3;pointer-events:none;font:600 11px/1 "DM Mono","SFMono-Regular",Menlo,monospace;letter-spacing:.26em;text-transform:uppercase;color:#b9dcc7}
