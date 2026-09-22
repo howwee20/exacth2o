@@ -25,7 +25,7 @@ class DemoChannel{handlers:{table:string,handler:Handler}[]=[];timer:ReturnType<
  close(){channels.delete(this);if(this.timer)clearInterval(this.timer);this.timer=null;this.handlers=[];}
 }
 const success=(data:unknown)=>Promise.resolve({data,error:null});
-const unavailable=()=>Promise.resolve({data:null,error:{message:'The demo account can monitor only. Changes need a connected installation.'}});
+const unavailable=()=>Promise.resolve({data:null,error:{message:'This action is unavailable in this session.'}});
 const lighting={project_id:"sample",device_id:"sample",bridge_ready:true,bridge_version:"sample",state_revision:1,requested_intensity:134,controller_intensity:134,last_nonzero_intensity:134,last_source:"portal",hardware_verification:"unavailable",controller_process_started_at:new Date().toISOString(),remote_control_allowed:true,last_command:null};
 export const supabase={
  // Explicit read allowlist. Every command/function call is denied, including simulated controls.
