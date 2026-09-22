@@ -3,3 +3,21 @@
 /* Reuse production cards, vertical experiment stack, and animated health connectors. */
 .portal-launch-grid{grid-template-columns:minmax(0,392px);width:100%}
 .portal-business-stack,.portal-new-experiment-action,.portal-experiment-edit-button{display:none}
+
+/* The same quiet white-to-tint wash as Experiment 1, with distinct study colors. */
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-card {
+  border-color: rgba(4, 120, 87, 0.2);
+  background: linear-gradient(145deg, #ffffff, #f0fdf8);
+}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-icon {
+  background: #f0fdf8;
+  color: #047857;
+}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-card {
+  border-color: rgba(124, 58, 237, 0.18);
+  background: linear-gradient(145deg, #ffffff, #f7f3ff);
+}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-icon {
+  background: #f7f3ff;
+  color: #8055b4;
+}
