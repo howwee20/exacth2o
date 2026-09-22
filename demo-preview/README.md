@@ -6,10 +6,12 @@ The shared demo account for prospective customers. Same production App and CSS a
 - Tiles: Experiment 1 (running, controller-managed watering), Experiment 2 (completed), Experiment 3 (sensing-only observation) and System Health. Every tile opens the production detail view.
 - Live feel: the live-readings subscription is kept and `offline.ts` feeds it a new reading per pot every 30 seconds; levels drift and managed pots receive irrigation pulses at their target. Every write action answers "The demo account can monitor only."
 
-Build from the repository root (CI does the same and publishes `demo-app/` plus `demo.html`):
+Build from the repository root (CI does the same, fails if `demo.html` is not stamped for the committed build, and publishes `demo-app/` plus `demo.html`):
 
 ```sh
-node research-portal/node_modules/vite/bin/vite.js build --config demo-preview/vite.config.mjs
+node demo-preview/build.mjs
 ```
+
+The script builds `demo-app/` and stamps the asset URLs in `demo.html` with the bundle hash, so a deploy is never served stale from browser or CDN caches. Commit both.
 
 Verify locally with `python3 -m http.server` from the repository root and open `/demo.html`.

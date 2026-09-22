@@ -115,7 +115,13 @@ jobs:
         run: |
           npm run check --prefix research-portal
           node research-portal/node_modules/vite/bin/vite.js build --config applications-preview/vite.config.mjs
-          node research-portal/node_modules/vite/bin/vite.js build --config demo-preview/vite.config.mjs
+          node demo-preview/build.mjs
+          demo_changes="$(git status --porcelain -- demo.html)"
+          if [ -n "$demo_changes" ]; then
+            printf '%s\n' "$demo_changes"
+            echo 'demo.html is not stamped for the committed demo-app build; run node demo-preview/build.mjs and commit.'
+            exit 1
+          fi
           generated_changes="$(git status --porcelain --untracked-files=all -- portal-app portal.html)"
           if [ -n "$generated_changes" ]; then
             printf '%s\n' "$generated_changes"
