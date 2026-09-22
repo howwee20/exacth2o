@@ -1,19 +1,5 @@
 .demo-account-mark{position:absolute;z-index:3;pointer-events:none;transform:translateX(-50%);font:600 10px/1 "DM Mono","SFMono-Regular",Menlo,monospace;letter-spacing:.2em;text-transform:uppercase;color:#b9dcc7;text-align:center}
-/* All three experiments share one controller, with continuous connectors to its health tile. */
-.portal-launch-grid{grid-template-columns:minmax(0,1120px);width:100%}
+
+/* Reuse production cards, vertical experiment stack, and animated health connectors. */
+.portal-launch-grid{grid-template-columns:minmax(0,392px);width:100%}
 .portal-business-stack,.portal-new-experiment-action,.portal-experiment-edit-button{display:none}
-.portal-experiment-stack{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
-.portal-experiment-column .portal-experiment-stack::before{top:auto;bottom:-25px;left:calc((100% - 48px)/6);right:calc((100% - 48px)/6);width:auto;height:2px;background:#7aa48d;animation:none}
-.portal-experiment-column .portal-launch-card.is-experiment::before{top:100%;left:50%;right:auto;width:2px;height:25px;background:#7aa48d;animation:none}
-.portal-health-link{height:56px}
-.portal-health-link-arm{display:none}
-.portal-health-link-drop{top:24px;bottom:0;background:#7aa48d;animation:none}
-.portal-launch-card.is-health{justify-self:center;width:min(100%,320px)}
-.portal-admin-main{width:100%}
-@media(max-width:760px){
- .portal-experiment-stack{grid-template-columns:1fr;gap:24px}
- .portal-experiment-column .portal-experiment-stack::before{display:none}
- .portal-health-link{height:32px}
- .portal-health-link-drop{top:0}
-}
-.portal-launch-card-shell > .portal-launch-card{height:100%}
