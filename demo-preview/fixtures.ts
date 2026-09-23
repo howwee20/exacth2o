@@ -1,10 +1,13 @@
 // Fictional demonstration data. Irrigation timestamps and moisture responses share one model.
 import {fixture as base,experiments as baseExperiments,walkerSnapshot,mixer,sampleProfile} from '../applications-preview/fixtures';
 export {walkerSnapshot,mixer,sampleProfile};
-const now=Date.now(), step=5*60000, start=now-72*3600000;
+const now=Date.now(), step=5*60000;
+const durationDays:Record<string,number>={'experiment-1':14,'experiment-2':7,'experiment-3':3};
+const experimentStart=(id:string)=>now-durationDays[id]*86400000;
+const start=experimentStart('experiment-1');
 const one=baseExperiments.find(e=>e.id==='experiment-1')!,two=baseExperiments.find(e=>e.id==='experiment-2')!;
 const three={...two,id:'experiment-3',name:'Experiment 3',count:24,groupNames:['experiment-3'],pairingNames:Array.from({length:24},(_,i)=>`Pot ${101+i}`),assignments:two.assignments.map((a,i)=>({...a,pairing_name:`Pot ${101+i}`,pot_number:101+i}))};
-export const experiments=[one,two,three].map((e,i)=>({...e,mode:'controlled',status:'active',wateringState:'controller_managed',startedAt:new Date(start-86400000).toISOString(),shortDescription:['Drought study · control and deficit irrigation','Recovery study · repeated irrigation cycles','Crop comparison · sensor-guided watering'][i]}));
+export const experiments=[one,two,three].map((e,i)=>({...e,mode:'controlled',status:'active',wateringState:'controller_managed',startedAt:new Date(experimentStart(e.id)).toISOString(),shortDescription:['14-day drought study · control and deficit irrigation','7-day recovery study · repeated irrigation cycles','3-day crop comparison · sensor-guided watering'][i]}));
 const pairings=experiments.flatMap(e=>e.assignments.map(a=>({id:a.pot_number,name:a.pairing_name,zone:a.zone,pot_number:a.pot_number,group_name:e.id,source_sensor_id:a.pot_number,sensor_key:`sample:${a.pot_number}`,source_valve_id:a.pot_number,valve_key:`sample-valve:${a.pot_number}`,wtc_percent_limit:a.target_vwc_percent,valve_open_time_ms:2000+(a.pot_number%4)*500,measurement_interval_ms:step,calibration_name:'Demo substrate calibration'})));
 // Each pot has independent substrate capacity, uptake, irrigation lag, and sensor drift.
 // This is synthetic data only; the same state machine continues in the browser live feed.
@@ -23,12 +26,13 @@ export function nextDemoSample(p:any,atMs:number){
   s.lag=.08+random(s)*.42;
   s.level=(p.group_name==='experiment-2'?31:p.wtc_percent_limit+3)+s.offset+random(s)*4;
   s.threshold=p.wtc_percent_limit+s.offset;
-  s.recoveryHour=36+random(s)*14;
+  s.recoveryHour=(36+random(s)*14)*durationDays[p.group_name]/3;
+  if(p.group_name==='experiment-1'&&s.drought)s.uptake*=3/durationDays[p.group_name];
   s.minInterval=1.2+random(s)*4;
   s.weatherPhase=random(s)*6.28;
   states.set(p.id,s);
  }
- const hours=Math.max(0,(atMs-s.last)/3600000),elapsed=(atMs-start)/3600000;
+ const hours=Math.max(0,(atMs-s.last)/3600000),elapsed=(atMs-experimentStart(p.group_name))/3600000;
  const hour=new Date(atMs).getHours()+new Date(atMs).getMinutes()/60;
  const daylight=Math.max(0,Math.sin((hour-6)/12*Math.PI));
  const weather=.8+.28*Math.sin(elapsed/11+s.weatherPhase)+.16*Math.sin(elapsed/3.7+s.weatherPhase);
@@ -38,7 +42,7 @@ export function nextDemoSample(p:any,atMs:number){
  s.pending-=absorbed;s.level+=absorbed;
  const drainage=s.drain*(1-Math.exp(-hours/1.8));s.drain-=drainage;s.level-=drainage;
  let enabled=true,threshold=s.threshold,gain=s.gain;
- if(p.group_name==='experiment-1'&&s.drought){enabled=elapsed<14;}
+ if(p.group_name==='experiment-1'&&s.drought){enabled=elapsed<14*durationDays[p.group_name]/3;}
  if(p.group_name==='experiment-2'){
   // Distinct dry-down followed by staggered recovery, then maintenance irrigation.
   enabled=elapsed>s.recoveryHour;
@@ -65,7 +69,7 @@ export function nextDemoSample(p:any,atMs:number){
  return {reading,event};
 }
 const readings:any[]=[],valveEvents:any[]=[];
-for(const p of pairings)for(let at=start;at<=now;at+=step){
+for(const p of pairings)for(let at=experimentStart(p.group_name);at<=now;at+=step){
  const sample=nextDemoSample(p,at);readings.push(sample.reading);if(sample.event)valveEvents.push(sample.event);
 }
 readings.sort((a,b)=>a.device_recorded_at.localeCompare(b.device_recorded_at));
