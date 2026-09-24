@@ -6,12 +6,6 @@ import path from 'node:path';
 const root=path.dirname(new URL(import.meta.url).pathname),repo=path.dirname(root);
 export default defineConfig({root,base:'/applications-demo-app/',publicDir:false,resolve:{alias:[{find:/^\.\/supabase$/,replacement:path.join(root,'offline.ts')},{find:/^react(.*)$/,replacement:path.join(repo,'research-portal/node_modules/react$1')},{find:/^react-dom(.*)$/,replacement:path.join(repo,'research-portal/node_modules/react-dom$1')},{find:/^lucide-react$/,replacement:path.join(repo,'research-portal/node_modules/lucide-react')}],dedupe:['react','react-dom']},plugins:[{
  name:'offline-portal-data',enforce:'pre',transform(code,id){
- if(id===path.join(repo,'research-portal/src/potColors.ts'))return `// Preview palette: distinct, restrained traces with matching sensor swatches.
- export function colorForPotNumber(potNumber:number){
- const n=Number.isFinite(potNumber)?Math.trunc(potNumber):0;
- const hue=((n*137.50776405)%360+360)%360;
- return 'hsl('+hue.toFixed(1)+' 52% '+(34+Math.abs(n)%3*5)+'%)';
- }`;
  if(id===path.join(repo,'research-portal/src/experimentPresentation.ts'))return code.replace('const groups = new Map<string, PortalExperimentAssignment[]>();',`if (experiment?.id === 'experiment-1' || experiment?.id === 'experiment-2') {
  const buckets = experiment.id === 'experiment-1' ? ['all'] : ['control', 'drought'];
  return buckets.map(treatment => {
