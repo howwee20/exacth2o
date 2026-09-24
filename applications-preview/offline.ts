@@ -1,4 +1,5 @@
-import {fixture,walkerSnapshot,mixer} from './fixtures';
+import {walkerSnapshot,mixer} from './fixtures';
+import {fixture} from './portalFixtures';
 const success=(data:unknown)=>Promise.resolve({data,error:null});
 const unavailable=()=>Promise.resolve({data:null,error:{message:'This action requires a connected installation. The website uses sample data.'}});
 const lighting={project_id:"sample",device_id:"sample",bridge_ready:true,bridge_version:"sample",state_revision:1,requested_intensity:134,controller_intensity:134,last_nonzero_intensity:134,last_source:"portal",hardware_verification:"unavailable",controller_process_started_at:new Date().toISOString(),remote_control_allowed:true,last_command:null};

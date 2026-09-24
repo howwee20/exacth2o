@@ -32,3 +32,24 @@ body:has(.is-experiment-overview){overflow:hidden}
 .experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel{position:static!important;display:block!important;min-height:0;height:100%;max-height:100%;overflow:auto;width:auto!important}
 .experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel > * + *{margin-top:14px}
 .experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel .pot-group-head{margin-bottom:6px}
+
+/* Match the demo's quiet experiment colors and readable sensor controls. */
+.portal-experiment-edit-button{display:none}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-card{border-color:rgba(4,120,87,.2);background:linear-gradient(145deg,#fff,#f0fdf8)}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-icon{background:#f0fdf8;color:#047857}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-card{border-color:rgba(124,58,237,.18);background:linear-gradient(145deg,#fff,#f7f3ff)}
+.portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-icon{background:#f7f3ff;color:#8055b4}
+.experiment-graph-grid:has(> :nth-child(2):last-child){grid-template-rows:minmax(0,1fr)}
+.experiment-shell .pot-group > div:last-child{display:grid;grid-template-columns:1fr;gap:6px}
+.experiment-shell .pot-toggle{min-height:40px;border:1px solid #dce3df;border-radius:9px;box-shadow:none;padding:8px 10px}
+.experiment-shell .pot-toggle:not(.is-on){opacity:.5}
+.experiment-shell .pot-reading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex:1;font-variant-numeric:tabular-nums}
+.experiment-shell .pot-reading b{font-weight:500}
+.experiment-shell .color-dot{width:10px;height:10px;flex-shrink:0}
+.experiment-shell .control-panel{border-color:#dce3df;box-shadow:none}
+@media(max-width:600px){
+ .experiment-shell .dashboard-main:not(.is-experiment-overview){grid-template-columns:minmax(0,1fr)!important;height:auto;}
+ .experiment-shell .dashboard-main:not(.is-experiment-overview) .chart-card{height:430px}
+ .experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel{max-height:300px}
+ .experiment-shell .pot-group > div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
