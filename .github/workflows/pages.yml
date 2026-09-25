@@ -1,4 +1,4 @@
-name: Deploy exactH2O portal
+name: Publish exactH2O website
 
 on:
   push:
@@ -13,7 +13,44 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      website_only: ${{ steps.scope.outputs.website_only }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check deployment routing
+        run: node --test scripts/website-change-scope.test.mjs
+
+      - name: Identify website-only changes
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_sha=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base_sha="$PR_BASE_SHA"
+          elif [ "$EVENT_NAME" = "push" ]; then
+            # Compare with the last successful deployment, not merely the last
+            # push: an earlier failed software change must not bypass checks.
+            base_sha="$(gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?branch=ej-supabase-research-portal&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)"
+          fi
+          node scripts/website-change-scope.mjs "$base_sha" "$HEAD_SHA"
+
   validate:
+    needs: changes
+    if: needs.changes.outputs.website_only != 'true'
     concurrency:
       group: validate-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -129,8 +166,13 @@ jobs:
           fi
 
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/ej-supabase-research-portal'
-    needs: validate
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request'
+          && github.ref == 'refs/heads/ej-supabase-research-portal'
+          && needs.changes.result == 'success'
+          && (needs.validate.result == 'success'
+              || (needs.changes.outputs.website_only == 'true' && needs.validate.result == 'skipped')) }}
+    needs: [changes, validate]
     permissions:
       contents: read
       pages: write
