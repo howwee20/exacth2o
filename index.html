@@ -815,7 +815,8 @@ footer .footer-logo { flex: none; width: 126px; }
       if (document.hidden) video.pause();
     }).catch(() => {}).finally(() => { playPending = false; });
   };
-  video.addEventListener('error', () => { video.load(); });
+  let reloaded = false;
+  video.addEventListener('error', () => { if (!reloaded) { reloaded = true; video.load(); } });
   video.addEventListener('canplay', syncVideo);
   video.addEventListener('ended', syncVideo);
   document.addEventListener('visibilitychange', syncVideo);
