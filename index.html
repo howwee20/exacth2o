@@ -138,7 +138,6 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
  .cinema-button { min-width: 180px; }
  .cinema-photo img { object-position: var(--mobile-position, 50% 50%); }
 }
-@media(prefers-reduced-motion:reduce) { .cinema-photo,nav { transition: none; } }
 
 .btn-primary {
   background: var(--water); color: #fff; padding: 0.85rem 2rem;
@@ -389,11 +388,6 @@ footer a:hover { color: var(--accent); }
   }
   footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .feature-artifact,.feature-image-preview,.feature-image-preview img { transition: none; }
-  .artifact-network-path,.artifact-trace,.artifact-flow-trace { animation: none; }
-  .artifact-trace { stroke-dashoffset: 0; }
-}
 
 /* Shared blue calls to action. */
 .nav-cta, .cta-strip .btn-primary { background: #2563eb; color: #fff; }
@@ -418,16 +412,8 @@ footer .footer-logo { flex: none; width: 126px; }
 /* Portrait video beside the published research. */
 .strip-header { grid-template-columns: minmax(0,1fr) minmax(0,1.35fr) minmax(160px,210px); gap: 2rem; align-items: center; }
 .research-video { position: relative; width: 100%; max-width: 210px; margin: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--bg-dark); }
-.research-video video, .research-video-still { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; filter: brightness(.77) contrast(1.08); }
+.research-video video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; filter: brightness(.77) contrast(1.08); }
 .research-video video { display: block; }
-.research-video-still { display: none; }
-.media-playback { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 3; padding: .65rem 1rem; border: 1px solid #fff; border-radius: 4px; background: #163d32; color: #fff; font: inherit; font-size: .85rem; cursor: pointer; white-space: nowrap; }
-.media-playback[hidden] { display: none; }
-.media-playback:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-@media (prefers-reduced-motion: reduce) {
-  .research-video:not(.motion-enabled) video { display: none; }
-  .research-video:not(.motion-enabled) .research-video-still { display: block; }
-}
 @media (max-width: 900px) {
   .strip-header { grid-template-columns: minmax(0,1fr) 180px; gap: 1.75rem; }
   .strip-header > div:first-child { grid-column: 1 / -1; }
@@ -494,7 +480,6 @@ footer .footer-logo { flex: none; width: 126px; }
 <!-- HOMEPAGE OPENING -->
 <section class="cinema-hero" aria-labelledby="cinema-title" aria-roledescription="carousel" aria-label="ExactH2O equipment photographs">
   <div class="cinema-photos" id="cinema-photos">
-    <button class="media-playback" id="slideshowPlayback" type="button" aria-controls="cinema-photos" hidden>Play slideshow</button>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="1 of 11: Greenhouse installation" aria-hidden="true">
       <img src="product1.avif" alt="ExactH2O controllers connected to individually irrigated research pots in a greenhouse" width="1600" height="1200" decoding="async" onerror="this.onerror=null;this.src='product1.jpg'" style="--desktop-position: 50% 55%; --mobile-position: 63% 50%;">
     </div>
@@ -562,11 +547,9 @@ footer .footer-logo { flex: none; width: 126px; }
       <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study</a>
     </aside>
     <figure class="research-video" aria-label="ExactH2O greenhouse installation video">
-      <img class="research-video-still" src="/research-video-poster-20260913.jpg" alt="Research pots with ExactH2O sensors and irrigation lines">
       <video id="researchVideo" muted loop playsinline preload="metadata" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
         <source src="/research-video-20260913.mp4" type="video/mp4">
       </video>
-      <button class="media-playback" id="videoPlayback" type="button" aria-controls="researchVideo" hidden>Play video</button>
     </figure>
     </div>
 
@@ -702,12 +685,9 @@ footer .footer-logo { flex: none; width: 126px; }
 
   // Keep media initialization independent of the decorative page effects.
   (() => {
-  // Reduced-motion visitors can explicitly opt into the slideshow.
   const cinema = document.querySelector('.cinema-hero');
   const photos = [...document.querySelectorAll('.cinema-photo')];
-  const slideshowButton = document.getElementById('slideshowPlayback');
-  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let photoIndex = photos.findIndex(photo => photo.classList.contains('is-active')), rotationTimer = null, rotationPaused = motion.matches, cinemaVisible = true;
+  let photoIndex = photos.findIndex(photo => photo.classList.contains('is-active')), rotationTimer = null, cinemaVisible = true;
   function showPhotograph(index) {
     photoIndex = (index + photos.length) % photos.length;
     photos.forEach((photo, i) => {
@@ -717,20 +697,14 @@ footer .footer-logo { flex: none; width: 126px; }
   }
   function syncRotation() {
     clearInterval(rotationTimer);
-    slideshowButton.hidden = !motion.matches;
-    slideshowButton.textContent = rotationPaused ? 'Play slideshow' : 'Pause slideshow';
-    const contentFocused = cinema.contains(document.activeElement) && document.activeElement !== slideshowButton;
-    if (!rotationPaused && cinemaVisible && !document.hidden && !contentFocused) {
+    const contentFocused = cinema.contains(document.activeElement);
+    if (cinemaVisible && !document.hidden && !contentFocused) {
       rotationTimer = setInterval(() => showPhotograph(photoIndex + 1), 7000);
     }
   }
   cinema.addEventListener('focusin', syncRotation);
   cinema.addEventListener('focusout', () => setTimeout(syncRotation, 0));
   document.addEventListener('visibilitychange', syncRotation);
-  slideshowButton.addEventListener('click', () => { rotationPaused = !rotationPaused; syncRotation(); });
-  const onMotionChange = () => { rotationPaused = motion.matches; syncRotation(); };
-  if (motion.addEventListener) motion.addEventListener('change', onMotionChange);
-  else motion.addListener(onMotionChange);
   window.addEventListener('pageshow', syncRotation);
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([entry]) => { cinemaVisible = entry.isIntersecting; syncRotation(); }).observe(cinema);
@@ -828,55 +802,20 @@ footer .footer-logo { flex: none; width: 126px; }
 <script>
 (() => {
   const video = document.getElementById('researchVideo');
-  const button = document.getElementById('videoPlayback');
-  const frame = video.closest('.research-video');
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let manualPlayback = false;
   let playPending = false;
-  const shouldPlay = () => (!reducedMotion.matches || manualPlayback) && !document.hidden;
-  const updateButton = () => {
-    button.hidden = !reducedMotion.matches && !video.paused;
-    button.textContent = video.paused ? 'Play video' : 'Pause video';
-  };
   const syncVideo = () => {
-    frame.classList.toggle('motion-enabled', manualPlayback);
     video.muted = true;
     video.defaultMuted = true;
     video.loop = true;
-    video.autoplay = !reducedMotion.matches || manualPlayback;
-    if (!shouldPlay()) {
-      video.pause();
-      updateButton();
-      return;
-    }
+    video.autoplay = true;
+    if (document.hidden) { video.pause(); return; }
     if (playPending || !video.paused) return;
     playPending = true;
-    // A blocked autoplay must leave an actual user-gesture play option.
     Promise.resolve(video.play()).then(() => {
-      if (!shouldPlay()) video.pause();
-    }).catch(() => {
-      button.hidden = false;
-    }).finally(() => {
-      playPending = false;
-      updateButton();
-    });
+      if (document.hidden) video.pause();
+    }).catch(() => {}).finally(() => { playPending = false; });
   };
-  button.addEventListener('click', () => {
-    if (reducedMotion.matches && manualPlayback && !video.paused) {
-      manualPlayback = false;
-      syncVideo();
-    } else {
-      manualPlayback = true;
-      if (video.error) video.load();
-      syncVideo();
-    }
-  });
-  const onMotionChange = () => { manualPlayback = false; syncVideo(); };
-  if (reducedMotion.addEventListener) reducedMotion.addEventListener('change', onMotionChange);
-  else reducedMotion.addListener(onMotionChange);
-  video.addEventListener('playing', updateButton);
-  video.addEventListener('pause', updateButton);
-  video.addEventListener('error', updateButton);
+  video.addEventListener('error', () => { video.load(); });
   video.addEventListener('canplay', syncVideo);
   video.addEventListener('ended', syncVideo);
   document.addEventListener('visibilitychange', syncVideo);

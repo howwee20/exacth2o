@@ -4,7 +4,6 @@
   const surface = logo?.querySelector('.brand-water-level');
   const water = logo?.querySelector('[clip-path="url(#brand-water-fill)"]');
   if (!surface || !water) return;
-  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const empty = 'M600 250H1040V260H600Z';
   let height = 0, velocity = 0, frame = 0, previous = 0, started = 0;
   let inputFrame = 0, pending = 0, inputAt = -Infinity;
@@ -25,21 +24,13 @@
     if (document.hidden || !atBottom()) { settle(); return; }
     const dt = Math.min((now - previous) / 1000, .04);
     previous = now;
-    if (motion.matches) {
-      // Preserve feedback without moving the waterline for reduced-motion users.
-      const t = (now - started) / 500;
-      if (t >= 1) { settle(); return; }
-      surface.setAttribute('d', 'M600 0H1040V260H600Z');
-      water.style.opacity = String(Math.sin(Math.PI * t) * .7);
-    } else {
-      velocity -= 3.4 * dt;
-      height += velocity * dt;
-      if (height >= 1) { height = 1; velocity = Math.min(velocity, 0); }
-      if (height <= 0) { settle(); return; }
-      const y = 218 - height * 205;
-      const ripple = Math.sin((now - started) / 110) * 10 * Math.sin(Math.PI * height);
-      surface.setAttribute('d', `M600 ${y} Q660 ${y-8-ripple} 710 ${y} T820 ${y} T930 ${y} T1040 ${y} V260 H600Z`);
-    }
+    velocity -= 3.4 * dt;
+    height += velocity * dt;
+    if (height >= 1) { height = 1; velocity = Math.min(velocity, 0); }
+    if (height <= 0) { settle(); return; }
+    const y = 218 - height * 205;
+    const ripple = Math.sin((now - started) / 110) * 10 * Math.sin(Math.PI * height);
+    surface.setAttribute('d', `M600 ${y} Q660 ${y-8-ripple} 710 ${y} T820 ${y} T930 ${y} T1040 ${y} V260 H600Z`);
     frame = requestAnimationFrame(draw);
   }
   function flushInput(now) {
@@ -94,6 +85,4 @@
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) settle(); });
   window.addEventListener('pageshow', () => { lastScroll = window.scrollY; scrollAt = performance.now(); });
-  if (motion.addEventListener) motion.addEventListener('change', settle);
-  else if (motion.addListener) motion.addListener(settle);
 })();

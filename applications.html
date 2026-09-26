@@ -389,12 +389,6 @@
     white-space: nowrap;
     border: 0;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .experiment-visual.has-motion .trace-end {
-      opacity: 1;
-      transition: none;
-    }
-  }
 
   /* ── SECTION BASE ── */
   section { padding: 6rem 4rem; }
@@ -742,7 +736,6 @@
   .application-flow-lines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: hidden; }
   .application-flow-lines path { fill: none; stroke: #78a99a; stroke-width: 1.5; stroke-dasharray: 5 5; stroke-linecap: round; stroke-linejoin: round; animation: application-flow 1.2s linear infinite; }
   @keyframes application-flow { to { stroke-dashoffset: -20; } }
-  @media (prefers-reduced-motion: reduce) { .application-flow-lines path { animation: none; } }
 
 /* Compact footer with clear visual hierarchy. */
 footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
@@ -1070,12 +1063,11 @@ footer .footer-logo { flex: none; width: 126px; }
 
 
 
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const experimentVisuals = document.querySelectorAll('.experiment-visual');
 
   function animateExperiment(target) {
     const wipe = target.querySelector('.experiment-wipe');
-    if (!wipe || prefersReducedMotion) {
+    if (!wipe) {
       if (wipe) wipe.setAttribute('width', '660');
       return;
     }
@@ -1326,7 +1318,7 @@ footer .footer-logo { flex: none; width: 126px; }
     el.classList.add('has-motion');
     setupInteractiveExperiment(el);
     const wipe = el.querySelector('.experiment-wipe');
-    if (wipe && !prefersReducedMotion) wipe.setAttribute('width', '0');
+    if (wipe) wipe.setAttribute('width', '0');
   });
 
   const revealEls = document.querySelectorAll('.reveal, .experiment-visual');
