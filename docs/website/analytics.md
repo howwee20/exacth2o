@@ -57,8 +57,10 @@ It has RLS enabled, no anon/authenticated grants, and service-role access only.
 An atomic database refresh lease prevents concurrent edge instances from
 repeatedly querying PostHog. Successful results cache for five minutes; failures
 have a one-minute retry delay and return labeled stale data when available.
-The portal refreshes at most once per minute while visible, and links to the
-private PostHog dashboard. No public dashboard-sharing link is created.
+The portal refreshes at most once per minute while visible. The admin tile opens
+a native Web Analytics view inside ExactH2O with a daily visitor graph, weekly
+visitor and action counts, daily count table, and browser exclusion control.
+Navigation uses the same portal view state and Home button as other admin tiles.
 
 ## Build and deployment
 
@@ -73,6 +75,6 @@ no controller deployment is needed.
 Keep the PostHog account on its free plan without a payment method; collection
 is capped by the provider's free allowance rather than incurring overages.
 The Supabase summary uses existing project infrastructure. Institution/network
-identification, in-portal detail pages, and interactions inside the sandboxed
+identification and interactions inside the sandboxed
 demo are outside this release. Network ownership would only be a possible
 institution signal, not proof of a specific visitor or a qualified lead.

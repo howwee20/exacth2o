@@ -231,7 +231,7 @@ type WateringOverlayTooltip = WateringOverlayMarker & {
 
 type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 type AuthMode = "sign-in" | "accept-invite" | "set-password";
-type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber";
+type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber" | "analytics";
 
 type PortalAccess = {
   role: PortalRole;
@@ -3739,6 +3739,7 @@ function PortalAdminHome({
   onOpenSupport,
   onOpenWalker,
   onOpenChamber,
+  onOpenAnalytics,
 }: {
   data: LoadState;
   healthSnapshot: DeviceHealthSnapshot | null;
@@ -3753,6 +3754,7 @@ function PortalAdminHome({
   onOpenSupport: () => void;
   onOpenWalker: () => void;
   onOpenChamber: () => void;
+  onOpenAnalytics: () => void;
 }) {
   const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
   const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
@@ -3834,7 +3836,7 @@ function PortalAdminHome({
           </button>
           </div>
           <div className="portal-compact-row">
-            <WebsiteAnalyticsTile />
+            <WebsiteAnalyticsTile onOpen={onOpenAnalytics} />
           </div>
         </div>
       </div>
@@ -7926,6 +7928,7 @@ export default function App() {
           onOpenSupport={() => setPortalView("support")}
           onOpenWalker={() => setPortalView("walker")}
           onOpenChamber={() => setPortalView("chamber")}
+          onOpenAnalytics={() => setPortalView("analytics")}
         />
         {experimentCatalogError ? (
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
@@ -8014,6 +8017,10 @@ export default function App() {
         />
       </main>
     );
+  }
+
+  if (isAdmin && portalView === "analytics") {
+    return <main className="dashboard-shell portal-admin-shell">{portalHeader}<WebsiteAnalyticsTile onBack={() => setPortalView("home")} /></main>;
   }
 
   if (isAdmin && portalView === "health") {

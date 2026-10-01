@@ -8324,3 +8324,24 @@ select {
 .website-metrics-empty { display: grid; place-content: center; flex: 1; min-height: 76px; font-size: .78rem; color: #526e64; }
 .website-metrics-exclusion { align-self: flex-start; border: 0; border-bottom: 1px dotted #77968a; padding: 0; background: transparent; color: #526e64; font: inherit; font-size: .58rem; cursor: pointer; text-align: left; }
 .website-metrics-link:focus-visible, .website-metrics-exclusion:focus-visible { outline: 2px solid #167567; outline-offset: 3px; border-radius: 3px; }
+
+/* Native website analytics workspace. */
+button.website-metrics-link { border: 0; padding: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.website-analytics-period, .website-analytics-panel-heading > span { font-size: .8rem; color: #526e64; }
+.website-analytics-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.website-analytics-stats article, .website-analytics-panel { background: #fff; border: 1px solid #dce5df; border-radius: 16px; padding: 24px; }
+.website-analytics-stats p { margin: 0 0 12px; color: #526e64; }
+.website-analytics-stats strong { display: block; font-size: 2.5rem; line-height: 1.1; color: #253d35; }
+.website-analytics-stats small { display: block; margin-top: 12px; color: #526e64; line-height: 1.5; }
+.website-analytics-panel { margin-bottom: 20px; }
+.website-analytics-panel h2 { font-size: 1.05rem; margin: 0; }
+.website-analytics-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.website-analytics-full-chart { display: block; width: 100%; height: auto; margin-top: 24px; color: #17744f; }
+.website-analytics-full-chart text { font-family: inherit; font-size: 12px; fill: #526e64; }
+.website-analytics-note, .website-analytics-preferences p { color: #526e64; font-size: .85rem; line-height: 1.6; }
+.website-analytics-panel details { margin-top: 20px; font-size: .85rem; }
+.website-analytics-panel summary { cursor: pointer; color: #17744f; }
+.website-analytics-panel table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.website-analytics-panel th, .website-analytics-panel td { text-align: left; padding: 10px; border-bottom: 1px solid #e7ece8; }
+.website-analytics-preferences .website-metrics-exclusion { font-size: .85rem; padding: 6px 0; }
+@media (max-width: 760px) { .website-analytics-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .website-analytics-stats article, .website-analytics-panel { padding: 16px; } .website-analytics-page .support-hero { flex-wrap: wrap; gap: 12px; } }
