@@ -9,9 +9,8 @@ Applications iframe retain their network-disabled policies.
 ## Launch status
 
 PostHog project: `638703` (US), organization ExactH2O, free plan without a card.
-The proxy exists but is waiting for the Namecheap CNAME. Until it is Live, capture
-uses `https://us.i.posthog.com` so collection can start immediately. Change
-`apiHost` to `https://e.exacth2o.com` and rebuild/publish when DNS and TLS are ready.
+The managed proxy at `https://e.exacth2o.com` is Live, with its Namecheap CNAME
+and TLS certificate provisioned. Website capture routes through this hostname.
 
 ## Public capture
 
