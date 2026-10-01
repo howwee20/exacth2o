@@ -102,6 +102,7 @@ import {
 import {
   loadPortalExperimentCatalog,
 } from "./experimentClient";
+import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import { WalkerAdminTile } from "./WalkerObservationView";
 import {
   ChamberControlAdminTile,
@@ -3831,6 +3832,9 @@ function PortalAdminHome({
               Open <ArrowRight size={14} />
             </span>
           </button>
+          </div>
+          <div className="portal-compact-row">
+            <WebsiteAnalyticsTile />
           </div>
         </div>
       </div>

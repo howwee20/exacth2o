@@ -8301,3 +8301,26 @@ select {
     transition: none;
   }
 }
+
+/* Analytics keeps the compact tile footprint, including when it sits alone. */
+.portal-compact-row > .is-website-analytics:only-child { grid-column: auto; }
+.portal-compact-row > .is-website-analytics {
+  color: #167567;
+  background: linear-gradient(145deg, #f6fbf9, #eaf5f0);
+  border-color: #cfdfd8;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.website-metrics-link { display: flex; flex-direction: column; gap: 5px; flex: 1; color: inherit; text-decoration: none; min-width: 0; }
+.website-metrics-heading, .website-metrics-counts, .website-metrics-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.website-metrics-heading .portal-launch-title { color: #253d35; }
+.website-metrics-counts { flex-wrap: wrap; font-size: .70rem; line-height: 1.3; }
+.website-metrics-counts b { font-size: 1.16rem; font-weight: 650; letter-spacing: -.025em; }
+.website-metrics-actions { font-size: .66rem; color: #526e64; }
+.website-metrics-chart { width: 100%; height: 40px; overflow: visible; }
+.website-metrics-footer { font-size: .60rem; color: #526e64; }
+.website-metrics-footer > span:last-child { display: inline-flex; align-items: center; gap: 2px; }
+.website-metrics-empty { display: grid; place-content: center; flex: 1; min-height: 76px; font-size: .78rem; color: #526e64; }
+.website-metrics-exclusion { align-self: flex-start; border: 0; border-bottom: 1px dotted #77968a; padding: 0; background: transparent; color: #526e64; font: inherit; font-size: .58rem; cursor: pointer; text-align: left; }
+.website-metrics-link:focus-visible, .website-metrics-exclusion:focus-visible { outline: 2px solid #167567; outline-offset: 3px; border-radius: 3px; }

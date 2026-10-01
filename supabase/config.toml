@@ -47,3 +47,6 @@ verify_jwt = true
 
 [functions.lighting-native-agent]
 verify_jwt = false
+
+[functions.website-analytics]
+verify_jwt = true

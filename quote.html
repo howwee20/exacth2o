@@ -204,6 +204,7 @@ footer .footer-logo { flex: none; width: 126px; }
 <script src="/site-navigation.js" defer></script>
 <link rel="stylesheet" href="/site-brand-footer.css?v=20260916">
 <script src="/site-brand-footer.js?v=20260916" defer></script>
+<script src="/site-metrics.js" defer></script>
 </head>
 <body>
 
@@ -462,6 +463,7 @@ footer .footer-logo { flex: none; width: 126px; }
       if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
         successMsg.textContent = 'Quote request received. We will follow up shortly.';
+        document.dispatchEvent(new Event('exacth2o:quote-submitted'));
         this.reset();
         btn.textContent = 'Sent';
         focusNotice(successMsg);

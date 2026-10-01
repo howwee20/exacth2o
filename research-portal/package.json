@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build && node scripts/sync-portal-preloads.mjs && node scripts/sync-gas-mixer-agent.mjs && node scripts/sync-gas-mixer-native-bridge.mjs",
+    "build": "tsc -b && vite build && node scripts/sync-portal-preloads.mjs && node scripts/sync-gas-mixer-agent.mjs && node scripts/sync-gas-mixer-native-bridge.mjs && node scripts/build-website-metrics.mjs",
     "audit:portal-surface": "node scripts/audit-portal-surface.mjs",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint src --max-warnings=0",
@@ -16,6 +16,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.86.2",
     "lucide-react": "^0.468.0",
+    "posthog-js": "1.435.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
