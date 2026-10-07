@@ -5,7 +5,7 @@ const ts=createRequire(import.meta.url)('../research-portal/node_modules/typescr
 import path from 'node:path';
 import {replaceRequired} from './transform-helpers.mjs';
 const root=path.dirname(new URL(import.meta.url).pathname),repo=path.dirname(root);
-export default defineConfig({root,base:'/applications-demo-app/',publicDir:false,resolve:{alias:[{find:/^\.\/supabase$/,replacement:path.join(root,'offline.ts')},{find:/^react(.*)$/,replacement:path.join(repo,'research-portal/node_modules/react$1')},{find:/^react-dom(.*)$/,replacement:path.join(repo,'research-portal/node_modules/react-dom$1')},{find:/^lucide-react$/,replacement:path.join(repo,'research-portal/node_modules/lucide-react')}],dedupe:['react','react-dom']},plugins:[{
+export default defineConfig({root,base:'/applications-demo-app/',publicDir:false,resolve:{alias:[{find:/^\.\/supabase$/,replacement:path.join(root,'offline.ts')},{find:/^\.\.?\/pageClock$/,replacement:path.join(root,'pageClock.ts')},{find:/^react(.*)$/,replacement:path.join(repo,'research-portal/node_modules/react$1')},{find:/^react-dom(.*)$/,replacement:path.join(repo,'research-portal/node_modules/react-dom$1')},{find:/^lucide-react$/,replacement:path.join(repo,'research-portal/node_modules/lucide-react')}],dedupe:['react','react-dom']},plugins:[{
  name:'offline-portal-data',enforce:'pre',transform(code,id){
  if(id===path.join(repo,'research-portal/src/experimentPresentation.ts'))return replaceRequired(code,'const groups = new Map<string, PortalExperimentAssignment[]>();',`if (experiment?.id === 'experiment-1' || experiment?.id === 'experiment-2') {
  const buckets = experiment.id === 'experiment-1' ? ['all'] : ['control', 'drought'];

@@ -71,7 +71,9 @@ export function nextDemoSample(p:any,atMs:number){
  const drift=.11*Math.sin(elapsed/(4+p.id%7)+s.weatherPhase);
  const value=Number(Math.max(7,Math.min(49,s.level+s.noise+drift)).toFixed(2));
  const at=new Date(atMs).toISOString();s.last=atMs;s.count++;
- const reading={id:p.id*10000000+s.count,event_id:`demo-reading:${p.id}:${s.count}`,organization_id:'sample',project_id:'sample',device_id:'sample',pairing_name:p.name,sensor_key:p.sensor_key,raw_value:value,calibrated_value:value,temperature:Number((21+6*daylight+s.offset*.2).toFixed(1)),electrical_conductivity:Number((.65+(40-value)*.012).toFixed(2)),device_recorded_at:at,server_received_at:at};
+ // "live-device:" marks controller readings; the portal's live view ignores any other realtime rows,
+ // so without it the browser feed would be dropped and the demo would turn Delayed, then Stale.
+ const reading={id:p.id*10000000+s.count,event_id:`live-device:demo-reading:${p.id}:${s.count}`,organization_id:'sample',project_id:'sample',device_id:'sample',pairing_name:p.name,sensor_key:p.sensor_key,raw_value:value,calibrated_value:value,temperature:Number((21+6*daylight+s.offset*.2).toFixed(1)),electrical_conductivity:Number((.65+(40-value)*.012).toFixed(2)),device_recorded_at:at,server_received_at:at};
  return {reading,event};
 }
 const readings:any[]=[],valveEvents:any[]=[];
