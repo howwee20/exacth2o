@@ -53,3 +53,14 @@ body:has(.is-experiment-overview){overflow:hidden}
  .experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel{max-height:300px}
  .experiment-shell .pot-group > div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Sample-data label: always visible inside the public demonstration. */
+.demo-sample-badge{position:fixed;left:12px;top:10px;z-index:30;padding:3px 9px;border:1px solid #d6ddd9;border-radius:999px;background:rgba(255,255,255,.94);color:#475569;font:500 11px/1.4 "DM Mono",monospace;letter-spacing:.03em;pointer-events:none}
+/* Measurement status fits the embedded frame on one compact line. */
+.experiment-shell .measurement-status{margin:0 0 6px;padding:5px 10px;gap:4px 10px;font-size:.74rem}
+.experiment-shell .measurement-status-checked{font-size:.68rem}
+.experiment-shell:has(.is-experiment-overview) .measurement-status{flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+.experiment-shell:has(.is-experiment-overview) .measurement-status-checked{display:none}
+.experiment-shell .dashboard-main.is-experiment-overview{height:calc(100svh - 142px)}
+.experiment-shell .dashboard-main:not(.is-experiment-overview){height:max(430px,calc(100vh - 190px))}
+.graph-card-facts{font-size:clamp(9px,1.45vw,11.5px)}
