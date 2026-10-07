@@ -168,6 +168,12 @@ export function resolveEffectiveMode(mode: DataMode, hasLiveReadings: boolean): 
   return mode;
 }
 
+function recordedAtMs(reading: SensorReading) {
+  const value = Date.parse(reading.device_recorded_at);
+  return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+}
+
+/** Newest first, de-duplicated by event ID (later input wins), capped at the read limit. */
 export function dedupeReadings(readings: SensorReading[]) {
   const byKey = new Map<string, SensorReading>();
   for (const reading of readings) {
@@ -175,13 +181,14 @@ export function dedupeReadings(readings: SensorReading[]) {
     byKey.set(reading.event_id || String(reading.id), reading);
   }
 
-  return Array.from(byKey.values())
-    .sort(
-      (a, b) =>
-        new Date(b.device_recorded_at).getTime() -
-        new Date(a.device_recorded_at).getTime(),
-    )
-    .slice(0, rollingExperimentReadLimit);
+  // Parse each timestamp once; a comparator that parses dates costs O(n log n) parses
+  // and ran on every realtime insert across up to 50,000 rows.
+  const decorated = Array.from(byKey.values(), (reading) => ({ reading, at: recordedAtMs(reading) }));
+  decorated.sort((a, b) => (b.at === a.at ? 0 : b.at > a.at ? 1 : -1));
+  const limit = Math.min(decorated.length, rollingExperimentReadLimit);
+  const result = new Array<SensorReading>(limit);
+  for (let index = 0; index < limit; index += 1) result[index] = decorated[index].reading;
+  return result;
 }
 
 export function mergeReadings(base: SensorReading[], incoming: SensorReading[]) {
@@ -198,10 +205,16 @@ export function mergeRollingExperimentReadings(
   nowMs = Date.now(),
 ) {
   const cutoffMs = nowMs - rollingExperimentHistoryMs;
-  return mergeReadings(base, incoming).filter((reading) => {
-    const recordedAtMs = Date.parse(reading.device_recorded_at);
-    return Number.isFinite(recordedAtMs) && recordedAtMs >= cutoffMs;
-  });
+  const merged = mergeReadings(base, incoming);
+  // Sorted newest first: everything after the first reading older than the window is older too.
+  let end = merged.length;
+  for (let index = 0; index < merged.length; index += 1) {
+    if (!(recordedAtMs(merged[index]) >= cutoffMs)) {
+      end = index;
+      break;
+    }
+  }
+  return end === merged.length ? merged : merged.slice(0, end);
 }
 
 export function booleanMarker(
