@@ -115,13 +115,13 @@ nav {
 .cinema-photo.is-active { opacity: 1; }
 .cinema-photo img { width: 100%; height: 100%; object-fit: cover; object-position: var(--desktop-position, 50% 50%); }
 .cinema-content { position: relative; grid-column: 1; grid-row: 1; min-width: 0; z-index: 2; height: auto; padding: 4rem clamp(1.5rem,4vw,4rem); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; isolation: isolate; overflow: hidden; background: var(--bg-dark); }
-.cinema-title { font-family: var(--serif); font-size: clamp(3.5rem,5vw,5.8rem); line-height: 1.0; font-weight: 400; letter-spacing: -.02em; max-width: 14ch; }
+.cinema-title { font-family: var(--serif); font-size: clamp(3.5rem,5vw,5.8rem); line-height: 1.0; font-weight: 400; letter-spacing: -.02em; max-width: 7.03em; /* = 14ch in DM Serif Display; em keeps the fallback font wrapping identically */ }
 .cinema-title em { font-style: italic; color: #7bc3b4; }
 .cinema-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.5rem; width: 100%; max-width: 580px; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,.25); }
 .cinema-stats div { display: flex; flex-direction: column; gap: .5rem; }
 .cinema-stats dt { order: 2; font-family: var(--mono); font-size: .75rem; line-height: 1.5; letter-spacing: .04em; text-transform: uppercase; color: #fff; }
 .cinema-stats dd { font-family: var(--serif); font-size: 2rem; line-height: 1.1; color: #fff; }
-.cinema-copy { max-width: 43ch; font-size: 1.0625rem; line-height: 1.65; color: #fff; margin-top: 1.4rem; }
+.cinema-copy { max-width: 28.64em; /* = 43ch in Instrument Sans */ font-size: 1.0625rem; line-height: 1.65; color: #fff; margin-top: 1.4rem; }
 .cinema-actions { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; margin-top: 2rem; }
 .cinema-button { display: inline-flex; justify-content: center; align-items: center; min-height: 56px; min-width: 200px; padding: 1rem 1.7rem; border: 1px solid #fff; font-size: .875rem; font-weight: 600; text-transform: uppercase; text-decoration: none; color: #fff; transition: color .2s,background .2s; }
 .cinema-button:hover { background: #fff; color: #080b09; }
@@ -139,7 +139,7 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
  .cinema-stats { gap: 1rem; }
  .cinema-stats dd { font-size: 1.7rem; }
  .cinema-title { font-size: clamp(3.1rem,10vw,4.7rem); }
- .cinema-copy { font-size: 1rem; max-width: 36ch; }
+ .cinema-copy { font-size: 1rem; max-width: 23.98em; /* = 36ch in Instrument Sans */ }
  .cinema-actions { gap: 1.3rem; margin-top: 1.5rem; }
  .cinema-button { min-width: 180px; }
  .cinema-photo img { object-position: var(--mobile-position, 50% 50%); }
@@ -871,12 +871,13 @@ footer .footer-logo { flex: none; width: 126px; }
   video.addEventListener('ended', syncVideo);
   document.addEventListener('visibilitychange', syncVideo);
   window.addEventListener('pageshow', syncVideo);
-  // The 4 MB video starts loading only as it approaches the viewport; the poster shows until then.
+  // The 4 MB video starts loading only once part of it is on screen; the poster shows until then.
+  // (Just below the fold on desktop, so a margin here would load it on every visit.)
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([entry]) => {
       nearViewport = entry.isIntersecting;
       if (nearViewport) syncVideo(); else video.pause();
-    }, { rootMargin: '300px 0px' }).observe(video);
+    }, { threshold: 0.1 }).observe(video);
   } else {
     nearViewport = true;
     syncVideo();

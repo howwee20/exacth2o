@@ -349,7 +349,7 @@ function PortalAdminHome({
             <span className="portal-launch-copy">
               <span className="portal-launch-title">System Health</span>
               <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
-              <em>Updated {formatSettingsTimestamp(healthUpdated)}</em>
+              <em>{healthUpdated ? `Snapshot ${formatMeasurementTime(healthUpdated)}` : "No health snapshot yet"}</em>
             </span>
             <span className="portal-launch-action">
               Open <ArrowRight size={14} />
