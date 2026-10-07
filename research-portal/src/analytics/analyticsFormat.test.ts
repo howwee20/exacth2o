@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { campaignUrl, formatChange, formatRange, formatShare, rateVital, shareNote, toCsv, utmValue } from "./analyticsFormat";
+import { campaignUrl, countLabel, formatChange, formatRange, formatShare, rateVital, shareNote, toCsv, utmValue } from "./analyticsFormat";
 
 describe("analytics formatting", () => {
   it("shows counts beside percentages and flags small denominators", () => {
@@ -41,5 +41,13 @@ describe("analytics formatting", () => {
       .toBe("https://exacth2o.com/applications?utm_source=newsletter&utm_medium=email&utm_campaign=fall-trials");
     expect(campaignUrl({ page: "https://evil.example/", source: "x", medium: "", campaign: "" }))
       .toBe("https://exacth2o.com/?utm_source=x");
+  });
+});
+
+describe("countLabel", () => {
+  it("uses the singular for exactly one", () => {
+    expect(countLabel(1, "failed attempt")).toBe("1 failed attempt");
+    expect(countLabel(3, "failed attempt")).toBe("3 failed attempts");
+    expect(countLabel(0, "message")).toBe("0 messages");
   });
 });

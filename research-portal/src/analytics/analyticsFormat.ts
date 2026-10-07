@@ -10,6 +10,11 @@ export const smallSampleThreshold = 20;
 export const minPercentileSamples = 5;
 export const collectionStartDate = "2026-10-01";
 
+/** "1 failed attempt", "3 failed attempts". */
+export function countLabel(value: number | null | undefined, singular: string, plural = `${singular}s`) {
+  return `${formatCount(value)} ${value === 1 ? singular : plural}`;
+}
+
 export function formatCount(value: number | null | undefined) {
   return value == null || !Number.isFinite(value) ? "—" : Math.round(value).toLocaleString("en-US");
 }

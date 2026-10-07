@@ -15,6 +15,7 @@ import {
   campaignPages,
   campaignUrl,
   collectionStartDate,
+  countLabel,
   formatCount,
   formatDay,
   formatMs,
@@ -429,8 +430,8 @@ function QuoteView({ range, device }: { range: AnalyticsRange; device: Analytics
                 { key: "accepted", label: "Server accepted the request", sessions: steps.submitted.count },
               ]} />
               <div className="analytics-routes">
-                <article><p>Sessions with a validation message</p><strong>{formatCount(steps.validationFailed.count)}</strong><small>{formatCount(steps.validationFailed.events)} messages shown</small></article>
-                <article><p>Submissions that failed</p><strong>{formatCount(steps.submitFailed.count)}</strong><small>{formatCount(steps.submitFailed.events)} failed attempts</small></article>
+                <article><p>Sessions with a validation message</p><strong>{formatCount(steps.validationFailed.count)}</strong><small>{countLabel(steps.validationFailed.events, "message")} shown</small></article>
+                <article><p>Submissions that failed</p><strong>{formatCount(steps.submitFailed.count)}</strong><small>{countLabel(steps.submitFailed.events, "failed attempt")}</small></article>
                 <article className="is-emphasis">
                   <p>Accepted inquiries (server records)</p>
                   <strong>{accepted ? formatCount(accepted.current) : "—"}</strong>
