@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 async function firstPartyBundle() {
   const directory = resolve("../portal-app/assets");
   const files = (await readdir(directory)).filter((name) => name.endsWith(".js") && !name.includes("-vendor-"));
-  if (!files.includes("portal.js")) throw new Error("Portal entry bundle is missing.");
+  if (!files.some((name) => /^portal-[A-Za-z0-9_-]+\.js$/.test(name))) throw new Error("Portal entry bundle is missing.");
   return (await Promise.all(files.map((name) => readFile(join(directory, name), "utf8")))).join("\n");
 }
 
