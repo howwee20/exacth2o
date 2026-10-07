@@ -2,7 +2,17 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, ChartNoAxesCombined } from "lucide-react";
 import { supabase } from "./supabase";
 
-const exclusionKey = "exacth2o.analytics.excluded";
+// Shared with the public tracker (site-metrics.js); see the note there on the v2 key.
+const exclusionKey = "exacth2o.analytics.excluded.v2";
+
+/** Only the signed-in, top-level portal may exclude a browser by default, never an embedded or demo copy. */
+function isAdminPortalWindow() {
+  try {
+    return window.self === window.top && /^\/portal(?:\.html)?(?:\/|$)/.test(window.location.pathname);
+  } catch {
+    return false;
+  }
+}
 type Summary = {
   status: "ready" | "setup" | "collecting" | "unavailable";
   dashboardUrl: string | null;
@@ -24,7 +34,7 @@ export function WebsiteAnalyticsTile({ onOpen, onBack }: { onOpen?: () => void; 
   const [preferenceError, setPreferenceError] = useState(false);
   useEffect(() => {
     // Admins default to excluded, with an explicit per-browser override for checking collection.
-    try { if (localStorage.getItem(exclusionKey) === null) localStorage.setItem(exclusionKey, "1"); }
+    try { if (isAdminPortalWindow() && localStorage.getItem(exclusionKey) === null) localStorage.setItem(exclusionKey, "1"); }
     catch { setPreferenceError(true); }
     let active = true;
     let pending = false;
