@@ -29,6 +29,7 @@ import {
 import { GasMixerNativeControl } from "./GasMixerNativeControl";
 import { LightingNativeControl } from "./LightingNativeControl";
 import { ChamberSchedules } from "./ChamberSchedules";
+import { scheduleVisiblePolling } from "./visiblePolling";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -48,29 +49,32 @@ function useGasMixerStatus() {
 
   useEffect(() => {
     let active = true;
-    const refresh = () => {
-      loadGasMixerRemoteStatus()
-        .then((nextStatus) => {
-          if (!active) return;
-          setStatus(nextStatus);
-          setDenied(false);
-          setFailed(false);
-        })
-        .catch((error: { code?: string; message?: string }) => {
-          if (!active) return;
-          setDenied(gasMixerAccessDenied(error));
-          setFailed(!gasMixerAccessDenied(error));
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-    };
+    let stop = () => {};
+    const refresh = () => loadGasMixerRemoteStatus()
+      .then((nextStatus) => {
+        if (!active) return;
+        setStatus(nextStatus);
+        setDenied(false);
+        setFailed(false);
+      })
+      .catch((error: { code?: string; message?: string }) => {
+        if (!active) return;
+        const accessDenied = gasMixerAccessDenied(error);
+        setDenied(accessDenied);
+        setFailed(!accessDenied);
+        // Access does not change mid-session; it is checked again the next time this mounts.
+        if (accessDenied) stop();
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-    refresh();
-    const timer = window.setInterval(refresh, 15_000);
+    void refresh();
+    // Every 15 s while the tab is visible; paused while hidden, with one check on return.
+    stop = scheduleVisiblePolling(refresh, 15_000);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stop();
     };
   }, []);
 

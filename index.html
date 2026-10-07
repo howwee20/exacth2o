@@ -18,6 +18,12 @@
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+/* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
+   so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
+@font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
+</style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -32,9 +38,9 @@
   --mist: #e8e3d8;
   --rule: rgba(14,26,20,0.15);
   --card-bg: #ffffff;
-  --serif: 'DM Serif Display', serif;
-  --mono: 'DM Mono', monospace;
-  --sans: 'Instrument Sans', sans-serif;
+  --serif: 'DM Serif Display', Georgia, serif;
+  --mono: 'DM Mono', 'Courier New', monospace;
+  --sans: 'Instrument Sans', 'Instrument Sans Fallback', sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -109,13 +115,13 @@ nav {
 .cinema-photo.is-active { opacity: 1; }
 .cinema-photo img { width: 100%; height: 100%; object-fit: cover; object-position: var(--desktop-position, 50% 50%); }
 .cinema-content { position: relative; grid-column: 1; grid-row: 1; min-width: 0; z-index: 2; height: auto; padding: 4rem clamp(1.5rem,4vw,4rem); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; isolation: isolate; overflow: hidden; background: var(--bg-dark); }
-.cinema-title { font-family: var(--serif); font-size: clamp(3.5rem,5vw,5.8rem); line-height: 1.0; font-weight: 400; letter-spacing: -.02em; max-width: 14ch; }
+.cinema-title { font-family: var(--serif); font-size: clamp(3.5rem,5vw,5.8rem); line-height: 1.0; font-weight: 400; letter-spacing: -.02em; max-width: 7.03em; /* = 14ch in DM Serif Display; em keeps the fallback font wrapping identically */ }
 .cinema-title em { font-style: italic; color: #7bc3b4; }
 .cinema-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.5rem; width: 100%; max-width: 580px; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,.25); }
 .cinema-stats div { display: flex; flex-direction: column; gap: .5rem; }
 .cinema-stats dt { order: 2; font-family: var(--mono); font-size: .75rem; line-height: 1.5; letter-spacing: .04em; text-transform: uppercase; color: #fff; }
 .cinema-stats dd { font-family: var(--serif); font-size: 2rem; line-height: 1.1; color: #fff; }
-.cinema-copy { max-width: 43ch; font-size: 1.0625rem; line-height: 1.65; color: #fff; margin-top: 1.4rem; }
+.cinema-copy { max-width: 28.64em; /* = 43ch in Instrument Sans */ font-size: 1.0625rem; line-height: 1.65; color: #fff; margin-top: 1.4rem; }
 .cinema-actions { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; margin-top: 2rem; }
 .cinema-button { display: inline-flex; justify-content: center; align-items: center; min-height: 56px; min-width: 200px; padding: 1rem 1.7rem; border: 1px solid #fff; font-size: .875rem; font-weight: 600; text-transform: uppercase; text-decoration: none; color: #fff; transition: color .2s,background .2s; }
 .cinema-button:hover { background: #fff; color: #080b09; }
@@ -133,7 +139,7 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
  .cinema-stats { gap: 1rem; }
  .cinema-stats dd { font-size: 1.7rem; }
  .cinema-title { font-size: clamp(3.1rem,10vw,4.7rem); }
- .cinema-copy { font-size: 1rem; max-width: 36ch; }
+ .cinema-copy { font-size: 1rem; max-width: 23.98em; /* = 36ch in Instrument Sans */ }
  .cinema-actions { gap: 1.3rem; margin-top: 1.5rem; }
  .cinema-button { min-width: 180px; }
  .cinema-photo img { object-position: var(--mobile-position, 50% 50%); }
@@ -482,37 +488,37 @@ footer .footer-logo { flex: none; width: 126px; }
 <section class="cinema-hero" aria-labelledby="cinema-title" aria-roledescription="carousel" aria-label="ExactH2O equipment photographs">
   <div class="cinema-photos" id="cinema-photos">
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="1 of 11: Greenhouse installation" aria-hidden="true">
-      <img src="product1.avif" alt="ExactH2O controllers connected to individually irrigated research pots in a greenhouse" width="1600" height="1200" decoding="async" onerror="this.onerror=null;this.src='product1.jpg'" style="--desktop-position: 50% 55%; --mobile-position: 63% 50%;">
+      <img data-src="product1.avif" alt="ExactH2O controllers connected to individually irrigated research pots in a greenhouse" width="1600" height="1200" decoding="async" onerror="this.onerror=null;this.src='product1.jpg'" style="--desktop-position: 50% 55%; --mobile-position: 63% 50%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="2 of 11: Irrigation control hardware" aria-hidden="true">
-      <img src="product2.avif" alt="ExactH2O irrigation control hardware" width="1600" height="1200" decoding="async" onerror="this.onerror=null;this.src='product2.jpg'" style="--desktop-position: 65% 50%; --mobile-position: 65% 50%;">
+      <img data-src="product2.avif" alt="ExactH2O irrigation control hardware" width="1600" height="1200" decoding="async" onerror="this.onerror=null;this.src='product2.jpg'" style="--desktop-position: 65% 50%; --mobile-position: 65% 50%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="3 of 11: Sensors in the greenhouse" aria-hidden="true">
-      <img src="product3.avif" alt="Soil moisture sensing equipment installed in a research pot" width="1200" height="1600" decoding="async" onerror="this.onerror=null;this.src='product3.jpg'" style="--desktop-position: 50% 37%; --mobile-position: 58% 45%;">
+      <img data-src="product3.avif" alt="Soil moisture sensing equipment installed in a research pot" width="1200" height="1600" decoding="async" onerror="this.onerror=null;this.src='product3.jpg'" style="--desktop-position: 50% 37%; --mobile-position: 58% 45%;">
     </div>
     <div class="cinema-photo is-active" role="group" aria-roledescription="slide" aria-label="4 of 11">
-      <img src="hero-greenhouse-4209-20260913.webp" fetchpriority="high" alt="Overhead view of research pots with color-coded irrigation rings" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 57%; --mobile-position: 58% 55%;">
+      <img src="hero-greenhouse-4209-20260913.webp" srcset="hero-greenhouse-4209-1280w-20260913.webp 1280w, hero-greenhouse-4209-20260913.webp 2200w" sizes="(max-width: 900px) 100vw, 50vw" fetchpriority="high" alt="Overhead view of research pots with color-coded irrigation rings" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 57%; --mobile-position: 58% 55%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="5 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-4202-20260913.webp" alt="Rows of individually irrigated plants at different growth stages" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 66%; --mobile-position: 55% 55%;">
+      <img data-src="hero-greenhouse-4202-20260913.webp" data-srcset="hero-greenhouse-4202-1280w-20260913.webp 1280w, hero-greenhouse-4202-20260913.webp 1650w" sizes="(max-width: 900px) 100vw, 50vw" alt="Rows of individually irrigated plants at different growth stages" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 66%; --mobile-position: 55% 55%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="6 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-4201-20260913.webp" alt="Close view of a seedling, moisture sensor, and irrigation ring" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 34%; --mobile-position: 55% 45%;">
+      <img data-src="hero-greenhouse-4201-20260913.webp" data-srcset="hero-greenhouse-4201-1280w-20260913.webp 1280w, hero-greenhouse-4201-20260913.webp 1650w" sizes="(max-width: 900px) 100vw, 50vw" alt="Close view of a seedling, moisture sensor, and irrigation ring" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 34%; --mobile-position: 55% 45%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="7 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-3684-20260913.webp" alt="Irrigation valve manifold with color-coded tubing connected to research pots" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 24%; --mobile-position: 40% 42%;">
+      <img data-src="hero-greenhouse-3684-20260913.webp" data-srcset="hero-greenhouse-3684-1280w-20260913.webp 1280w, hero-greenhouse-3684-20260913.webp 1650w" sizes="(max-width: 900px) 100vw, 50vw" alt="Irrigation valve manifold with color-coded tubing connected to research pots" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 24%; --mobile-position: 40% 42%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="8 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-3565-20260913.webp" alt="Research pots and irrigation equipment beneath greenhouse grow lights" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 54%; --mobile-position: 52% 50%;">
+      <img data-src="hero-greenhouse-3565-20260913.webp" data-srcset="hero-greenhouse-3565-1280w-20260913.webp 1280w, hero-greenhouse-3565-20260913.webp 1650w" sizes="(max-width: 900px) 100vw, 50vw" alt="Research pots and irrigation equipment beneath greenhouse grow lights" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 54%; --mobile-position: 52% 50%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="9 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-4135-20260913.webp" alt="Tall green plants growing in individually irrigated pots inside the greenhouse" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 56%; --mobile-position: 52% 48%;">
+      <img data-src="hero-greenhouse-4135-20260913.webp" data-srcset="hero-greenhouse-4135-1280w-20260913.webp 1280w, hero-greenhouse-4135-20260913.webp 1650w" sizes="(max-width: 900px) 100vw, 50vw" alt="Tall green plants growing in individually irrigated pots inside the greenhouse" width="1650" height="2200" decoding="async" style="--desktop-position: 50% 56%; --mobile-position: 52% 48%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="10 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-3895-20260913.webp" alt="Greenhouse benches with young plants and sensor-equipped pots at different growth stages" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 58%; --mobile-position: 62% 50%;">
+      <img data-src="hero-greenhouse-3895-20260913.webp" data-srcset="hero-greenhouse-3895-1280w-20260913.webp 1280w, hero-greenhouse-3895-20260913.webp 2200w" sizes="(max-width: 900px) 100vw, 50vw" alt="Greenhouse benches with young plants and sensor-equipped pots at different growth stages" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 58%; --mobile-position: 62% 50%;">
     </div>
     <div class="cinema-photo" role="group" aria-roledescription="slide" aria-label="11 of 11" aria-hidden="true">
-      <img src="hero-greenhouse-3602-20260913.webp" alt="Potted grasses with moisture sensors, white irrigation rings, and color-coded tubing" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 45%; --mobile-position: 65% 45%;">
+      <img data-src="hero-greenhouse-3602-20260913.webp" data-srcset="hero-greenhouse-3602-1280w-20260913.webp 1280w, hero-greenhouse-3602-20260913.webp 2200w" sizes="(max-width: 900px) 100vw, 50vw" alt="Potted grasses with moisture sensors, white irrigation rings, and color-coded tubing" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 45%; --mobile-position: 65% 45%;">
     </div>
   </div>
   <div class="cinema-content">
@@ -548,7 +554,7 @@ footer .footer-logo { flex: none; width: 126px; }
       <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study</a>
     </aside>
     <figure class="research-video" aria-label="ExactH2O greenhouse installation video">
-      <video id="researchVideo" muted loop playsinline preload="metadata" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
+      <video id="researchVideo" muted loop playsinline preload="none" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
         <source src="/research-video-20260913.mp4" type="video/mp4">
       </video>
     </figure>
@@ -685,22 +691,62 @@ footer .footer-logo { flex: none; width: 126px; }
 <script>
 
   // Keep media initialization independent of the decorative page effects.
+  // Only the opening photograph loads with the page. Each following photograph is
+  // fetched and decoded before its slide becomes visible, so rotation never shows a
+  // half-loaded image and visitors who leave early never download the rest.
   (() => {
   const cinema = document.querySelector('.cinema-hero');
   const photos = [...document.querySelectorAll('.cinema-photo')];
   let photoIndex = photos.findIndex(photo => photo.classList.contains('is-active')), rotationTimer = null, cinemaVisible = true;
+  const ready = new Map();
+  function prepare(index) {
+    const photo = photos[(index + photos.length) % photos.length];
+    if (ready.has(photo)) return ready.get(photo);
+    const image = photo.querySelector('img');
+    if (image.dataset.srcset) image.srcset = image.dataset.srcset;
+    if (image.dataset.src) image.src = image.dataset.src;
+    delete image.dataset.src;
+    delete image.dataset.srcset;
+    const loaded = image.complete && image.naturalWidth
+      ? Promise.resolve(true)
+      : new Promise(resolve => {
+        let requested = image.src;
+        image.addEventListener('load', () => resolve(true), { once: true });
+        image.addEventListener('error', () => {
+          // A failed AVIF switches to its JPEG in the inline onerror handler; keep waiting for that.
+          if (image.src !== requested) { requested = image.src; return; }
+          resolve(false);
+        });
+      });
+    const decoded = loaded.then(ok => ok && image.decode ? image.decode().then(() => true, () => true) : ok);
+    ready.set(photo, decoded);
+    return decoded;
+  }
   function showPhotograph(index) {
     photoIndex = (index + photos.length) % photos.length;
     photos.forEach((photo, i) => {
       photo.classList.toggle('is-active', i === photoIndex);
       photo.setAttribute('aria-hidden', String(i !== photoIndex));
     });
+    // Warm the next photograph during this one's seven seconds.
+    void prepare(photoIndex + 1);
+  }
+  let advancing = false;
+  function advance() {
+    if (advancing) return;
+    advancing = true;
+    const next = photoIndex + 1;
+    prepare(next).then(ok => {
+      advancing = false;
+      if (ok) showPhotograph(next);
+      else { photoIndex = (next + photos.length) % photos.length; void prepare(photoIndex + 1); }
+    });
   }
   function syncRotation() {
     clearInterval(rotationTimer);
     const contentFocused = cinema.contains(document.activeElement);
     if (cinemaVisible && !document.hidden && !contentFocused) {
-      rotationTimer = setInterval(() => showPhotograph(photoIndex + 1), 7000);
+      rotationTimer = setInterval(advance, 7000);
     }
   }
   cinema.addEventListener('focusin', syncRotation);
@@ -710,6 +756,9 @@ footer .footer-logo { flex: none; width: 126px; }
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([entry]) => { cinemaVisible = entry.isIntersecting; syncRotation(); }).observe(cinema);
   }
+  // Begin preparing the second photograph once the page itself has finished loading.
+  const warmNext = () => setTimeout(() => prepare(photoIndex + 1), 1500);
+  if (document.readyState === 'complete') warmNext(); else window.addEventListener('load', warmNext, { once: true });
   syncRotation();
   })();
   const homeNav = document.querySelector('nav');
@@ -804,12 +853,12 @@ footer .footer-logo { flex: none; width: 126px; }
 (() => {
   const video = document.getElementById('researchVideo');
   let playPending = false;
+  let nearViewport = false;
   const syncVideo = () => {
     video.muted = true;
     video.defaultMuted = true;
     video.loop = true;
-    video.autoplay = true;
-    if (document.hidden) { video.pause(); return; }
+    if (document.hidden || !nearViewport) { video.pause(); return; }
     if (playPending || !video.paused) return;
     playPending = true;
     Promise.resolve(video.play()).then(() => {
@@ -822,7 +871,17 @@ footer .footer-logo { flex: none; width: 126px; }
   video.addEventListener('ended', syncVideo);
   document.addEventListener('visibilitychange', syncVideo);
   window.addEventListener('pageshow', syncVideo);
-  syncVideo();
+  // The 4 MB video starts loading only once part of it is on screen; the poster shows until then.
+  // (Just below the fold on desktop, so a margin here would load it on every visit.)
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => {
+      nearViewport = entry.isIntersecting;
+      if (nearViewport) syncVideo(); else video.pause();
+    }, { threshold: 0.1 }).observe(video);
+  } else {
+    nearViewport = true;
+    syncVideo();
+  }
 })();
 </script>
 </body>

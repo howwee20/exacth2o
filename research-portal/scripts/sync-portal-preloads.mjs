@@ -10,12 +10,18 @@ const deployedEntryPath = path.join(repositoryRoot, "portal.html");
 const startMarker = "    <!-- portal-modulepreloads:start -->";
 const endMarker = "    <!-- portal-modulepreloads:end -->";
 
-const [generatedEntry, deployedEntry, portalJavaScript, portalStyles] = await Promise.all([
+const [generatedEntry, deployedEntry, portalStyles] = await Promise.all([
   readFile(generatedEntryPath, "utf8"),
   readFile(deployedEntryPath, "utf8"),
-  readFile(path.join(repositoryRoot, "portal-app/assets/portal.js")),
   readFile(path.join(repositoryRoot, "portal-app/assets/portal.css")),
 ]);
+
+// The entry script is content-hashed (portal-<hash>.js) and must be referenced without a query:
+// lazily loaded chunks import it by that exact file name.
+const entryScript = generatedEntry.match(/<script type="module" crossorigin src="\.\/assets\/(portal-[A-Za-z0-9_-]+\.js)"><\/script>/)?.[1];
+if (!entryScript) {
+  throw new Error("The generated portal entry did not reference a hashed portal-<hash>.js script.");
+}
 
 const modulePreloads = Array.from(
   generatedEntry.matchAll(/<link rel="modulepreload" crossorigin href="\.\/assets\/([^"?]+)">/g),
@@ -32,7 +38,7 @@ if (!markerPattern.test(deployedEntry)) {
 }
 
 const assetVersion = createHash("sha256")
-  .update(portalJavaScript)
+  .update(entryScript)
   .update(portalStyles)
   .digest("hex")
   .slice(0, 16);
@@ -42,11 +48,11 @@ let nextEntry = deployedEntry.replace(
   [startMarker, ...modulePreloads, endMarker].join("\n"),
 );
 nextEntry = nextEntry
-  .replace(/portal-app\/assets\/portal\.js\?v=[^"\s]+/, `portal-app/assets/portal.js?v=${assetVersion}`)
+  .replace(/portal-app\/assets\/portal(?:-[A-Za-z0-9_-]+)?\.js(?:\?v=[^"\s]+)?/, `portal-app/assets/${entryScript}`)
   .replace(/portal-app\/assets\/portal\.css\?v=[^"\s]+/, `portal-app/assets/portal.css?v=${assetVersion}`);
 
-if (!nextEntry.includes(`portal.js?v=${assetVersion}`) || !nextEntry.includes(`portal.css?v=${assetVersion}`)) {
-  throw new Error("portal.html is missing versioned portal JavaScript or CSS references.");
+if (!nextEntry.includes(`"portal-app/assets/${entryScript}"`) || !nextEntry.includes(`portal.css?v=${assetVersion}`)) {
+  throw new Error("portal.html is missing the hashed portal entry or the versioned portal CSS reference.");
 }
 
 if (nextEntry !== deployedEntry) {

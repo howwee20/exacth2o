@@ -1,45 +1,48 @@
-// Applications-only synthetic studies. Watering and sensor responses share one model.
+// Applications-only synthetic studies. Fictional data, generated in the browser; no researcher
+// dataset is used. Watering follows the controller's rule exactly: a pot is watered when its
+// measured moisture falls below the target shown for its group, so every target on screen is
+// the threshold that produced the watering events beside it.
 import {fixture as original} from './fixtures';
 const now=Date.now(),step=10*60000,stamp=new Date(now).toISOString();
-const days=[8,5,4];
-const descriptions=['Progressive drought · staggered rescue irrigation','Repeated dry-down · partial and full recovery','Heatwave response · maize and sorghum'];
-const experiments=days.map((duration,index)=>{
+type Study={days:number,description:string,targets:{control:number,drought:number},start:[number,number],heat:boolean};
+const studies:Study[]=[
+ {days:8,description:'Two moisture targets · steady deficit irrigation',targets:{control:34,drought:22},start:[35,40],heat:false},
+ {days:5,description:'Dry start · pots brought up to target, then maintained',targets:{control:32,drought:24},start:[14,18],heat:false},
+ {days:4,description:'Heatwave response · maize and sorghum',targets:{control:34,drought:24},start:[33,38],heat:true},
+];
+const experiments=studies.map((study,index)=>{
  const template=original.experiments.find(e=>e.id===(index===0?'experiment-1':'experiment-2'))!;
- const assignments=template.assignments.map((a,i)=>({...a,pot_number:index*30+i+1,pairing_name:`Pot ${index*30+i+1}`}));
- return {...template,id:`experiment-${index+1}`,name:`Experiment ${index+1}`,mode:'controlled',status:'active',wateringState:'controller_managed',shortDescription:descriptions[index],startedAt:new Date(now-duration*86400000).toISOString(),assignments,pairingNames:assignments.map(a=>a.pairing_name),groupNames:[`experiment-${index+1}`]};
+ const assignments=template.assignments.map((a,i)=>({...a,pot_number:index*30+i+1,pairing_name:`Pot ${index*30+i+1}`,target_vwc_percent:a.treatment==='drought'?study.targets.drought:study.targets.control,measurement_interval_minutes:10}));
+ return {...template,id:`experiment-${index+1}`,name:`Experiment ${index+1}`,mode:'controlled',status:'active',wateringState:'controller_managed',shortDescription:study.description,startedAt:new Date(now-study.days*86400000).toISOString(),assignments,pairingNames:assignments.map(a=>a.pairing_name),groupNames:[`experiment-${index+1}`]};
 });
 const studyPairings=experiments.flatMap(e=>e.assignments.map(a=>({id:a.pot_number,name:a.pairing_name,zone:a.zone,pot_number:a.pot_number,group_name:e.id,source_sensor_id:a.pot_number,sensor_key:`applications:${a.pot_number}`,source_valve_id:a.pot_number,valve_key:`applications-valve:${a.pot_number}`,wtc_percent_limit:a.target_vwc_percent,valve_open_time_ms:3000,measurement_interval_ms:step,calibration_name:'Substrate calibration'})));
 const readings:any[]=[],valveEvents:any[]=[];
 for(const p of studyPairings){
- const index=Number(p.group_name.slice(-1))-1;
+ const index=Number(p.group_name.slice(-1))-1,study=studies[index];
  const assignment=experiments[index].assignments.find(a=>a.pot_number===p.id)!;
- const drought=assignment.treatment==='drought',maize=assignment.crop==='maize';
+ const maize=assignment.crop==='maize',target=p.wtc_percent_limit;
  let seed=(Math.imul(p.id,2246822519)+9173)>>>0;
  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
- const start=now-days[index]*86400000,offset=(random()-.5)*3;
- const uptake=(.28+random()*.25)*(maize?1.2:.86),lag=.3+random()*.8;
- const rescueDay=5.1+random()*1.2,cycleLength=29+random()*8;
- let level=37+random()*5,pending=0,drain=0,noise=0,lastWater=-1000;
+ const start=now-study.days*86400000;
+ const uptake=(.32+random()*.24)*(maize?1.18:.88),lag=.25+random()*.6,pulse=3.2+random()*1.6;
+ let level=study.start[0]+random()*(study.start[1]-study.start[0]),pending=0,drain=0,noise=0,lastWater=-1000;
  for(let t=start,n=0;t<=now;t+=step,n++){
   const elapsed=(t-start)/3600000,day=elapsed/24,hour=new Date(t).getHours()+new Date(t).getMinutes()/60;
   const daylight=Math.max(0,Math.sin((hour-6)*Math.PI/12));
-  const heat=index===2?1+1.3*Math.exp(-Math.pow((day-2.15)/.62,2)):1;
-  const stress=Math.max(.18,Math.min(1,(level-8)/17));
-  level-=uptake*(.25+1.55*daylight)*heat*stress/6;
+  const heat=study.heat?1+1.25*Math.exp(-Math.pow((day-2.1)/.6,2)):1;
+  const stress=Math.max(.2,Math.min(1,(level-6)/16));
+  level-=uptake*(.22+1.5*daylight)*heat*stress/6;
   const absorbed=pending*(1-Math.exp(-1/6/lag));pending-=absorbed;level+=absorbed;
   const drained=drain*(1-Math.exp(-1/6/2));drain-=drained;level-=drained;
-  let enabled=true,threshold=34+offset,gain=3.5+random()*1.8;
-  if(drought&&index===0){enabled=day<.7||day>rescueDay;threshold=day>rescueDay?29+offset:34+offset;gain=7+random()*3;}
-  if(drought&&index===1){const cycle=Math.floor(elapsed/cycleLength);enabled=elapsed%cycleLength>cycleLength-7;threshold=(cycle%2?32:25)+offset;gain=cycle%2?7:3.3;}
-  if(drought&&index===2){threshold=(maize?23:26)+offset;enabled=hour>7&&hour<18;gain=2.5+random()*2;}
-  if(enabled&&level<threshold&&pending<.3&&elapsed-lastWater>3){
-   pending+=gain;drain+=gain*.13;lastWater=elapsed;
-   const at=new Date(t).toISOString();
-   valveEvents.push({id:p.id*100000+n,event_id:`applications-water:${p.id}:${n}`,organization_id:'sample',project_id:'sample',device_id:'sample',pairing_name:p.name,valve_key:p.valve_key,source_valve_id:p.id,action:'open',duration_ms:Math.round(1200+gain*460),device_recorded_at:at,server_received_at:at});
-  }
   noise=.7*noise+(random()-.5)*.12;
-  const value=Number(Math.max(7,Math.min(48,level+noise+.12*Math.sin(elapsed/5+p.id))).toFixed(2)),at=new Date(t).toISOString();
-  readings.push({id:p.id*100000+n,event_id:`applications-reading:${p.id}:${n}`,pairing_name:p.name,sensor_key:p.sensor_key,raw_value:value,calibrated_value:value,temperature:Number((22+5*daylight+(heat-1)*4).toFixed(1)),electrical_conductivity:.8,device_recorded_at:at,server_received_at:at});
+  const measured=Number(Math.max(5,Math.min(48,level+noise)).toFixed(2)),at=new Date(t).toISOString();
+  readings.push({id:p.id*100000+n,event_id:`applications-reading:${p.id}:${n}`,pairing_name:p.name,sensor_key:p.sensor_key,raw_value:measured,calibrated_value:measured,temperature:Number((22+5*daylight+(heat-1)*4).toFixed(1)),electrical_conductivity:.8,device_recorded_at:at,server_received_at:at});
+  // The controller's rule: water when the measured value is below target, then wait for the pulse to soak in.
+  if(measured<target&&pending<.3&&elapsed-lastWater>1.5){
+   const gain=pulse*(target-measured>6?1.6:1);
+   pending+=gain;drain+=gain*.12;lastWater=elapsed;
+   valveEvents.push({id:p.id*100000+n,event_id:`applications-water:${p.id}:${n}`,organization_id:'sample',project_id:'sample',device_id:'sample',pairing_name:p.name,valve_key:p.valve_key,source_valve_id:p.id,action:'open',duration_ms:p.valve_open_time_ms,device_recorded_at:at,server_received_at:at});
+  }
  }
 }
 const calibration=original.experiments.find(e=>e.id==='calibration')!;

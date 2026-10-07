@@ -1,10 +1,29 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+
+// The portal is split into lazily loaded feature chunks; audit every first-party chunk, not just
+// the entry, so required workflows and forbidden copy are checked wherever they ship.
+async function firstPartyBundle() {
+  const directory = resolve("../portal-app/assets");
+  const files = (await readdir(directory)).filter((name) => name.endsWith(".js") && !name.includes("-vendor-"));
+  if (!files.some((name) => /^portal-[A-Za-z0-9_-]+\.js$/.test(name))) throw new Error("Portal entry bundle is missing.");
+  return (await Promise.all(files.map((name) => readFile(join(directory, name), "utf8")))).join("\n");
+}
+
+async function portalSource(directory = resolve("src")) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const parts = await Promise.all(entries.map((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return portalSource(path);
+    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? readFile(path, "utf8") : "";
+  }));
+  return parts.join("\n");
+}
 
 const [bundle, applications, appSource, stressImage, phenotypingImage, greenhouseImage, demoPage] = await Promise.all([
-  readFile(resolve("../portal-app/assets/portal.js"), "utf8"),
+  firstPartyBundle(),
   readFile(resolve("../applications.html"), "utf8"),
-  readFile(resolve("src/App.tsx"), "utf8"),
+  portalSource(),
   readFile(resolve("../applications-plant-stress-20260804.jpg")),
   readFile(resolve("../applications-plant-phenotyping-20260804.jpg")),
   readFile(resolve("../applications-research-greenhouse-20260804.jpg")),
@@ -102,6 +121,10 @@ if (missingApplicationsCopy.length) {
 // The public demo must stay a separate, network-disabled build.
 const demoFrame = applications.match(/<iframe\b[^>]*class="portal-demo-frame"[^>]*>/)?.[0];
 const sandbox = demoFrame?.match(/sandbox="([^"]*)"/)?.[1].split(/\s+/) || [];
+// The demo is below the fold; it must not compete with the page's first render.
+if (!/\bloading="lazy"/.test(demoFrame || "")) {
+  throw new Error("Applications demo iframe must load lazily.");
+}
 if (!sandbox.includes("allow-scripts") || sandbox.some((token) =>
   !["allow-scripts", "allow-same-origin", "allow-downloads"].includes(token))) {
   throw new Error("Applications demo iframe has missing or unexpected sandbox permissions.");

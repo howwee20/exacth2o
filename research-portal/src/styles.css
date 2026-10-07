@@ -1719,6 +1719,9 @@ select {
   min-width: 0;
   display: grid;
   gap: 6px;
+  /* Launch cards are buttons, which do not wrap by default; long descriptions must. */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .portal-launch-title {
@@ -4132,8 +4135,8 @@ select {
 
 .expanded-graph-label {
   position: absolute;
-  top: 22px;
-  left: 24px;
+  top: 18px;
+  left: 78px;
   z-index: 4;
   display: flex;
   align-items: baseline;
@@ -4454,6 +4457,74 @@ select {
   color: #8a5a24;
 }
 
+.canvas-chart:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.canvas-chart.is-compact {
+  min-height: 0;
+}
+
+/* Line-style key: treatments and outage breaks are named, not left to colour or dash alone. */
+.chart-key {
+  position: absolute;
+  right: 26px;
+  bottom: 6px;
+  z-index: 2;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 12px;
+  max-width: calc(100% - 96px);
+  color: #64748b;
+  font-family: var(--portal-mono);
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+.chart-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-key i {
+  width: 18px;
+  height: 0;
+  border-top: 2px solid #475569;
+}
+
+.chart-key i.is-dashed {
+  border-top-style: dashed;
+}
+
+.chart-key i.is-break {
+  width: 18px;
+  border-top: 2px solid #475569;
+  background: linear-gradient(90deg, transparent 6px, #ffffff 6px, #ffffff 12px, transparent 12px);
+  -webkit-mask: linear-gradient(90deg, #000 6px, transparent 6px, transparent 12px, #000 12px);
+  mask: linear-gradient(90deg, #000 6px, transparent 6px, transparent 12px, #000 12px);
+}
+
+.chart-empty-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.chart-tooltip small {
+  color: #8a5a24;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .chart-loading-overlay {
   position: absolute;
   inset: 0;
@@ -4595,7 +4666,7 @@ select {
 .chart-tooltip {
   position: absolute;
   z-index: 3;
-  width: 190px;
+  width: 210px;
   display: grid;
   gap: 3px;
   padding: 10px 11px;
@@ -4988,13 +5059,13 @@ select {
 .pot-reading {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 5px;
+  gap: 0 5px;
   overflow: hidden;
   font-size: 13px;
   font-weight: 700;
   text-align: left;
-  text-overflow: ellipsis;
 }
 
 .pot-reading b {
@@ -8345,3 +8416,219 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
 .website-analytics-panel th, .website-analytics-panel td { text-align: left; padding: 10px; border-bottom: 1px solid #e7ece8; }
 .website-analytics-preferences .website-metrics-exclusion { font-size: .85rem; padding: 6px 0; }
 @media (max-width: 760px) { .website-analytics-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .website-analytics-stats article, .website-analytics-panel { padding: 16px; } .website-analytics-page .support-hero { flex-wrap: wrap; gap: 12px; } }
+
+/* Measurement freshness: one vocabulary for tiles, charts and health views.
+   The state is always written out; the dot only reinforces it. */
+.freshness-pill {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-family: var(--portal-mono);
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.freshness-pill i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.freshness-pill.is-compact {
+  min-height: 20px;
+  padding: 0 7px;
+}
+
+.freshness-pill.is-current { background: #dcfce7; color: #166534; }
+.freshness-pill.is-delayed,
+.freshness-pill.is-partial { background: #fef3c7; color: #92400e; }
+.freshness-pill.is-stale,
+.freshness-pill.is-offline { background: #fee2e2; color: #991b1b; }
+.freshness-pill.is-historical { background: #e0f2fe; color: #075985; }
+.freshness-pill.is-unknown { background: #eef2ff; color: #3730a3; }
+.freshness-pill.is-stale i,
+.freshness-pill.is-offline i { border-radius: 1px; }
+
+.measurement-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 2px 0 10px;
+  padding: 8px 12px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.measurement-status.is-stale,
+.measurement-status.is-offline {
+  border-color: #fecaca;
+  background: #fffafa;
+}
+
+.measurement-status.is-delayed,
+.measurement-status.is-partial {
+  border-color: #fde68a;
+}
+
+.measurement-status-main {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.measurement-status-main strong {
+  color: #172033;
+  font-weight: 650;
+}
+
+.measurement-status-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.measurement-status-checked {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 0.74rem;
+}
+
+.measurement-status-checked .is-error {
+  color: #92400e;
+}
+
+.portal-launch-freshness {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pot-reading .pot-age {
+  display: block;
+  color: #92400e;
+  font-family: var(--portal-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.experiment-graph-card-head .graph-target {
+  color: #334155;
+  font-style: normal;
+}
+
+.experiment-graph-card-head .graph-target.is-warning {
+  color: #92400e;
+}
+
+.experiment-graph-card-head .graph-now {
+  color: #64748b;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .measurement-status-checked {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+.graph-card-facts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.measurement-status-note {
+  margin: -4px 0 10px;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+/* Request progress: requested -> queued -> accepted -> running -> executed. */
+.command-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--portal-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+}
+
+.command-stages li {
+  padding: 2px 7px;
+  border: 1px solid #dfe5ee;
+  border-radius: 999px;
+  color: #94a3b8;
+  background: #ffffff;
+}
+
+.command-stages li.is-done {
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.command-stages li.is-current {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.command-stages li.is-stopped {
+  text-decoration: line-through;
+}
+
+.command-stages li.is-unverified {
+  border-style: dashed;
+  color: #92400e;
+}
+
+/* Lazily loaded features: loading and recovery states. */
+.feature-load-state {
+  min-height: 40vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 32px 20px;
+  color: #475569;
+  text-align: center;
+}
+
+.feature-load-state p {
+  max-width: 44ch;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.feature-load-state.is-inline {
+  min-height: 0;
+}
+
+.feature-load-state.is-error {
+  color: #92400e;
+}

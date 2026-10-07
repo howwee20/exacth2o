@@ -18,6 +18,12 @@
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+/* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
+   so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
+@font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
+</style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -25,7 +31,7 @@
     --water: #1a6b4a; --water-light: #2e9e6e; --water-pale: #d4ede3;
     --accent: #7cbf9e; --mist: #e8e3d8;
     --rule: rgba(14,26,20,0.15);
-    --serif: 'DM Serif Display', serif; --mono: 'DM Mono', monospace; --sans: 'Instrument Sans', sans-serif;
+    --serif: 'DM Serif Display', Georgia, serif; --mono: 'DM Mono', 'Courier New', monospace; --sans: 'Instrument Sans', 'Instrument Sans Fallback', sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }

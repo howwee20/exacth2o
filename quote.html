@@ -20,6 +20,12 @@
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+/* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
+   so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
+@font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
+</style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -27,7 +33,7 @@
     --water: #1a6b4a; --water-light: #2e9e6e; --water-pale: #d4ede3;
     --accent: #7cbf9e; --mist: #e8e3d8;
     --rule: rgba(14,26,20,0.15);
-    --serif: 'DM Serif Display', serif; --mono: 'DM Mono', monospace; --sans: 'Instrument Sans', sans-serif;
+    --serif: 'DM Serif Display', Georgia, serif; --mono: 'DM Mono', 'Courier New', monospace; --sans: 'Instrument Sans', 'Instrument Sans Fallback', sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
@@ -363,6 +369,14 @@ footer .footer-logo { flex: none; width: 126px; }
   const QUOTE_FUNCTION_URL = 'https://zmhdclcjrkntrpynozvo.functions.supabase.co/submit-quote';
 
   let submitted = false; // prevents duplicate submissions
+  // One identifier per quote request, reused across retries, so analytics counts each request once.
+  // It carries no form contents.
+  let submissionId = null;
+  let attempt = 0;
+  const announce = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
+  const newSubmissionId = () => {
+    try { return crypto.randomUUID(); } catch { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12); }
+  };
 
   const requiredFields = ['name', 'email', 'application', 'message'];
   const validationSummary = document.getElementById('validationSummary');
@@ -426,6 +440,10 @@ footer .footer-logo { flex: none; width: 126px; }
 
     const invalidFields = requiredFields.filter(showFieldError);
     if (invalidFields.length) {
+      announce('exacth2o:quote-validation-failed', {
+        fields: invalidFields,
+        errors: invalidFields.map(id => document.getElementById(id).value.trim() ? 'invalid_format' : 'missing'),
+      });
       validationSummary.textContent = 'Please correct ' + invalidFields.length + (invalidFields.length === 1 ? ' field.' : ' fields.');
       focusNotice(document.getElementById(invalidFields[0]));
       return;
@@ -435,6 +453,9 @@ footer .footer-logo { flex: none; width: 126px; }
     btn.disabled = true;
     btn.textContent = 'Sending…';
     submitted = true;
+    submissionId = submissionId || newSubmissionId();
+    attempt += 1;
+    announce('exacth2o:quote-submit-attempted', { submissionId, attempt });
 
     const payload = {
       name,
@@ -448,6 +469,7 @@ footer .footer-logo { flex: none; width: 126px; }
       sourceUrl: window.location.href
     };
 
+    let responseStatus = null;
     try {
       const response = await fetch(QUOTE_FUNCTION_URL, {
         method: 'POST',
@@ -458,12 +480,20 @@ footer .footer-logo { flex: none; width: 126px; }
         body: JSON.stringify(payload)
       });
 
+      responseStatus = response.status;
       const result = await response.json().catch(() => ({}));
 
       if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
         successMsg.textContent = 'Quote request received. We will follow up shortly.';
-        document.dispatchEvent(new Event('exacth2o:quote-submitted'));
+        announce('exacth2o:quote-submitted', {
+          submissionId,
+          attempt,
+          duplicate: result.duplicate === true,
+          warning: typeof result.warning === 'string',
+        });
+        submissionId = null;
+        attempt = 0;
         this.reset();
         btn.textContent = 'Sent';
         focusNotice(successMsg);
@@ -471,6 +501,7 @@ footer .footer-logo { flex: none; width: 126px; }
         throw new Error(result.error || 'Server error');
       }
     } catch (err) {
+      announce('exacth2o:quote-submit-failed', { submissionId, attempt, status: responseStatus });
       submitted = false; // allow retry on error
       btn.disabled = false;
       btn.textContent = 'Submit Quote Request';

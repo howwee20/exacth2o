@@ -44,6 +44,60 @@ and **Hardware** under Advanced.
   contextual note says so, and a queued confirmation never reads as applied.
 - Every change still goes through `create-control-command` with its role checks.
 
+## Measurement semantics
+
+The same rules apply to tiles, charts, tooltips, tables and health views
+(`src/measurementFreshness.ts`, `src/seriesStatistics.ts`,
+`src/targetPresentation.ts`, `src/commandLifecycle.ts`):
+
+- **Freshness** comes from the newest measurement's own timestamp
+  (`device_recorded_at`) judged against the pot's configured reporting interval:
+  current within two intervals (at least 5 min), delayed within six intervals
+  (at least 30 min), stale beyond that, each plus 2 min for upload; without a
+  configured interval, 15 / 60 minutes and the label says the cadence is unknown. *Offline* comes only from controller
+  presence (`state_fresh_until`), never from a failed browser request. Completed
+  experiments are *historical*. When the portal last checked is shown separately
+  and never makes an old reading look current. An experiment whose newest reading
+  is current but whose other pots are not reads *N of M reporting* (state
+  `partial`), and a group's "latest" median leaves out pots that stopped
+  reporting, counting them instead. Ages within 5 minutes in the future read
+  "just now" (the page clock ticks every 30 s); beyond that, a clock mismatch.
+  Ages keep advancing while requests fail.
+- **Statistics** use every valid reading. Drawing reduces points per pixel column
+  while keeping each column's extremes, and breaks lines where readings stopped
+  for longer than 2.5 intervals (or interval + 5 min). Missing values show as a
+  dash, never zero. Missing-reading estimates use the configured cadence, or the
+  observed one, labelled.
+- **Targets** say what they mean: `Target 30% VWC`, `Target 0% VWC` (watering
+  would only begin near 0%), `No target set`, `Watering disabled` (the controller
+  rule: target outside 0–100%, zero valve time or zero interval), `Sensing only`,
+  `Completed`. Charts draw the *current* applied target per treatment; the portal
+  has no target history. Labels show the controller's applied target, which is
+  what watering follows; when the experiment plan differs, every label says so
+  (`Target 25% VWC · plan 30%`).
+- **Requests** progress requested → queued → accepted → running → executed. A
+  completed watering request reads "controller reported complete"; physical
+  delivery is never claimed without flow, pressure or weight evidence. A reviewed
+  settings change is a chain (stop, change(s), restore) and is reported step by
+  step; if a step fails or expires after the stop ran, the panel says the
+  controller is probably still stopped. Tracking stops after 15 minutes and says so.
+
+## Loading and refresh
+
+Settings (with calibration and commissioning), the experiment builder, System
+Health, Sales & Support, Walker and Web Analytics load on first use behind
+`FeatureBoundary` (loading state; on failure, an offer to reload the portal).
+Polling for health, support, device state and the watchdog pauses while the tab
+is hidden; returning to the tab triggers one incremental reconciliation (a full
+reload after six hours away), and bursts of focus/visibility events are
+coalesced. A trigger while hidden or offline does not use up the 30-second
+spacing, and coming back online always reconciles. Watering history loads
+incrementally only when some is already loaded, and reloads the full window when
+an incremental page comes back full. Realtime readings are merged in 400 ms batches, full reconciliations
+replace data only when complete, and responses for a previous session, project
+or device are discarded. `scripts/perf/portal-lab/` measures these behaviours
+against a counting mock.
+
 ## Autocalibrate (real hardware commissioning)
 
 Autocalibrate finds out which valve physically waters which sensor. It is
@@ -128,9 +182,12 @@ Production CI installs locked dependencies; runs frontend lint, unit tests, stri
 type checking/build, command-policy tests, executor safety tests, Deno Edge Function
 checks, and dependency audits; then fails when the committed `portal-app/` bundle
 differs from the build output. Stable React, Supabase, and icon dependencies are
-emitted as cacheable hashed chunks while `assets/portal.js` remains the fixed entry.
-The build also synchronizes module-preload links and a content-derived JavaScript/CSS
-cache token into the deployed root `portal.html` wrapper.
+emitted as cacheable hashed chunks, and the entry is content-hashed too
+(`assets/portal-<hash>.js`). Lazily loaded feature chunks import the entry by file name, so
+the page must load it under exactly that URL; a `?v=` query on the entry would execute the
+portal a second time when a feature loads. The build synchronizes the entry name,
+module-preload links and a content-derived CSS cache token into the deployed root
+`portal.html` wrapper.
 
 For active React development:
 

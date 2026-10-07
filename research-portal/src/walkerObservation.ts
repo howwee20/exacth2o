@@ -1,3 +1,5 @@
+import { type Freshness, type FreshnessState, measurementFreshness, worstFreshness } from "./measurementFreshness";
+
 export const walkerProjectId = "33333333-3333-4333-8333-333333333331";
 export const walkerDeviceId = "balena:a1c4ace2b367fbee8521f1aff6a6329b";
 export const walkerDefaultWindowHours = 72;
@@ -103,4 +105,36 @@ export function toggleWalkerSensorSelection(
   if (next.has(sensorId)) next.delete(sensorId);
   else next.add(sensorId);
   return next;
+}
+
+const serverFreshnessState: Record<WalkerLiveFreshness, FreshnessState> = {
+  live: "current",
+  delayed: "delayed",
+  stale: "stale",
+  awaiting_publisher: "unknown",
+};
+
+/**
+ * Walker freshness from the newest live reading, cross-checked against the
+ * server's own judgement; the more conservative of the two wins. A "live"
+ * data source never makes an old reading look current.
+ */
+export function walkerFreshness(
+  status: Pick<WalkerLiveStatus, "freshness" | "latest_live_reading_at">,
+  nowMs = Date.now(),
+): Freshness {
+  const client = measurementFreshness({ measuredAt: status.latest_live_reading_at, nowMs });
+  const serverState = serverFreshnessState[status.freshness] ?? "unknown";
+  const server: Freshness = {
+    ...client,
+    state: serverState,
+    tone: serverState === "current" ? "ok" : serverState === "delayed" ? "warning" : serverState === "stale" ? "bad" : "unknown",
+    label: status.freshness === "awaiting_publisher"
+      ? "Awaiting data"
+      : serverState === "current" ? "Current" : serverState === "delayed" ? "Delayed" : "Stale",
+    detail: status.freshness === "awaiting_publisher"
+      ? "The Walker publisher has not delivered readings yet."
+      : `The telemetry service reports this feed as ${status.freshness}.`,
+  };
+  return worstFreshness([client, server]) ?? client;
 }
