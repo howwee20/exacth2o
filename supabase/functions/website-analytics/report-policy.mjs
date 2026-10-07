@@ -11,6 +11,12 @@ export const collectionStartDate = "2026-10-01";
 /** Custom ranges may not begin before this date. */
 export const earliestRangeDate = "2026-09-01";
 export const maxRangeDays = 180;
+/**
+ * PostHog returns at most 100 rows for a query without LIMIT. Every report query carries this
+ * explicit limit (PostHog's maximum is 50,000); a result that reaches it is treated as an error,
+ * never shown as a complete report.
+ */
+export const maxReportRows = 10_000;
 export const reportNames = ["tile", "overview", "acquisition", "journeys", "demo", "quote", "experience", "quality"];
 export const rangePresets = { "7d": 7, "30d": 30, "90d": 90 };
 /** Browser-reported device type ($device_type) is available for every event since launch. */
@@ -162,9 +168,12 @@ function previousCutoff(request) {
 
 const inList = (values) => values.map((value) => `'${value}'`).join(", ");
 
-/** Every report row has one shape so sections can share a single UNION ALL query. */
+/**
+ * Every report row has one shape so sections can share a single UNION ALL query. HogQL's
+ * toFloat is a nullable Float64 cast (ClickHouse's toFloat64 is not exposed by HogQL).
+ */
 function row(section, a, b, n1 = "0", n2 = "0", n3 = "0", n4 = "0") {
-  return `'${section}' AS section, toString(${a}) AS a, toString(${b}) AS b, toFloat64(${n1}) AS n1, toFloat64(${n2}) AS n2, toFloat64(${n3}) AS n3, toFloat64(${n4}) AS n4`;
+  return `'${section}' AS section, toString(${a}) AS a, toString(${b}) AS b, toFloat(${n1}) AS n1, toFloat(${n2}) AS n2, toFloat(${n3}) AS n3, toFloat(${n4}) AS n4`;
 }
 
 const inquiries = "uniqExactIf(submission_id, event = 'quote_submitted' AND submission_id != '') + countIf(event = 'quote_submitted' AND submission_id = '')";
@@ -205,8 +214,16 @@ function sessionsSubquery(request, { previous = false } = {}) {
 
 const engaged = "pageviews >= 2 OR actions > 0";
 
-/** Fixed HogQL for a validated request: { main, secondary? }. */
+/** Fixed HogQL for a validated request: { main, secondary? }, each with an explicit row limit. */
 export function buildReportQueries(request) {
+  const parts = reportQueryParts(request);
+  const limited = (query) => `SELECT * FROM (\n${query}\n) LIMIT ${maxReportRows}`;
+  return parts.secondary
+    ? { main: limited(parts.main), secondary: limited(parts.secondary) }
+    : { main: limited(parts.main) };
+}
+
+function reportQueryParts(request) {
   const union = (parts) => parts.map((part) => `SELECT ${part}`).join("\nUNION ALL\n");
   switch (request.report) {
     case "tile":
@@ -282,7 +299,7 @@ export function buildReportQueries(request) {
           `${row("stage", "'demo_load_failed'", "''", "uniqExactIf(sid, event = 'demo_load_failed')", "countIf(event = 'demo_load_failed')")} FROM (${events})`,
           `${row("action", "action", "view", "count()", "uniqExact(sid)")} FROM (${events}) WHERE event = 'demo_interacted' GROUP BY action, view`,
           `${row("link", "placement", "''", "count()", "uniqExact(sid)")} FROM (${events}) WHERE event = 'demo_clicked' GROUP BY placement`,
-          `${row("wait", "'load_ms'", "''", "count()", "quantile(0.5)(toFloat64(load_ms))", "quantile(0.9)(toFloat64(load_ms))")} FROM (${events}) WHERE event = 'demo_ready' AND load_ms IS NOT NULL`,
+          `${row("wait", "'load_ms'", "''", "count()", "quantile(0.5)(toFloat(load_ms))", "quantile(0.9)(toFloat(load_ms))")} FROM (${events}) WHERE event = 'demo_ready' AND load_ms IS NOT NULL`,
           `${row("to_quote", "'after_interaction'", "''", "countIf(c_di > 0)", "countIf(c_di > 0 AND c_q > 0 AND t_q >= t_di)", "countIf(c_di > 0 AND c_sub > 0 AND t_sub >= t_di)")} FROM (${sessions})`,
         ]),
       };
@@ -305,11 +322,11 @@ export function buildReportQueries(request) {
       };
     }
     case "experience": {
-      const events = eventsSubquery(request, { extra: ", coalesce(properties.device_class, lower(coalesce(properties.$device_type, 'unknown'))) AS device_class, properties.lcp_ms AS lcp_ms, properties.inp_ms AS inp_ms, properties.cls AS cls, coalesce(properties.kind, '') AS kind, coalesce(properties.source, '') AS source, coalesce(properties.resource_type, '') AS resource_type, toFloat64OrNull(toString(properties.$prev_pageview_max_scroll_percentage)) AS scroll" });
+      const events = eventsSubquery(request, { extra: ", coalesce(properties.device_class, lower(coalesce(properties.$device_type, 'unknown'))) AS device_class, properties.lcp_ms AS lcp_ms, properties.inp_ms AS inp_ms, properties.cls AS cls, coalesce(properties.kind, '') AS kind, coalesce(properties.source, '') AS source, coalesce(properties.resource_type, '') AS resource_type, toFloat(properties.$prev_pageview_max_scroll_percentage) AS scroll" });
       // One section per metric so each percentile is over the page views that reported it.
       const vitalRows = ["lcp_ms", "inp_ms", "cls"].flatMap((metric) => [
-        `${row(`vital_${metric}`, "page", "device_class", "count()", `quantile(0.75)(toFloat64(${metric}))`, `quantile(0.5)(toFloat64(${metric}))`)} FROM (${events}) WHERE event = 'web_vitals' AND ${metric} IS NOT NULL GROUP BY page, device_class`,
-        `${row(`vital_${metric}`, "page", "'all'", "count()", `quantile(0.75)(toFloat64(${metric}))`, `quantile(0.5)(toFloat64(${metric}))`)} FROM (${events}) WHERE event = 'web_vitals' AND ${metric} IS NOT NULL GROUP BY page`,
+        `${row(`vital_${metric}`, "page", "device_class", "count()", `quantile(0.75)(toFloat(${metric}))`, `quantile(0.5)(toFloat(${metric}))`)} FROM (${events}) WHERE event = 'web_vitals' AND ${metric} IS NOT NULL GROUP BY page, device_class`,
+        `${row(`vital_${metric}`, "page", "'all'", "count()", `quantile(0.75)(toFloat(${metric}))`, `quantile(0.5)(toFloat(${metric}))`)} FROM (${events}) WHERE event = 'web_vitals' AND ${metric} IS NOT NULL GROUP BY page`,
       ]);
       return {
         main: union([
@@ -344,8 +361,9 @@ export function buildReportQueries(request) {
  * @param {unknown} results
  * @returns {ReportRow[]}
  */
-export function parseRows(results) {
+export function parseRows(results, hasMore = false) {
   if (!Array.isArray(results)) throw new Error("Incomplete query result");
+  if (hasMore || results.length >= maxReportRows) throw new Error("Report rows truncated");
   return results.map((row) => {
     if (!Array.isArray(row) || row.length < 7) throw new Error("Incomplete query result");
     const number = (value) => {
@@ -410,11 +428,13 @@ const pageLabel = (value) => value || "(unknown page)";
 /**
  * @param {any} request
  * @param {ReportRow[]} rows
- * @param {{ secondary?: ReportRow[], canonical?: CanonicalInquiries | null }} [options]
+ * @param {{ secondary?: ReportRow[] | null, canonical?: CanonicalInquiries | null }} [options]
  */
 export function shapeReport(request, rows, options = {}) {
-  const secondary = options.secondary ?? [];
-  const canonical = options.canonical ?? null;
+  // null secondary rows mean the secondary query failed: shown as "not available", never as zero.
+  const secondary = options.secondary === undefined ? [] : options.secondary;
+  // Server records have no device; with a device filter they are left out rather than compared.
+  const canonical = request.device && request.device !== "all" ? null : options.canonical ?? null;
   const bySection = (section) => rows.filter((row) => row.section === section);
   const period = (section, name) => bySection(section).find((row) => row.a === name) ?? null;
   const range = {
@@ -514,7 +534,7 @@ export function shapeReport(request, rows, options = {}) {
       entryPages: outcomeRows(rows, "entry", pageLabel),
       exitPages: bySection("exit").map((row) => ({ key: pageLabel(row.a), sessions: count(row.n1), singlePage: count(row.n2) }))
         .sort((left, right) => right.sessions - left.sessions).slice(0, 12),
-      beforeQuote: secondary.filter((row) => row.section === "before_quote")
+      beforeQuote: secondary == null ? null : secondary.filter((row) => row.section === "before_quote")
         .map((row) => ({ key: pageLabel(row.a), sessions: count(row.n1) }))
         .sort((left, right) => right.sessions - left.sessions).slice(0, 10),
     };

@@ -10,6 +10,8 @@ export type ReportEnvelope<T> = {
   report: string;
   updatedAt?: string | null;
   stale?: boolean;
+  /** Part of the report could not be computed; shown, but not stored by the server. */
+  partial?: boolean;
   failure?: string;
   dashboardUrl?: string | null;
   timezone?: string;
@@ -63,6 +65,17 @@ export class ReportCache {
   get size() {
     return this.entries.size;
   }
+}
+
+/**
+ * Which of two answers for the same report to show. Responses can arrive out of order, and
+ * while another request holds the server's refresh lease an answer may be "collecting" with no
+ * rows: a stored report is never replaced by one without rows or by an older stored report.
+ */
+export function preferReport<T>(current: ReportEnvelope<T> | null, next: ReportEnvelope<T>) {
+  if (!current || current.status !== "ready") return next;
+  if (next.status !== "ready") return current;
+  return (next.updatedAt ?? "") >= (current.updatedAt ?? "") ? next : current;
 }
 
 export async function fetchReport<T>(report: AnalyticsReportName, range: AnalyticsRange, device: AnalyticsDevice) {

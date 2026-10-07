@@ -45,7 +45,8 @@ export type JourneysData = {
   routes: Record<"direct" | "withoutApplications" | "afterApplications", { sessions: number; inquirySessions: number }>;
   entryPages: OutcomeRow[];
   exitPages: Array<{ key: string; sessions: number; singlePage: number }>;
-  beforeQuote: Array<{ key: string; sessions: number }>;
+  /** null when the secondary query failed; never shown as zero. */
+  beforeQuote: Array<{ key: string; sessions: number }> | null;
 };
 
 type Stage = { sessions: number; events: number };

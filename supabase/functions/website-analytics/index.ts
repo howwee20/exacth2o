@@ -97,15 +97,26 @@ serve(async (request) => {
         });
         if (!result.ok) throw new Error(`PostHog returned ${result.status}`);
         const body = await result.json();
-        return parseRows(body.results);
+        // Throws when PostHog reports more rows than the query limit: never a silently partial report.
+        return parseRows(body.results, body.hasMore === true);
       };
       const queries = buildReportQueries(report);
+      // Server records have no device type, so they are only fetched for the all-devices view.
+      const wantsCanonical = canonicalReports.has(report.report) && report.device === "all";
+      let partial = false;
       const [rows, secondary, canonical] = await Promise.all([
         runQuery(queries.main),
-        queries.secondary ? runQuery(queries.secondary).catch(() => []) : Promise.resolve([]),
-        canonicalReports.has(report.report) ? acceptedInquiries(service, report).catch(() => null) : Promise.resolve(null),
+        queries.secondary
+          ? runQuery(queries.secondary).catch(() => { partial = true; return null; })
+          : Promise.resolve(undefined),
+        wantsCanonical
+          ? acceptedInquiries(service, report).catch(() => { partial = true; return null; })
+          : Promise.resolve(null),
       ]);
       const payload = shapeReport(report, rows, { secondary, canonical });
+      // A report with a failed part is shown but not stored, so the next request tries again
+      // instead of serving the gap as a result for the cache lifetime.
+      if (partial) return reply({ status: "ready", report: report.report, ...payload, dashboardUrl, updatedAt: new Date().toISOString(), stale: false, partial: true, timezone });
       const fetchedAt = new Date().toISOString();
       const { error: saveError } = await service.from("website_analytics_cache").update({ payload, fetched_at: fetchedAt, refresh_after: new Date(Date.now() + 300_000).toISOString() }).eq("cache_key", cacheKey);
       if (saveError) throw new Error("Unable to save analytics cache");

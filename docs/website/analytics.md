@@ -34,6 +34,20 @@ mobile < 768 px, tablet < 1024 px, desktop) and `ev` (schema version, now 2).
 URLs keep only `utm_source/medium/campaign/content/term`; `$direct` stays a
 marker, not a URL.
 
+PostHog's own `$` properties are allowlisted too (`sdkPropertyNames` in
+`siteMetricsContract.ts`): browser, OS, device type, screen and viewport, time
+zone, host and path, the current URL and referrer, the session-entry URL,
+referrer, referring domain and `utm_*`, the previous page view's path and scroll
+depth, and the SDK's ids. URL-valued keys (`$current_url`, `$session_entry_url`)
+keep origin, path and `utm_*`; referrers keep origin and path. Everything else
+the SDK adds is dropped before sending, including session-entry click IDs
+(`$session_entry_gclid`, `_fbclid`, …), `$session_entry_ph_keyword`,
+initial-visit and person properties, and any property a future SDK version
+introduces. `mask_personal_data_properties` and `disable_capture_url_hashes` are
+set as a second layer. Before this change (and on the production revision
+`14bab83`), `$session_entry_url` carried the raw landing URL, including any query
+string and fragment, on every event, along with the click IDs.
+
 | Event | When | Properties (beyond the common ones) | Since |
 | --- | --- | --- | --- |
 | `$pageview` | Page load | PostHog context ($current_url cleaned, $referring_domain, $device_type, $session_id) | 2026-10-01 |
@@ -117,7 +131,9 @@ calendar days; ranges that include today are partial and labelled.
   started (2026-10-01).
 - **Funnel step order**: steps count in order of first occurrence within a session.
 - **Device filter**: browser-reported `$device_type` (available since launch).
-  Quality and the tile always use all traffic.
+  Quality and the tile always use all traffic. Server inquiry records have no
+  device type, so with a device filter they are left out (and the page says
+  why) rather than compared with one device's sessions.
 
 ### Caching and cost
 
@@ -127,7 +143,10 @@ device, time zone and, for open ranges, today's date. Open ranges refresh after
 five minutes, closed ranges after six hours. The atomic
 `claim_website_analytics_refresh` lease lets one Edge instance refresh a key
 while others serve the cached copy; failures return the last good payload
-marked delayed. Each report is one PostHog query (journeys: two). The portal
+marked delayed. A report with a failed part (the journeys "page before quote"
+query or the server inquiry count) is returned marked incomplete and is not
+stored, so the next request tries again. Each report is one PostHog query
+(journeys: two). The portal
 fetches a report only while its tab is open and at most once a minute while
 visible. Entries older than two days are deleted.
 
@@ -150,6 +169,14 @@ stay in `research-portal/site-metrics.config.json`; never put a read key there.
 `node --test supabase/functions/website-analytics/report-policy.test.mjs` covers
 request validation, daylight-saving boundaries, cache separation, query shape,
 injection attempts, zero baselines and inquiry reconciliation.
+
+HogQL accepts only the functions in its registry, and PostHog returns at most
+100 rows for a query without `LIMIT`. Every template is therefore checked by a
+test against the functions confirmed in PostHog's source
+(`posthog/hogql/functions`, checked 2026-10-07): ClickHouse's `toFloat64` is not
+exposed, so numbers use HogQL's nullable `toFloat`. Every query is wrapped as
+`SELECT * FROM (…) LIMIT 10000`, and a result that reaches the limit (or reports
+`hasMore`) is an error, never a silently shortened report.
 
 The HogQL templates have not been executed against the live PostHog project in
 this change (no read key was used). Before relying on new reports, an admin can

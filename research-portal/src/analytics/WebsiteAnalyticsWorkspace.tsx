@@ -6,6 +6,7 @@ import {
   type AnalyticsRange,
   type AnalyticsReportName,
   fetchReport,
+  preferReport,
   ReportCache,
   type ReportEnvelope,
   reportKey,
@@ -60,13 +61,21 @@ function todayInDetroit() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Detroit", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-/** One report, fetched only while its tab is open; late answers for an older selection are dropped. */
+/**
+ * One report, fetched only while its tab is open. An answer is shown only if it is for the
+ * selection on screen, and never replaces a stored report with an empty or older one; "Refreshing"
+ * lasts exactly as long as a request for this selection is in flight.
+ */
 function useReport<T>(report: AnalyticsReportName, range: AnalyticsRange, device: AnalyticsDevice) {
   const key = reportKey(report, range, device);
   const [state, setState] = useState<{ key: string; data: ReportEnvelope<T> | null; loading: boolean; error: string | null }>(
     () => ({ key, data: reportCache.peek(key) as ReportEnvelope<T> | null, loading: false, error: null }),
   );
-  const request = useRef(0);
+  const keyRef = useRef(key);
+  const pending = useRef(new Map<string, number>());
+  useEffect(() => {
+    keyRef.current = key;
+  }, [key]);
 
   const load = useCallback(async (force = false) => {
     const fresh = reportCache.get(key);
@@ -74,16 +83,31 @@ function useReport<T>(report: AnalyticsReportName, range: AnalyticsRange, device
       setState({ key, data: fresh as ReportEnvelope<T>, loading: false, error: null });
       return;
     }
-    const id = ++request.current;
+    const inFlight = pending.current;
+    inFlight.set(key, (inFlight.get(key) ?? 0) + 1);
+    const settle = () => {
+      const remaining = (inFlight.get(key) ?? 1) - 1;
+      if (remaining > 0) inFlight.set(key, remaining);
+      else inFlight.delete(key);
+      return remaining > 0;
+    };
     setState((current) => ({ key, data: (current.key === key ? current.data : null) ?? (reportCache.peek(key) as ReportEnvelope<T> | null), loading: true, error: null }));
     try {
       const data = await fetchReport<T>(report, range, device);
-      if (id !== request.current) return;
-      reportCache.set(key, data);
-      setState({ key, data, loading: false, error: null });
+      // Only stored reports are cached; a "collecting" answer is asked again next time.
+      if (data.status === "ready" && !data.partial) reportCache.set(key, preferReport(reportCache.peek(key) as ReportEnvelope<T> | null, data));
+      const stillLoading = settle();
+      if (keyRef.current !== key) return;
+      setState((current) => ({
+        key,
+        data: preferReport(current.key === key ? current.data : null, data),
+        loading: stillLoading,
+        error: null,
+      }));
     } catch {
-      if (id !== request.current) return;
-      setState((current) => ({ ...current, key, loading: false, error: "The analytics service did not respond. Showing the last loaded results, if any." }));
+      const stillLoading = settle();
+      if (keyRef.current !== key) return;
+      setState((current) => ({ ...current, key, loading: stillLoading, error: "The analytics service did not respond. Showing the last loaded results, if any." }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
@@ -110,7 +134,7 @@ function ReportFrame<T>({
     <div className="analytics-report" aria-busy={loading}>
       <div className="analytics-report-status" role="status" aria-live="polite">
         {loading ? <span><Loader2 size={13} className="chart-loading-spinner" aria-hidden="true" /> {data ? "Refreshing…" : "Loading report…"}</span> : null}
-        {!loading && updated ? <span>Report computed {updated}{data?.stale ? " · delayed: showing the last successful refresh" : ""}</span> : null}
+        {!loading && updated ? <span>Report computed {updated}{data?.stale ? " · delayed: showing the last successful refresh" : ""}{data?.partial ? " · incomplete: part of this report could not be computed" : ""}</span> : null}
         <button type="button" className="analytics-refresh" onClick={reload} disabled={loading}>
           <RefreshCw size={13} aria-hidden="true" />
           Refresh
@@ -121,7 +145,7 @@ function ReportFrame<T>({
       {data?.status === "unavailable" ? (
         <p className="analytics-empty">This report could not be computed{data.failure ? ` (${data.failure})` : ""}. Other reports may still work; it retries automatically.</p>
       ) : null}
-      {data?.status === "collecting" ? <p className="analytics-empty">No results have been stored for this selection yet.</p> : null}
+      {data?.status === "collecting" ? <p className="analytics-empty">No results have been stored for this selection yet. Another refresh may be running; this view checks again automatically.</p> : null}
       {data?.status === "ready" ? children(data as ReportEnvelope<T> & T) : null}
     </div>
   );
@@ -166,7 +190,9 @@ function OverviewView({ range, device }: { range: AnalyticsRange; device: Analyt
                 previousStart={previousStart}
                 detail={accepted
                   ? `Server records · analytics observed ${formatCount(data.analyticsInquiries.value)}`
-                  : "Analytics only: server records unavailable"}
+                  : device !== "all"
+                    ? "Analytics only: server records have no device type"
+                    : "Analytics only: server records unavailable"}
               />
             </div>
             <AnalyticsSection title="Daily traffic" description="Bars are visitors and sessions per Eastern Time day; dots mark accepted inquiries from server records.">
@@ -302,7 +328,11 @@ function JourneysView({ range, device }: { range: AnalyticsRange; device: Analyt
               </div>
             </AnalyticsSection>
             <AnalyticsSection title="Page before the quote page">
-              <KeyValueTable csvName="before-quote" headers={["Previous page", "Sessions"]} rows={data.beforeQuote.map((row) => [row.key, row.sessions])} empty="No sessions reached the quote page." />
+              {data.beforeQuote ? (
+                <KeyValueTable csvName="before-quote" headers={["Previous page", "Sessions"]} rows={data.beforeQuote.map((row) => [row.key, row.sessions])} empty="No sessions reached the quote page." />
+              ) : (
+                <p className="analytics-note">Could not be computed for this range; the rest of this report is unaffected. Try Refresh later.</p>
+              )}
             </AnalyticsSection>
             <AnalyticsSection title="Entry pages">
               <OutcomeTable rows={data.entryPages} keyLabel="Entry page" csvName="entry-pages" rangeLabel={label} />
@@ -406,7 +436,9 @@ function QuoteView({ range, device }: { range: AnalyticsRange; device: Analytics
                   <strong>{accepted ? formatCount(accepted.current) : "—"}</strong>
                   <small>{accepted
                     ? `Analytics observed ${formatCount(steps.submitted.count)}. ${accepted.current > steps.submitted.count ? `${formatCount(accepted.current - steps.submitted.count)} came from browsers analytics cannot see (Do Not Track, blockers, excluded browsers) or before the funnel was instrumented.` : "Analytics and records agree."}`
-                    : "Server records unavailable"}</small>
+                    : device !== "all"
+                      ? "Not shown with a device filter: server records have no device type, so they cannot be compared with one device's sessions."
+                      : "Server records unavailable"}</small>
                 </article>
               </div>
             </AnalyticsSection>

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildReportQueries,
   comparison,
+  maxReportRows,
   dateInZone,
   dateRange,
   dayCount,
@@ -163,4 +164,56 @@ test("accepted inquiries are counted by local day without any personal fields", 
 test("malformed provider results are rejected rather than shown as zero", () => {
   assert.throws(() => parseRows(null));
   assert.throws(() => parseRows([["period", "current"]]));
+});
+
+// Functions confirmed in PostHog's HogQL function registry (posthog/hogql/functions/*.py on master,
+// checked 2026-10-07). HogQL rejects any other function name, so a new one must be checked there and
+// added here. Notably ClickHouse's toFloat64 is NOT exposed; HogQL's toFloat is a nullable Float64 cast.
+const verifiedHogqlFunctions = new Set([
+  "toString", "toFloat", "toDate", "toDateTime", "toTimeZone", "toIntervalDay", "toUnixTimestamp", "now",
+  "if", "coalesce", "concat", "lower", "endsWith", "substring", "length", "splitByChar", "extractURLParameter",
+  "tuple", "arrayJoin", "arrayElement", "arraySort", "arrayMap", "indexOf",
+  "count", "countIf", "uniqExact", "uniqExactIf", "min", "max", "minIf", "argMin", "argMinIf", "argMaxIf",
+  "groupArrayIf", "quantile",
+]);
+
+test("every report query uses only HogQL-supported functions", () => {
+  for (const report of reportNames) {
+    for (const device of ["all", "mobile"]) {
+      const queries = buildReportQueries(valid({ report, range: { preset: "90d" }, device }));
+      for (const query of [queries.main, queries.secondary].filter(Boolean)) {
+        const used = new Set(Array.from(query.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\(/g), (match) => match[1]));
+        for (const name of used) assert.ok(verifiedHogqlFunctions.has(name), `${report}: ${name}() is not a verified HogQL function`);
+        assert.doesNotMatch(query, /toFloat64\(/);
+      }
+    }
+  }
+});
+
+test("every report query carries an explicit row limit and truncated results are rejected", () => {
+  for (const report of reportNames) {
+    const queries = buildReportQueries(valid({ report, range: { preset: "90d" } }));
+    for (const query of [queries.main, queries.secondary].filter(Boolean)) {
+      // PostHog returns 100 rows for a query without LIMIT; a trailing LIMIT on a UNION would bind
+      // to its last SELECT only, so the whole union is wrapped.
+      assert.match(query, /^SELECT \* FROM \(\n[\s\S]*\n\) LIMIT 10000$/);
+    }
+  }
+  const row = ["day", "2026-10-01", "", "1", "1", "1", "0"];
+  assert.throws(() => parseRows([row], true), /truncated/);
+  assert.throws(() => parseRows(Array.from({ length: maxReportRows }, () => row)), /truncated/);
+  assert.equal(parseRows([row]).length, 1);
+});
+
+test("server inquiry records are left out of device-filtered reports, and a failed part is not zero", () => {
+  const canonical = { current: 10, previous: 4, days: { "2026-10-07": 3 } };
+  const rows = parseRows([["step", "submitted", "", "2", "2", "0", "0"]]);
+  const mobile = shapeReport(valid({ report: "quote", device: "mobile" }), rows, { canonical });
+  assert.equal(mobile.acceptedInquiries, null);
+  const all = shapeReport(valid({ report: "quote" }), rows, { canonical });
+  assert.equal(all.acceptedInquiries.current, 10);
+
+  const journeys = valid({ report: "journeys" });
+  assert.equal(shapeReport(journeys, [], { secondary: null }).beforeQuote, null);
+  assert.deepEqual(shapeReport(journeys, [], { secondary: [] }).beforeQuote, []);
 });
