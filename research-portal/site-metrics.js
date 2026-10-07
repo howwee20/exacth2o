@@ -80,20 +80,19 @@ if (allowedHosts.has(location.hostname) && page !== '/other') {
       advanced_disable_feature_flags: true,
       advanced_disable_feature_flags_on_first_load: true,
       respect_dnt: true,
+      // Defence in depth; the allowlist in before_send is what guarantees it.
+      mask_personal_data_properties: true,
+      disable_capture_url_hashes: true,
       before_send(event) {
         if (!event || excluded() || !allowedEventNames.has(event.event)) return null;
         const properties = event.properties;
-        properties.$current_url = cleanUrl(properties.$current_url || location.href, location.origin);
-        // '$direct' is PostHog's marker for no referrer, not a URL.
-        if (properties.$referrer && properties.$referrer !== '$direct') properties.$referrer = cleanUrl(properties.$referrer, location.origin).split('?')[0];
-        for (const key of Object.keys(properties)) {
-          // No form values, user profiles, query-string secrets, or raw URL initial properties.
-          if (key.startsWith('$initial_') || key === '$set' || key === '$set_once') delete properties[key];
-        }
-        // Contract enforcement: unknown or out-of-bounds custom properties never leave the browser.
+        properties.$current_url = properties.$current_url || location.href;
+        // Contract enforcement: only allowlisted "$" properties (URLs cleaned to origin, path and
+        // utm_*) and in-bounds contract properties leave the browser. Session-entry URLs, click IDs,
+        // search keywords, initial-visit and person properties are dropped.
         const sdk = {};
         for (const key of sdkProperties) if (key in properties) sdk[key] = properties[key];
-        const cleaned = sanitizeEventProperties(event.event, properties);
+        const cleaned = sanitizeEventProperties(event.event, properties, location.origin);
         if (!cleaned) return null;
         event.properties = { ...cleaned, ...sdk, ...common };
         return event;

@@ -62,6 +62,39 @@ describe("event contract", () => {
     expect(sanitizeEventProperties("$pageview", { $current_url: "https://exacth2o.com/", page: "/", custom: "x" }))
       .toEqual({ $current_url: "https://exacth2o.com/", page: "/" });
   });
+
+  it("keeps only allowlisted SDK properties and cleans every URL the SDK attaches", () => {
+    const landing = "https://exacth2o.com/?utm_source=news&email=a%40b.edu&gclid=abc#token=secret";
+    const cleaned = sanitizeEventProperties("$pageview", {
+      $current_url: landing,
+      $session_entry_url: landing,
+      $referrer: "https://scholar.example.org/search?q=jane+doe+lab",
+      $session_entry_referrer: "https://scholar.example.org/search?q=jane+doe+lab",
+      $session_entry_referring_domain: "scholar.example.org",
+      $session_entry_utm_source: "news",
+      $session_entry_gclid: "abc",
+      $session_entry_fbclid: "def",
+      $session_entry_ph_keyword: "jane doe soil sensor",
+      $initial_current_url: landing,
+      $set_once: { $initial_referrer: "x" },
+      $prev_pageview_pathname: "/quote?email=a@b.edu",
+      $sdk_debug_retry_queue_size: 0,
+      $some_future_sdk_property: landing,
+      $browser: "Chrome",
+    }, "https://exacth2o.com");
+    expect(cleaned).toEqual({
+      $current_url: "https://exacth2o.com/?utm_source=news",
+      $session_entry_url: "https://exacth2o.com/?utm_source=news",
+      $referrer: "https://scholar.example.org/search",
+      $session_entry_referrer: "https://scholar.example.org/search",
+      $session_entry_referring_domain: "scholar.example.org",
+      $session_entry_utm_source: "news",
+      $prev_pageview_pathname: "/quote",
+      $browser: "Chrome",
+    });
+    expect(JSON.stringify(cleaned)).not.toMatch(/email|gclid|abc|token|secret|jane/);
+    expect(sanitizeEventProperties("$pageview", { $referrer: "$direct" })).toEqual({ $referrer: "$direct" });
+  });
 });
 
 describe("page context", () => {

@@ -147,17 +147,61 @@ function cleanValue(spec: PropertySpec, value: unknown): unknown {
 }
 
 /**
- * Keep only the allowlisted, in-bounds properties of an event. PostHog's own
- * "$" context properties are left to the tracker's URL cleaning. Returns null
- * for events outside the vocabulary.
+ * PostHog's own "$" properties that may leave the browser. Everything else the SDK adds is
+ * dropped, including whatever a future SDK version introduces: session-entry click IDs
+ * ($session_entry_gclid, _fbclid, …), search keywords ($session_entry_ph_keyword), initial-visit
+ * and person properties, and SDK debug fields. URL-valued keys are cleaned to origin + path +
+ * utm_* parameters (referrers to origin + path) before they are kept.
  */
-export function sanitizeEventProperties(name: string, properties: Record<string, unknown>) {
+export const sdkPropertyNames = new Set([
+  "$browser", "$browser_version", "$browser_language", "$browser_language_prefix",
+  "$os", "$os_version", "$device_type", "$raw_user_agent",
+  "$screen_height", "$screen_width", "$viewport_height", "$viewport_width",
+  "$timezone", "$timezone_offset",
+  "$host", "$pathname", "$current_url", "$referrer", "$referring_domain",
+  "$session_entry_url", "$session_entry_host", "$session_entry_pathname",
+  "$session_entry_referrer", "$session_entry_referring_domain",
+  "$session_entry_utm_source", "$session_entry_utm_medium", "$session_entry_utm_campaign",
+  "$session_entry_utm_content", "$session_entry_utm_term",
+  "$prev_pageview_id", "$prev_pageview_pathname", "$prev_pageview_duration",
+  "$prev_pageview_last_scroll", "$prev_pageview_last_scroll_percentage",
+  "$prev_pageview_max_scroll", "$prev_pageview_max_scroll_percentage",
+  "$prev_pageview_last_content", "$prev_pageview_last_content_percentage",
+  "$prev_pageview_max_content", "$prev_pageview_max_content_percentage",
+  "$session_id", "$window_id", "$pageview_id", "$device_id", "$insert_id", "$time",
+  "$lib", "$lib_version", "$lib_custom_api_host", "$lib_rate_limit_remaining_tokens",
+  "$config_defaults", "$configured_session_timeout_ms",
+  "$is_identified", "$process_person_profile",
+]);
+const sdkUrlProperties = new Set(["$current_url", "$session_entry_url"]);
+const sdkReferrerProperties = new Set(["$referrer", "$session_entry_referrer"]);
+const sdkPathProperties = new Set(["$pathname", "$session_entry_pathname", "$prev_pageview_pathname"]);
+
+function sdkPropertyValue(key: string, value: unknown, origin: string) {
+  if (sdkUrlProperties.has(key)) return typeof value === "string" ? cleanUrl(value, origin) || undefined : undefined;
+  if (sdkReferrerProperties.has(key)) {
+    // "$direct" is PostHog's marker for no referrer, not a URL.
+    if (value === "$direct") return value;
+    return typeof value === "string" ? cleanUrl(value, origin).split("?")[0] || undefined : undefined;
+  }
+  if (sdkPathProperties.has(key)) return typeof value === "string" ? value.split(/[?#]/)[0].slice(0, 200) : undefined;
+  return value;
+}
+
+/**
+ * Keep only the allowlisted, in-bounds properties of an event: the contract's own properties and
+ * the allowlisted SDK "$" properties, with URLs cleaned. Returns null for events outside the
+ * vocabulary.
+ */
+export function sanitizeEventProperties(name: string, properties: Record<string, unknown>, origin = "https://exacth2o.com") {
   const spec = eventProperties[name];
   if (!spec) return null;
   const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(properties)) {
     if (key.startsWith("$")) {
-      cleaned[key] = value;
+      if (!sdkPropertyNames.has(key)) continue;
+      const next = sdkPropertyValue(key, value, origin);
+      if (next !== undefined) cleaned[key] = next;
       continue;
     }
     if (commonPropertyNames.has(key)) {
