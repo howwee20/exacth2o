@@ -44,6 +44,48 @@ and **Hardware** under Advanced.
   contextual note says so, and a queued confirmation never reads as applied.
 - Every change still goes through `create-control-command` with its role checks.
 
+## Measurement semantics
+
+The same rules apply to tiles, charts, tooltips, tables and health views
+(`src/measurementFreshness.ts`, `src/seriesStatistics.ts`,
+`src/targetPresentation.ts`, `src/commandLifecycle.ts`):
+
+- **Freshness** comes from the newest measurement's own timestamp
+  (`device_recorded_at`) judged against the pot's configured reporting interval:
+  current within two intervals (at least 5 min), delayed within six intervals
+  (at least 30 min), stale beyond that, each plus 2 min for upload; without a
+  configured interval, 15 / 60 minutes and the label says the cadence is unknown. *Offline* comes only from controller
+  presence (`state_fresh_until`), never from a failed browser request. Completed
+  experiments are *historical*. When the portal last checked is shown separately
+  and never makes an old reading look current.
+- **Statistics** use every valid reading. Drawing reduces points per pixel column
+  while keeping each column's extremes, and breaks lines where readings stopped
+  for longer than 2.5 intervals (or interval + 5 min). Missing values show as a
+  dash, never zero. Missing-reading estimates use the configured cadence, or the
+  observed one, labelled.
+- **Targets** say what they mean: `Target 30% VWC`, `Target 0% VWC` (watering
+  would only begin near 0%), `No target set`, `Watering disabled` (the controller
+  rule: target outside 0–100%, zero valve time or zero interval), `Sensing only`,
+  `Completed`. Charts draw the *current* applied target per treatment; the portal
+  has no target history. A controller target that differs from the experiment
+  plan is flagged.
+- **Requests** progress requested → queued → accepted → running → executed. A
+  completed watering request reads "controller reported complete"; physical
+  delivery is never claimed without flow, pressure or weight evidence.
+
+## Loading and refresh
+
+Settings (with calibration and commissioning), the experiment builder, System
+Health, Sales & Support, Walker and Web Analytics load on first use behind
+`FeatureBoundary` (loading state; on failure, an offer to reload the portal).
+Polling for health, support, device state and the watchdog pauses while the tab
+is hidden; returning to the tab triggers one incremental reconciliation (a full
+reload after six hours away), and bursts of focus/visibility events are
+coalesced. Realtime readings are merged in 400 ms batches, full reconciliations
+replace data only when complete, and responses for a previous session, project
+or device are discarded. `scripts/perf/portal-lab/` measures these behaviours
+against a counting mock.
+
 ## Autocalibrate (real hardware commissioning)
 
 Autocalibrate finds out which valve physically waters which sensor. It is
