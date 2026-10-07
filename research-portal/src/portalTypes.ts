@@ -34,9 +34,23 @@ export type ChartSeries = {
   treatment: Treatment;
   plantGroup: PlantGroup;
   color: string;
+  /** Every valid reading, ascending by time, one per timestamp. Never display-sampled. */
   points: ChartPoint[];
   rawPointCount: number;
+  /** Configured reporting interval for this pot, when known. */
+  expectedIntervalMs: number | null;
+  /** Readings dropped for a non-finite value or timestamp. */
+  invalidCount: number;
+  duplicateCount: number;
+  conflictingDuplicateCount: number;
   memberCount?: number;
+};
+
+/** Horizontal reference line on a VWC chart, e.g. a treatment's target. */
+export type ChartTargetLine = {
+  value: number;
+  label: string;
+  tone: "control" | "drought" | "neutral";
 };
 
 export type WateringOverlayMarker = {
@@ -88,19 +102,6 @@ export type TooltipState = {
   treatment: Treatment;
   point: ChartPoint;
   locked?: boolean;
-};
-
-export type PotStats = {
-  latestValue: number | null;
-  latestAt: string | null;
-  mean: number | null;
-  min: number | null;
-  max: number | null;
-  dryingRatePerDay: number | null;
-  missingReadings: number;
-  sharpDropCount: number;
-  status: "live" | "stale" | "warning" | "empty";
-  warning: string | null;
 };
 
 export type CsvDownload = {

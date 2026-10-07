@@ -1,43 +1,38 @@
 import { type PortalExperiment } from "../experimentRegistry";
-import { dayMs, maxPointsPerSeries, staleAfterMs, tenMinutesMs } from "../portalConstants";
+import { validCadenceMs } from "../measurementFreshness";
 import { colorForPairing, metricValue, plantGroupForPairing, treatmentForPairing } from "../portalPresentation";
-import { type ChartPoint, type ChartSeries, type PotStats } from "../portalTypes";
+import { type ChartPoint, type ChartSeries, type TimeBounds } from "../portalTypes";
+import { pointsInRange, prepareSeries, summarizeSeries } from "../seriesStatistics";
 import { type PairingRow, type SensorReading } from "../types";
 
-export function samplePoints(points: ChartPoint[]) {
-  if (points.length <= maxPointsPerSeries) return points;
-  const sampled: ChartPoint[] = [];
-  const stride = (points.length - 1) / (maxPointsPerSeries - 1);
-  for (let index = 0; index < maxPointsPerSeries; index += 1) {
-    sampled.push(points[Math.round(index * stride)]);
-  }
-  return sampled;
-}
-
+/**
+ * One series per pot holding every valid reading at full resolution.
+ * Drawing reduces points separately (see decimateForDisplay); statistics and
+ * exports never see a display-reduced series.
+ */
 export function chartSeries(
   pairings: PairingRow[],
   readings: SensorReading[],
   experiment?: PortalExperiment | null,
 ): ChartSeries[] {
-  const grouped = new Map<string, ChartPoint[]>();
+  const grouped = new Map<string, Array<ChartPoint>>();
+  const invalid = new Map<string, number>();
 
   for (const reading of readings) {
     if (!reading.pairing_name) continue;
     const value = metricValue(reading);
-    if (value == null) continue;
-    const timestampMs = new Date(reading.device_recorded_at).getTime();
-    if (!Number.isFinite(timestampMs)) continue;
-
+    const timestampMs = Date.parse(reading.device_recorded_at);
+    if (value == null || !Number.isFinite(timestampMs)) {
+      invalid.set(reading.pairing_name, (invalid.get(reading.pairing_name) ?? 0) + 1);
+      continue;
+    }
     const points = grouped.get(reading.pairing_name) ?? [];
     points.push({ timestampMs, value, reading });
     grouped.set(reading.pairing_name, points);
   }
 
   return pairings.map((pairing) => {
-    const points = (grouped.get(pairing.name) ?? []).sort(
-      (a, b) => a.timestampMs - b.timestampMs,
-    );
-
+    const prepared = prepareSeries(grouped.get(pairing.name) ?? []);
     return {
       name: pairing.name,
       kind: "pot",
@@ -46,80 +41,76 @@ export function chartSeries(
       treatment: treatmentForPairing(pairing, experiment),
       plantGroup: plantGroupForPairing(pairing, experiment),
       color: colorForPairing(pairing),
-      points: samplePoints(points),
-      rawPointCount: points.length,
+      points: prepared.points,
+      rawPointCount: prepared.points.length,
+      expectedIntervalMs: validCadenceMs(pairing.measurement_interval_ms),
+      invalidCount: (invalid.get(pairing.name) ?? 0) + prepared.invalidCount,
+      duplicateCount: prepared.duplicateCount,
+      conflictingDuplicateCount: prepared.conflictingDuplicateCount,
     };
   });
 }
 
-export function average(values: number[]) {
-  return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+export function latestPoint(series?: ChartSeries | null) {
+  return series?.points.length ? series.points[series.points.length - 1] : null;
 }
 
-export function formatPercent(value: number | null | undefined, digits = 1) {
-  return value == null || !Number.isFinite(value) ? "none" : `${value.toFixed(digits)}%`;
+/** Full-resolution summary of a series, optionally limited to a time window. */
+export function seriesSummary(series: ChartSeries, window?: TimeBounds | null) {
+  const points = window ? pointsInRange(series.points, window.startMs, window.endMs) : series.points;
+  return summarizeSeries(points, { configuredIntervalMs: series.expectedIntervalMs });
 }
 
-export function statsForSeries(item?: ChartSeries | null): PotStats {
-  if (!item || item.points.length === 0) {
-    return {
-      latestValue: null,
-      latestAt: null,
-      mean: null,
-      min: null,
-      max: null,
-      dryingRatePerDay: null,
-      missingReadings: 0,
-      sharpDropCount: 0,
-      status: "empty",
-      warning: null,
-    };
-  }
+/** "31.2%" for a measured value; an em dash, never zero, when there is no reading. */
+export function formatVwcReading(value: number | null | undefined, digits = 1) {
+  return value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(digits)}%`;
+}
 
-  const values = item.points.map((point) => point.value);
-  const first = item.points[0];
-  const latest = item.points[item.points.length - 1];
-  const spanMs = Math.max(1, latest.timestampMs - first.timestampMs);
-  const expected = Math.max(0, Math.floor(spanMs / tenMinutesMs) + 1);
-  let sharpDropCount = 0;
-  let sharpDropMessage: string | null = null;
+/** Spoken form for labels: "31.2 percent VWC" or "no reading". */
+export function describeVwcReading(value: number | null | undefined) {
+  return value == null || !Number.isFinite(value) ? "no reading" : `${value.toFixed(1)} percent VWC`;
+}
 
-  for (let index = 1; index < item.points.length; index += 1) {
-    const previous = item.points[index - 1];
-    const current = item.points[index];
-    const delta = current.value - previous.value;
-    const elapsedMinutes = (current.timestampMs - previous.timestampMs) / 60_000;
-    if (delta <= -3 && elapsedMinutes <= 45) {
-      sharpDropCount += 1;
-      if (!sharpDropMessage) {
-        sharpDropMessage = `Sharp drop: ${previous.value.toFixed(1)}% to ${current.value.toFixed(1)}% in ${Math.max(1, Math.round(elapsedMinutes))} min`;
-      }
+export type GroupComparison = {
+  potCount: number;
+  reportingCount: number;
+  latestMedian: number | null;
+  latestMin: number | null;
+  latestMax: number | null;
+  windowMean: number | null;
+  newestAt: number | null;
+};
+
+/**
+ * Compare a group of pots: the median of each pot's latest reading inside the
+ * window, the spread of those readings, and the mean of every reading in the
+ * window (full resolution).
+ */
+export function compareGroup(series: readonly ChartSeries[], window?: TimeBounds | null): GroupComparison {
+  const latest: number[] = [];
+  let sum = 0;
+  let count = 0;
+  let newestAt: number | null = null;
+  for (const item of series) {
+    const points = window ? pointsInRange(item.points, window.startMs, window.endMs) : item.points;
+    if (!points.length) continue;
+    const last = points[points.length - 1];
+    latest.push(last.value);
+    newestAt = newestAt == null ? last.timestampMs : Math.max(newestAt, last.timestampMs);
+    for (const point of points) {
+      sum += point.value;
+      count += 1;
     }
   }
-
-  const latestAge = Date.now() - latest.timestampMs;
-  const missingReadings = Math.max(0, expected - item.rawPointCount);
-  const status =
-    sharpDropCount > 0 || latest.value < 8 || missingReadings > 6
-      ? "warning"
-      : latestAge > staleAfterMs
-        ? "stale"
-        : "live";
-  const warning =
-    sharpDropMessage ??
-    (latest.value < 8 ? `Low moisture: ${latest.value.toFixed(1)}% VWC` : null) ??
-    (missingReadings > 6 ? `${missingReadings} estimated missing readings` : null);
-
+  latest.sort((a, b) => a - b);
+  const middle = Math.floor(latest.length / 2);
   return {
-    latestValue: latest.value,
-    latestAt: latest.reading.device_recorded_at,
-    mean: average(values),
-    min: Math.min(...values),
-    max: Math.max(...values),
-    dryingRatePerDay: ((latest.value - first.value) / spanMs) * dayMs,
-    missingReadings,
-    sharpDropCount,
-    status,
-    warning,
+    potCount: series.length,
+    reportingCount: latest.length,
+    latestMedian: latest.length ? (latest.length % 2 ? latest[middle] : (latest[middle - 1] + latest[middle]) / 2) : null,
+    latestMin: latest.length ? latest[0] : null,
+    latestMax: latest.length ? latest[latest.length - 1] : null,
+    windowMean: count ? sum / count : null,
+    newestAt,
   };
 }

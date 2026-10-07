@@ -120,7 +120,15 @@ async function measure(context, url, origin) {
   });
   await page.addInitScript(observerScript);
   const started = Date.now();
-  await page.goto(`${origin}${url}`, { waitUntil: "load", timeout: 120_000 });
+  let loadTimedOut = false;
+  try {
+    await page.goto(`${origin}${url}`, { waitUntil: "load", timeout: 90_000 });
+  } catch (error) {
+    // A stalled third-party request (e.g. a font) can hold the load event. Record it and keep
+    // measuring what did load instead of abandoning the whole run.
+    if (!String(error).includes("Timeout")) throw error;
+    loadTimedOut = true;
+  }
   const loadMs = Date.now() - started;
   // Network quiet: three seconds without activity, capped at 60 seconds.
   while (Date.now() - lastActivity < 3000 && Date.now() - started < 60_000) await page.waitForTimeout(250);
@@ -163,6 +171,8 @@ async function measure(context, url, origin) {
     taskDurationMs: Math.round((metrics.TaskDuration ?? 0) * 1000),
     jsHeapUsedBytes: metrics.JSHeapUsedSize ?? null,
     wallLoadMs: loadMs,
+    loadTimedOut,
+    pendingRequests: all.filter((item) => !item.bytes && !item.failed && !item.cached).map((item) => item.url).slice(0, 10),
     images: all.filter((item) => resourceBucket(item.type, item.url) === "image").map((item) => ({ file: item.url.split("/").pop(), bytes: item.bytes, cached: item.cached })),
     failed: all.filter((item) => item.failed && !item.url.includes("supabase")).map((item) => ({ url: item.url, error: item.failed })),
   };
@@ -214,13 +224,18 @@ try {
       });
       await context.route(/supabase\.co/, (route) => route.abort());
       if (blockMetrics) await context.route(/\/site-metrics\.js/, (route) => route.abort());
-      cold.push(await measure(context, url, origin));
-      warm.push(await measure(context, url, origin));
+      try {
+        cold.push(await measure(context, url, origin));
+        warm.push(await measure(context, url, origin));
+      } catch (error) {
+        console.error(`${label} ${profileName} ${url} run ${run + 1} failed: ${String(error).split("\n")[0]}`);
+      }
       await context.close();
     }
     results.pages[url] = { cold: summarize(cold), warm: summarize(warm), coldSamples: cold, warmSamples: warm };
     const c = results.pages[url].cold;
-    console.log(`${label} ${profileName} ${url}: cold ${(c.transferBytes.median / 1024).toFixed(0)} KB, ${c.requests.median} req, LCP ${Math.round(c.lcp.median ?? 0)} ms, load ${Math.round(c.loadEvent.median ?? 0)} ms, CLS ${c.cls.median}, TBT ${c.totalBlockingTime.median} ms`);
+    if (!cold.length) continue;
+    console.log(`${label} ${profileName} ${url}: cold ${(c.transferBytes.median / 1024).toFixed(0)} KB, ${c.requests.median} req, LCP ${Math.round(c.lcp.median ?? 0)} ms, load ${Math.round(c.loadEvent.median ?? 0)} ms, CLS ${c.cls.median}, TBT ${c.totalBlockingTime.median} ms${cold.some((sample) => sample.loadTimedOut) ? ` (${cold.filter((sample) => sample.loadTimedOut).length} load timeouts)` : ""}`);
   }
 } finally {
   await browser.close();

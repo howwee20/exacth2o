@@ -3,12 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SensorCanvasChart } from "../charts/SensorCanvasChart";
 import { TimeRangeControl } from "../charts/TimeRangeControl";
 import { filterSeriesByTime } from "../charts/chartGeometry";
-import { formatPercent, statsForSeries } from "../charts/chartSeries";
+import { describeVwcReading, formatVwcReading, latestPoint } from "../charts/chartSeries";
+import { MeasurementStatusBar } from "../experiment/MeasurementStatus";
+import { formatAge, formatDuration, formatMeasurementTime, measurementFreshness } from "../measurementFreshness";
+import { prepareSeries } from "../seriesStatistics";
+import { scheduleVisiblePolling } from "../visiblePolling";
 import { fullTimeWindow } from "../portalConstants";
 import { type ChartPoint, type ChartSeries, type TimeBounds } from "../portalTypes";
 import { colorForPotNumber } from "../potColors";
 import { type SensorReading } from "../types";
-import { isWalkerAccessDenied, toggleWalkerSensorSelection, type WalkerLiveSensor, type WalkerLiveSnapshot, walkerSensorsByBoard } from "../walkerObservation";
+import { isWalkerAccessDenied, toggleWalkerSensorSelection, walkerFreshness, type WalkerLiveSensor, type WalkerLiveSnapshot, walkerSensorsByBoard } from "../walkerObservation";
 import { loadWalkerLiveSnapshot } from "../walkerObservationClient";
 
 export const walkerLivePollMs = 60_000;
@@ -41,6 +45,7 @@ export function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
       };
       return [{ timestampMs, value: point.average, reading }];
     });
+    const prepared = prepareSeries(points);
     return {
       name: `walker-sensor-${sensor.source_sensor_id}`,
       kind: "pot",
@@ -49,8 +54,13 @@ export function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
       treatment: "unknown",
       plantGroup: "unknown",
       color: colorForPotNumber(potNumber),
-      points,
-      rawPointCount: points.length,
+      points: prepared.points,
+      rawPointCount: prepared.points.length,
+      // Each point is a server-side bucket average; the bucket is the expected spacing.
+      expectedIntervalMs: snapshot.bucket_seconds > 0 ? snapshot.bucket_seconds * 1000 : null,
+      invalidCount: prepared.invalidCount,
+      duplicateCount: prepared.duplicateCount,
+      conflictingDuplicateCount: prepared.conflictingDuplicateCount,
     };
   });
 }
@@ -63,13 +73,29 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
   const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
   const [timeWindow, setTimeWindow] = useState(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const initializedSelection = useRef(false);
+  const mountedRef = useRef(true);
+  const requestRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
+    // Only the newest request may update the view; a late answer from an earlier one is dropped.
+    const request = ++requestRef.current;
     try {
       const nextSnapshot = await loadWalkerLiveSnapshot();
+      if (!mountedRef.current || request !== requestRef.current) return;
       setSnapshot(nextSnapshot);
       setError(null);
+      setCheckedAt(new Date().toISOString());
+      setNowMs(Date.now());
       if (!initializedSelection.current) {
         setSelectedSensorIds(new Set(
           nextSnapshot.sensors.map((sensor) => sensor.source_sensor_id),
@@ -77,6 +103,7 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
         initializedSelection.current = true;
       }
     } catch (nextError) {
+      if (!mountedRef.current || request !== requestRef.current) return;
       const accessDenied = isWalkerAccessDenied(
         nextError as { code?: string; message?: string },
       );
@@ -86,15 +113,20 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
           : "Walker live telemetry is temporarily unavailable.",
       );
     } finally {
-      setLoading(false);
+      if (mountedRef.current && request === requestRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), walkerLivePollMs);
-    return () => window.clearInterval(timer);
+    // Paused while the tab is hidden; one refresh on return if a poll was missed.
+    return scheduleVisiblePolling(refresh, walkerLivePollMs);
   }, [refresh]);
+
+  const freshness = useMemo(
+    () => snapshot ? walkerFreshness(snapshot, nowMs) : null,
+    [nowMs, snapshot],
+  );
 
   const sensors = useMemo(() => snapshot?.sensors ?? [], [snapshot]);
   const allSensorIds = useMemo(
@@ -143,12 +175,16 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
   );
   const boardGroups = useMemo(() => walkerSensorsByBoard(sensors), [sensors]);
 
-  const toggleSensor = (sensorId: number) => {
+  const toggleSensor = useCallback((sensorId: number) => {
     setSelectedSensorIds((current) =>
       toggleWalkerSensorSelection(current, sensorId, allSensorIds),
     );
     setSelectedSeriesName(`walker-sensor-${sensorId}`);
-  };
+  }, [allSensorIds]);
+  const selectSeries = useCallback((name: string) => {
+    const sensor = sensorBySeriesName.get(name);
+    if (sensor) toggleSensor(sensor.source_sensor_id);
+  }, [sensorBySeriesName, toggleSensor]);
 
   return (
     <main className="dashboard-shell experiment-shell walker-experiment-shell">
@@ -162,9 +198,9 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
       </div>
 
       {error ? (
-        <div className="banner error">
+        <div className="banner error" role="alert">
           <AlertTriangle size={18} />
-          {error}
+          {snapshot ? `${error} Showing the readings loaded earlier.` : error}
           <button type="button" className="header-action" onClick={() => void refresh()}>
             Retry
           </button>
@@ -172,6 +208,21 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
       ) : null}
 
       <h1 className="experiment-view-title">Walker Pi 5</h1>
+      {snapshot && freshness ? (
+        <MeasurementStatusBar
+          freshness={freshness}
+          checkedAt={checkedAt}
+          refreshing={false}
+          reportingPots={snapshot.current_sensor_count}
+          totalPots={snapshot.expected_sensor_count}
+          fetchError={error}
+        />
+      ) : null}
+      {snapshot && snapshot.bucket_seconds > 0 ? (
+        <p className="measurement-status-note">
+          Sensing only. Each point is the average of the readings in a {formatDuration(snapshot.bucket_seconds * 1000)} interval.
+        </p>
+      ) : null}
 
       <section className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}>
         <section className="chart-card">
@@ -195,11 +246,8 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
               visibleNames={visibleNames}
               selectedName={selectedSeriesName}
               viewMode="traces"
-              onSelectSeries={(name) => {
-                const sensor = sensorBySeriesName.get(name);
-                if (sensor) toggleSensor(sensor.source_sensor_id);
-              }}
-              loading={loading}
+              onSelectSeries={selectSeries}
+              loading={loading && !snapshot}
               xDomain={timeBounds}
             />
           </section>
@@ -259,7 +307,9 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
                 <div>
                   {boardSensors.map((sensor: WalkerLiveSensor) => {
                     const chartItem = seriesBySensor.get(sensor.source_sensor_id);
-                    const latestValue = statsForSeries(chartItem).latestValue;
+                    const latestValue = latestPoint(chartItem)?.value ?? null;
+                    const sensorFreshness = measurementFreshness({ measuredAt: sensor.latest_reading_at, nowMs });
+                    const showAge = sensor.latest_reading_at != null && sensorFreshness.state !== "current";
                     const visible = selectedSensorIds.has(sensor.source_sensor_id);
                     const colorSeed = sensor.position_number ?? sensor.source_sensor_id;
                     return (
@@ -270,7 +320,8 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
                           selectedSeriesName === chartItem?.name ? "is-selected-pot" : ""
                         }`}
                         onClick={() => toggleSensor(sensor.source_sensor_id)}
-                        aria-label={`${sensor.display_label}, ${formatPercent(latestValue)}`}
+                        aria-label={`${sensor.display_label}, ${describeVwcReading(latestValue)}, ${sensorFreshness.detail}`}
+                        title={sensor.latest_reading_at ? `${formatMeasurementTime(sensor.latest_reading_at)} · ${sensorFreshness.detail}` : "No live reading"}
                       >
                         <span
                           className="color-dot"
@@ -278,7 +329,8 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
                         />
                         <span className="pot-reading">
                           <b>{sensor.display_label}</b>
-                          <strong>{formatPercent(latestValue)}</strong>
+                          <strong>{formatVwcReading(latestValue)}</strong>
+                          {showAge ? <span className="pot-age">{formatAge(sensorFreshness.ageMs)}</span> : null}
                         </span>
                       </button>
                     );

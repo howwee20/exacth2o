@@ -9,6 +9,7 @@ import { type PortalRole } from "../portalAccess";
 import { boardConfigsFromPayload, formatIntervalFromMs, formatSecondsFromMs, formatSettingsTimestamp, formatTargetVwc, numberInputString, pairingGroupName, runtimeStateIsFresh, syncedCount } from "../portalFormat";
 import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type QueueSettingsPlan, type SettingsNavItem, type SettingsSection } from "../portalTypes";
 import { downloadJsonFile } from "../readingsExport";
+import { type CommandProgress, type CommandStage } from "../commandLifecycle";
 import { controllerPillText, controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText } from "../settingsPresentation";
 import { type PairingRow } from "../types";
 
@@ -79,6 +80,7 @@ export type PortalSettingsPanelProps = {
   exportingCsv: boolean;
   controlBusy: boolean;
   controlNotice: string | null;
+  commandProgress: CommandProgress | null;
   controlError: string | null;
   assistantInitialPrompt?: string;
   operatorEmail: string | null;
@@ -90,6 +92,22 @@ export type PortalSettingsPanelProps = {
   onQueueSettingsPlan: QueueSettingsPlan;
   onSignOut: () => void;
 };
+
+const commandStageLabels = [
+  ["requested", "Requested"],
+  ["queued", "Queued"],
+  ["accepted", "Accepted"],
+  ["running", "Running"],
+  ["executed", "Executed"],
+] as const;
+
+function commandStageClass(current: CommandStage, stage: CommandStage) {
+  const order: CommandStage[] = ["requested", "queued", "accepted", "running", "executed"];
+  if (current === "failed" || current === "canceled" || current === "expired") return stage === "requested" ? "is-done" : "is-stopped";
+  const currentIndex = order.indexOf(current);
+  const stageIndex = order.indexOf(stage);
+  return stageIndex < currentIndex ? "is-done" : stageIndex === currentIndex ? "is-current" : "";
+}
 
 export function PortalSettingsPanel({
   open,
@@ -107,6 +125,7 @@ export function PortalSettingsPanel({
   exportingCsv,
   controlBusy,
   controlNotice,
+  commandProgress,
   controlError,
   assistantInitialPrompt,
   operatorEmail,
@@ -358,6 +377,23 @@ export function PortalSettingsPanel({
 
   const commandStatusPanel = (
     <>
+      {commandProgress ? (
+        <div className={`settings-callout is-${commandProgress.tone === "ok" ? "success" : commandProgress.tone === "bad" ? "error" : "warning"} command-progress`} role="status" aria-live="polite">
+          {commandProgress.tone === "ok" ? <CheckCircle2 size={18} aria-hidden="true" /> : commandProgress.tone === "bad" ? <AlertTriangle size={18} aria-hidden="true" /> : <Clock3 size={18} aria-hidden="true" />}
+          <div>
+            <strong>{commandProgress.title}</strong>
+            <p>{commandProgress.detail}</p>
+            <ol className="command-stages" aria-label="Request progress">
+              {commandStageLabels.map(([stage, label]) => (
+                <li key={stage} className={commandStageClass(commandProgress.stage, stage)}>{label}</li>
+              ))}
+              {commandProgress.hasPhysicalOutcome ? (
+                <li className="is-unverified" title="The portal has no flow, pressure or weight evidence.">Water delivery: not verified</li>
+              ) : null}
+            </ol>
+          </div>
+        </div>
+      ) : null}
       {controlNotice ? (
         <div className={`settings-callout ${controllerIsLive ? "is-success" : "is-warning"}`} role="status">
           {controllerIsLive ? <CheckCircle2 size={18} aria-hidden="true" /> : <Clock3 size={18} aria-hidden="true" />}

@@ -10,7 +10,12 @@ import { expiredPortalSessionNotice, isSessionAuthorizationError } from "./authS
 import { SensorCanvasChart } from "./charts/SensorCanvasChart";
 import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
-import { chartSeries, formatPercent, statsForSeries } from "./charts/chartSeries";
+import { chartSeries, compareGroup, describeVwcReading, formatVwcReading, latestPoint } from "./charts/chartSeries";
+import { FreshnessPill, LatestReadingText, MeasurementStatusBar } from "./experiment/MeasurementStatus";
+import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, pairingTargetText, targetLinesForPairings } from "./experimentMeasurement";
+import { formatAge, formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
+import { controllerPresence } from "./settingsPresentation";
+import { isCommandStatus, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups } from "./experimentPresentation";
 import { experimentCardDescription, type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, latestExperimentReading, mergePortalExperiments, pairingBelongsToExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
@@ -18,12 +23,12 @@ import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { SystemHealthView } from "./health/SystemHealthView";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
-import { type DataMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, visibleExperimentPairings } from "./portalData";
+import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, visibleExperimentPairings } from "./portalData";
 import { controlCommandLabel, errorMessage, formatHealthInteger, formatSettingsTimestamp, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
 import { colorForPairing, orderedPairings, plantGroupForPairing, plantGroupLabel, treatmentForPairing, treatmentLabel } from "./portalPresentation";
 import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectContext";
 import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime, sourceLabelForReading } from "./portalReadings";
-import { adminOnlyControlCommandTypes, type AuthMode, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type InviteAcceptResponse, type LoadState, type PanelPosition, type PanelSize, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
+import { adminOnlyControlCommandTypes, type AuthMode, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type InviteAcceptResponse, type LoadState, type PanelPosition, type PanelSize, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
 import { csvEscape, dedupeReadingsForExport, downloadJsonFile } from "./readingsExport";
 import { PortalSettingsPanel } from "./settings/PortalSettingsPanel";
 import { type SettingsCommandDraft, stoppedSettingsCommandTypes } from "./settingsSpec";
@@ -35,7 +40,51 @@ import { type LatestState, type PairingRow, type SensorReading, type ValveEvent 
 import { WalkerExperimentView } from "./walker/WalkerExperimentView";
 import { ResearchWateringActivity } from "./watering/WateringActivity";
 import { mergeValveEventRows, resolveHealthWateringEvents, valveEventsToHealthWateringEvents, valveEventTimestampMs } from "./wateringEvents";
+import { createCoalescedTrigger, scheduleVisiblePolling } from "./visiblePolling";
 import { overlayTimeBounds } from "./wateringOverlay";
+
+const emptyNameSet = new Set<string>();
+const ignoreSeriesSelection = () => undefined;
+const clockTickMs = 30_000;
+/** Realtime readings arriving within this window are merged together. */
+const realtimeBatchMs = 400;
+/** Backstop polling for a tracked controller command, and how long to keep following it. */
+const trackedCommandPollMs = 15_000;
+const trackedCommandPollLimitMs = 15 * 60_000;
+/** Returning to the tab reconciles at most this often. */
+const returnReconcileSpacingMs = 30_000;
+/** After this long hidden, the return reconciliation reloads everything instead of the newest rows. */
+const longAbsenceFullReloadMs = 6 * 60 * 60_000;
+
+/**
+ * Next loaded-readings state. lastNewDataAt moves only when a batch contains a
+ * reading the portal did not already have; re-fetching overlapping rows is a
+ * check, not new data.
+ */
+function readingsState(
+  current: LoadState,
+  readings: SensorReading[],
+  incoming: SensorReading[],
+  nowIso: string,
+  effectiveMode: EffectiveMode,
+): LoadState {
+  const known = current.readings.length ? new Set(current.readings.map((reading) => reading.event_id || String(reading.id))) : null;
+  const hasNew = incoming.some((reading) => !known || !known.has(reading.event_id || String(reading.id)));
+  const loadedCounts = loadedReadingCounts(readings);
+  const latestLiveReading = newestByTime(
+    readings.filter((reading) => reading.event_id.startsWith("live-device:")),
+  );
+  return {
+    ...current,
+    readings,
+    totalImportedReadings: loadedCounts.imported,
+    totalLiveReadings: loadedCounts.live,
+    latestLiveReading: latestLiveReading ?? current.latestLiveReading,
+    lastCheckedAt: nowIso,
+    lastNewDataAt: hasNew ? nowIso : current.lastNewDataAt,
+    effectiveMode,
+  };
+}
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -84,27 +133,16 @@ function initialAuthMode(): AuthMode {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 function ExperimentLaunchCards({
   data,
   experiments,
+  nowMs,
   onOpenExperiment,
   onEditExperiment,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
+  nowMs: number;
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onEditExperiment?: (experiment: PortalExperiment) => void;
 }) {
@@ -118,6 +156,14 @@ function ExperimentLaunchCards({
         const observationOnly = isObservationOnlyExperiment(experiment);
         const editable = !experiment.status ||
           ["published_sensing", "active", "activation_failed"].includes(experiment.status);
+        // Freshness comes from the newest measurement of this experiment's pots, never from
+        // when the portal last fetched or from the device-state row's update time.
+        const freshness = experimentFreshness({
+          experiment,
+          pairings,
+          latestMeasuredAt: latestReading?.device_recorded_at,
+          nowMs,
+        });
 
         return (
           <article className="portal-launch-card-shell" key={experiment.id}>
@@ -146,7 +192,10 @@ function ExperimentLaunchCards({
               <span className="portal-launch-title">{experiment.name}</span>
               <strong>{activeCount} / {expectedCount} pots</strong>
               <em>{experimentCardDescription(experiment, pairings)}</em>
-              <em>Updated {formatSettingsTimestamp(latestReading?.device_recorded_at ?? data.latestIngestTime)}</em>
+              <em className="portal-launch-freshness">
+                <FreshnessPill freshness={freshness} compact />
+                <LatestReadingText freshness={freshness} />
+              </em>
             </span>
           </button>
           {onEditExperiment ? (
@@ -172,6 +221,7 @@ function ExperimentLaunchCards({
 function PortalResearcherHome({
   data,
   experiments,
+  nowMs,
   canCreateExperiment,
   onOpenExperiment,
   onNewExperiment,
@@ -179,6 +229,7 @@ function PortalResearcherHome({
   onOpenMixer,
 }: {
   data: LoadState;
+  nowMs: number;
   experiments: readonly PortalExperiment[];
   canCreateExperiment: boolean;
   onOpenExperiment: (experimentId: ExperimentId) => void;
@@ -201,6 +252,7 @@ function PortalResearcherHome({
         <ExperimentLaunchCards
           data={data}
           experiments={experiments}
+          nowMs={nowMs}
           onOpenExperiment={onOpenExperiment}
           onEditExperiment={canCreateExperiment ? onEditExperiment : undefined}
         />
@@ -211,6 +263,7 @@ function PortalResearcherHome({
 
 function PortalAdminHome({
   data,
+  nowMs,
   healthSnapshot,
   healthLoading,
   salesSupportData,
@@ -226,6 +279,7 @@ function PortalAdminHome({
   onOpenAnalytics,
 }: {
   data: LoadState;
+  nowMs: number;
   healthSnapshot: DeviceHealthSnapshot | null;
   healthLoading: boolean;
   salesSupportData: SalesSupportData;
@@ -267,6 +321,7 @@ function PortalAdminHome({
           <ExperimentLaunchCards
             data={data}
             experiments={experiments}
+            nowMs={nowMs}
             onOpenExperiment={onOpenExperiment}
             onEditExperiment={onEditExperiment}
           />
@@ -330,15 +385,6 @@ function PortalAdminHome({
 }
 
 
-
-
-
-
-
-
-
-
-
 export default function App() {
   const [email, setEmail] = useState(() => initialEmail());
   const [password, setPassword] = useState("");
@@ -372,11 +418,15 @@ export default function App() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("overview");
   const [controlBusy, setControlBusy] = useState(false);
   const [controlNotice, setControlNotice] = useState<string | null>(null);
+  // The most recent request to the controller, followed from request to execution.
+  const [trackedCommand, setTrackedCommand] = useState<TrackedCommand | null>(null);
   const [controlError, setControlError] = useState<string | null>(null);
   const [data, setData] = useState<LoadState>(initialLoadState);
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
   const [accessLoading, setAccessLoading] = useState(false);
   const [portalView, setPortalView] = useState<PortalView>("home");
+  // Re-evaluates measurement ages ("4 min ago") without refetching anything.
+  const [clockNowMs, setClockNowMs] = useState(() => Date.now());
   const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("");
   const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
   const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
@@ -399,9 +449,12 @@ export default function App() {
   const dataRef = useRef(data);
   const valveEventsRef = useRef(valveEvents);
   const loadTokenRef = useRef(0);
+  // Identifies the project/device whose data is on screen; responses for another scope are dropped.
+  const scopeKeyRef = useRef("");
   const refreshInFlightRef = useRef(false);
   const pendingRefreshRef = useRef<RefreshOptions | null>(null);
   const realtimeRefreshInFlightRef = useRef(false);
+  const valveLoadInFlightRef = useRef<{ promise: Promise<void>; full: boolean } | null>(null);
   const authRecoveryInFlightRef = useRef<Promise<boolean> | null>(null);
   const watchdogRefreshCountRef = useRef(0);
   const controlRequestIdsRef = useRef(new Map<string, { id: string; createdAt: number }>());
@@ -430,6 +483,18 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [settingsOpen]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") setClockNowMs(Date.now());
+    };
+    const intervalId = window.setInterval(tick, clockTickMs);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, []);
 
   const availableExperiments = useMemo(
     () => mergePortalExperiments(
@@ -506,6 +571,74 @@ export default function App() {
     ),
     [selectedExperiment, sortedPairings, valveEvents],
   );
+  const selectPot = useCallback((name: string) => setSelectedSeriesName(name), []);
+  const groupVisibleNameSets = useMemo(
+    () => new Map(selectedExperimentGraphGroups.map((group) => [group.id, new Set(group.pairingNames)])),
+    [selectedExperimentGraphGroups],
+  );
+  const groupTargets = useMemo(
+    () => new Map(selectedExperimentGraphGroups.map((group) => [group.id, groupTarget(group, selectedExperiment, sortedPairings)])),
+    [selectedExperiment, selectedExperimentGraphGroups, sortedPairings],
+  );
+  // Treatment comparison from full-resolution readings inside the selected time window.
+  const groupComparisons = useMemo(
+    () => new Map(selectedExperimentGraphGroups.map((group) => {
+      const names = groupVisibleNameSets.get(group.id) ?? new Set<string>();
+      return [group.id, compareGroup(series.filter((item) => names.has(item.name)), selectedVwcTimeBounds)];
+    })),
+    [groupVisibleNameSets, selectedExperimentGraphGroups, selectedVwcTimeBounds, series],
+  );
+  const groupTargetLines = useMemo(
+    () => new Map(selectedExperimentGraphGroups.map((group) => {
+      const names = groupVisibleNameSets.get(group.id) ?? new Set<string>();
+      return [group.id, targetLinesForPairings(
+        sortedPairings.filter((pairing) => names.has(pairing.name)),
+        (pairing) => treatmentForPairing(pairing, selectedExperiment),
+        selectedExperiment,
+      )];
+    })),
+    [groupVisibleNameSets, selectedExperiment, selectedExperimentGraphGroups, sortedPairings],
+  );
+  const chartVisibleNames = experimentGraphMode === "overlay" ? overlayVisibleNames : visibleNames;
+  const visibleTargetLines = useMemo(
+    () => targetLinesForPairings(
+      sortedPairings.filter((pairing) => chartVisibleNames.has(pairing.name)),
+      (pairing) => treatmentForPairing(pairing, selectedExperiment),
+      selectedExperiment,
+    ),
+    [chartVisibleNames, selectedExperiment, sortedPairings],
+  );
+  const describePotTarget = useCallback(
+    (item: ChartSeries) => pairingTargetText(pairingByName.get(item.name), selectedExperiment),
+    [pairingByName, selectedExperiment],
+  );
+  const latestMeasuredAt = useMemo(
+    () => series.reduce<number | null>((latest, item) => {
+      const point = latestPoint(item);
+      return point && (latest == null || point.timestampMs > latest) ? point.timestampMs : latest;
+    }, null),
+    [series],
+  );
+  const controllerOffline = runtimeState
+    ? controllerPresence({
+      stateFreshUntil: runtimeState.state_fresh_until,
+      stateObservedAt: runtimeState.state_observed_at,
+      controllerState: runtimeState.controller_state,
+      lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
+    }, clockNowMs).status === "offline"
+    : false;
+  const experimentStatusFreshness = experimentFreshness({
+    experiment: selectedExperiment,
+    pairings: sortedPairings,
+    latestMeasuredAt,
+    controllerOffline,
+    nowMs: clockNowMs,
+  });
+  const reportingPotCount = series.filter((item) => measurementFreshness({
+    measuredAt: latestPoint(item)?.timestampMs,
+    expectedIntervalMs: item.expectedIntervalMs,
+    nowMs: clockNowMs,
+  }).state === "current").length;
 
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
@@ -517,6 +650,12 @@ export default function App() {
   const canCreateExperiment = canUseExperimentSettings;
   const activeProjectId = portalAccess?.projectId ?? "";
   const activeDeviceId = portalAccess?.deviceId ?? "";
+  const scopeKey = sessionReady ? `${activeProjectId}:${activeDeviceId}` : "";
+  if (scopeKeyRef.current !== scopeKey) {
+    // Any refresh still running for the previous session, project or device must not land.
+    scopeKeyRef.current = scopeKey;
+    loadTokenRef.current += 1;
+  }
 
   const resetPortalSessionUi = useCallback((nextView: PortalView = "home") => {
     setSettingsOpen(false);
@@ -774,40 +913,50 @@ export default function App() {
     }
   }, [activeDeviceId, activeProjectId, canUseExperimentSettings]);
 
-  const loadValveEvents = useCallback(async (options: { incremental?: boolean } = {}) => {
+  const loadValveEvents = useCallback((options: { incremental?: boolean } = {}) => {
     if (!canReadProjectData || !activeProjectId || !activeDeviceId) {
       setValveEvents([]);
-      return;
+      return Promise.resolve();
     }
+    // Startup, the realtime subscription and tab return can all ask at once; share one request.
+    const inFlight = valveLoadInFlightRef.current;
+    if (inFlight && (inFlight.full || options.incremental === true)) return inFlight.promise;
+    const scope = scopeKeyRef.current;
+    const promise = (async () => {
+      try {
+        const incremental = options.incremental === true;
+        const existing = valveEventsRef.current;
+        const newestExistingAt = existing.reduce(
+          (latest, event) => Math.max(latest, valveEventTimestampMs(event)),
+          0,
+        );
+        const sinceMs = incremental && newestExistingAt > 0
+          ? newestExistingAt - incrementalCursorOverlapMs
+          : Date.now() - wateringHistoryMs;
+        const response = await withSupabaseTimeout(
+          supabase
+            .from("valve_events")
+            .select("*")
+            .eq("project_id", activeProjectId)
+            .eq("device_id", activeDeviceId)
+            .gte("device_recorded_at", new Date(sinceMs).toISOString())
+            .order("device_recorded_at", { ascending: false })
+            .limit(incremental ? incrementalValveEventRows : maxValveEventRows),
+          supabaseQueryTimeoutMs,
+          "Valve events",
+        );
 
-    try {
-      const incremental = options.incremental === true;
-      const existing = valveEventsRef.current;
-      const newestExistingAt = existing.reduce(
-        (latest, event) => Math.max(latest, valveEventTimestampMs(event)),
-        0,
-      );
-      const sinceMs = incremental && newestExistingAt > 0
-        ? newestExistingAt - incrementalCursorOverlapMs
-        : Date.now() - wateringHistoryMs;
-      const response = await withSupabaseTimeout(
-        supabase
-          .from("valve_events")
-          .select("*")
-          .eq("project_id", activeProjectId)
-          .eq("device_id", activeDeviceId)
-          .gte("device_recorded_at", new Date(sinceMs).toISOString())
-          .order("device_recorded_at", { ascending: false })
-          .limit(incremental ? incrementalValveEventRows : maxValveEventRows),
-        supabaseQueryTimeoutMs,
-        "Valve events",
-      );
-
-      if (response.error) throw response.error;
-      setValveEvents((current) => mergeValveEventRows(current, (response.data ?? []) as ValveEvent[]));
-    } catch {
-      // Keep the last good watering timeline visible until Supabase recovers.
-    }
+        if (response.error) throw response.error;
+        if (scopeKeyRef.current !== scope) return;
+        setValveEvents((current) => mergeValveEventRows(current, (response.data ?? []) as ValveEvent[]));
+      } catch {
+        // Keep the last good watering timeline visible until Supabase recovers.
+      }
+    })().finally(() => {
+      if (valveLoadInFlightRef.current?.promise === promise) valveLoadInFlightRef.current = null;
+    });
+    valveLoadInFlightRef.current = { promise, full: options.incremental !== true };
+    return promise;
   }, [activeDeviceId, activeProjectId, canReadProjectData]);
 
   const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
@@ -967,6 +1116,7 @@ export default function App() {
           null;
 
         if (token !== loadTokenRef.current) return;
+        const startedAtMs = Date.now();
 
         let pairingsData = pairingsFromDeviceConfigState(
           controllerConfig.data?.pairings,
@@ -984,6 +1134,7 @@ export default function App() {
             "Legacy pairings",
           );
           if (legacyPairings.error) throw legacyPairings.error;
+          if (token !== loadTokenRef.current) return;
           pairingsData = (legacyPairings.data ?? []) as PairingRow[];
         }
         pairingsData = visibleExperimentPairings(pairingsData);
@@ -992,6 +1143,10 @@ export default function App() {
           setConfigState(controllerConfig.data as DeviceConfigState);
         }
 
+        // A full reconciliation of data already on screen is assembled off-screen and swapped
+        // in once complete, so the chart never empties and refills. Only a first load (or a
+        // switch between live and imported data) streams batches in as they arrive.
+        const reconcileInPlace = !canIncrement && previous.readings.length > 0 && previous.effectiveMode === effectiveMode;
         setData((current) => ({
           ...current,
           pairings: pairingsData,
@@ -999,39 +1154,32 @@ export default function App() {
           latestIngestTime,
           lastCheckedAt: nowIso,
           effectiveMode,
-          readings: canIncrement ? current.readings : [],
-          totalImportedReadings: canIncrement ? current.totalImportedReadings : 0,
-          totalLiveReadings: canIncrement ? current.totalLiveReadings : 0,
+          readings: canIncrement || reconcileInPlace ? current.readings : [],
+          totalImportedReadings: canIncrement || reconcileInPlace ? current.totalImportedReadings : 0,
+          totalLiveReadings: canIncrement || reconcileInPlace ? current.totalLiveReadings : 0,
         }));
 
         const applyReadingsBatch = (incomingReadings: SensorReading[]) => {
           if (token !== loadTokenRef.current || incomingReadings.length === 0) return;
-          setData((current) => {
-            const readings = mergeRollingExperimentReadings(current.readings, incomingReadings);
-            const loadedCounts = loadedReadingCounts(readings);
-            const latestLiveReading = newestByTime(
-              readings.filter((reading) => reading.event_id.startsWith("live-device:")),
-            );
-            return {
-              ...current,
-              readings,
-              totalImportedReadings: loadedCounts.imported,
-              totalLiveReadings: loadedCounts.live,
-              latestLiveReading: latestLiveReading ?? current.latestLiveReading,
-              lastCheckedAt: nowIso,
-              lastNewDataAt: nowIso,
-              effectiveMode,
-            };
-          });
+          setData((current) => readingsState(current, mergeRollingExperimentReadings(current.readings, incomingReadings), incomingReadings, nowIso, effectiveMode));
         };
 
-        await fetchReadingsForMode(
+        const fetched = await fetchReadingsForMode(
           activeProjectId,
           activeDeviceId,
           effectiveMode,
           newerThan,
-          applyReadingsBatch,
+          reconcileInPlace ? undefined : applyReadingsBatch,
         );
+        if (reconcileInPlace && token === loadTokenRef.current) {
+          setData((current) => {
+            // Keep realtime rows that arrived while the reconciliation was running.
+            const arrivedDuring = current.readings.filter((reading) =>
+              Date.parse(reading.server_received_at) >= startedAtMs - incrementalCursorOverlapMs);
+            const reconciled = mergeRollingExperimentReadings(fetched, arrivedDuring);
+            return readingsState(current, reconciled, fetched, nowIso, effectiveMode);
+          });
+        }
       } catch (err) {
         if (token === loadTokenRef.current) {
           if (isSessionAuthorizationError(err)) {
@@ -1062,6 +1210,7 @@ export default function App() {
     if (!newerThan) return;
 
     realtimeRefreshInFlightRef.current = true;
+    const scope = scopeKeyRef.current;
     try {
       const effectiveMode = currentData.effectiveMode;
       const incomingReadings = await fetchReadingsForMode(
@@ -1072,6 +1221,7 @@ export default function App() {
       );
       const nowIso = new Date().toISOString();
 
+      if (scopeKeyRef.current !== scope) return;
       setData((current) => {
         if (!incomingReadings.length) {
           return {
@@ -1079,25 +1229,13 @@ export default function App() {
             lastCheckedAt: nowIso,
           };
         }
-
-        const readings = mergeRollingExperimentReadings(current.readings, incomingReadings);
-        const loadedCounts = loadedReadingCounts(readings);
-        const latestLiveReading = newestByTime(
-          readings.filter((reading) => reading.event_id.startsWith("live-device:")),
-        );
-
+        const next = readingsState(current, mergeRollingExperimentReadings(current.readings, incomingReadings), incomingReadings, nowIso, current.effectiveMode);
         return {
-          ...current,
-          readings,
-          totalImportedReadings: loadedCounts.imported,
-          totalLiveReadings: loadedCounts.live,
-          latestLiveReading: latestLiveReading ?? current.latestLiveReading,
+          ...next,
           latestIngestTime:
-            latestLiveReading?.server_received_at ??
+            next.latestLiveReading?.server_received_at ??
             current.latestState?.updated_at ??
             current.latestIngestTime,
-          lastCheckedAt: nowIso,
-          lastNewDataAt: nowIso,
         };
       });
     } catch {
@@ -1153,6 +1291,7 @@ export default function App() {
       setControlBusy(true);
       setControlNotice(null);
       setControlError(null);
+      setTrackedCommand(null);
 
       const requestKey = JSON.stringify([commandType, payload, options?.confirm === true]);
       const nowMs = Date.now();
@@ -1186,13 +1325,24 @@ export default function App() {
         }
 
         controlRequestIdsRef.current.delete(requestKey);
-        setControlNotice(`${controlCommandLabel(commandType)} sent`);
+        const command = response.data?.command;
+        if (command?.id) {
+          setTrackedCommand({
+            ids: [command.id],
+            label: controlCommandLabel(commandType),
+            commandType,
+            requestedAt: command.requested_at ?? new Date().toISOString(),
+            statuses: { [command.id]: isCommandStatus(command.status) ? command.status : undefined },
+          });
+        } else {
+          setControlNotice(`${controlCommandLabel(commandType)} requested`);
+        }
       } catch (err) {
         try {
           const reconciliation = await withSupabaseTimeout(
             supabase
               .from("project_control_commands")
-              .select("id")
+              .select("id,status,requested_at")
               .eq("project_id", activeProjectId)
               .eq("client_request_id", clientRequestId)
               .maybeSingle(),
@@ -1201,7 +1351,14 @@ export default function App() {
           );
           if (!reconciliation.error && reconciliation.data?.id) {
             controlRequestIdsRef.current.delete(requestKey);
-            setControlNotice(`${controlCommandLabel(commandType)} received; status refreshed`);
+            const recorded = reconciliation.data as { id: string; status?: unknown; requested_at?: string };
+            setTrackedCommand({
+              ids: [recorded.id],
+              label: controlCommandLabel(commandType),
+              commandType,
+              requestedAt: recorded.requested_at ?? new Date().toISOString(),
+              statuses: { [recorded.id]: isCommandStatus(recorded.status) ? recorded.status : undefined },
+            });
           } else {
             setControlError(`${errorMessage(err)} Safe to retry; the same request ID will be reused.`);
           }
@@ -1277,6 +1434,7 @@ export default function App() {
       setControlBusy(true);
       setControlNotice(null);
       setControlError(null);
+      setTrackedCommand(null);
 
       const reviewedControllerState = runtimeState?.controller_state?.trim().toLowerCase();
       if (
@@ -1350,13 +1508,20 @@ export default function App() {
         if (response.error) throw new Error(await functionErrorMessage(response.error));
         if (!response.data?.commands?.length) throw new Error("The complete settings batch was not accepted.");
         settingsBatchIdsRef.current.delete(requestKey);
-        setControlNotice("Reviewed settings queued safely");
+        const commands = response.data.commands;
+        setTrackedCommand({
+          ids: commands.map((command) => command.id),
+          label: "Reviewed settings",
+          commandType: "settings_batch",
+          requestedAt: new Date().toISOString(),
+          statuses: Object.fromEntries(commands.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
+        });
       } catch (nextError) {
         try {
           const reconciliation = await withSupabaseTimeout(
             supabase
               .from("project_control_commands")
-              .select("id")
+              .select("id,status")
               .eq("project_id", activeProjectId)
               .eq("batch_id", batchId),
             supabaseQueryTimeoutMs,
@@ -1367,7 +1532,14 @@ export default function App() {
             (reconciliation.data?.length ?? 0) === batchCommands.length
           ) {
             settingsBatchIdsRef.current.delete(requestKey);
-            setControlNotice("Reviewed settings received; status refreshed");
+            const recorded = (reconciliation.data ?? []) as Array<{ id: string; status?: unknown }>;
+            setTrackedCommand({
+              ids: recorded.map((command) => command.id),
+              label: "Reviewed settings",
+              commandType: "settings_batch",
+              requestedAt: new Date().toISOString(),
+              statuses: Object.fromEntries(recorded.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
+            });
           } else {
             setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
           }
@@ -1567,9 +1739,6 @@ export default function App() {
     dataRef.current = initialLoadState;
   }
 
-  function selectPot(name: string) {
-    setSelectedSeriesName(name);
-  }
 
   function applyPotPreset(preset: Exclude<PotPreset, "custom">) {
     setPotPreset(preset);
@@ -1854,7 +2023,11 @@ export default function App() {
   useEffect(() => {
     if (!sessionReady) return undefined;
 
-    const validateVisibleSession = async () => {
+    let hiddenSinceMs: number | null = document.visibilityState === "visible" ? null : Date.now();
+    // Returning to the tab revalidates the session and reconciles once. Focus, visibility,
+    // pageshow and online events arrive in bursts; they collapse into one incremental check
+    // (a full reload only after a long absence) at most every 30 seconds.
+    const reconcile = createCoalescedTrigger(async () => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session) {
@@ -1866,21 +2039,30 @@ export default function App() {
         const recovered = await recoverPortalSession();
         if (!recovered) return;
       }
+      const longAbsence = hiddenSinceMs != null && Date.now() - hiddenSinceMs > longAbsenceFullReloadMs;
+      hiddenSinceMs = null;
       await Promise.allSettled([
-        refresh({ incremental: false }),
-        loadValveEvents(),
+        refresh({ incremental: !longAbsence }),
+        loadValveEvents({ incremental: !longAbsence }),
       ]);
-    };
+    }, { minSpacingMs: returnReconcileSpacingMs });
+    reconcile.markRun();
 
-    document.addEventListener("visibilitychange", validateVisibleSession);
-    window.addEventListener("online", validateVisibleSession);
-    window.addEventListener("focus", validateVisibleSession);
-    window.addEventListener("pageshow", validateVisibleSession);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") reconcile.trigger("visibilitychange");
+      else hiddenSinceMs ??= Date.now();
+    };
+    const onReturn = (event: Event) => reconcile.trigger(event.type);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onReturn);
+    window.addEventListener("focus", onReturn);
+    window.addEventListener("pageshow", onReturn);
     return () => {
-      document.removeEventListener("visibilitychange", validateVisibleSession);
-      window.removeEventListener("online", validateVisibleSession);
-      window.removeEventListener("focus", validateVisibleSession);
-      window.removeEventListener("pageshow", validateVisibleSession);
+      reconcile.cancel();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("online", onReturn);
+      window.removeEventListener("focus", onReturn);
+      window.removeEventListener("pageshow", onReturn);
     };
   }, [
     expirePortalSession,
@@ -1968,18 +2150,13 @@ export default function App() {
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
-    const pollId = window.setInterval(() => {
-      void loadHealthSnapshot({ silent: true });
-    }, healthSnapshotPollMs);
-    return () => window.clearInterval(pollId);
+    return scheduleVisiblePolling(() => loadHealthSnapshot({ silent: true }), healthSnapshotPollMs);
   }, [isAdmin, loadHealthSnapshot, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData || !activeProjectId || !activeDeviceId) return undefined;
-    const pollId = window.setInterval(() => {
-      void loadValveEvents({ incremental: true });
-    }, healthSnapshotPollMs);
-    return () => window.clearInterval(pollId);
+    // Realtime inserts carry new events; this poll only backstops a dropped subscription.
+    return scheduleVisiblePolling(() => loadValveEvents({ incremental: true }), healthSnapshotPollMs, { catchUpOnVisible: false });
   }, [
     activeDeviceId,
     activeProjectId,
@@ -1990,29 +2167,24 @@ export default function App() {
 
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings) return undefined;
-    const pollId = window.setInterval(() => {
-      void loadDeviceSyncState();
-    }, healthSnapshotPollMs);
-    return () => window.clearInterval(pollId);
+    // Controller state gates reviewed settings; it is refreshed immediately on return to the tab.
+    return scheduleVisiblePolling(loadDeviceSyncState, healthSnapshotPollMs);
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
-    const pollId = window.setInterval(() => {
-      void loadSalesSupport({ silent: true });
-    }, supportPollMs);
-    return () => window.clearInterval(pollId);
+    return scheduleVisiblePolling(() => loadSalesSupport({ silent: true }), supportPollMs);
   }, [isAdmin, loadSalesSupport, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return undefined;
-    const intervalId = window.setInterval(() => {
+    // Visible-tab watchdog alongside realtime; the return-to-tab handler reconciles after hidden time.
+    return scheduleVisiblePolling(() => {
       watchdogRefreshCountRef.current += 1;
       const fullReconciliation =
         watchdogRefreshCountRef.current % fullReconciliationEveryPolls === 0;
-      void refresh({ incremental: !fullReconciliation });
-    }, autoRefreshMs);
-    return () => window.clearInterval(intervalId);
+      return refresh({ incremental: !fullReconciliation });
+    }, autoRefreshMs, { catchUpOnVisible: false });
   }, [canReadProjectData, refresh, sessionReady]);
 
   useEffect(() => {
@@ -2025,6 +2197,40 @@ export default function App() {
       if (selectedMode === "combined" || selectedMode === "auto") return true;
       if (selectedMode === "live") return eventId.startsWith("live-device:");
       return eventId.startsWith("balena-export-v2:");
+    };
+
+    // A controller reports every pot at once; apply each burst as one merge and one redraw.
+    let pendingRows: Array<SensorReading & { device_id?: string }> = [];
+    let flushTimer: number | null = null;
+    const scope = scopeKeyRef.current;
+    const flushRows = () => {
+      flushTimer = null;
+      const rows = pendingRows;
+      pendingRows = [];
+      if (!rows.length || scopeKeyRef.current !== scope) return;
+      const nowIso = new Date().toISOString();
+      const switchingToLive =
+        selectedMode === "auto" &&
+        rows.some((row) => row.event_id.startsWith("live-device:")) &&
+        dataRef.current.effectiveMode !== "live";
+      setData((current) => {
+        const hasLive = rows.some((row) => row.event_id.startsWith("live-device:"));
+        const accepted = selectedMode === "auto" && current.effectiveMode === "live"
+          ? rows.filter((row) => row.event_id.startsWith("live-device:"))
+          : rows;
+        if (!accepted.length) return current;
+        const effectiveMode = selectedMode === "auto" && hasLive ? "live" : current.effectiveMode;
+        const next = readingsState(current, mergeRollingExperimentReadings(current.readings, accepted), accepted, nowIso, effectiveMode);
+        const newestReceived = accepted.reduce<string | null>(
+          (latest, row) => (row.server_received_at && (!latest || row.server_received_at > latest) ? row.server_received_at : latest),
+          null,
+        );
+        return {
+          ...next,
+          latestIngestTime: newestReceived ?? current.latestIngestTime,
+        };
+      });
+      if (switchingToLive) void refresh({ incremental: false });
     };
 
     const channel = supabase
@@ -2040,31 +2246,8 @@ export default function App() {
         (payload) => {
           const row = payload.new as SensorReading & { device_id?: string };
           if (row.device_id !== activeDeviceId || !shouldApplyReading(row)) return;
-
-          const nowIso = new Date().toISOString();
-          const switchingToLive =
-            selectedMode === "auto" &&
-            row.event_id.startsWith("live-device:") &&
-            dataRef.current.effectiveMode !== "live";
-          setData((current) => {
-            const isLive = row.event_id.startsWith("live-device:");
-            if (selectedMode === "auto" && !isLive && current.effectiveMode === "live") return current;
-            const effectiveMode = selectedMode === "auto" && isLive ? "live" : current.effectiveMode;
-            const readings = mergeRollingExperimentReadings(current.readings, [row]);
-            const counts = loadedReadingCounts(readings);
-            return {
-              ...current,
-              readings,
-              effectiveMode,
-              totalImportedReadings: counts.imported,
-              totalLiveReadings: counts.live,
-              latestLiveReading: isLive ? row : current.latestLiveReading,
-              latestIngestTime: row.server_received_at ?? current.latestIngestTime,
-              lastCheckedAt: nowIso,
-              lastNewDataAt: nowIso,
-            };
-          });
-          if (switchingToLive) void refresh({ incremental: false });
+          pendingRows.push(row);
+          flushTimer ??= window.setTimeout(flushRows, realtimeBatchMs);
         },
       )
       .on(
@@ -2089,6 +2272,8 @@ export default function App() {
       .subscribe();
 
     return () => {
+      if (flushTimer != null) window.clearTimeout(flushTimer);
+      pendingRows = [];
       void supabase.removeChannel(channel);
     };
   }, [
@@ -2189,6 +2374,33 @@ export default function App() {
     sessionReady,
   ]);
 
+  const trackedCommandIds = trackedCommand?.ids.join(",") ?? "";
+  const trackedCommandSettled = trackedCommand
+    ? trackedCommandProgress(trackedCommand, true).terminal
+    : true;
+  useEffect(() => {
+    // Backstop for a missed realtime update: re-read the tracked commands until they finish.
+    if (!sessionReady || !activeProjectId || !trackedCommandIds || trackedCommandSettled) return undefined;
+    const ids = trackedCommandIds.split(",");
+    const startedAt = Date.now();
+    return scheduleVisiblePolling(async () => {
+      if (Date.now() - startedAt > trackedCommandPollLimitMs) return;
+      const response = await withSupabaseTimeout(
+        supabase.from("project_control_commands").select("id,status").eq("project_id", activeProjectId).in("id", ids),
+        supabaseQueryTimeoutMs,
+        "Command status",
+      );
+      if (response.error || !response.data) return;
+      const rows = response.data as Array<{ id: string; status?: unknown }>;
+      setTrackedCommand((current) => {
+        if (!current || current.ids.join(",") !== trackedCommandIds) return current;
+        const statuses = { ...current.statuses };
+        for (const row of rows) if (isCommandStatus(row.status)) statuses[row.id] = row.status;
+        return { ...current, statuses };
+      });
+    }, trackedCommandPollMs);
+  }, [activeProjectId, sessionReady, trackedCommandIds, trackedCommandSettled]);
+
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings || !activeProjectId) return undefined;
 
@@ -2202,7 +2414,14 @@ export default function App() {
           table: "project_control_commands",
           filter: `project_id=eq.${activeProjectId}`,
         },
-        () => {
+        (payload) => {
+          const row = payload.new as { id?: string; status?: unknown } | null;
+          if (row?.id && isCommandStatus(row.status)) {
+            const status = row.status;
+            setTrackedCommand((current) => current && current.ids.includes(row.id as string)
+              ? { ...current, statuses: { ...current.statuses, [row.id as string]: status } }
+              : current);
+          }
           void loadExperimentCatalog();
         },
       )
@@ -2238,7 +2457,8 @@ export default function App() {
         },
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") void loadValveEvents();
+        // Catch rows written between the initial load and the subscription becoming active.
+        if (status === "SUBSCRIBED") void loadValveEvents({ incremental: valveEventsRef.current.length > 0 });
       });
 
     return () => {
@@ -2590,6 +2810,7 @@ export default function App() {
         {portalHeader}
         <PortalAdminHome
           data={data}
+          nowMs={clockNowMs}
           experiments={availableExperiments}
           healthSnapshot={healthSnapshot}
           healthLoading={healthLoading}
@@ -2630,6 +2851,7 @@ export default function App() {
           exportingCsv={exportingCsv}
           controlBusy={controlBusy}
           controlNotice={controlNotice}
+          commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
           controlError={controlError}
           assistantInitialPrompt={settingsAssistantPrompt}
           operatorEmail={portalAccess.email ?? null}
@@ -2652,6 +2874,7 @@ export default function App() {
         <PortalResearcherHome
           onOpenMixer={portalAccess.gasMixerAllowed ? () => setPortalView("chamber") : undefined}
           data={data}
+          nowMs={clockNowMs}
           experiments={availableExperiments}
           canCreateExperiment={canCreateExperiment}
           onOpenExperiment={openExperiment}
@@ -2684,6 +2907,7 @@ export default function App() {
           exportingCsv={exportingCsv}
           controlBusy={controlBusy}
           controlNotice={controlNotice}
+          commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
           controlError={controlError}
           assistantInitialPrompt={settingsAssistantPrompt}
           operatorEmail={portalAccess.email ?? null}
@@ -2765,6 +2989,7 @@ export default function App() {
           exportingCsv={exportingCsv}
           controlBusy={controlBusy}
           controlNotice={controlNotice}
+          commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
           controlError={controlError}
           operatorEmail={portalAccess.email ?? null}
           onClose={() => setSettingsOpen(false)}
@@ -2777,14 +3002,23 @@ export default function App() {
         />
       ) : null}
 
-      {error ? (
-        <div className="banner error">
+      {error && !data.readings.length ? (
+        <div className="banner error" role="alert">
           <AlertTriangle size={18} />
-          {error}
+          Readings could not be loaded: {error}
         </div>
       ) : null}
 
       <h1 className="experiment-view-title">{selectedExperiment.name}</h1>
+      <MeasurementStatusBar
+        freshness={experimentStatusFreshness}
+        checkedAt={data.lastCheckedAt}
+        refreshing={loading && series.some((item) => item.points.length > 0)}
+        reportingPots={reportingPotCount}
+        totalPots={sortedPairings.length}
+        fetchError={data.readings.length ? error : null}
+        progress={experimentProgressText(selectedExperiment, clockNowMs)}
+      />
 
       <section
         ref={dashboardMainRef}
@@ -2816,32 +3050,43 @@ export default function App() {
             </div>
             <div className="experiment-graph-grid">
               {selectedExperimentGraphGroups.map((group) => {
-                const groupVisibleNames = new Set(group.pairingNames);
+                const target = groupTargets.get(group.id);
+                const comparison = groupComparisons.get(group.id);
+                const nowText = comparison?.latestMedian == null
+                  ? "No readings in range"
+                  : `Latest ${formatVwcReading(comparison.latestMedian)} median${comparison.reportingCount > 1 ? ` (${formatVwcReading(comparison.latestMin)}–${formatVwcReading(comparison.latestMax)})` : ""}`;
                 return (
                   <button
                     type="button"
                     className="experiment-graph-card"
                     key={group.id}
-                    aria-label={`Expand ${group.label} graph`}
+                    aria-label={`Expand ${group.label} graph. ${target?.detail ?? ""} ${nowText}.`}
                     onClick={() => openExperimentGraphGroup(group.id)}
                   >
                     <span className="experiment-graph-card-head">
                       <strong>{group.label}</strong>
-                      <em>
-                        {group.pairingNames.length} pots
-                        {group.target == null ? "" : ` · ${group.target}%`}
-                      </em>
+                      <em>{group.pairingNames.length} pots</em>
                       <Maximize2 size={16} aria-hidden="true" />
+                      <span className="graph-card-facts">
+                        {target ? (
+                          <span className={`graph-target ${target.planMismatch ? "is-warning" : ""}`} title={target.planMismatch ? "The controller's applied target differs from the experiment plan." : target.detail}>
+                            {target.label}{target.planMismatch ? " · controller differs" : ""}
+                          </span>
+                        ) : null}
+                        <span className="graph-now">{nowText}</span>
+                      </span>
                     </span>
                     <span className="experiment-graph-chart">
                       <SensorCanvasChart
                         series={timeFilteredSeries}
-                        visibleNames={groupVisibleNames}
+                        visibleNames={groupVisibleNameSets.get(group.id) ?? emptyNameSet}
                         selectedName={null}
                         viewMode="traces"
-                        onSelectSeries={() => undefined}
-                        loading={loading}
+                        onSelectSeries={ignoreSeriesSelection}
+                        loading={loading && !series.some((item) => item.points.length)}
                         xDomain={selectedVwcTimeBounds}
+                        compact
+                        targetLines={groupTargetLines.get(group.id)}
                       />
                     </span>
                   </button>
@@ -2863,9 +3108,9 @@ export default function App() {
                 <strong>{activeExperimentGraphGroup.label}</strong>
                 <span>
                   {activeExperimentGraphGroup.pairingNames.length} pots
-                  {activeExperimentGraphGroup.target == null
-                    ? ""
-                    : ` · ${activeExperimentGraphGroup.target}%`}
+                  {groupTargets.get(activeExperimentGraphGroup.id)
+                    ? ` · ${groupTargets.get(activeExperimentGraphGroup.id)?.label}`
+                    : ""}
                 </span>
               </div>
             ) : null}
@@ -2933,13 +3178,16 @@ export default function App() {
               ) : (
                 <SensorCanvasChart
                   series={timeFilteredSeries}
-                  visibleNames={experimentGraphMode === "overlay" ? overlayVisibleNames : visibleNames}
+                  visibleNames={chartVisibleNames}
                   selectedName={selectedSeriesName}
                   viewMode="traces"
                   onSelectSeries={selectPot}
-                  loading={loading}
+                  loading={loading && !series.some((item) => item.points.length)}
                   xDomain={selectedVwcTimeBounds}
-                  wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : []}
+                  wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : undefined}
+                  targetLines={visibleTargetLines}
+                  describeTarget={describePotTarget}
+                  headerSpace={hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" ? 26 : 0}
                 />
               )}
             </section>
@@ -3043,19 +3291,30 @@ export default function App() {
                 <div>
                   {groupPairings.map((pairing) => {
                     const visible = !hiddenPots.has(pairing.name);
-                    const latestValue = statsForSeries(seriesByName.get(pairing.name)).latestValue;
+                    const potSeries = seriesByName.get(pairing.name);
+                    const latest = latestPoint(potSeries);
+                    const latestValue = latest?.value ?? null;
+                    const potFreshness = measurementFreshness({
+                      measuredAt: latest?.timestampMs,
+                      expectedIntervalMs: potSeries?.expectedIntervalMs,
+                      completed: experimentIsCompleted(selectedExperiment, clockNowMs),
+                      nowMs: clockNowMs,
+                    });
+                    const showAge = latest != null && potFreshness.state !== "current" && potFreshness.state !== "historical";
                     return (
                       <button
                         key={pairing.name}
                         type="button"
                         className={`pot-toggle ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
                         onClick={() => togglePot(pairing.name)}
-                        aria-label={`Pot ${pairing.pot_number}, ${formatPercent(latestValue)}`}
+                        aria-label={`Pot ${pairing.pot_number}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings in the last 72 hours"}`}
+                        title={latest ? `${formatMeasurementTime(latest.timestampMs)} · ${potFreshness.detail}` : "No readings in the last 72 hours"}
                       >
                         <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
                         <span className="pot-reading">
                           <b>{pairing.pot_number}</b>
-                          <strong>{formatPercent(latestValue)}</strong>
+                          <strong>{formatVwcReading(latestValue)}</strong>
+                          {showAge ? <span className="pot-age">{formatAge(potFreshness.ageMs)}</span> : null}
                         </span>
                         {!isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment) ? (
                           <em className={`treatment-dot ${treatmentForPairing(pairing, selectedExperiment)}`}>

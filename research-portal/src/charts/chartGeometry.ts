@@ -1,6 +1,7 @@
 import { healthNumber, healthString, healthTimestampMs } from "../healthValues";
 import { wateringOverlayMaxSampleSpanMs } from "../portalConstants";
 import { type ChartPoint, type ChartSeries, type HealthWateringEvent, type TimeBounds, type TimeWindow, type WateringOverlayMarker } from "../portalTypes";
+import { lowerBound, pointsInRange } from "../seriesStatistics";
 import { interpolateOverlayValue } from "../wateringOverlay";
 
 export function axisLabel(timestampMs: number, spanMs: number) {
@@ -26,8 +27,20 @@ export function niceStep(range: number, targetTicks: number) {
   return multiplier * power;
 }
 
-export function vwcDomain(points: ChartPoint[]) {
-  if (points.length === 0) {
+/** Y-axis domain for VWC from the plotted points plus any reference values (e.g. targets). */
+export function vwcDomain(points: readonly ChartPoint[], extraValues: readonly number[] = []) {
+  let rawMin = Infinity;
+  let rawMax = -Infinity;
+  for (const point of points) {
+    if (point.value < rawMin) rawMin = point.value;
+    if (point.value > rawMax) rawMax = point.value;
+  }
+  for (const value of extraValues) {
+    if (!Number.isFinite(value)) continue;
+    if (value < rawMin) rawMin = value;
+    if (value > rawMax) rawMax = value;
+  }
+  if (!Number.isFinite(rawMin) || !Number.isFinite(rawMax)) {
     return {
       yMin: 0,
       yMax: 60,
@@ -36,9 +49,7 @@ export function vwcDomain(points: ChartPoint[]) {
     };
   }
 
-  const values = points.map((point) => point.value);
-  const rawMin = Math.max(0, Math.min(...values));
-  const rawMax = Math.max(...values);
+  rawMin = Math.max(0, rawMin);
   const rawSpan = Math.max(1, rawMax - rawMin);
   const yPadding = Math.max(3, rawSpan * 0.12);
   const center = (rawMin + rawMax) / 2;
@@ -70,24 +81,38 @@ export function crispLine(value: number) {
   return Math.round(value) + 0.5;
 }
 
+export type ChartBounds = ReturnType<typeof chartBounds>;
+
 export function chartBounds(
-  series: ChartSeries[],
+  series: readonly ChartSeries[],
   width: number,
   height: number,
   xDomain: TimeBounds | null = null,
+  extraValues: readonly number[] = [],
+  compact = false,
+  headerSpace = 0,
 ) {
-  const margin = { top: 22, right: 24, bottom: 54, left: 68 };
+  const margin = compact
+    ? { top: 12 + headerSpace, right: 12, bottom: 30, left: 44 }
+    : { top: 22 + headerSpace, right: 24, bottom: 54, left: 68 };
   const plotWidth = Math.max(1, width - margin.left - margin.right);
   const plotHeight = Math.max(1, height - margin.top - margin.bottom);
-  const allPoints = series.flatMap((item) => item.points);
-  const yDomain = vwcDomain(allPoints);
-  const domainIsValid = xDomain && xDomain.endMs > xDomain.startMs;
-  const minX = domainIsValid
-    ? xDomain.startMs
-    : allPoints.length ? Math.min(...allPoints.map((point) => point.timestampMs)) : 0;
-  const maxX = domainIsValid
-    ? xDomain.endMs
-    : allPoints.length ? Math.max(...allPoints.map((point) => point.timestampMs)) : 1;
+  const domainIsValid = Boolean(xDomain && xDomain.endMs > xDomain.startMs);
+  let firstTime = Infinity;
+  let lastTime = -Infinity;
+  const inDomain: ChartPoint[] = [];
+  for (const item of series) {
+    if (!item.points.length) continue;
+    firstTime = Math.min(firstTime, item.points[0].timestampMs);
+    lastTime = Math.max(lastTime, item.points[item.points.length - 1].timestampMs);
+    const points = domainIsValid && xDomain
+      ? pointsInRange(item.points, xDomain.startMs, xDomain.endMs)
+      : item.points;
+    for (const point of points) inDomain.push(point);
+  }
+  const yDomain = vwcDomain(inDomain, extraValues);
+  const minX = domainIsValid && xDomain ? xDomain.startMs : Number.isFinite(firstTime) ? firstTime : 0;
+  const maxX = domainIsValid && xDomain ? xDomain.endMs : Number.isFinite(lastTime) ? lastTime : 1;
   const spanX = Math.max(1, maxX - minX);
 
   const xScale = (timestampMs: number) =>
@@ -96,6 +121,7 @@ export function chartBounds(
     const clamped = Math.max(yDomain.yMin, Math.min(yDomain.yMax, value));
     return margin.top + ((yDomain.yMax - clamped) / yDomain.ySpan) * plotHeight;
   };
+  const timeAt = (x: number) => minX + ((x - margin.left) / plotWidth) * spanX;
 
   return {
     margin,
@@ -107,16 +133,19 @@ export function chartBounds(
     spanX,
     xScale,
     yScale,
+    timeAt,
   };
 }
 
-export function timeBoundsForSeries(series: ChartSeries[]): TimeBounds | null {
-  const points = series.flatMap((item) => item.points);
-  if (points.length === 0) return null;
-  return {
-    startMs: Math.min(...points.map((point) => point.timestampMs)),
-    endMs: Math.max(...points.map((point) => point.timestampMs)),
-  };
+export function timeBoundsForSeries(series: readonly ChartSeries[]): TimeBounds | null {
+  let startMs = Infinity;
+  let endMs = -Infinity;
+  for (const item of series) {
+    if (!item.points.length) continue;
+    startMs = Math.min(startMs, item.points[0].timestampMs);
+    endMs = Math.max(endMs, item.points[item.points.length - 1].timestampMs);
+  }
+  return Number.isFinite(startMs) && Number.isFinite(endMs) ? { startMs, endMs } : null;
 }
 
 export function timeFromPercent(bounds: TimeBounds, percent: number) {
@@ -132,11 +161,13 @@ export function filterSeriesByTime(series: ChartSeries[], bounds: TimeBounds | n
   return series.map((item) => ({
     ...item,
     points: (() => {
-      const firstInside = item.points.findIndex((point) => point.timestampMs >= startMs);
-      if (firstInside < 0) return item.points.slice(-1);
-      const firstAfter = item.points.findIndex((point) => point.timestampMs > endMs);
+      // Keep one point beyond each edge so lines and overlays reach the window boundary.
+      const firstInside = lowerBound(item.points, startMs);
+      if (firstInside >= item.points.length) return item.points.slice(-1);
+      let firstAfter = lowerBound(item.points, endMs);
+      while (firstAfter < item.points.length && item.points[firstAfter].timestampMs <= endMs) firstAfter += 1;
       const from = Math.max(0, firstInside - 1);
-      const to = firstAfter < 0 ? item.points.length : Math.min(item.points.length, firstAfter + 1);
+      const to = Math.min(item.points.length, firstAfter + 1);
       return item.points.slice(from, to);
     })(),
   }));
