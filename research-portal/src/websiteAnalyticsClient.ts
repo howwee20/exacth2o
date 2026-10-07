@@ -85,5 +85,19 @@ export async function fetchReport<T>(report: AnalyticsReportName, range: Analyti
     "Website analytics",
   );
   if (response.error || !response.data?.status) throw response.error ?? new Error("Analytics unavailable");
-  return response.data;
+  return checkReportVersion(report, response.data);
 }
+
+/**
+ * The reports service echoes the report it computed. An older deployment of the function
+ * ignores the request and returns the seven-day tile summary as "ready"; rendering that as a
+ * workspace report would fail, so it is shown as a service that needs updating instead.
+ */
+export function checkReportVersion<T>(report: AnalyticsReportName, data: ReportEnvelope<T>): ReportEnvelope<T> {
+  if (data.status === "ready" && data.report !== report) {
+    return { status: "unavailable", report, failure: serviceOutdatedFailure, dashboardUrl: data.dashboardUrl ?? null } as ReportEnvelope<T>;
+  }
+  return data;
+}
+
+export const serviceOutdatedFailure = "service_outdated";

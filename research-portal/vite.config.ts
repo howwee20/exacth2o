@@ -7,8 +7,9 @@ export default defineConfig({
   build: {
     outDir: "../portal-app",
     emptyOutDir: true,
-    // One stylesheet (assets/portal.css) even though features load on demand.
-    cssCodeSplit: false,
+    // The entry's stylesheet is assets/portal.css; a feature that imports its own stylesheet
+    // (Web Analytics) gets a hashed CSS file loaded together with its chunk.
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         // A content-hashed entry: lazily loaded chunks import the entry by file name, so the page
@@ -21,7 +22,10 @@ export default defineConfig({
           "icon-vendor": ["lucide-react"],
         },
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name?.endsWith(".css")) return "assets/portal.css";
+          const names = assetInfo.names ?? [];
+          if (names.some((name) => name.endsWith(".css"))) {
+            return names.includes("index.css") ? "assets/portal.css" : "assets/[name]-[hash][extname]";
+          }
           return "assets/[name][extname]";
         },
       },

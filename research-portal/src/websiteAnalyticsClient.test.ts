@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabase", () => ({ supabase: {} }));
-const { preferReport, ReportCache, reportKey } = await import("./websiteAnalyticsClient");
+const { checkReportVersion, preferReport, ReportCache, reportKey, serviceOutdatedFailure } = await import("./websiteAnalyticsClient");
 type Envelope = import("./websiteAnalyticsClient").ReportEnvelope<unknown>;
 
 const ready = (updatedAt: string): Envelope => ({ status: "ready", report: "overview", updatedAt });
@@ -31,5 +31,17 @@ describe("website analytics client", () => {
     cache.set("b", ready("x"), 0);
     cache.set("c", ready("x"), 0);
     expect(cache.size).toBe(2);
+  });
+
+  it("treats the old tile-only service's answer as an outdated service, not a report", () => {
+    // The function at 14bab83 ignores the request body and returns the tile summary as "ready".
+    const old = { status: "ready", visitors: 12, demoClicks: 1, quoteClicks: 2, inquiries: 1, days: [] } as unknown as Envelope;
+    const checked = checkReportVersion("overview", old);
+    expect(checked.status).toBe("unavailable");
+    expect(checked.failure).toBe(serviceOutdatedFailure);
+    const current = { status: "ready", report: "overview" } as Envelope;
+    expect(checkReportVersion("overview", current)).toBe(current);
+    const collecting = answer("collecting");
+    expect(checkReportVersion("overview", collecting)).toBe(collecting);
   });
 });

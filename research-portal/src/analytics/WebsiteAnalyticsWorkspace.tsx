@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft, Copy, Loader2, RefreshCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleVisiblePolling } from "../visiblePolling";
+import "./analytics.css";
 import {
   type AnalyticsDevice,
   type AnalyticsRange,
@@ -10,6 +11,7 @@ import {
   ReportCache,
   type ReportEnvelope,
   reportKey,
+  serviceOutdatedFailure,
 } from "../websiteAnalyticsClient";
 import {
   campaignPages,
@@ -144,7 +146,11 @@ function ReportFrame<T>({
       {error ? <div className="banner error" role="alert"><AlertTriangle size={16} />{error}</div> : null}
       {data?.status === "setup" ? <p className="analytics-empty">The analytics connection is not configured on the server yet.</p> : null}
       {data?.status === "unavailable" ? (
-        <p className="analytics-empty">This report could not be computed{data.failure ? ` (${data.failure})` : ""}. Other reports may still work; it retries automatically.</p>
+        data.failure === serviceOutdatedFailure ? (
+          <p className="analytics-empty">The analytics service on the server is older than this page and cannot compute this report yet. Deploy the <code>website-analytics</code> function to enable it; the home tile keeps working meanwhile.</p>
+        ) : (
+          <p className="analytics-empty">This report could not be computed{data.failure ? ` (${data.failure})` : ""}. Other reports may still work; it retries automatically.</p>
+        )
       ) : null}
       {data?.status === "collecting" ? <p className="analytics-empty">No results have been stored for this selection yet. Another refresh may be running; this view checks again automatically.</p> : null}
       {data?.status === "ready" ? children(data as ReportEnvelope<T> & T) : null}
