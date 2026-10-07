@@ -7,6 +7,8 @@ export default defineConfig({
   build: {
     outDir: "../portal-app",
     emptyOutDir: true,
+    // One stylesheet (assets/portal.css) even though features load on demand.
+    cssCodeSplit: false,
     rollupOptions: {
       output: {
         entryFileNames: "assets/portal.js",

@@ -1,7 +1,6 @@
 import { Activity, AlertTriangle, ArrowLeft, ArrowRight, Clock3, Loader2, Mail, Maximize2, Minimize2, Pencil, Plus, Server, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlAdminTile, ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
-import { ExperimentBuilder } from "./ExperimentBuilder";
 import { WalkerAdminTile } from "./WalkerObservationView";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
@@ -20,7 +19,6 @@ import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups } from "./experimentPresentation";
 import { experimentCardDescription, type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, latestExperimentReading, mergePortalExperiments, pairingBelongsToExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
-import { SystemHealthView } from "./health/SystemHealthView";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
 import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, visibleExperimentPairings } from "./portalData";
@@ -30,18 +28,29 @@ import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectConte
 import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime, sourceLabelForReading } from "./portalReadings";
 import { adminOnlyControlCommandTypes, type AuthMode, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type InviteAcceptResponse, type LoadState, type PanelPosition, type PanelSize, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
 import { csvEscape, dedupeReadingsForExport, downloadJsonFile } from "./readingsExport";
-import { PortalSettingsPanel } from "./settings/PortalSettingsPanel";
 import { type SettingsCommandDraft, stoppedSettingsCommandTypes } from "./settingsSpec";
 import { softwareTermsVersion, supportEmail } from "./softwareTerms";
 import { supabase } from "./supabase";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import { SalesSupportView } from "./support/SalesSupportView";
 import { type LatestState, type PairingRow, type SensorReading, type ValveEvent } from "./types";
-import { WalkerExperimentView } from "./walker/WalkerExperimentView";
 import { ResearchWateringActivity } from "./watering/WateringActivity";
 import { mergeValveEventRows, resolveHealthWateringEvents, valveEventsToHealthWateringEvents, valveEventTimestampMs } from "./wateringEvents";
 import { createCoalescedTrigger, scheduleVisiblePolling } from "./visiblePolling";
+import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
+
+// Features loaded on first use: the sign-in page and home stay small, and admin-only views never
+// reach researchers' browsers unless opened.
+const loadSettingsPanel = () => import("./settings/PortalSettingsPanel").then((module) => ({ default: module.PortalSettingsPanel }));
+const PortalSettingsPanel = lazyFeature(loadSettingsPanel);
+const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
+const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
+const SalesSupportView = lazyFeature(() => import("./support/SalesSupportView").then((module) => ({ default: module.SalesSupportView })));
+const WalkerExperimentView = lazyFeature(() => import("./walker/WalkerExperimentView").then((module) => ({ default: module.WalkerExperimentView })));
+const WebsiteAnalyticsWorkspace = lazyFeature(() => import("./analytics/WebsiteAnalyticsWorkspace"));
+const prefetchSettings = () => {
+  void loadSettingsPanel().catch(() => undefined);
+};
 
 const emptyNameSet = new Set<string>();
 const ignoreSeriesSelection = () => undefined;
@@ -415,6 +424,9 @@ export default function App() {
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The settings panel loads on first open and then stays mounted so its form state survives closing.
+  const [settingsMounted, setSettingsMounted] = useState(false);
+  if (settingsOpen && !settingsMounted) setSettingsMounted(true);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("overview");
   const [controlBusy, setControlBusy] = useState(false);
   const [controlNotice, setControlNotice] = useState<string | null>(null);
@@ -2707,6 +2719,8 @@ export default function App() {
           type="button"
           aria-label="Portal settings"
           title="Settings"
+          onPointerEnter={prefetchSettings}
+          onFocus={prefetchSettings}
           onClick={() => setSettingsOpen(true)}
         >
           <SettingsIcon size={14} />
@@ -2723,7 +2737,7 @@ export default function App() {
   ) : null;
 
   const experimentBuilder = experimentBuilderOpen && canCreateExperiment ? (
-    <ExperimentBuilder
+    <FeatureBoundary name="Experiment builder"><ExperimentBuilder
       key={editingExperiment?.currentRevisionId ?? "new-experiment"}
       projectId={activeProjectId}
       pairings={visibleExperimentPairings(data.pairings)}
@@ -2744,7 +2758,7 @@ export default function App() {
         setExperimentBuilderPrompt("");
         openExperiment(slug);
       }}
-    />
+    /></FeatureBoundary>
   ) : null;
 
   const portalHeader = (
@@ -2835,7 +2849,7 @@ export default function App() {
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
         ) : null}
         {experimentBuilder}
-        <PortalSettingsPanel
+        {settingsMounted ? <FeatureBoundary name="Settings" fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
           open={settingsOpen}
           projectId={activeProjectId}
           portalRole={portalAccess.role}
@@ -2862,7 +2876,7 @@ export default function App() {
           onQueueCommand={queueControlCommand}
           onQueueSettingsPlan={queueSettingsPlan}
           onSignOut={signOut}
-        />
+        /></FeatureBoundary> : null}
       </main>
     );
   }
@@ -2891,7 +2905,7 @@ export default function App() {
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
         ) : null}
         {experimentBuilder}
-        <PortalSettingsPanel
+        {settingsMounted ? <FeatureBoundary name="Settings" fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
           open={settingsOpen}
           projectId={activeProjectId}
           portalRole={portalAccess.role}
@@ -2918,26 +2932,33 @@ export default function App() {
           onQueueCommand={queueControlCommand}
           onQueueSettingsPlan={queueSettingsPlan}
           onSignOut={signOut}
-        />
+        /></FeatureBoundary> : null}
       </main>
     );
   }
 
   if (isAdmin && portalView === "analytics") {
-    return <main className="dashboard-shell portal-admin-shell">{portalHeader}<WebsiteAnalyticsTile onBack={() => setPortalView("home")} /></main>;
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        {portalHeader}
+        <FeatureBoundary name="Web Analytics"><WebsiteAnalyticsWorkspace onBack={() => setPortalView("home")} /></FeatureBoundary>
+      </main>
+    );
   }
 
   if (isAdmin && portalView === "health") {
     return (
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
-        <SystemHealthView
-          snapshot={healthSnapshot}
-          history={healthHistory}
-          runtimeState={runtimeState}
-          error={healthError}
-          onBackHome={() => setPortalView("home")}
-        />
+        <FeatureBoundary name="System Health">
+          <SystemHealthView
+            snapshot={healthSnapshot}
+            history={healthHistory}
+            runtimeState={runtimeState}
+            error={healthError}
+            onBackHome={() => setPortalView("home")}
+          />
+        </FeatureBoundary>
       </main>
     );
   }
@@ -2945,19 +2966,21 @@ export default function App() {
   if (isAdmin && portalView === "support") {
     return (
       <main className="dashboard-shell portal-admin-shell">
-        <SalesSupportView
-          data={salesSupportData}
-          loading={salesSupportLoading}
-          error={salesSupportError}
-          onDeleteQuote={deleteQuoteRequest}
-          onBackHome={() => setPortalView("home")}
-        />
+        <FeatureBoundary name="Sales & Support">
+          <SalesSupportView
+            data={salesSupportData}
+            loading={salesSupportLoading}
+            error={salesSupportError}
+            onDeleteQuote={deleteQuoteRequest}
+            onBackHome={() => setPortalView("home")}
+          />
+        </FeatureBoundary>
       </main>
     );
   }
 
   if (isAdmin && portalView === "walker") {
-    return <WalkerExperimentView onBack={() => setPortalView("home")} />;
+    return <FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>;
   }
 
   if (isAdmin && portalView === "chamber") {
@@ -2972,8 +2995,8 @@ export default function App() {
         onClose={() => setSelectedWateringDetail(null)}
       />
 
-      {canUseExperimentSettings ? (
-        <PortalSettingsPanel
+      {canUseExperimentSettings && settingsMounted ? (
+        <FeatureBoundary name="Settings" fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
           open={settingsOpen}
           projectId={activeProjectId}
           portalRole={portalAccess.role}
@@ -2999,7 +3022,7 @@ export default function App() {
           onQueueCommand={queueControlCommand}
           onQueueSettingsPlan={queueSettingsPlan}
           onSignOut={signOut}
-        />
+        /></FeatureBoundary>
       ) : null}
 
       {error && !data.readings.length ? (
