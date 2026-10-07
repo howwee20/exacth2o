@@ -1719,6 +1719,9 @@ select {
   min-width: 0;
   display: grid;
   gap: 6px;
+  /* Launch cards are buttons, which do not wrap by default; long descriptions must. */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .portal-launch-title {
