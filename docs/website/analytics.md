@@ -183,7 +183,10 @@ this change (no read key was used). Before relying on new reports, an admin can
 deploy the function and open each workspace tab: a report that fails shows
 "could not be computed (PostHog returned NNN)" without affecting the others.
 
-Deploy `website-analytics` (`supabase functions deploy website-analytics`) and
-publish the site. Rollback: redeploy the previous function revision; the old
+Deploy `website-analytics` (`supabase functions deploy website-analytics`) before
+or with the site. The function at `14bab83` ignores the request and returns the
+tile summary; the workspace detects that (the answer does not name the requested
+report) and says the server function is older than the page, while the home tile
+keeps working. Rollback: redeploy the previous function revision; the old
 portal tile keeps working against either version because the empty-body
 response shape is unchanged.
