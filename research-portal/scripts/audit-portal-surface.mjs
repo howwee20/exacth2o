@@ -121,6 +121,10 @@ if (missingApplicationsCopy.length) {
 // The public demo must stay a separate, network-disabled build.
 const demoFrame = applications.match(/<iframe\b[^>]*class="portal-demo-frame"[^>]*>/)?.[0];
 const sandbox = demoFrame?.match(/sandbox="([^"]*)"/)?.[1].split(/\s+/) || [];
+// The demo is below the fold; it must not compete with the page's first render.
+if (!/\bloading="lazy"/.test(demoFrame || "")) {
+  throw new Error("Applications demo iframe must load lazily.");
+}
 if (!sandbox.includes("allow-scripts") || sandbox.some((token) =>
   !["allow-scripts", "allow-same-origin", "allow-downloads"].includes(token))) {
   throw new Error("Applications demo iframe has missing or unexpected sandbox permissions.");

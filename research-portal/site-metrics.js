@@ -1,4 +1,6 @@
-import posthog from 'posthog-js/dist/module.no-external';
+// The slim core: identical events to the full build (verified by payload comparison) at half the
+// size; replay, surveys, toolbar and autocapture extensions are disabled here anyway.
+import posthog from 'posthog-js/dist/module.slim.no-external';
 import config from './site-metrics.config.json';
 import {
   allowedEventNames,
@@ -82,7 +84,8 @@ if (allowedHosts.has(location.hostname) && page !== '/other') {
         if (!event || excluded() || !allowedEventNames.has(event.event)) return null;
         const properties = event.properties;
         properties.$current_url = cleanUrl(properties.$current_url || location.href, location.origin);
-        if (properties.$referrer) properties.$referrer = cleanUrl(properties.$referrer, location.origin).split('?')[0];
+        // '$direct' is PostHog's marker for no referrer, not a URL.
+        if (properties.$referrer && properties.$referrer !== '$direct') properties.$referrer = cleanUrl(properties.$referrer, location.origin).split('?')[0];
         for (const key of Object.keys(properties)) {
           // No form values, user profiles, query-string secrets, or raw URL initial properties.
           if (key.startsWith('$initial_') || key === '$set' || key === '$set_once') delete properties[key];
