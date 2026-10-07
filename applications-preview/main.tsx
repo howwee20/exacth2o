@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from '../research-portal/src/App';
 import '../research-portal/src/styles.css';
 import './preview.css';
+import {startDemoBridge} from './demo-bridge';
 
 const positions=new Map<string,{x:number,y:number}>();
 function Preview(){
@@ -72,3 +73,5 @@ function Preview(){
  return <App/>;
 }
 createRoot(document.getElementById('root')!).render(<Preview/>);
+startDemoBridge();
+const badge=document.createElement('div');badge.className='demo-sample-badge';badge.textContent='Synthetic sample data';badge.setAttribute('role','note');document.body.append(badge);

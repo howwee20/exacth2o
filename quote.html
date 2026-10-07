@@ -363,6 +363,14 @@ footer .footer-logo { flex: none; width: 126px; }
   const QUOTE_FUNCTION_URL = 'https://zmhdclcjrkntrpynozvo.functions.supabase.co/submit-quote';
 
   let submitted = false; // prevents duplicate submissions
+  // One identifier per quote request, reused across retries, so analytics counts each request once.
+  // It carries no form contents.
+  let submissionId = null;
+  let attempt = 0;
+  const announce = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
+  const newSubmissionId = () => {
+    try { return crypto.randomUUID(); } catch { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12); }
+  };
 
   const requiredFields = ['name', 'email', 'application', 'message'];
   const validationSummary = document.getElementById('validationSummary');
@@ -426,6 +434,10 @@ footer .footer-logo { flex: none; width: 126px; }
 
     const invalidFields = requiredFields.filter(showFieldError);
     if (invalidFields.length) {
+      announce('exacth2o:quote-validation-failed', {
+        fields: invalidFields,
+        errors: invalidFields.map(id => document.getElementById(id).value.trim() ? 'invalid_format' : 'missing'),
+      });
       validationSummary.textContent = 'Please correct ' + invalidFields.length + (invalidFields.length === 1 ? ' field.' : ' fields.');
       focusNotice(document.getElementById(invalidFields[0]));
       return;
@@ -435,6 +447,9 @@ footer .footer-logo { flex: none; width: 126px; }
     btn.disabled = true;
     btn.textContent = 'Sending…';
     submitted = true;
+    submissionId = submissionId || newSubmissionId();
+    attempt += 1;
+    announce('exacth2o:quote-submit-attempted', { submissionId, attempt });
 
     const payload = {
       name,
@@ -448,6 +463,7 @@ footer .footer-logo { flex: none; width: 126px; }
       sourceUrl: window.location.href
     };
 
+    let responseStatus = null;
     try {
       const response = await fetch(QUOTE_FUNCTION_URL, {
         method: 'POST',
@@ -458,12 +474,20 @@ footer .footer-logo { flex: none; width: 126px; }
         body: JSON.stringify(payload)
       });
 
+      responseStatus = response.status;
       const result = await response.json().catch(() => ({}));
 
       if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
         successMsg.textContent = 'Quote request received. We will follow up shortly.';
-        document.dispatchEvent(new Event('exacth2o:quote-submitted'));
+        announce('exacth2o:quote-submitted', {
+          submissionId,
+          attempt,
+          duplicate: result.duplicate === true,
+          warning: typeof result.warning === 'string',
+        });
+        submissionId = null;
+        attempt = 0;
         this.reset();
         btn.textContent = 'Sent';
         focusNotice(successMsg);
@@ -471,6 +495,7 @@ footer .footer-logo { flex: none; width: 126px; }
         throw new Error(result.error || 'Server error');
       }
     } catch (err) {
+      announce('exacth2o:quote-submit-failed', { submissionId, attempt, status: responseStatus });
       submitted = false; // allow retry on error
       btn.disabled = false;
       btn.textContent = 'Submit Quote Request';
