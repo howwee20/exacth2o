@@ -115,6 +115,7 @@ jobs:
           node --test supabase/functions/sync-owner-health/config-refresh-policy.test.mjs
           node --test supabase/functions/sync-owner-health/rd-evidence-policy.test.mjs
           node --test supabase/functions/sync-owner-health/uptime-policy.test.mjs
+          node --test supabase/functions/website-analytics/report-policy.test.mjs
           npm test --prefix controller-release/control-executor
           npm test --prefix controller-release/matt-balena-release-4174753/control-executor
           npm test --prefix controller-release/walker-telemetry-publisher
