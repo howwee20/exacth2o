@@ -502,14 +502,22 @@ function SensorCanvasChartComponent({
     }
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const item = visibleSeries.find((seriesItem) => seriesItem.name === (lockedSeriesName ?? tooltip?.seriesName ?? selectedName))
-      ?? visibleSeries[0];
-    const firstVisible = Math.max(0, lowerBound(item.points, bounds.minX));
-    let lastVisible = lowerBound(item.points, bounds.maxX);
-    while (lastVisible < item.points.length && item.points[lastVisible].timestampMs <= bounds.maxX) lastVisible += 1;
-    lastVisible = Math.max(firstVisible, Math.min(item.points.length - 1, lastVisible - 1));
+    // Indices of the readings inside the plotted time range; null when a pot has none there
+    // (filtered series keep one reading beyond each edge, which is not on the chart).
+    const visibleRange = (seriesItem: ChartSeries) => {
+      const first = lowerBound(seriesItem.points, bounds.minX);
+      let end = first;
+      while (end < seriesItem.points.length && seriesItem.points[end].timestampMs <= bounds.maxX) end += 1;
+      return end > first ? { first, last: end - 1 } : null;
+    };
+    const preferred = visibleSeries.find((seriesItem) => seriesItem.name === (lockedSeriesName ?? tooltip?.seriesName ?? selectedName));
+    const item = preferred && visibleRange(preferred) ? preferred : visibleSeries.find((seriesItem) => visibleRange(seriesItem));
+    const range = item ? visibleRange(item) : null;
+    if (!item || !range) return;
+    const firstVisible = range.first;
+    const lastVisible = range.last;
     const current = tooltip && tooltip.seriesName === item.name
-      ? nearestIndexByTime(item.points, tooltip.point.timestampMs)
+      ? Math.min(lastVisible, Math.max(firstVisible, nearestIndexByTime(item.points, tooltip.point.timestampMs)))
       : lastVisible;
     const step = event.shiftKey ? 10 : 1;
     const next =

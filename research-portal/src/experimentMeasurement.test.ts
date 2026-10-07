@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { measurementFreshness } from "./measurementFreshness";
 import {
   experimentFreshness,
   experimentProgressText,
   groupTarget,
+  latestMeasurementByPot,
+  reportingCoverage,
+  withReportingCoverage,
   pairingTargetText,
   targetLinesForPairings,
 } from "./experimentMeasurement";
@@ -58,9 +62,14 @@ describe("groupTarget", () => {
     expect(result.planMismatch).toBe(false);
   });
 
-  it("flags a controller target that differs from the experiment plan", () => {
+  it("presents the controller's applied target, with the differing plan beside it", () => {
     const result = groupTarget({ target: 30, pairingNames: ["Pot 1"] }, active, [pairing("Pot 1", { wtc_percent_limit: 25 })]);
     expect(result.planMismatch).toBe(true);
+    // Every label (card, screen reader, expanded header) carries the applied value and the mismatch.
+    expect(result.label).toBe("Target 25% VWC · plan 30%");
+    expect(result.detail).toMatch(/^Target 25% VWC/);
+    expect(result.detail).toMatch(/plan says 30% VWC, but the controller is applying 25% VWC/);
+    expect(result.lineValue).toBe(25);
   });
 
   it("says when only some pots in a group are watered", () => {
@@ -132,3 +141,23 @@ describe("experimentProgressText", () => {
     expect(experimentProgressText({}, nowMs)).toBeNull();
   });
 });
+
+describe("reporting coverage", () => {
+  it("does not let one live pot make a silent experiment look current", () => {
+    const now = Date.parse("2026-10-07T16:00:00Z");
+    const pots = Array.from({ length: 12 }, (_, index) => ({ name: `Pot ${index + 1}`, measurement_interval_ms: 120_000 }));
+    const latest = latestMeasurementByPot([
+      { pairing_name: "Pot 1", device_recorded_at: new Date(now - 60_000).toISOString() },
+      ...pots.slice(1).map((p) => ({ pairing_name: p.name, device_recorded_at: new Date(now - 60 * 3_600_000).toISOString() })),
+    ]);
+    const coverage = reportingCoverage(pots, latest, now);
+    expect(coverage).toEqual({ reporting: 1, total: 12 });
+    const freshness = withReportingCoverage(measurementFreshness({ measuredAt: now - 60_000, expectedIntervalMs: 120_000, nowMs: now }), coverage);
+    expect(freshness.state).toBe("partial");
+    expect(freshness.label).toBe("1 of 12 reporting");
+    expect(freshness.detail).toMatch(/^1 of 12 pots have a current reading/);
+    // All reporting: unchanged.
+    expect(withReportingCoverage(measurementFreshness({ measuredAt: now, nowMs: now }), { reporting: 12, total: 12 }).state).toBe("current");
+  });
+});
+

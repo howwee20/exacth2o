@@ -1,5 +1,5 @@
 import { type PortalExperiment } from "../experimentRegistry";
-import { validCadenceMs } from "../measurementFreshness";
+import { freshnessThresholds, validCadenceMs } from "../measurementFreshness";
 import { colorForPairing, metricValue, plantGroupForPairing, treatmentForPairing } from "../portalPresentation";
 import { type ChartPoint, type ChartSeries, type TimeBounds } from "../portalTypes";
 import { pointsInRange, prepareSeries, summarizeSeries } from "../seriesStatistics";
@@ -73,7 +73,10 @@ export function describeVwcReading(value: number | null | undefined) {
 
 export type GroupComparison = {
   potCount: number;
+  /** Pots whose latest reading in the window is part of the "latest" snapshot. */
   reportingCount: number;
+  /** Pots with readings in the window that stopped well before the group's newest reading. */
+  silentCount: number;
   latestMedian: number | null;
   latestMin: number | null;
   latestMax: number | null;
@@ -84,10 +87,13 @@ export type GroupComparison = {
 /**
  * Compare a group of pots: the median of each pot's latest reading inside the
  * window, the spread of those readings, and the mean of every reading in the
- * window (full resolution).
+ * window (full resolution). A pot whose last reading is older than the stale
+ * threshold for its cadence, measured from the group's newest reading, is left
+ * out of the "latest" snapshot and counted as silent: a value from days ago is
+ * not a current reading.
  */
 export function compareGroup(series: readonly ChartSeries[], window?: TimeBounds | null): GroupComparison {
-  const latest: number[] = [];
+  const lastPoints: Array<{ value: number; timestampMs: number; expectedIntervalMs?: number | null }> = [];
   let sum = 0;
   let count = 0;
   let newestAt: number | null = null;
@@ -95,18 +101,25 @@ export function compareGroup(series: readonly ChartSeries[], window?: TimeBounds
     const points = window ? pointsInRange(item.points, window.startMs, window.endMs) : item.points;
     if (!points.length) continue;
     const last = points[points.length - 1];
-    latest.push(last.value);
+    lastPoints.push({ value: last.value, timestampMs: last.timestampMs, expectedIntervalMs: item.expectedIntervalMs });
     newestAt = newestAt == null ? last.timestampMs : Math.max(newestAt, last.timestampMs);
     for (const point of points) {
       sum += point.value;
       count += 1;
     }
   }
+  const latest: number[] = [];
+  let silentCount = 0;
+  for (const point of lastPoints) {
+    if (newestAt != null && newestAt - point.timestampMs > freshnessThresholds(point.expectedIntervalMs).delayedMs) silentCount += 1;
+    else latest.push(point.value);
+  }
   latest.sort((a, b) => a - b);
   const middle = Math.floor(latest.length / 2);
   return {
     potCount: series.length,
     reportingCount: latest.length,
+    silentCount,
     latestMedian: latest.length ? (latest.length % 2 ? latest[middle] : (latest[middle - 1] + latest[middle]) / 2) : null,
     latestMin: latest.length ? latest[0] : null,
     latestMax: latest.length ? latest[latest.length - 1] : null,

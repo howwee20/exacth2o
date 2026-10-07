@@ -384,9 +384,15 @@ export function PortalSettingsPanel({
             <strong>{commandProgress.title}</strong>
             <p>{commandProgress.detail}</p>
             <ol className="command-stages" aria-label="Request progress">
-              {commandStageLabels.map(([stage, label]) => (
-                <li key={stage} className={commandStageClass(commandProgress.stage, stage)}>{label}</li>
-              ))}
+              {commandProgress.steps
+                ? commandProgress.steps.map((step, index) => (
+                  <li key={`${index}-${step.label}`} className={step.state === "pending" ? "" : `is-${step.state}`}>
+                    {step.label}
+                  </li>
+                ))
+                : commandStageLabels.map(([stage, label]) => (
+                  <li key={stage} className={commandStageClass(commandProgress.stage, stage)}>{label}</li>
+                ))}
               {commandProgress.hasPhysicalOutcome ? (
                 <li className="is-unverified" title="The portal has no flow, pressure or weight evidence.">Water delivery: not verified</li>
               ) : null}

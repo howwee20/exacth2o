@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatAge,
   formatMeasurementTime,
   measurementFreshness,
   worstFreshness,
@@ -53,6 +54,15 @@ describe("measurementFreshness", () => {
     const result = measurementFreshness({ measuredAt: new Date(now + 3_600_000).toISOString(), nowMs: now });
     expect(result.state).toBe("unknown");
     expect(result.label).toBe("Clock mismatch");
+  });
+
+  it("treats a reading that arrived after the last clock tick as just now, not as clock skew", () => {
+    // The page clock ticks every 30 s; a realtime reading 8 s newer than the tick has a negative age.
+    const result = measurementFreshness({ measuredAt: new Date(now + 8_000).toISOString(), expectedIntervalMs: 120_000, nowMs: now });
+    expect(result.state).toBe("current");
+    expect(result.detail).toBe("Latest reading just now (expected every 2 min).");
+    expect(formatAge(-8_000)).toBe("just now");
+    expect(formatAge(-10 * 60_000)).toBe("in the future (device clock ahead)");
   });
 
   it("chooses the most conservative of several judgements", () => {

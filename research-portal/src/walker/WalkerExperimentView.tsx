@@ -8,6 +8,7 @@ import { MeasurementStatusBar } from "../experiment/MeasurementStatus";
 import { formatAge, formatDuration, formatMeasurementTime, measurementFreshness } from "../measurementFreshness";
 import { prepareSeries } from "../seriesStatistics";
 import { scheduleVisiblePolling } from "../visiblePolling";
+import { usePageClock } from "../pageClock";
 import { fullTimeWindow } from "../portalConstants";
 import { type ChartPoint, type ChartSeries, type TimeBounds } from "../portalTypes";
 import { colorForPotNumber } from "../potColors";
@@ -74,7 +75,8 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
   const [timeWindow, setTimeWindow] = useState(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // Ages keep advancing while requests fail, so a failed check never leaves "Current" on screen.
+  const nowMs = usePageClock();
   const initializedSelection = useRef(false);
   const mountedRef = useRef(true);
   const requestRef = useRef(0);
@@ -95,7 +97,6 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
       setSnapshot(nextSnapshot);
       setError(null);
       setCheckedAt(new Date().toISOString());
-      setNowMs(Date.now());
       if (!initializedSelection.current) {
         setSelectedSensorIds(new Set(
           nextSnapshot.sensors.map((sensor) => sensor.source_sensor_id),

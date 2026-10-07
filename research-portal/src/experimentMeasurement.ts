@@ -3,7 +3,7 @@ import { isObservationOnlyExperiment, type PortalExperiment } from "./experiment
 import { type Freshness, measurementFreshness, validCadenceMs } from "./measurementFreshness";
 import { formatVwc, pairingWateringDisabled, presentTarget, type TargetPresentation } from "./targetPresentation";
 import { type ChartTargetLine } from "./portalTypes";
-import { type PairingRow } from "./types";
+import { type PairingRow, type SensorReading } from "./types";
 
 export function experimentIsCompleted(experiment: Pick<PortalExperiment, "status" | "endedAt">, nowMs = Date.now()) {
   if (experiment.status === "completed" || experiment.status === "archived") return true;
@@ -37,6 +37,50 @@ export function experimentFreshness(input: {
   });
 }
 
+/** Newest measurement time (ms) per pot, keyed by pairing name. */
+export function latestMeasurementByPot(readings: readonly Pick<SensorReading, "pairing_name" | "device_recorded_at">[]) {
+  const latest = new Map<string, number>();
+  for (const reading of readings) {
+    const at = Date.parse(reading.device_recorded_at);
+    if (!Number.isFinite(at)) continue;
+    if (at > (latest.get(reading.pairing_name) ?? -Infinity)) latest.set(reading.pairing_name, at);
+  }
+  return latest;
+}
+
+/** How many pots have a current reading, each judged against its own configured cadence. */
+export function reportingCoverage(
+  pairings: readonly Pick<PairingRow, "name" | "measurement_interval_ms">[],
+  latestByPot: ReadonlyMap<string, number>,
+  nowMs = Date.now(),
+) {
+  let reporting = 0;
+  for (const pairing of pairings) {
+    const freshness = measurementFreshness({
+      measuredAt: latestByPot.get(pairing.name),
+      expectedIntervalMs: pairing.measurement_interval_ms,
+      nowMs,
+    });
+    if (freshness.state === "current") reporting += 1;
+  }
+  return { reporting, total: pairings.length };
+}
+
+/**
+ * An experiment's freshness comes from its newest reading; one live pot must not make the rest
+ * look current. When only some pots are reporting, the state is "partial" and says how many.
+ */
+export function withReportingCoverage(freshness: Freshness, coverage: { reporting: number; total: number }): Freshness {
+  if (freshness.state !== "current" || coverage.total === 0 || coverage.reporting >= coverage.total) return freshness;
+  return {
+    ...freshness,
+    state: "partial",
+    tone: "warning",
+    label: `${coverage.reporting} of ${coverage.total} reporting`,
+    detail: `${coverage.reporting} of ${coverage.total} pots have a current reading. ${freshness.detail}`,
+  };
+}
+
 function distinctTargets(pairings: readonly PairingRow[]) {
   return Array.from(new Set(
     pairings
@@ -63,7 +107,9 @@ export function groupTarget(
   const groupPairings = pairings.filter((pairing) => names.has(pairing.name));
   const applied = distinctTargets(groupPairings);
   const allDisabled = groupPairings.length > 0 && groupPairings.every(pairingWateringDisabled);
-  const target = group.target ?? (applied.length === 1 ? applied[0] : null);
+  // The controller's applied target is what watering actually follows; the plan is shown beside it
+  // when they differ, never instead of it.
+  const target = applied.length === 1 ? applied[0] : group.target ?? null;
   const presentation = presentTarget({
     target,
     distinctTargets: applied.length > 1 ? applied : undefined,
@@ -73,16 +119,19 @@ export function groupTarget(
   });
   const planMismatch = group.target != null &&
     applied.some((value) => Math.abs(value - (group.target as number)) > 0.001);
+  let label = presentation.label;
+  let detail = presentation.detail;
+  if (planMismatch && presentation.kind !== "sensing_only" && presentation.kind !== "completed") {
+    const plan = formatVwc(group.target);
+    label = `${label} · plan ${plan?.replace(" VWC", "")}`;
+    detail = `${detail} The experiment plan says ${plan}, but the controller is applying ${applied.map((value) => formatVwc(value)).join(", ")}.`;
+  }
   const unwatered = groupPairings.filter(pairingWateringDisabled).length;
   if (unwatered > 0 && !allDisabled && presentation.kind !== "sensing_only" && presentation.kind !== "completed") {
-    return {
-      ...presentation,
-      label: `${presentation.label} · ${unwatered} ${unwatered === 1 ? "pot" : "pots"} unwatered`,
-      detail: `${presentation.detail} Automatic watering is disabled for ${unwatered} of ${groupPairings.length} pots in this group.`,
-      planMismatch,
-    };
+    label = `${label} · ${unwatered} ${unwatered === 1 ? "pot" : "pots"} unwatered`;
+    detail = `${detail} Automatic watering is disabled for ${unwatered} of ${groupPairings.length} pots in this group.`;
   }
-  return { ...presentation, planMismatch };
+  return { ...presentation, label, detail, planMismatch };
 }
 
 const treatmentTone: Record<Treatment, ChartTargetLine["tone"]> = {

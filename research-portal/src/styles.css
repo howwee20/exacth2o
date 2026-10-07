@@ -8446,7 +8446,8 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
 }
 
 .freshness-pill.is-current { background: #dcfce7; color: #166534; }
-.freshness-pill.is-delayed { background: #fef3c7; color: #92400e; }
+.freshness-pill.is-delayed,
+.freshness-pill.is-partial { background: #fef3c7; color: #92400e; }
 .freshness-pill.is-stale,
 .freshness-pill.is-offline { background: #fee2e2; color: #991b1b; }
 .freshness-pill.is-historical { background: #e0f2fe; color: #075985; }
@@ -8475,7 +8476,8 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
   background: #fffafa;
 }
 
-.measurement-status.is-delayed {
+.measurement-status.is-delayed,
+.measurement-status.is-partial {
   border-color: #fde68a;
 }
 

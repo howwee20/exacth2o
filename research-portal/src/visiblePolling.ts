@@ -82,10 +82,22 @@ export function scheduleVisiblePolling(
 /**
  * Collapses bursts of triggers (focus, visibilitychange, pageshow and online
  * often fire together) into one call, and enforces a minimum spacing.
+ *
+ * A trigger that fires while the task cannot run (`canRun` false, e.g. the tab is hidden or the
+ * browser is offline) is dropped without counting as a run, so a later trigger, such as the
+ * `online` event after a laptop wakes, still runs. `bypassSpacing` runs regardless of the
+ * spacing, for triggers that signal missed data (reconnecting after being offline).
  */
 export function createCoalescedTrigger(
   task: (reason: string) => unknown,
-  options: { minSpacingMs: number; settleMs?: number; now?: () => number; setTimer?: (callback: () => void, ms: number) => unknown; clearTimer?: (handle: unknown) => void },
+  options: {
+    minSpacingMs: number;
+    settleMs?: number;
+    canRun?: () => boolean;
+    now?: () => number;
+    setTimer?: (callback: () => void, ms: number) => unknown;
+    clearTimer?: (handle: unknown) => void;
+  },
 ) {
   const now = options.now ?? (() => Date.now());
   const setTimer = options.setTimer ?? ((callback, ms) => globalThis.setTimeout(callback, ms));
@@ -94,17 +106,22 @@ export function createCoalescedTrigger(
   let lastRunAt = -Infinity;
   let pending: unknown = null;
   let pendingReason = "";
+  let pendingBypass = false;
 
   const fire = () => {
     pending = null;
-    if (now() - lastRunAt < options.minSpacingMs) return;
+    const bypass = pendingBypass;
+    pendingBypass = false;
+    if (options.canRun && !options.canRun()) return;
+    if (!bypass && now() - lastRunAt < options.minSpacingMs) return;
     lastRunAt = now();
     task(pendingReason);
   };
 
   return {
-    trigger(reason: string) {
+    trigger(reason: string, triggerOptions: { bypassSpacing?: boolean } = {}) {
       pendingReason = reason;
+      pendingBypass ||= triggerOptions.bypassSpacing === true;
       if (pending != null) clearTimer(pending);
       pending = setTimer(fire, settleMs);
     },
@@ -115,6 +132,7 @@ export function createCoalescedTrigger(
     cancel() {
       if (pending != null) clearTimer(pending);
       pending = null;
+      pendingBypass = false;
     },
   };
 }

@@ -11,6 +11,8 @@
 
 export type FreshnessState =
   | "current"
+  /** The newest reading is current, but not every pot in the experiment is reporting. */
+  | "partial"
   | "delayed"
   | "stale"
   | "offline"
@@ -46,6 +48,12 @@ export type Freshness = {
 
 /** Allowance for upload and ingestion after the device records a reading. */
 export const ingestGraceMs = 2 * 60_000;
+/**
+ * Small negative ages are normal: the page clock advances every 30 seconds while readings arrive
+ * in real time, and device and browser clocks differ by seconds. Only beyond this is a reading
+ * "in the future".
+ */
+export const clockToleranceMs = 5 * 60_000;
 /** Fallback thresholds when the configured cadence is unknown. */
 export const unknownCadenceCurrentMs = 15 * 60_000;
 export const unknownCadenceDelayedMs = 60 * 60_000;
@@ -95,7 +103,7 @@ export function formatDuration(ms: number) {
 
 export function formatAge(ageMs: number | null) {
   if (ageMs == null) return null;
-  if (ageMs < 0) return "in the future (device clock ahead)";
+  if (ageMs < -clockToleranceMs) return "in the future (device clock ahead)";
   if (ageMs < 60_000) return "just now";
   return `${formatDuration(ageMs)} ago`;
 }
@@ -142,7 +150,7 @@ export function measurementFreshness(input: FreshnessInput): Freshness {
   }
 
   // A device clock well ahead of the browser cannot be judged current.
-  if (ageMs < -5 * minuteMs) {
+  if (ageMs < -clockToleranceMs) {
     return {
       state: "unknown",
       tone: "warning",
@@ -206,6 +214,7 @@ export function worstFreshness(items: Freshness[]): Freshness | null {
   const rank: Record<FreshnessState, number> = {
     current: 0,
     historical: 1,
+    partial: 2,
     delayed: 2,
     unknown: 3,
     stale: 4,

@@ -2,6 +2,7 @@ import { Activity, AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { FreshnessPill, LatestReadingText } from "./experiment/MeasurementStatus";
 import { scheduleVisiblePolling } from "./visiblePolling";
+import { usePageClock } from "./pageClock";
 import {
   isWalkerAccessDenied,
   walkerFreshness,
@@ -16,7 +17,8 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // Ages keep advancing while requests fail, so a failed check never leaves "Current" on screen.
+  const nowMs = usePageClock();
 
   useEffect(() => {
     let active = true;
@@ -28,7 +30,6 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
           if (!active || current !== request) return;
           setStatus(nextStatus);
           setFailed(false);
-          setNowMs(Date.now());
         })
         .catch((error: { code?: string; message?: string }) => {
           if (!active || current !== request) return;

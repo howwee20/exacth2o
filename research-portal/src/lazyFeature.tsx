@@ -25,21 +25,45 @@ export function lazyFeature<T extends ComponentType<any>>(load: () => Promise<{ 
   });
 }
 
-type BoundaryProps = { name: string; children: ReactNode; inline?: boolean };
+type BoundaryProps = {
+  name: string;
+  children: ReactNode;
+  inline?: boolean;
+  /** Render nothing (not even an error) while the feature is closed but kept mounted. */
+  hidden?: boolean;
+  /** A change clears a previous error, e.g. reopening the feature. */
+  resetKey?: unknown;
+};
 
-class FeatureErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
-  state = { failed: false };
+/** A chunk that could not be fetched (usually a deploy while the page was open), not a bug in the feature. */
+export function isChunkLoadError(error: unknown) {
+  const message = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? "");
+  return /dynamically imported module|Importing a module script failed|ChunkLoadError|Unable to preload|Loading chunk/i.test(message);
+}
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+class FeatureErrorBoundary extends Component<BoundaryProps, { error: unknown; failed: boolean }> {
+  state = { error: null as unknown, failed: false };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error, failed: true };
+  }
+
+  componentDidUpdate(previous: BoundaryProps) {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) this.setState({ error: null, failed: false });
   }
 
   render() {
     if (!this.state.failed) return this.props.children;
+    if (this.props.hidden) return null;
+    const chunk = isChunkLoadError(this.state.error);
     return (
       <div className={`feature-load-state is-error ${this.props.inline ? "is-inline" : ""}`} role="alert">
         <AlertTriangle size={20} aria-hidden="true" />
-        <p>{this.props.name} could not be loaded. The portal may have been updated while this page was open.</p>
+        <p>
+          {chunk
+            ? `${this.props.name} could not be loaded. The portal may have been updated while this page was open.`
+            : `${this.props.name} stopped because of an unexpected error. Reloading the portal usually clears it.`}
+        </p>
         <button type="button" className="header-action" onClick={() => window.location.reload()}>
           Reload portal
         </button>
@@ -58,9 +82,9 @@ export function FeatureLoading({ name, inline = false }: { name: string; inline?
 }
 
 /** Suspense plus an error boundary around a lazily loaded feature. */
-export function FeatureBoundary({ name, children, inline = false, fallback }: BoundaryProps & { fallback?: ReactNode }) {
+export function FeatureBoundary({ name, children, inline = false, hidden = false, resetKey, fallback }: BoundaryProps & { fallback?: ReactNode }) {
   return (
-    <FeatureErrorBoundary name={name} inline={inline}>
+    <FeatureErrorBoundary name={name} inline={inline} hidden={hidden} resetKey={resetKey}>
       <Suspense fallback={fallback === undefined ? <FeatureLoading name={name} inline={inline} /> : fallback}>{children}</Suspense>
     </FeatureErrorBoundary>
   );

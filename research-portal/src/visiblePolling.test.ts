@@ -96,4 +96,32 @@ describe("createCoalescedTrigger", () => {
     vi.advanceTimersByTime(300);
     expect(task).toHaveBeenCalledTimes(2);
   });
+
+  it("a trigger while offline does not use up the spacing, and coming back online always runs", () => {
+    const task = vi.fn();
+    let online = false;
+    const trigger = createCoalescedTrigger(task, { minSpacingMs: 30_000, canRun: () => online });
+    // A laptop wakes: focus and visibility fire before Wi-Fi is back.
+    trigger.trigger("visibilitychange");
+    trigger.trigger("focus");
+    vi.advanceTimersByTime(300);
+    expect(task).not.toHaveBeenCalled();
+    // Wi-Fi returns a few seconds later.
+    vi.advanceTimersByTime(4_000);
+    online = true;
+    trigger.trigger("online", { bypassSpacing: true });
+    vi.advanceTimersByTime(300);
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(task).toHaveBeenLastCalledWith("online");
+
+    // A brief drop and reconnect soon after a run still reconciles (realtime rows may be missing)…
+    vi.advanceTimersByTime(5_000);
+    trigger.trigger("online", { bypassSpacing: true });
+    vi.advanceTimersByTime(300);
+    expect(task).toHaveBeenCalledTimes(2);
+    // …but an ordinary focus inside the spacing does not.
+    trigger.trigger("focus");
+    vi.advanceTimersByTime(300);
+    expect(task).toHaveBeenCalledTimes(2);
+  });
 });

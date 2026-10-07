@@ -11,13 +11,13 @@ import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
 import { chartSeries, compareGroup, describeVwcReading, formatVwcReading, latestPoint } from "./charts/chartSeries";
 import { FreshnessPill, LatestReadingText, MeasurementStatusBar } from "./experiment/MeasurementStatus";
-import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, pairingTargetText, targetLinesForPairings } from "./experimentMeasurement";
+import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, latestMeasurementByPot, pairingTargetText, reportingCoverage, targetLinesForPairings, withReportingCoverage } from "./experimentMeasurement";
 import { formatAge, formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
 import { controllerPresence } from "./settingsPresentation";
-import { isCommandStatus, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
+import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups } from "./experimentPresentation";
-import { experimentCardDescription, type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, latestExperimentReading, mergePortalExperiments, pairingBelongsToExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
+import { experimentCardDescription, type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, mergePortalExperiments, pairingBelongsToExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
@@ -36,6 +36,7 @@ import { type LatestState, type PairingRow, type SensorReading, type ValveEvent 
 import { ResearchWateringActivity } from "./watering/WateringActivity";
 import { mergeValveEventRows, resolveHealthWateringEvents, valveEventsToHealthWateringEvents, valveEventTimestampMs } from "./wateringEvents";
 import { createCoalescedTrigger, scheduleVisiblePolling } from "./visiblePolling";
+import { usePageClock } from "./pageClock";
 import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
 
@@ -155,24 +156,30 @@ function ExperimentLaunchCards({
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onEditExperiment?: (experiment: PortalExperiment) => void;
 }) {
+  // Newest reading per pot, per experiment; recomputed when data changes, not on every clock tick.
+  const latestByExperiment = useMemo(
+    () => new Map(experiments.map((experiment) => [experiment.id, latestMeasurementByPot(readingsForExperiment(data.readings, experiment))])),
+    [data.readings, experiments],
+  );
   return (
     <div className="portal-experiment-stack" aria-label="Experiments">
       {experiments.map((experiment) => {
         const pairings = pairingsForExperiment(data.pairings, experiment);
-        const latestReading = latestExperimentReading(data.readings, experiment);
+        const latestByPot = latestByExperiment.get(experiment.id) ?? new Map<string, number>();
+        let latestMeasuredAt: number | null = null;
+        for (const at of latestByPot.values()) if (latestMeasuredAt == null || at > latestMeasuredAt) latestMeasuredAt = at;
         const activeCount = pairings.length;
         const expectedCount = experiment.pairingNames.length;
         const observationOnly = isObservationOnlyExperiment(experiment);
         const editable = !experiment.status ||
           ["published_sensing", "active", "activation_failed"].includes(experiment.status);
         // Freshness comes from the newest measurement of this experiment's pots, never from
-        // when the portal last fetched or from the device-state row's update time.
-        const freshness = experimentFreshness({
-          experiment,
-          pairings,
-          latestMeasuredAt: latestReading?.device_recorded_at,
-          nowMs,
-        });
+        // when the portal last fetched or from the device-state row's update time; with only
+        // some pots reporting it says how many rather than "Current".
+        const freshness = withReportingCoverage(
+          experimentFreshness({ experiment, pairings, latestMeasuredAt, nowMs }),
+          reportingCoverage(pairings, latestByPot, nowMs),
+        );
 
         return (
           <article className="portal-launch-card-shell" key={experiment.id}>
@@ -438,7 +445,7 @@ export default function App() {
   const [accessLoading, setAccessLoading] = useState(false);
   const [portalView, setPortalView] = useState<PortalView>("home");
   // Re-evaluates measurement ages ("4 min ago") without refetching anything.
-  const [clockNowMs, setClockNowMs] = useState(() => Date.now());
+  const clockNowMs = usePageClock(clockTickMs);
   const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("");
   const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
   const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
@@ -466,7 +473,7 @@ export default function App() {
   const refreshInFlightRef = useRef(false);
   const pendingRefreshRef = useRef<RefreshOptions | null>(null);
   const realtimeRefreshInFlightRef = useRef(false);
-  const valveLoadInFlightRef = useRef<{ promise: Promise<void>; full: boolean } | null>(null);
+  const valveLoadInFlightRef = useRef<{ promise: Promise<void>; full: boolean; scope: string } | null>(null);
   const authRecoveryInFlightRef = useRef<Promise<boolean> | null>(null);
   const watchdogRefreshCountRef = useRef(0);
   const controlRequestIdsRef = useRef(new Map<string, { id: string; createdAt: number }>());
@@ -495,18 +502,6 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [settingsOpen]);
-
-  useEffect(() => {
-    const tick = () => {
-      if (document.visibilityState === "visible") setClockNowMs(Date.now());
-    };
-    const intervalId = window.setInterval(tick, clockTickMs);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, []);
 
   const availableExperiments = useMemo(
     () => mergePortalExperiments(
@@ -639,18 +634,18 @@ export default function App() {
       lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
     }, clockNowMs).status === "offline"
     : false;
-  const experimentStatusFreshness = experimentFreshness({
-    experiment: selectedExperiment,
-    pairings: sortedPairings,
-    latestMeasuredAt,
-    controllerOffline,
-    nowMs: clockNowMs,
-  });
   const reportingPotCount = series.filter((item) => measurementFreshness({
     measuredAt: latestPoint(item)?.timestampMs,
     expectedIntervalMs: item.expectedIntervalMs,
     nowMs: clockNowMs,
   }).state === "current").length;
+  const experimentStatusFreshness = withReportingCoverage(experimentFreshness({
+    experiment: selectedExperiment,
+    pairings: sortedPairings,
+    latestMeasuredAt,
+    controllerOffline,
+    nowMs: clockNowMs,
+  }), { reporting: reportingPotCount, total: series.length });
 
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
@@ -925,51 +920,67 @@ export default function App() {
     }
   }, [activeDeviceId, activeProjectId, canUseExperimentSettings]);
 
-  const loadValveEvents = useCallback((options: { incremental?: boolean } = {}) => {
+  const loadValveEvents = useCallback((options: { incremental?: boolean; fresh?: boolean } = {}): Promise<void> => {
     if (!canReadProjectData || !activeProjectId || !activeDeviceId) {
       setValveEvents([]);
       return Promise.resolve();
     }
-    // Startup, the realtime subscription and tab return can all ask at once; share one request.
-    const inFlight = valveLoadInFlightRef.current;
-    if (inFlight && (inFlight.full || options.incremental === true)) return inFlight.promise;
     const scope = scopeKeyRef.current;
+    // Incremental only extends a timeline that exists; with nothing loaded (or a failed first load)
+    // it would fetch just the newest rows of the whole window and never backfill the rest.
+    const incremental = options.incremental === true && valveEventsRef.current.length > 0;
+    // Startup, the realtime subscription and tab return can all ask at once; share one request for
+    // the same scope. `fresh` asks for a query that starts after any request already running.
+    const inFlight = valveLoadInFlightRef.current;
+    if (inFlight && inFlight.scope === scope && (inFlight.full || incremental)) {
+      return options.fresh ? inFlight.promise.then(() => loadValveEventsRef.current({ incremental: true })) : inFlight.promise;
+    }
+    const query = async (fromIncremental: boolean) => {
+      const existing = valveEventsRef.current;
+      const newestExistingAt = existing.reduce(
+        (latest, event) => Math.max(latest, valveEventTimestampMs(event)),
+        0,
+      );
+      const sinceMs = fromIncremental && newestExistingAt > 0
+        ? newestExistingAt - incrementalCursorOverlapMs
+        : Date.now() - wateringHistoryMs;
+      const limit = fromIncremental ? incrementalValveEventRows : maxValveEventRows;
+      const response = await withSupabaseTimeout(
+        supabase
+          .from("valve_events")
+          .select("*")
+          .eq("project_id", activeProjectId)
+          .eq("device_id", activeDeviceId)
+          .gte("device_recorded_at", new Date(sinceMs).toISOString())
+          .order("device_recorded_at", { ascending: false })
+          .limit(limit),
+        supabaseQueryTimeoutMs,
+        "Valve events",
+      );
+      if (response.error) throw response.error;
+      const rows = (response.data ?? []) as ValveEvent[];
+      return { rows, filled: rows.length >= limit };
+    };
     const promise = (async () => {
       try {
-        const incremental = options.incremental === true;
-        const existing = valveEventsRef.current;
-        const newestExistingAt = existing.reduce(
-          (latest, event) => Math.max(latest, valveEventTimestampMs(event)),
-          0,
-        );
-        const sinceMs = incremental && newestExistingAt > 0
-          ? newestExistingAt - incrementalCursorOverlapMs
-          : Date.now() - wateringHistoryMs;
-        const response = await withSupabaseTimeout(
-          supabase
-            .from("valve_events")
-            .select("*")
-            .eq("project_id", activeProjectId)
-            .eq("device_id", activeDeviceId)
-            .gte("device_recorded_at", new Date(sinceMs).toISOString())
-            .order("device_recorded_at", { ascending: false })
-            .limit(incremental ? incrementalValveEventRows : maxValveEventRows),
-          supabaseQueryTimeoutMs,
-          "Valve events",
-        );
-
-        if (response.error) throw response.error;
+        let result = await query(incremental);
+        // A full page of newer rows means the gap may hold more: reload the whole window.
+        if (incremental && result.filled && scopeKeyRef.current === scope) result = await query(false);
         if (scopeKeyRef.current !== scope) return;
-        setValveEvents((current) => mergeValveEventRows(current, (response.data ?? []) as ValveEvent[]));
+        setValveEvents((current) => mergeValveEventRows(current, result.rows));
       } catch {
         // Keep the last good watering timeline visible until Supabase recovers.
       }
     })().finally(() => {
       if (valveLoadInFlightRef.current?.promise === promise) valveLoadInFlightRef.current = null;
     });
-    valveLoadInFlightRef.current = { promise, full: options.incremental !== true };
+    valveLoadInFlightRef.current = { promise, full: !incremental, scope };
     return promise;
   }, [activeDeviceId, activeProjectId, canReadProjectData]);
+  const loadValveEventsRef = useRef(loadValveEvents);
+  useEffect(() => {
+    loadValveEventsRef.current = loadValveEvents;
+  }, [loadValveEvents]);
 
   const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
     const loadId = ++salesSupportLoadId.current;
@@ -1474,6 +1485,16 @@ export default function App() {
         () => crypto.randomUUID(),
       );
       settingsBatchIdsRef.current.set(requestKey, { batchId, commandIds, createdAt: nowMs });
+      const batchTracking = {
+        label: "Reviewed settings",
+        commandType: settingsBatchCommandType,
+        stepLabels: [
+          "Stop controller",
+          ...plan.commands.map((command) => controlCommandLabel(command.command_type)),
+          reviewedControllerState === "running" ? "Restart controller" : "Leave controller stopped",
+        ],
+        restoresTo: reviewedControllerState,
+      };
 
       const batchCommands = [
         {
@@ -1522,9 +1543,8 @@ export default function App() {
         settingsBatchIdsRef.current.delete(requestKey);
         const commands = response.data.commands;
         setTrackedCommand({
+          ...batchTracking,
           ids: commands.map((command) => command.id),
-          label: "Reviewed settings",
-          commandType: "settings_batch",
           requestedAt: new Date().toISOString(),
           statuses: Object.fromEntries(commands.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
         });
@@ -1533,7 +1553,7 @@ export default function App() {
           const reconciliation = await withSupabaseTimeout(
             supabase
               .from("project_control_commands")
-              .select("id,status")
+              .select("id,status,client_request_id")
               .eq("project_id", activeProjectId)
               .eq("batch_id", batchId),
             supabaseQueryTimeoutMs,
@@ -1544,11 +1564,13 @@ export default function App() {
             (reconciliation.data?.length ?? 0) === batchCommands.length
           ) {
             settingsBatchIdsRef.current.delete(requestKey);
-            const recorded = (reconciliation.data ?? []) as Array<{ id: string; status?: unknown }>;
+            // Steps are tracked in execution order (stop, change(s), restore): the order the IDs were issued in.
+            const recorded = ((reconciliation.data ?? []) as Array<{ id: string; status?: unknown; client_request_id?: string }>)
+              .slice()
+              .sort((a, b) => commandIds.indexOf(a.client_request_id ?? "") - commandIds.indexOf(b.client_request_id ?? ""));
             setTrackedCommand({
+              ...batchTracking,
               ids: recorded.map((command) => command.id),
-              label: "Reviewed settings",
-              commandType: "settings_batch",
               requestedAt: new Date().toISOString(),
               statuses: Object.fromEntries(recorded.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
             });
@@ -2040,7 +2062,6 @@ export default function App() {
     // pageshow and online events arrive in bursts; they collapse into one incremental check
     // (a full reload only after a long absence) at most every 30 seconds.
     const reconcile = createCoalescedTrigger(async () => {
-      if (document.visibilityState !== "visible" || !navigator.onLine) return;
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session) {
         expirePortalSession();
@@ -2057,14 +2078,19 @@ export default function App() {
         refresh({ incremental: !longAbsence }),
         loadValveEvents({ incremental: !longAbsence }),
       ]);
-    }, { minSpacingMs: returnReconcileSpacingMs });
+    }, {
+      minSpacingMs: returnReconcileSpacingMs,
+      // A hidden or offline tab does not use up the spacing: the trigger after it still runs.
+      canRun: () => document.visibilityState === "visible" && navigator.onLine,
+    });
     reconcile.markRun();
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") reconcile.trigger("visibilitychange");
       else hiddenSinceMs ??= Date.now();
     };
-    const onReturn = (event: Event) => reconcile.trigger(event.type);
+    // Coming back online may follow missed realtime rows, so it is never held back by the spacing.
+    const onReturn = (event: Event) => reconcile.trigger(event.type, { bypassSpacing: event.type === "online" });
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("online", onReturn);
     window.addEventListener("focus", onReturn);
@@ -2083,6 +2109,14 @@ export default function App() {
     refresh,
     sessionReady,
   ]);
+
+  useEffect(() => {
+    // A refresh superseded by a scope change (sign-out, expiry, another project or device) skips its
+    // own loading reset, and the sign-in form shares that flag. Clear it here; the refresh for the
+    // new scope, declared below, sets it again. A request being tracked belongs to the old scope.
+    setLoading(false);
+    setTrackedCommand(null);
+  }, [scopeKey]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return;
@@ -2388,7 +2422,7 @@ export default function App() {
 
   const trackedCommandIds = trackedCommand?.ids.join(",") ?? "";
   const trackedCommandSettled = trackedCommand
-    ? trackedCommandProgress(trackedCommand, true).terminal
+    ? trackedCommand.trackingStopped === true || trackedCommandProgress(trackedCommand, true).terminal
     : true;
   useEffect(() => {
     // Backstop for a missed realtime update: re-read the tracked commands until they finish.
@@ -2396,7 +2430,13 @@ export default function App() {
     const ids = trackedCommandIds.split(",");
     const startedAt = Date.now();
     return scheduleVisiblePolling(async () => {
-      if (Date.now() - startedAt > trackedCommandPollLimitMs) return;
+      if (Date.now() - startedAt > trackedCommandPollLimitMs) {
+        // Say so rather than leaving an unfinished stage on screen indefinitely.
+        setTrackedCommand((current) => current && current.ids.join(",") === trackedCommandIds
+          ? { ...current, trackingStopped: true }
+          : current);
+        return;
+      }
       const response = await withSupabaseTimeout(
         supabase.from("project_control_commands").select("id,status").eq("project_id", activeProjectId).in("id", ids),
         supabaseQueryTimeoutMs,
@@ -2470,7 +2510,9 @@ export default function App() {
       )
       .subscribe((status) => {
         // Catch rows written between the initial load and the subscription becoming active.
-        if (status === "SUBSCRIBED") void loadValveEvents({ incremental: valveEventsRef.current.length > 0 });
+        // A query already running may have started before the subscription went live, so this
+        // one must start after it.
+        if (status === "SUBSCRIBED") void loadValveEvents({ incremental: true, fresh: true });
       });
 
     return () => {
@@ -2849,7 +2891,7 @@ export default function App() {
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
         ) : null}
         {experimentBuilder}
-        {settingsMounted ? <FeatureBoundary name="Settings" fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
+        {settingsMounted ? <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
           open={settingsOpen}
           projectId={activeProjectId}
           portalRole={portalAccess.role}
@@ -2905,7 +2947,7 @@ export default function App() {
           <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
         ) : null}
         {experimentBuilder}
-        {settingsMounted ? <FeatureBoundary name="Settings" fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
+        {settingsMounted ? <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
           open={settingsOpen}
           projectId={activeProjectId}
           portalRole={portalAccess.role}
@@ -2996,7 +3038,7 @@ export default function App() {
       />
 
       {canUseExperimentSettings && settingsMounted ? (
-        <FeatureBoundary name="Settings" fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
+        <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
           open={settingsOpen}
           projectId={activeProjectId}
           portalRole={portalAccess.role}
@@ -3077,7 +3119,7 @@ export default function App() {
                 const comparison = groupComparisons.get(group.id);
                 const nowText = comparison?.latestMedian == null
                   ? "No readings in range"
-                  : `Latest ${formatVwcReading(comparison.latestMedian)} median${comparison.reportingCount > 1 ? ` (${formatVwcReading(comparison.latestMin)}–${formatVwcReading(comparison.latestMax)})` : ""}`;
+                  : `Latest ${formatVwcReading(comparison.latestMedian)} median${comparison.reportingCount > 1 ? ` (${formatVwcReading(comparison.latestMin)}–${formatVwcReading(comparison.latestMax)})` : ""}${comparison.silentCount ? ` · ${comparison.silentCount} ${comparison.silentCount === 1 ? "pot" : "pots"} not reporting` : ""}`;
                 return (
                   <button
                     type="button"
@@ -3092,8 +3134,8 @@ export default function App() {
                       <Maximize2 size={16} aria-hidden="true" />
                       <span className="graph-card-facts">
                         {target ? (
-                          <span className={`graph-target ${target.planMismatch ? "is-warning" : ""}`} title={target.planMismatch ? "The controller's applied target differs from the experiment plan." : target.detail}>
-                            {target.label}{target.planMismatch ? " · controller differs" : ""}
+                          <span className={`graph-target ${target.planMismatch ? "is-warning" : ""}`} title={target.detail}>
+                            {target.label}
                           </span>
                         ) : null}
                         <span className="graph-now">{nowText}</span>
