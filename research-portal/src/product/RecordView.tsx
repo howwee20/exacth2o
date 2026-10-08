@@ -260,6 +260,7 @@ function RecordEntry({ item, isNew, projectId, deviceId, focusPot }: { item: Rec
             </button>
             {explain ? (
               <CalibrationExplainer
+                key={`${projectId}:${deviceId}:${focusPot ?? ""}:${item.calibration.atMs}`}
                 projectId={projectId}
                 deviceId={deviceId}
                 pairingName={focusPot && item.calibration.pairingNames.includes(focusPot) ? focusPot : item.calibration.pairingNames[0]}
