@@ -22,6 +22,10 @@ begin
     where project_id = '22222222-2222-4222-8222-222222222222';
   update public.experiment_revisions set created_at = created_at + shift where project_id = '22222222-2222-4222-8222-222222222222';
   update public.experiment_audit_events set created_at = created_at + shift where project_id = '22222222-2222-4222-8222-222222222222';
+  update public.project_control_commands
+    set requested_at = requested_at + shift, expires_at = expires_at + shift, confirmed_at = confirmed_at + shift,
+        started_at = started_at + shift, completed_at = completed_at + shift
+    where project_id = '22222222-2222-4222-8222-222222222222' and id::text like 'c0000000-0000-4000-8000-%';
 end;
 $$;
 

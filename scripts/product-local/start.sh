@@ -121,6 +121,8 @@ where access.email like '%@product.local'
 on conflict do nothing;
 SQL
 
+psql "$db_url" -v ON_ERROR_STOP=1 -q -1 -f "$repo_root/scripts/product-local/seed-commands.sql"
+
 if [[ -n "$scenario" ]]; then run_scenario "$scenario"; fi
 
 cat > "$repo_root/research-portal/.env.productlocal.local" <<EOF

@@ -68,6 +68,16 @@ const PotsTable = lazyFeature(() => import("./product/PotsTable").then((module) 
 const TrendsView = lazyFeature(() => import("./product/TrendsView").then((module) => ({ default: module.TrendsView })));
 const BenchView = lazyFeature(() => import("./product/BenchView").then((module) => ({ default: module.BenchView })));
 const PocketView = lazyFeature(() => import("./product/PocketView").then((module) => ({ default: module.PocketView })));
+// The bundle's own file name (content-hashed in production) identifies the build in exports.
+const portalBuild = (() => {
+  try {
+    return new URL(import.meta.url).pathname.split("/").pop() || "portal";
+  } catch {
+    return "portal";
+  }
+})();
+const WorkbenchView = lazyFeature(() => import("./product/WorkbenchView").then((module) => ({ default: module.WorkbenchView })));
+const RecordView = lazyFeature(() => import("./product/RecordView").then((module) => ({ default: module.RecordView })));
 const PotNotesSection = lazyFeature(() => import("./product/PotNotesSection").then((module) => ({ default: module.PotNotesSection })));
 const prefetchSettings = () => {
   void loadSettingsPanel().catch(() => undefined);
@@ -2564,8 +2574,8 @@ export default function App() {
       }
     : undefined;
   const showSettingsControl = canUseExperimentSettings;
-  const productSections = { bench: true, workbench: false };
-  const recordAvailable = false;
+  const productSections = { bench: true, workbench: true };
+  const recordAvailable = true;
   const visiblePairings = visibleExperimentPairings(data.pairings);
   const lastGoodCheckAt = lastSuccessfulCheckAt ?? (data.lastCheckedAt && !error ? Date.parse(data.lastCheckedAt) : null);
   const presence = runtimeState
@@ -3153,6 +3163,23 @@ export default function App() {
     return <ChamberControlView onBack={() => setPortalView("home")} />;
   }
 
+  if (route.view === "workbench") {
+    return productShell(
+      <FeatureBoundary name="Workbench" fallback={<FeatureLoading name="Workbench" />}><WorkbenchView
+        projectId={activeProjectId}
+        deviceId={activeDeviceId}
+        userId={portalAccess.userId ?? null}
+        authorLabel={portalAccess.email ?? "portal member"}
+        experiments={availableExperiments}
+        pairings={visiblePairings}
+        comparisonId={route.comparison}
+        experimentId={route.experiment}
+        canSave={canUseExperimentSettings}
+        build={portalBuild}
+      /></FeatureBoundary>,
+    );
+  }
+
   if (route.view === "trends") {
     return productShell(
       <FeatureBoundary name="Trends" fallback={<FeatureLoading name="Trends" />}><TrendsView
@@ -3307,6 +3334,16 @@ export default function App() {
             asOfMs={lastGoodCheckAt}
             loadedWindowMs={rollingExperimentHistoryMs}
             dataSourceLabel={dataSourceLabel}
+          /></FeatureBoundary>
+        ) : tab === "record" ? (
+          <FeatureBoundary name="Record" fallback={<FeatureLoading name="Record" />}><RecordView
+            key={routeExperiment.id}
+            experiment={routeExperiment}
+            projectId={activeProjectId}
+            deviceId={activeDeviceId}
+            pairings={visiblePairings}
+            nowMs={clockNowMs}
+            userId={portalAccess.userId ?? null}
           /></FeatureBoundary>
         ) : (
           <div className="px-pots-tab">

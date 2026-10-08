@@ -102,6 +102,7 @@ export function TimeSeriesChart({
   stepMs,
   compact = false,
   emptyText,
+  xAxis,
 }: {
   lines: ChartLine[];
   bands?: ChartBand[];
@@ -120,6 +121,8 @@ export function TimeSeriesChart({
   stepMs?: number;
   compact?: boolean;
   emptyText?: string;
+  /** Replaces the clock-time ticks (e.g. days since an event). */
+  xAxis?: (domain: { startMs: number; endMs: number }, plotWidth: number) => { at: number; label: string }[];
 }) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
   const [cursor, setCursor] = useState<number | null>(null);
@@ -130,7 +133,7 @@ export function TimeSeriesChart({
   const span = Math.max(1, domain.endMs - domain.startMs);
   const x = (t: number) => margin.left + ((t - domain.startMs) / span) * plotWidth;
   const y = (v: number) => margin.top + (1 - (v - yDomain[0]) / Math.max(1e-9, yDomain[1] - yDomain[0])) * plotHeight;
-  const xTicks = useMemo(() => (width ? timeTicks(domain, plotWidth) : []), [domain, plotWidth, width]);
+  const xTicks = useMemo(() => (width ? (xAxis ?? timeTicks)(domain, plotWidth) : []), [domain, plotWidth, width, xAxis]);
   const yTicks = useMemo(() => valueTicks(yDomain, compact ? 3 : 4), [compact, yDomain]);
   const hasData = lines.some((line) => line.segments.some((segment) => segment.length)) || bands.some((band) => band.segments.some((segment) => segment.length));
   const step = stepMs ?? span / 96;
