@@ -1351,37 +1351,51 @@ select {
   width: 100%;
 }
 
-.portal-experiment-edit-button {
+.portal-experiment-menu {
   position: absolute;
-  right: 14px;
-  bottom: 14px;
+  right: 10px;
+  top: 10px;
   z-index: 3;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 11px;
-  border: 1px solid rgba(26, 107, 74, 0.2);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
+}
+.portal-experiment-menu summary {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
   color: var(--portal-water);
   cursor: pointer;
-  font-family: var(--portal-mono);
-  font-size: 0.62rem;
-  font-weight: 780;
-  box-shadow: 0 7px 18px rgba(14, 26, 20, 0.09);
+  list-style: none;
+  font-size: 24px;
+  line-height: 1;
 }
-
-.portal-experiment-edit-button:hover,
-.portal-experiment-edit-button:focus-visible {
-  border-color: rgba(26, 107, 74, 0.5);
-  outline: 3px solid rgba(26, 107, 74, 0.13);
+.portal-experiment-menu summary::-webkit-details-marker { display: none; }
+.portal-experiment-menu summary:hover { background: rgba(26, 107, 74, 0.07); }
+.portal-experiment-menu summary:focus-visible { outline: 2px solid var(--portal-water); }
+.portal-experiment-menu-panel {
+  position: absolute;
+  right: 0;
+  top: 40px;
+  min-width: 150px;
+  padding: 5px;
+  background: white;
+  border: 1px solid rgba(14, 26, 20, 0.13);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(14, 26, 20, 0.12);
 }
-
-.portal-experiment-edit-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+.portal-experiment-menu-panel button {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--portal-ink);
 }
+.portal-experiment-menu-panel button:hover { background: #f0f7f3; }
+.portal-experiment-menu-panel button:disabled { opacity: 0.5; cursor: not-allowed; }
+.portal-launch-card-shell:has(.portal-experiment-menu[open]) { z-index: 4; }
 
 .portal-experiment-column {
   position: relative;
@@ -1398,7 +1412,7 @@ select {
 
 .portal-experiment-column .portal-experiment-stack::before {
   position: absolute;
-  top: calc(16.6667% - 4.67px);
+  top: 56px;
   left: -20px;
   bottom: -24px;
   z-index: 0;
@@ -8632,3 +8646,14 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
 .feature-load-state.is-error {
   color: #92400e;
 }
+
+/* Quiet experiment launchers; the animated connection remains in place. */
+.portal-launch-card.is-experiment {
+  min-height: 112px;
+  grid-template-rows: auto;
+  align-content: center;
+  gap: 8px;
+  padding: 18px 48px 18px 20px;
+}
+.portal-launch-card.is-experiment .portal-launch-copy { gap: 5px; }
+.experiment-view-description { color: #64748b; margin: 0 0 16px; }

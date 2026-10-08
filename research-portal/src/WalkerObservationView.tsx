@@ -1,11 +1,8 @@
-import { Activity, AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { FreshnessPill, LatestReadingText } from "./experiment/MeasurementStatus";
+import { AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { scheduleVisiblePolling } from "./visiblePolling";
-import { usePageClock } from "./pageClock";
 import {
   isWalkerAccessDenied,
-  walkerFreshness,
   type WalkerLiveStatus,
 } from "./walkerObservation";
 import { loadWalkerLiveStatus } from "./walkerObservationClient";
@@ -17,8 +14,6 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
   const [failed, setFailed] = useState(false);
-  // Ages keep advancing while requests fail, so a failed check never leaves "Current" on screen.
-  const nowMs = usePageClock();
 
   useEffect(() => {
     let active = true;
@@ -52,7 +47,6 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
     };
   }, []);
 
-  const freshness = useMemo(() => (status ? walkerFreshness(status, nowMs) : null), [nowMs, status]);
 
   if (!visible) return null;
   return (
@@ -61,32 +55,18 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
       className="portal-launch-card is-experiment is-walker-live"
       onClick={onOpen}
     >
-      <span className="portal-launch-top">
-        <span className="portal-launch-icon">
-          <Activity size={20} />
-        </span>
-        {failed ? (
-          <span className="portal-experiment-progress is-failed" title="The portal could not check Walker status. This is not evidence that the sensors are offline.">
-            <AlertTriangle size={12} />
-            Check failed
-          </span>
-        ) : freshness ? (
-          <FreshnessPill freshness={freshness} compact />
-        ) : null}
-      </span>
+      {failed ? <span className="portal-experiment-progress is-failed" title="The portal could not check Walker status. Open the experiment to retry."><AlertTriangle size={12} />Check failed</span> : null}
       <span className="portal-launch-copy">
         <span className="portal-launch-title">Walker Pi 5 Observation</span>
         <strong>
           {loading && !status
             ? "Checking sensor access..."
             : status
-              ? `${status.current_sensor_count} / ${status.expected_sensor_count} sensors current`
+              ? `${status.expected_sensor_count} sensors`
               : "Sensor status unavailable"}
         </strong>
         <em>VWC · sensing only</em>
-        <em>
-          {freshness ? <LatestReadingText freshness={freshness} emptyText="No live readings yet" /> : failed ? "Open to retry" : null}
-        </em>
+
       </span>
     </button>
   );
