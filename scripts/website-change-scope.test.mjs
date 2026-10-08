@@ -8,6 +8,8 @@ import { changedPaths, isWebsiteOnly, isPortalOnly } from './website-change-scop
 
 test('marketing copy and deleted root image assets use static publishing', () => {
   assert.equal(isWebsiteOnly(['about.html', 'index.html', 'quote.html', 'scheduling.jpg', 'scheduling.avif']), true);
+  // The home page's synthetic explainer is static page script with no backend contract.
+  assert.equal(isWebsiteOnly(['index.html', 'one-pot-explainer.js']), true);
 });
 
 test('mixed software changes, bundles, workflow changes and unknown paths keep full checks', () => {

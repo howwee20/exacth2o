@@ -1,6 +1,7 @@
 // Demo portal backend: in-memory sample data, one shared read-only account, readings that keep arriving.
 // Nothing here reaches Supabase or a controller; the page's CSP allows no network connections.
 import {fixture,walkerSnapshot,mixer,nextDemoSample} from './fixtures';
+import {demoAggregate} from './demoAggregates';
 export const demoAccount={email:'demo@exacth2o.com',password:'exacth2o-demo'};
 const sessionKey='exacth2o.portal.demoSession',handoffKey='exacth2o.portal.demoHandoff';
 const store=()=>{try{return window.sessionStorage;}catch{return null;}};
@@ -29,7 +30,8 @@ const unavailable=()=>Promise.resolve({data:null,error:{message:'This action is 
 const lighting={project_id:"sample",device_id:"sample",bridge_ready:true,bridge_version:"sample",state_revision:1,requested_intensity:134,controller_intensity:134,last_nonzero_intensity:134,last_source:"portal",hardware_verification:"unavailable",controller_process_started_at:new Date().toISOString(),remote_control_allowed:true,last_command:null};
 export const supabase={
  // Explicit read allowlist. Every command/function call is denied, including simulated controls.
- rpc(name:string){
+ rpc(name:string,args:any={}){
+  const aggregate=demoAggregate(name,args,fixture.data.readings,fixture.valveEvents);if(aggregate)return success(aggregate);
   if(name==='lighting_native_status')return success({...lighting,remote_control_allowed:false});
   if(name==='chamber_schedule_overview')return success({schedules:[],runs:[],can_control:false,scheduler_online:false});
   if(['walker_live_observation_snapshot','walker_live_observation_series'].includes(name))return success(walkerSnapshot());
@@ -47,3 +49,7 @@ export const supabase={
  },
  channel(){return new DemoChannel();},removeChannel(channel:any){channel?.close?.();},
 };
+
+// The production request-scoped factory is replaced at the same adapter boundary. A token
+// never creates a network client in the demo; every operation stays on these local fixtures.
+export function portalClientWithToken(_accessToken:string){return supabase;}

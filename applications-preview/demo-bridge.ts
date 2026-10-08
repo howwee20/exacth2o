@@ -20,23 +20,33 @@ function viewFromLabel(text: string): GraphView | undefined {
 }
 
 function actionFor(target: Element): { action: DemoAction; view?: GraphView } | null {
+  // Home: experiment cards on the spine and the installation tools beside them.
+  const card = target.closest('.px-exp-open');
+  if (card) {
+    const title = card.querySelector('.px-exp-name')?.textContent ?? '';
+    return { action: /calibration/i.test(title) ? 'open_calibration' : 'open_experiment' };
+  }
   const launch = target.closest('.portal-launch-card');
   if (launch) {
     if (launch.classList.contains('is-health')) return { action: 'open_health' };
     const title = launch.querySelector('.portal-launch-title')?.textContent ?? '';
     return { action: /calibration/i.test(title) ? 'open_calibration' : 'open_experiment' };
   }
-  if (target.closest('.experiment-graph-card, .expand-button')) return { action: 'expand_chart' };
+  if (target.closest('.px-node a')) return { action: 'open_health' };
+  if (target.closest('.px-crumb, .px-nav a')) return { action: 'navigate_home' };
+  // Experiment: Overview (Waterline) and Pots.
+  if (target.closest('.px-pot-chip, .px-table a, .pot-toggle')) return { action: 'select_pot' };
+  if (target.closest('.px-tabs a, .px-waterline select, .px-segmented[aria-label="Measure"] button')) return { action: 'change_graph_view' };
+  if (target.closest('.px-segmented[aria-label="Time window"] button, .time-range-control')) return { action: 'change_time_range' };
+  if (target.closest('.px-chart, .canvas-chart')) return { action: 'inspect_chart' };
+  if (target.closest('.expand-button')) return { action: 'expand_chart' };
   const viewButton = target.closest('.chart-view-toggle button');
   if (viewButton) {
     const view = viewFromLabel(viewButton.textContent ?? '');
     return { action: 'change_graph_view', ...(view ? { view } : {}) };
   }
-  if (target.closest('.pot-toggle')) return { action: 'select_pot' };
   if (target.closest('.group-toggle')) return { action: 'toggle_pot_group' };
-  if (target.closest('.preset-filter')) return { action: 'filter_pots' };
-  if (target.closest('.time-range-control')) return { action: 'change_time_range' };
-  if (target.closest('.canvas-chart')) return { action: 'inspect_chart' };
+  if (target.closest('.preset-filter, .px-waterline input[type="checkbox"]')) return { action: 'filter_pots' };
   const back = target.closest('.header-action, .support-back-button');
   if (back && /home/i.test(back.textContent ?? '')) return { action: 'navigate_home' };
   return null;
@@ -45,7 +55,7 @@ function actionFor(target: Element): { action: DemoAction; view?: GraphView } | 
 export function startDemoBridge() {
   let ready = false;
   const announceReady = () => {
-    if (ready || !document.querySelector('.portal-launch-grid')) return;
+    if (ready || !document.querySelector('.px-spine, .px-home')) return;
     ready = true;
     post({ name: 'demo_ready' });
   };

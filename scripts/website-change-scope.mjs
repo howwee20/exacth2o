@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 const websiteFiles = new Set([
   'index.html', 'about.html', 'applications.html', 'support.html', 'quote.html',
-  'site-navigation.js', 'site-brand-footer.css', 'site-brand-footer.js',
+  'site-navigation.js', 'one-pot-explainer.js', 'site-brand-footer.css', 'site-brand-footer.js',
   'CNAME', '.nojekyll',
 ]);
 

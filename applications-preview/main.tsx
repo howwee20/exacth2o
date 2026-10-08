@@ -1,77 +1,10 @@
-import React, {useEffect} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from '../research-portal/src/App';
 import '../research-portal/src/styles.css';
 import './preview.css';
 import {startDemoBridge} from './demo-bridge';
 
-const positions=new Map<string,{x:number,y:number}>();
-function Preview(){
- useEffect(()=>{
-  let grid:HTMLElement|null=null;
-  let updateFlow=()=>{};
-  const spread=1,tileWidth=392,canvasWidth=826;
-  function enhance(){
-   const next=document.querySelector<HTMLElement>('.portal-launch-grid');
-   document.body.classList.toggle('preview-home',Boolean(next));
-   if(next===grid)return;
-   grid=next;
-   window.scrollTo(0,0);
-   updateFlow=()=>{};
-   if(!grid)return;
-   const stage=grid;
-   const cards=[...stage.querySelectorAll<HTMLElement>('.portal-launch-card-shell'),...stage.querySelectorAll<HTMLElement>('.portal-business-stack > .portal-launch-card,.portal-experiment-column > .portal-launch-card.is-health')];
-   const defaults:Record<string,[number,number]>={'Experiment 1':[0,0],'SWC Saturation Calibration':[434,0],'Experiment 2':[0,220],'Experiment 3':[434,220],'System Health':[217,440]};
-   const svgNS='http://www.w3.org/2000/svg';
-   const connections=document.createElementNS(svgNS,'svg');connections.classList.add('tile-connections');connections.setAttribute('viewBox','0 0 826 644');connections.setAttribute('aria-hidden','true');stage.prepend(connections);
-   const paths=['Experiment 1','Experiment 2','Experiment 3'].map(title=>{const path=document.createElementNS(svgNS,'path');path.dataset.experiment=title;connections.append(path);return {title,path};});
-   function connect(){
-    const healthPosition=positions.get('System Health');if(!healthPosition)return;
-    const health={x:healthPosition.x*spread,y:healthPosition.y};
-    connections.setAttribute('viewBox',`0 0 ${canvasWidth} 644`);
-    const first=positions.get('Experiment 1');
-    const gutter=Math.min((first?.x||0)*spread,health.x)-14;
-    const healthCenter=health.y+102;
-    paths.forEach(({title,path})=>{
-     const position=positions.get(title);if(!position)return;
-     const from={x:position.x*spread,y:position.y};
-     if(title==='Experiment 1'){
-      path.setAttribute('d',`M ${from.x} ${from.y+102} H ${gutter+8} Q ${gutter} ${from.y+102} ${gutter} ${from.y+110} V ${healthCenter-8} Q ${gutter} ${healthCenter} ${gutter+8} ${healthCenter} H ${health.x}`);
-     }else if(title==='Experiment 2'){
-      // Join the Experiment 1 trunk from the left edge of Experiment 2.
-      path.setAttribute('d',`M ${from.x} ${from.y+102} H ${gutter}`);
-     }else{
-      // Drop beside System Health and enter its right edge without crossing a card.
-      const lane=from.x+tileWidth/2;
-      path.setAttribute('d',`M ${lane} ${from.y+204} V ${healthCenter-8} Q ${lane} ${healthCenter} ${lane-8} ${healthCenter} H ${health.x+tileWidth}`);
-     }
-    });
-   }
-   updateFlow=connect;
-   cards.forEach((card,i)=>{
-    const title=card.querySelector('.portal-launch-title')?.textContent||`Tile ${i+1}`;
-    const [x,y]=defaults[title]||[0,0];
-    card.classList.add('preview-tile');
-    card.style.left=x+'px';card.style.top=y+'px';card.style.width=tileWidth+'px';
-    card.draggable=false;
-    positions.set(title,{x,y});
-   });
-   connect();resize();
-  }
-  function resize(){
-   const stage=document.querySelector<HTMLElement>('.portal-launch-grid');if(!stage)return;
-   const scale=Math.max(.3,Math.min(.9,(window.innerWidth-48)/826,(window.innerHeight-102)/644));
-   document.documentElement.style.setProperty('--preview-scale',String(scale));
-   document.documentElement.style.setProperty('--preview-canvas-width',canvasWidth+'px');
-   document.documentElement.style.setProperty('--preview-tile-width',tileWidth+'px');
-   document.documentElement.style.setProperty('--preview-stage-height',`${644*scale}px`);
-   updateFlow();
-  }
-  const observer=new MutationObserver(enhance);observer.observe(document.querySelector('#root')!,{subtree:true,childList:true});window.addEventListener('resize',resize);enhance();
-  return()=>{observer.disconnect();window.removeEventListener('resize',resize);};
- },[]);
- return <App/>;
-}
-createRoot(document.getElementById('root')!).render(<Preview/>);
+// The Applications page embeds the production portal, unchanged, on synthetic sample data.
+createRoot(document.getElementById('root')!).render(<App/>);
 startDemoBridge();
 const badge=document.createElement('div');badge.className='demo-sample-badge';badge.textContent='Synthetic sample data';badge.setAttribute('role','note');document.body.append(badge);

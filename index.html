@@ -120,7 +120,7 @@ nav {
 .cinema-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.5rem; width: 100%; max-width: 580px; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,.25); }
 .cinema-stats div { display: flex; flex-direction: column; gap: .5rem; }
 .cinema-stats dt { order: 2; font-family: var(--mono); font-size: .75rem; line-height: 1.5; letter-spacing: .04em; text-transform: uppercase; color: #fff; }
-.cinema-stats dd { font-family: var(--serif); font-size: 2rem; line-height: 1.1; color: #fff; }
+.cinema-stats dd { font-family: var(--serif); font-size: 1.5rem; line-height: 1.15; color: #fff; }
 .cinema-copy { max-width: 28.64em; /* = 43ch in Instrument Sans */ font-size: 1.0625rem; line-height: 1.65; color: #fff; margin-top: 1.4rem; }
 .cinema-actions { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; margin-top: 2rem; }
 .cinema-button { display: inline-flex; justify-content: center; align-items: center; min-height: 56px; min-width: 200px; padding: 1rem 1.7rem; border: 1px solid #fff; font-size: .875rem; font-weight: 600; text-transform: uppercase; text-decoration: none; color: #fff; transition: color .2s,background .2s; }
@@ -137,7 +137,7 @@ nav { position: sticky; top: 0; background: var(--bg-dark); backdrop-filter: non
  .cinema-photos { grid-column: 1; grid-row: 2; height: clamp(320px,75vw,560px); }
  .cinema-content { padding: 3rem 1.5rem; }
  .cinema-stats { gap: 1rem; }
- .cinema-stats dd { font-size: 1.7rem; }
+ .cinema-stats dd { font-size: 1.25rem; }
  .cinema-title { font-size: clamp(3.1rem,10vw,4.7rem); }
  .cinema-copy { font-size: 1rem; max-width: 23.98em; /* = 36ch in Instrument Sans */ }
  .cinema-actions { gap: 1.3rem; margin-top: 1.5rem; }
@@ -374,6 +374,48 @@ footer a:hover { color: var(--accent); }
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
 .reveal.visible { opacity: 1; transform: none; }
 
+/* ── ONE POT, YOUR TARGET (synthetic explainer; runs in the page, never connects to a controller) ── */
+.one-pot { padding: 6rem 4rem; background: var(--bg); border-top: 1px solid var(--rule); }
+.one-pot-inner { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 2.5rem 3.5rem; align-items: start; }
+.one-pot-head { grid-column: 1 / -1; display: grid; gap: 0.9rem; max-width: 760px; }
+.one-pot-lede { font-size: 1.12rem; color: #3d4a43; }
+.one-pot-lede em { font-style: italic; color: var(--water); }
+.one-pot-card { display: grid; gap: 1rem; padding: 1.4rem; border: 1px solid var(--rule); border-radius: 12px; background: #fff; }
+.one-pot-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.4rem; }
+.one-pot-controls label { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: #3d4a43; }
+.one-pot-controls label strong { font-size: 1.15rem; letter-spacing: 0; color: var(--ink); margin-left: 0.4rem; }
+.one-pot-controls input[type="range"] { flex: 1 1 220px; accent-color: var(--water); }
+.one-pot-presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.one-pot-presets button { padding: 0.45rem 0.85rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--bg); color: var(--ink); font: 500 0.85rem var(--sans); cursor: pointer; }
+.one-pot-presets button:hover, .one-pot-presets button:focus-visible { border-color: var(--water); outline: none; }
+.one-pot-chart, .record-chart { display: block; width: 100%; height: auto; }
+.one-pot-grid { stroke: rgba(14,26,20,0.08); }
+.one-pot-axis { font-family: var(--mono); font-size: 11px; fill: #56645c; }
+.one-pot-line { fill: none; stroke: var(--water); stroke-width: 2; stroke-linejoin: round; }
+.one-pot-target { stroke: var(--ink); stroke-width: 1; }
+.one-pot-target-label { font-family: var(--mono); font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 4px; }
+.one-pot-tick { stroke: #1f5f8b; stroke-width: 1.5; }
+.one-pot-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1.1rem; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: #56645c; }
+.one-pot-legend span { display: inline-block; vertical-align: middle; margin-right: 0.35rem; }
+.one-pot-legend .key-line { width: 22px; border-top: 2px solid var(--water); }
+.one-pot-legend .key-target { width: 22px; border-top: 1px solid var(--ink); }
+.one-pot-legend .key-tick { width: 2px; height: 10px; background: #1f5f8b; }
+.one-pot-result { font-size: 1.02rem; color: var(--ink); }
+.one-pot-fine { font-size: 0.85rem; color: #56645c; }
+.one-pot-record { display: grid; gap: 0.9rem; align-content: start; }
+.one-pot-record h3 { font-family: var(--serif); font-weight: 400; font-size: 1.7rem; line-height: 1.15; color: var(--ink); }
+.one-pot-record p { color: #3d4a43; }
+.record-raw { fill: none; stroke: #8a9690; stroke-width: 1.2; stroke-dasharray: 4 3; }
+.record-marker { stroke: rgba(14,26,20,0.25); stroke-dasharray: 2 3; }
+.record-dot { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
+.record-dot.is-C { stroke: #6d3f87; }
+.record-letter { font-family: var(--mono); font-size: 10px; font-weight: 500; fill: var(--ink); }
+.record-events { list-style: none; display: grid; gap: 0.55rem; font-size: 0.95rem; color: #3d4a43; }
+.record-events li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: 0.6rem; }
+.record-events b { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border: 1px solid var(--ink); border-radius: 50%; font: 500 0.7rem var(--mono); color: var(--ink); }
+.record-key { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: #56645c; }
+.record-key span { display: inline-block; width: 22px; vertical-align: middle; margin: 0 0.35rem 0 0.6rem; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 1024px) {
   .features-grid { grid-template-columns: 1fr; }
@@ -450,8 +492,13 @@ footer .footer-logo { flex: none; width: 126px; }
   background: #1d4ed8 !important; color: #fff;
 }
 .nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
+@media (max-width: 900px) {
+  .one-pot { padding: 4rem 1.5rem; }
+  .one-pot-inner { grid-template-columns: minmax(0, 1fr); }
+}
 </style>
 <script src="/site-navigation.js" defer></script>
+<script src="/one-pot-explainer.js?v=20261008" defer></script>
 <link rel="stylesheet" href="/site-brand-footer.css?v=20260916">
 <script src="/site-brand-footer.js?v=20260916" defer></script>
 <script src="/site-metrics.js" defer></script>
@@ -529,9 +576,9 @@ footer .footer-logo { flex: none; width: 126px; }
       <a class="cinema-text-link" href="/quote">Discuss your setup</a>
     </div>
     <dl class="cinema-stats" aria-label="System highlights">
-      <div><dt>VWC Accuracy</dt><dd>+4 / -2%</dd></div>
-      <div><dt>Live Monitoring</dt><dd>24/7</dd></div>
-      <div><dt>Individually Controlled Pots</dt><dd>100</dd></div>
+      <div><dt>Each pot</dt><dd>Its own target</dd></div>
+      <div><dt>Every valve opening</dt><dd>Recorded</dd></div>
+      <div><dt>Journal of Experimental Botany</dt><dd>Published</dd></div>
     </dl>
   </div>
 </section>
@@ -648,6 +695,43 @@ footer .footer-logo { flex: none; width: 126px; }
   <video muted loop playsinline preload="none" aria-label="Research pots with ExactH2O sensors and irrigation lines"></video>
 </div>
 
+
+<!-- ONE POT, YOUR TARGET -->
+<section class="one-pot" id="one-pot" aria-labelledby="one-pot-title">
+  <div class="one-pot-inner">
+    <div class="one-pot-head reveal">
+      <div class="section-label">How control works</div>
+      <h2 class="section-title" id="one-pot-title">One pot, your target</h2>
+      <p class="one-pot-lede">The controller waters a pot only when <em>that pot's own</em> measured moisture falls below the target you set for it. Move the target and watch one synthetic pot over three days.</p>
+    </div>
+    <div class="one-pot-card">
+      <div class="one-pot-controls">
+        <label for="one-pot-target">Target <strong id="one-pot-target-value">30%</strong></label>
+        <input id="one-pot-target" type="range" min="15" max="40" step="1" value="30" aria-describedby="one-pot-result">
+        <div class="one-pot-presets" role="group" aria-label="Example targets">
+          <button type="button" data-one-pot-target="34">Well-watered · 34%</button>
+          <button type="button" data-one-pot-target="22">Deficit · 22%</button>
+        </div>
+      </div>
+      <svg id="one-pot-chart" class="one-pot-chart" role="img" aria-label="A synthetic pot over three days"></svg>
+      <p class="one-pot-legend"><span><span class="key-line"></span>measured moisture</span><span><span class="key-target"></span>target</span><span><span class="key-tick"></span>valve opening</span></p>
+      <p id="one-pot-result" class="one-pot-result" aria-live="polite">Each time the pot's reading falls below the target, the controller opens its valve once and records it.</p>
+      <p class="one-pot-fine">Synthetic illustration of the control rule, drawn with a simplified response model. It does not predict how your substrate, emitters or crop will respond, and nothing on this page connects to a controller.</p>
+    </div>
+    <div class="one-pot-record">
+      <h3>Every experiment keeps its record</h3>
+      <p>Target changes, calibrations and notes sit on the same timeline as the readings, so a step in a curve is explained by what happened, not guessed.</p>
+      <svg id="record-example" class="record-chart" role="img" aria-label="Synthetic example: calibrated moisture of one pot steps up when a new calibration is applied, while the raw sensor output is continuous."></svg>
+      <p class="record-key"><span style="border-top:2px solid #1a6b4a"></span>calibrated moisture<span style="border-top:1.5px dashed #8a9690"></span>raw sensor output (own scale)</p>
+      <ol class="record-events">
+        <li><b>R</b><span>Revision 2: the deficit pots move to a 22% target, so their moisture falls to it over two days.</span></li>
+        <li><b>C</b><span>A new calibration is applied. Calibrated moisture steps up while the raw output does not: a measurement change, not a change in the plant.</span></li>
+        <li><b>N</b><span>A note from the bench, kept beside the readings it explains.</span></li>
+      </ol>
+      <p class="one-pot-fine">Synthetic example for illustration.</p>
+    </div>
+  </div>
+</section>
 
 <!-- CTA: homepage only -->
 <div class="cta-strip">
