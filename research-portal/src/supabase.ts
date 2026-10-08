@@ -8,3 +8,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+/** A request-scoped writer must not follow a later sign-in in another tab. */
+export function portalClientWithToken(accessToken: string) {
+  return createClient(supabaseUrl!, supabaseAnonKey!, {
+    accessToken: async () => accessToken,
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}

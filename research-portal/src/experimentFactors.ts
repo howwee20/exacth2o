@@ -122,8 +122,11 @@ export function potGroups(
   for (const assignment of assignments) {
     const levels: Partial<Record<FactorKey, string>> = {};
     for (const key of grouping) levels[key] = normalized(assignment[key]);
+    // Match the case-insensitive factor levels, but preserve punctuation and tuple boundaries.
+    // A display slug can collide ("A/B" vs "A B", or "a-b" × "c" vs "a" × "b-c").
+    const key = JSON.stringify(grouping.map((factor) => [factor, (levels[factor] ?? "").toLowerCase()]));
     const id = grouping.length ? slug(grouping.map((key) => levels[key] || "not-set").join("-")) : "all";
-    const current = groups.get(id) ?? {
+    const current = groups.get(key) ?? {
       id,
       label: grouping.length ? grouping.map((key) => levelLabel(levels[key] ?? "")).join(" · ") : "All pots",
       levels,
@@ -137,7 +140,15 @@ export function potGroups(
     if (typeof target === "number" && Number.isFinite(target) && !current.plannedTargets.some((value) => Math.abs(value - target) < 0.001)) {
       current.plannedTargets.push(target);
     }
-    groups.set(id, current);
+    groups.set(key, current);
+  }
+  const legacyIdCounts = new Map<string, number>();
+  for (const group of groups.values()) legacyIdCounts.set(group.id, (legacyIdCounts.get(group.id) ?? 0) + 1);
+  for (const [key, group] of groups) {
+    // Keep saved hidden-group IDs when they still identify exactly one real group. Ambiguous
+    // legacy IDs cease to match either group, so an old saved figure cannot silently hide one.
+    // The prefix cannot be emitted by slug(), and the full structured key is collision-free.
+    if (legacyIdCounts.get(group.id) !== 1 || group.id === "not-in-plan") group.id = `group:${key}`;
   }
   const assigned = new Set(assignments.map((assignment) => assignment.pairing_name));
   const unassigned = experiment.pairingNames.filter((name) => !assigned.has(name));

@@ -370,12 +370,14 @@ export type CalibrationStep = {
 };
 
 /**
- * Whether a step in calibrated VWC at `atMs` came from the calibration: compares the conversion
- * from raw output to calibrated VWC just before and just after. Needs readings on both sides.
+ * Descriptive evidence around a calibration moment. This ratio heuristic is not a causal
+ * test or a replacement for the recorded calibration equation; use paired finite buckets.
  */
 export function calibrationStep(buckets: readonly PotBucket[], atMs: number, sideMs = 40 * minute): CalibrationStep | null {
-  const before = buckets.filter((bucket) => bucket.startMs < atMs && bucket.startMs >= atMs - sideMs && bucket.readings > 0);
-  const after = buckets.filter((bucket) => bucket.startMs >= atMs && bucket.startMs < atMs + sideMs && bucket.readings > 0);
+  const paired = buckets.filter((bucket) => bucket.readings > 0 && Number.isFinite(bucket.values.vwc) && Number.isFinite(bucket.values.raw));
+  const before = paired.filter((bucket) => bucket.startMs + 10 * minute <= atMs && bucket.startMs >= atMs - sideMs);
+  const after = paired.filter((bucket) => bucket.startMs >= atMs && bucket.startMs < atMs + sideMs);
+  if (before.length < 2 || after.length < 2) return null;
   const mean = (rows: readonly PotBucket[], key: "vwc" | "raw") => {
     const values = rows.map((row) => row.values[key]).filter((value): value is number => value != null && Number.isFinite(value));
     return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -387,6 +389,7 @@ export function calibrationStep(buckets: readonly PotBucket[], atMs: number, sid
   if (calibratedBefore == null || calibratedAfter == null || rawBefore == null || rawAfter == null || rawBefore === 0 || rawAfter === 0) return null;
   const ratioBefore = calibratedBefore / rawBefore;
   const ratioAfter = calibratedAfter / rawAfter;
+  if (!Number.isFinite(ratioBefore) || !Number.isFinite(ratioAfter) || ratioBefore === 0) return null;
   const rawChangePercent = ((rawAfter - rawBefore) / Math.abs(rawBefore)) * 100;
   const ratioChangePercent = ((ratioAfter - ratioBefore) / Math.abs(ratioBefore)) * 100;
   const conversionMoved = Math.abs(ratioChangePercent) >= 1;
@@ -407,4 +410,27 @@ export function calibrationStep(buckets: readonly PotBucket[], atMs: number, sid
 export function potsText(pairingNames: readonly string[]) {
   const numbers = pairingNames.map((name) => potNumberFromPairingName(name)).filter((value): value is number => value != null);
   return numbers.length ? potRangeText(numbers) : pairingNames.join(", ");
+}
+
+
+/** Draw adjacent valid buckets only; missing measurements stay visible as gaps. */
+export function calibrationSegments(buckets: readonly PotBucket[], key: "vwc" | "raw", bucketMs = 10 * minute) {
+  const segments: { timestampMs: number; value: number }[][] = [];
+  let previousMs: number | null = null;
+  let current: { timestampMs: number; value: number }[] | null = null;
+  for (const bucket of [...buckets].sort((a, b) => a.startMs - b.startMs)) {
+    const value = bucket.values[key];
+    if (!bucket.readings || value == null || !Number.isFinite(value)) {
+      current = null;
+      previousMs = null;
+      continue;
+    }
+    if (!current || previousMs == null || bucket.startMs - previousMs > bucketMs) {
+      current = [];
+      segments.push(current);
+    }
+    current.push({ timestampMs: bucket.startMs + bucketMs / 2, value });
+    previousMs = bucket.startMs;
+  }
+  return segments;
 }

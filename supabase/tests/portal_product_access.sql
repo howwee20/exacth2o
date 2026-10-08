@@ -28,6 +28,7 @@ begin
   on conflict (id) do nothing;
   insert into public.devices (id, organization_id, project_id, name)
   values ('portal-product-test-controller', (select organization_id from public.projects where id = greenhouse), greenhouse, 'Test controller'),
+         ('portal-product-second-controller', (select organization_id from public.projects where id = greenhouse), greenhouse, 'Second test controller'),
          ('portal-product-other-controller', '99999999-9999-4999-8999-999999999990', other_project, 'Other controller')
   on conflict (id) do nothing;
 
@@ -75,6 +76,11 @@ grant execute on function portal_test.act_as(text), portal_test.expect_denied(te
 -- ---------------------------------------------------------------- notes
 
 select portal_test.act_as('researcher');
+select portal_test.expect_denied($q$
+  insert into public.portal_pot_notes (id, project_id, device_id, pairing_name, body, observed_at, author_label, created_by)
+  values (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'portal-product-test-controller',
+          'Zone3-Pot17', 'Another account''s queued draft', now(), 'r', (select id from portal_test.users where label = 'viewer'))
+$q$, 're-attributing a queued draft to another signed-in account');
 insert into public.portal_pot_notes (id, project_id, device_id, pairing_name, body, tags, observed_at, author_label)
 values ('11111111-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222', 'portal-product-test-controller',
         'Zone3-Pot17', 'Reseated the B3 ribbon cable.', array['sensor reseated'], now() - interval '20 minutes', 'spoofed name');
@@ -171,6 +177,11 @@ select portal_test.expect_denied($q$
   insert into public.portal_pot_notes (id, project_id, device_id, pairing_name, body, observed_at, author_label, supersedes_id)
   values (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'portal-product-test-controller', 'Zone1-Pot1', 'wrong pot', now(), 'r', '11111111-0000-4000-8000-000000000001')
 $q$, 'correction of a note about another pot');
+select portal_test.expect_denied($q$
+  insert into public.portal_pot_notes (id, project_id, device_id, pairing_name, body, observed_at, author_label, supersedes_id)
+  values (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'portal-product-second-controller',
+          'Zone3-Pot17', 'Same pairing name on another controller', now(), 'r', '11111111-0000-4000-8000-000000000001')
+$q$, 'correction on another controller with the same pairing name');
 insert into public.portal_pot_notes (id, project_id, device_id, pairing_name, body, observed_at, author_label, supersedes_id)
 values (gen_random_uuid(), '22222222-2222-4222-8222-222222222222', 'portal-product-test-controller', 'Zone3-Pot17',
         'Correction: it was the B3 cable at the controller end.', now(), 'r', '11111111-0000-4000-8000-000000000001');
@@ -198,9 +209,31 @@ $q$, 'researcher recording a layout');
 reset role;
 
 select portal_test.act_as('admin');
+do $$
+declare malformed jsonb;
+begin
+  for malformed in select value from jsonb_array_elements('[
+    {},
+    {"benches":null,"positions":[]},
+    {"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}]},
+    {"benches":[{"id":"A","rows":2,"columns":4}],"positions":[]},
+    {"benches":[{"id":"A","label":"Bench A","rows":null,"columns":4}],"positions":[]},
+    {"benches":[{"id":"A","label":"Bench A","rows":1.5,"columns":4}],"positions":[]},
+    {"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}],"positions":[{}]},
+    {"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}],"positions":[{"pairing_name":"Zone1-Pot1","bench":"A","row":1.5,"column":1}]},
+    {"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}],"positions":[{"pairing_name":"Zone1-Pot1","bench":null,"row":1,"column":1}]},
+    {"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}],"positions":[{"pairing_name":"Zone1-Pot1","bench":"A","row":1,"column":1},{"pairing_name":"Zone1-Pot2","bench":"A","row":1.0,"column":1.0}]}
+  ]'::jsonb) loop
+    perform portal_test.expect_denied(format($q$
+      insert into public.portal_bench_layout_versions (project_id, device_id, version, layout, author_label)
+      values ('22222222-2222-4222-8222-222222222222', 'portal-product-test-controller', 1, %L::jsonb, 'a')
+    $q$, malformed), 'missing, null or fractional bench layout field');
+  end loop;
+end;
+$$;
 insert into public.portal_bench_layout_versions (project_id, device_id, version, layout, author_label)
 values ('22222222-2222-4222-8222-222222222222', 'portal-product-test-controller', 99,
-  '{"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}],"positions":[{"pairing_name":"Zone1-Pot1","bench":"A","row":1,"column":1},{"pairing_name":"Zone1-Pot2","bench":"A","row":1,"column":2}]}', 'a');
+  '{"benches":[{"id":"A","label":"Bench A","rows":2.0,"columns":4.0}],"positions":[{"pairing_name":"Zone1-Pot1","bench":"A","row":1.0,"column":1.0},{"pairing_name":"Zone1-Pot2","bench":"A","row":1,"column":2}]}', 'a');
 insert into public.portal_bench_layout_versions (project_id, device_id, version, layout, author_label)
 values ('22222222-2222-4222-8222-222222222222', 'portal-product-test-controller', 1,
   '{"benches":[{"id":"A","label":"Bench A","rows":2,"columns":4}],"positions":[{"pairing_name":"Zone1-Pot1","bench":"A","row":2,"column":1}]}', 'a');

@@ -217,6 +217,25 @@ export default function register({ journey, scenario, sql, session, text, assert
     writeFileSync(join(out, "perf-workbench.json"), JSON.stringify(perf, null, 2));
   });
 
+  journey("workbench: failed readings pause exports and failed exclusions block opening", async () => {
+    scenario("normal");
+    const id = sql(`select id from portal_comparisons where project_id = '${projectId}' and created_by = '${userId("researcher")}' order by created_at desc limit 1`);
+    assert(id, "a saved comparison is needed for the failure journey");
+    const { page, context } = await session("researcher");
+    await page.route("**/rpc/portal_reading_buckets*", (route) => route.abort("failed"));
+    await page.goto(`${base}?view=workbench&comparison=${id}`);
+    await page.waitForSelector("text=Exports paused:", { timeout: 30000 });
+    for (const label of ["Figure (SVG)", "Data (CSV)", "Methods (JSON)"]) {
+      assert(await page.locator(`button:has-text("${label}")`).isDisabled(), `${label} offered incomplete data`);
+    }
+    await page.unroute("**/rpc/portal_reading_buckets*");
+    await page.route("**/rest/v1/portal_comparison_exclusions*", (route) => route.abort("failed"));
+    await page.reload();
+    await page.waitForSelector('[role="alert"]:has-text("exclusions have not been verified")', { timeout: 30000 });
+    assert(!(await page.$(".px-wb-stats")), "comparison displayed results without exclusions");
+    await context.close();
+  });
+
   // ------------------------------------------------------------------------------ Record
 
   journey("record: one lane for plan, calibration, settings, gaps, valve openings and notes", async () => {
@@ -248,7 +267,7 @@ export default function register({ journey, scenario, sql, session, text, assert
     assert(!/valve openings across/.test(filtered) && !/sensor reseated/.test(filtered), "filters did not hide valve openings and notes");
     await page.selectOption('.px-record label:has-text("Pot") select', "Zone1-Pot3");
     await page.click('button:has-text("Show raw output around this change")');
-    await page.waitForSelector("text=the step is the calibration", { timeout: 20_000 });
+    await page.waitForSelector("text=consistent with a calibration change", { timeout: 20_000 });
     assert((await page.$$(".px-record-explain svg")).length >= 2, "calibration explanation does not draw raw and calibrated output");
     await page.screenshot({ path: join(out, "record-calibration.png"), fullPage: false });
     const requests = new Set(responses.map((url) => url.split("?")[0].replace(/.*\/rest\/v1\//, ""))).size;

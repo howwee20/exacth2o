@@ -223,14 +223,17 @@ export type Sender = (entry: OutboxEntry) => Promise<SendOutcome>;
  * Send every due entry in scope, one at a time, oldest first. Stops at the first sign-in or
  * network failure (the rest would fail the same way). Returns the entries it changed.
  */
-export async function syncOutbox(store: OutboxStore, scope: { userId: string; projectId: string }, send: Sender, nowMs = Date.now()) {
+export async function syncOutbox(store: OutboxStore, scope: { userId: string; projectId: string }, send: Sender, nowMs = Date.now(), isCurrent = () => true) {
   const all = await store.all();
+  if (!isCurrent()) return [];
   for (const entry of all) if (prunable(entry, nowMs)) await store.remove(entry.id);
   const due = dueEntries(all.filter((entry) => inScope(entry, scope.userId, scope.projectId)), nowMs);
   const changed: OutboxEntry[] = [];
   for (const entry of due) {
+    if (!isCurrent()) break;
     const sending: OutboxEntry = { ...entry, state: "sending", lastAttemptAt: new Date(nowMs).toISOString() };
     await store.put(sending);
+    if (!isCurrent()) break;
     const outcome = await send(sending);
     const next = afterAttempt(entry, outcome);
     await store.put(next);
@@ -254,10 +257,10 @@ export function newNoteId() {
 
 // ---------------------------------------------------------------- drafts
 
-const draftPrefix = "exacth2o.portal.noteDraft.v1";
+const draftPrefix = "exacth2o.portal.noteDraft.v2";
 
-export function draftKey(userId: string, projectId: string, pairingName: string) {
-  return `${draftPrefix}:${userId}:${projectId}:${pairingName}`;
+export function draftKey(userId: string, projectId: string, deviceId: string, pairingName: string, supersedesId: string | null = null) {
+  return `${draftPrefix}:${JSON.stringify([userId, projectId, deviceId, pairingName, supersedesId])}`;
 }
 
 export function loadDraft(key: string): { body: string; tags: string[] } | null {

@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("./supabase", () => ({ supabase: {} }));
+import { readRecordPages } from "./recordClient";
 import type { PortalExperiment } from "./experimentRegistry";
 import {
   calibrationStep,
+  calibrationSegments,
   gapItems,
   newSince,
   planItems,
@@ -13,6 +16,7 @@ import type { PairingRow } from "./types";
 import {
   bucketRequestPlan,
   comparisonCsv,
+  csvCell,
   comparisonGroups,
   comparisonSidecar,
   comparisonSvg,
@@ -229,5 +233,51 @@ describe("record lane", () => {
     expect(calibrationStep(series(0.065 * 1.07, 40), at)?.conclusion).toBe("physical-too");
     expect(calibrationStep(series(0.065), at)?.conclusion).toBe("unclear");
     expect(calibrationStep([], at)).toBeNull();
+  });
+});
+
+
+describe("record completeness", () => {
+  it("reads histories beyond the server's first thousand rows", async () => {
+    const rows = Array.from({ length: 1001 }, (_, id) => ({ id }));
+    const result = await readRecordPages(async (from, to) => rows.slice(from, to + 1));
+    expect(result).toEqual(rows);
+  });
+  it("fails explicitly when a history exceeds the bounded review limit", async () => {
+    const rows = [1, 2, 3];
+    await expect(readRecordPages(async (from, to) => rows.slice(from, to + 1), 2)).rejects.toThrow("review limit");
+    expect(await readRecordPages(async (from, to) => [1, 2].slice(from, to + 1), 2)).toEqual([1, 2]);
+  });
+  it("rejects malformed saved windows and bucket sizes", () => {
+    const base = defaultDefinition(experiment);
+    expect(parseDefinition({ ...base, window: { kind: "range", startIso: "2026-10-08", endIso: "2026-10-07" } })).toBeNull();
+    expect(parseDefinition({ ...base, window: { kind: "around", beforeDays: -2, afterDays: 3 } })).toBeNull();
+    expect(parseDefinition({ ...base, bucketMinutes: Infinity })).toBeNull();
+    expect(parseDefinition({ ...base, bucketMinutes: 60 })).not.toBeNull();
+  });
+});
+
+
+describe("scientific export and calibration safeguards", () => {
+  it("neutralizes spreadsheet formulas in text while preserving numeric measurements", () => {
+    for (const text of ["=1+1", "+SUM(A1)", "-1+1", "@SUM(A1)", "\t=1+1", " =1+1"]) {
+      expect(csvCell(text).startsWith("'")).toBe(true);
+    }
+    expect(csvCell(-1.5)).toBe("-1.5");
+    expect(csvCell("Control")).toBe("Control");
+  });
+  it("does not join readings across missing calibration buckets", () => {
+    const rows = [bucket(1, 0, 30), bucket(1, 600000, 31), bucket(1, 1800000, 33), bucket(1, 2400000, null), bucket(1, 3000000, 35)];
+    expect(calibrationSegments(rows, "vwc").map((segment) => segment.length)).toEqual([2, 1, 1]);
+  });
+  it("requires paired raw/calibrated observations and never reports an infinite ratio", () => {
+    const at = 3600000;
+    const rows = [-2, -1, 0, 1].map((index) => bucket(1, at + index * 600000, index < 0 ? 0 : 30));
+    rows.forEach((row) => { row.values.raw = 500; });
+    expect(calibrationStep(rows, at)).toBeNull();
+    rows[0].values.vwc = 30;
+    rows[1].values.vwc = 30;
+    rows[1].values.raw = null;
+    expect(calibrationStep(rows, at)).toBeNull();
   });
 });

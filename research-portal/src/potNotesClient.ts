@@ -1,5 +1,5 @@
 import { isSessionAuthorizationError } from "./authSession";
-import { supabase } from "./supabase";
+import { portalClientWithToken, supabase } from "./supabase";
 
 /** A pot note as stored (portal_pot_notes). Append-only; corrections supersede. */
 export type PotNote = {
@@ -35,6 +35,21 @@ export type NewPotNote = {
 };
 
 const noteColumns = "id,project_id,device_id,pairing_name,research_pot_id,experiment_id,body,tags,observed_at,recorded_at,created_by,author_label,supersedes_id,client_context";
+
+/** Keep connection plumbing at the root adapter boundary so offline demos can replace it. */
+export function subscribeNoteSession(onChange: (userId: string | null) => void) {
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => onChange(session?.user.id ?? null));
+  return () => data.subscription.unsubscribe();
+}
+
+export function subscribePotNotes(scope: { userId: string; projectId: string; deviceId: string; pairingName: string }, onChange: () => void) {
+  const channel = supabase.channel(`pot-notes:${JSON.stringify(scope)}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "portal_pot_notes", filter: `project_id=eq.${scope.projectId}` }, (event) => {
+      if (event.new.device_id === scope.deviceId && event.new.pairing_name === scope.pairingName) onChange();
+    })
+    .subscribe((status) => { if (status === "SUBSCRIBED") onChange(); });
+  return () => { void supabase.removeChannel(channel); };
+}
 
 /** Notes for the project's controller, newest first; optionally for one pot or a time range. */
 export async function loadPotNotes(
@@ -84,17 +99,30 @@ export function classifySendError(error: unknown): SendFailure {
  * response is a no-op (`on conflict do nothing`); the note is then read back to confirm it is
  * stored and visible.
  */
-export async function sendPotNote(note: NewPotNote): Promise<PotNote> {
-  const { error } = await supabase
+export async function sendPotNote(note: NewPotNote, expectedUserId: string): Promise<PotNote> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  if (sessionError || !session || session.user.id !== expectedUserId) {
+    throw new NoteSendError("Sign in to the account that wrote this note.", "auth");
+  }
+  // The shared client can change accounts between this check and fetch. This client has no
+  // mutable auth session: both write and confirmation use the same captured JWT. The database
+  // also checks the explicit author against auth.uid(), so it cannot silently reattribute a note.
+  const token = session.access_token;
+  const writer = portalClientWithToken(token);
+  const { error } = await writer
     .from("portal_pot_notes")
-    .upsert(note, { onConflict: "id", ignoreDuplicates: true });
+    .upsert({ ...note, created_by: expectedUserId }, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw new NoteSendError(error.message, classifySendError(error));
-  const { data, error: readError } = await supabase
+  const { data, error: readError } = await writer
     .from("portal_pot_notes")
     .select(noteColumns)
     .eq("id", note.id)
     .maybeSingle();
   if (readError) throw new NoteSendError(readError.message, classifySendError(readError));
   if (!data) throw new NoteSendError("The note was not accepted.", "rejected");
+  if (data.created_by !== expectedUserId || data.project_id !== note.project_id || data.device_id !== note.device_id || data.pairing_name !== note.pairing_name || data.body !== note.body.trim()) {
+    throw new NoteSendError("The stored note does not match this draft; it has been kept on this device.", "rejected");
+  }
   return data as PotNote;
 }

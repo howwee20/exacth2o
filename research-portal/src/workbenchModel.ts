@@ -69,11 +69,15 @@ export function parseDefinition(value: unknown): ComparisonDefinition | null {
   if (typeof candidate.grouping !== "string" || !candidate.window || !candidate.alignment) return null;
   const window = candidate.window;
   const windowOk = (window.kind === "last" && Number.isFinite(window.days) && window.days > 0 && window.days <= 120)
-    || (window.kind === "range" && !Number.isNaN(Date.parse(window.startIso)) && !Number.isNaN(Date.parse(window.endIso)))
-    || (window.kind === "around" && Number.isFinite(window.beforeDays) && Number.isFinite(window.afterDays));
+    || (window.kind === "range" && typeof window.startIso === "string" && typeof window.endIso === "string"
+      && Number.isFinite(Date.parse(window.startIso)) && Date.parse(window.endIso) > Date.parse(window.startIso))
+    || (window.kind === "around" && Number.isFinite(window.beforeDays) && Number.isFinite(window.afterDays)
+      && window.beforeDays >= 0 && window.afterDays >= 0 && window.beforeDays + window.afterDays > 0
+      && window.beforeDays + window.afterDays <= 120);
   const alignment = candidate.alignment;
   const alignmentOk = alignment.kind === "calendar" || (alignment.kind === "event" && !Number.isNaN(Date.parse(alignment.atIso)));
   if (!windowOk || !alignmentOk) return null;
+  if (candidate.bucketMinutes != null && !bucketChoicesMinutes.includes(candidate.bucketMinutes)) return null;
   return {
     version: 1,
     experimentId: candidate.experimentId,
@@ -414,9 +418,13 @@ export function offsetLabel(offsetMs: number) {
 
 // ---------------------------------------------------------------- exports
 
-function csvCell(value: string | number | boolean | null | undefined) {
+export function csvCell(value: string | number | boolean | null | undefined) {
   if (value == null) return "";
-  const text = typeof value === "number" ? (Number.isFinite(value) ? String(Number(value.toFixed(4))) : "") : String(value);
+  const raw = typeof value === "number" ? (Number.isFinite(value) ? String(Number(value.toFixed(4))) : "") : String(value);
+  // Spreadsheet applications interpret formula-leading text even in quoted CSV fields.
+  // Keep actual numeric measurements numeric, including negative values and offsets.
+  // eslint-disable-next-line no-control-regex -- skip leading control characters before formula markers
+  const text = typeof value === "string" && /^[\s\u0000-\u001f]*[=+@-]/.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

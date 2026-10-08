@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { boardGroups, draftFromSchematic, layoutProblems, recordedLayout, schematicLayout } from "./benchLayout";
+import { boardGroups, draftFromSchematic, layoutProblems, parseBenchLayout, recordedLayout, schematicLayout } from "./benchLayout";
 import {
   afterAttempt,
   dueEntries,
+  draftKey,
   inScope,
   memoryStore,
   newNoteId,
@@ -111,6 +112,50 @@ describe("note outbox", () => {
     await syncOutbox(store, { userId: "user-a", projectId: "project-1" }, sender);
     expect(received.size).toBe(1);
   });
+
+  it("stops an old-account queue after an account switch, keeping remaining drafts unsent", async () => {
+    const a = entry({ createdAt: "2026-10-08T15:01:00.000Z" });
+    const b = entry({ createdAt: "2026-10-08T15:02:00.000Z" });
+    const store = memoryStore([a, b]);
+    let account = "user-a";
+    const sent: string[] = [];
+    await syncOutbox(store, { userId: "user-a", projectId: "project-1" }, async (item) => {
+      sent.push(item.id);
+      account = "user-b";
+      return { kind: "sent", atIso: new Date().toISOString() };
+    }, Date.now(), () => account === "user-a");
+    expect(sent).toEqual([a.id]);
+    expect((await store.all()).find((item) => item.id === b.id)?.state).toBe("pending");
+  });
+
+  it("does not send when a queued storage operation resumes under another account", async () => {
+    const note = entry();
+    const backing = memoryStore([note]);
+    let active = true;
+    const store = { ...backing, put: async (item: OutboxEntry) => { await backing.put(item); active = false; } };
+    const sent: string[] = [];
+    await syncOutbox(store, { userId: "user-a", projectId: "project-1" }, async (item) => {
+      sent.push(item.id);
+      return { kind: "sent", atIso: new Date().toISOString() };
+    }, Date.now(), () => active);
+    expect(sent).toEqual([]);
+    const retained = (await store.all())[0];
+    expect(retained.body).toBe(note.body);
+    expect(retained.state).not.toBe("sent");
+    expect(dueEntries([retained], Date.now() + 31_000)).toHaveLength(1);
+  });
+
+  it("keeps drafts distinct across accounts, projects, controllers, pots and corrections", () => {
+    const keys = [
+      draftKey("a", "p", "device1", "Zone1-Pot1"),
+      draftKey("b", "p", "device1", "Zone1-Pot1"),
+      draftKey("a", "other", "device1", "Zone1-Pot1"),
+      draftKey("a", "p", "device2", "Zone1-Pot1"),
+      draftKey("a", "p", "device1", "Zone1-Pot2"),
+      draftKey("a", "p", "device1", "Zone1-Pot1", "correction-id"),
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
+  });
 });
 
 function pairing(zone: number, pot: number, board: string): PairingRow {
@@ -155,5 +200,20 @@ describe("bench layout", () => {
 
   it("groups pots by sensor board", () => {
     expect(boardGroups(pairings).map((group) => [group.board, group.pairings.length])).toEqual([["B1", 8], ["B2", 2]]);
+  });
+
+  it("refuses missing, null, fractional and structurally invalid recorded layouts", () => {
+    const valid = draftFromSchematic(pairings);
+    for (const invalid of [
+      {}, { benches: null, positions: [] }, { benches: [], positions: [] },
+      { benches: [{ id: "A", label: "A" }], positions: [] },
+      { ...valid, benches: [{ ...valid.benches[0], rows: 1.5 }] },
+      { ...valid, benches: [{ ...valid.benches[0], label: null }] },
+      { ...valid, positions: [{ ...valid.positions[0], row: 1.5 }] },
+      { ...valid, positions: [{ ...valid.positions[0], column: null }] },
+      { ...valid, positions: [null] },
+    ]) expect(parseBenchLayout(invalid)).toBeNull();
+    expect(parseBenchLayout(valid)).toEqual(valid);
+    expect(() => recordedLayout({} as never, pairings)).toThrow(/recorded bench layout is invalid/);
   });
 });

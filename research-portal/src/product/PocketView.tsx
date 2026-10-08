@@ -107,7 +107,8 @@ export function PocketView({
   useEffect(() => {
     if (pairingName) rememberPot(userId, projectId, pairingName);
   }, [pairingName, projectId, userId]);
-  const notes = usePotNotes(projectId, deviceId, pairingName, outbox.entries.filter((item) => item.state === "sent").length);
+  const notes = usePotNotes(projectId, deviceId, pairingName, outbox.entries.filter((item) => item.state === "sent").length, userId);
+  useEffect(() => setCorrecting(null), [userId, projectId, deviceId, pairingName]);
   const ordered = useMemo(() => pairings.slice().sort((a, b) => a.zone - b.zone || a.pot_number - b.pot_number), [pairings]);
   const latest = useMemo(() => {
     const map = new Map<string, number>();
@@ -225,7 +226,7 @@ export function PocketView({
     const index = ordered.findIndex((item) => item.name === pairingName);
     const previous = index > 0 ? ordered[index - 1] : null;
     const next = index >= 0 && index < ordered.length - 1 ? ordered[index + 1] : null;
-    const pending = outbox.entries.filter((item) => item.pairingName === pairingName);
+    const pending = outbox.entries.filter((item) => item.deviceId === deviceId && item.pairingName === pairingName);
     const binding = bindings.find((item) => item.pairingName === pairingName) ?? null;
     const labelRoute = { view: "pocket" as const, pot: binding?.researchPotId ?? pairingName, note: false };
     const summary = last
@@ -242,6 +243,7 @@ export function PocketView({
               large
               userId={userId}
               projectId={projectId}
+              deviceId={deviceId}
               pairingName={pairingName}
               potLabel={`Pot ${pairing.pot_number}`}
               supersedes={correcting}

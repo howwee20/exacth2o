@@ -5,6 +5,7 @@ import { loadAround, loadRecordSources, markExperimentSeen, type RecordSources }
 import {
   calibrationRequestItems,
   calibrationStep,
+  calibrationSegments,
   filterRecord,
   gapItems,
   newSince,
@@ -84,9 +85,11 @@ export function RecordView({
         if (cancelled) return;
         if (!previousMark.current || previousMark.current.experiment !== experiment.id) {
           previousMark.current = { experiment: experiment.id, value: next.lastSeenAt };
-          await markExperimentSeen(projectId, experiment.databaseId as string, new Date().toISOString()).catch(() => undefined);
         }
-        setSources(next);
+        if (!next.problems.length && next.stats.failed === 0) {
+          await markExperimentSeen(projectId, experiment.databaseId as string, new Date(anchorMs).toISOString()).catch(() => undefined);
+        }
+        if (!cancelled) setSources(next);
       })
       .catch((nextError) => !cancelled && setError(nextError instanceof Error ? nextError.message : "The record could not be loaded."))
       .finally(() => !cancelled && setLoading(false));
@@ -105,8 +108,8 @@ export function RecordView({
       ...noteItems(sources.notes),
       ...gapItems(sources.gaps, experimentPairings),
       ...wateringItems(sources.daily),
-    ]);
-  }, [experiment.databaseId, experiment.pairingNames, experimentPairings, sources]);
+    ].filter((item) => item.happenedAt >= anchorMs - spanDays * day && item.happenedAt <= anchorMs));
+  }, [anchorMs, spanDays, experiment.databaseId, experiment.pairingNames, experimentPairings, sources]);
   const lastSeenMs = previousMark.current?.value ? Date.parse(previousMark.current.value) : null;
   const fresh = useMemo(() => newSince(items, lastSeenMs, userId), [items, lastSeenMs, userId]);
   const shown = useMemo(() => filterRecord(items, kinds, pot || null), [items, kinds, pot]);
@@ -292,11 +295,9 @@ function CalibrationExplainer({ projectId, deviceId, pairingName, atMs, name }: 
   if (!buckets) return <p className="px-muted px-small">Loading readings around the change…</p>;
   const step = calibrationStep(buckets, atMs);
   const domain = { startMs: atMs - 6 * 3_600_000, endMs: atMs + 6 * 3_600_000 };
-  const series = (key: "vwc" | "raw") => [buckets
-    .filter((bucket) => bucket.readings > 0 && bucket.values[key] != null)
-    .map((bucket) => ({ timestampMs: bucket.startMs + 5 * 60_000, value: bucket.values[key] as number }))];
+  const series = (key: "vwc" | "raw") => calibrationSegments(buckets, key);
   const extent = (key: "vwc" | "raw"): [number, number] => {
-    const values = series(key)[0].map((point) => point.value);
+    const values = series(key).flatMap((segment) => segment.map((point) => point.value));
     if (!values.length) return [0, 1];
     const low = Math.min(...values);
     const high = Math.max(...values);
@@ -311,10 +312,10 @@ function CalibrationExplainer({ projectId, deviceId, pairingName, atMs, name }: 
         {step == null
           ? "There are not enough readings on both sides of the change to compare."
           : step.conclusion === "calibration"
-            ? `On ${potsText([pairingName])}, calibrated VWC moved from ${step.calibratedBefore.toFixed(1)}% to ${step.calibratedAfter.toFixed(1)}% while the raw sensor output changed by only ${step.rawChangePercent.toFixed(1)}%. The conversion from raw output to VWC changed by ${step.ratioChangePercent >= 0 ? "+" : ""}${step.ratioChangePercent.toFixed(1)}%: the step is the calibration${name ? ` (${name})` : ""}, not a change of water in the pot.`
+            ? `On ${potsText([pairingName])}, calibrated VWC moved from ${step.calibratedBefore.toFixed(1)}% to ${step.calibratedAfter.toFixed(1)}% while the raw sensor output changed by only ${step.rawChangePercent.toFixed(1)}%. The ratio of calibrated VWC to raw output changed by ${step.ratioChangePercent >= 0 ? "+" : ""}${step.ratioChangePercent.toFixed(1)}%: this is consistent with a calibration change${name ? ` (${name})` : ""}. These readings alone cannot establish whether water changed in the pot.`
             : step.conclusion === "physical-too"
-              ? `The conversion changed by ${step.ratioChangePercent.toFixed(1)}%, but the raw output also moved by ${step.rawChangePercent.toFixed(1)}%: something physical may have happened at the same time. Check notes and valve openings.`
-              : `The conversion from raw output to VWC did not change noticeably here (${step.ratioChangePercent.toFixed(1)}%).`}
+              ? `The calibrated/raw ratio changed by ${step.ratioChangePercent.toFixed(1)}%, but the raw output also moved by ${step.rawChangePercent.toFixed(1)}%: something physical may have happened at the same time. Check notes and valve openings.`
+              : `The calibrated/raw ratio did not change noticeably here (${step.ratioChangePercent.toFixed(1)}%).`}
       </p>
       <div className="px-record-explain-charts">
         <TimeSeriesChart compact height={130} lines={[{ id: "vwc", label: "Calibrated VWC", color: "#1f6f4a", segments: series("vwc") }]} shades={shade} ticks={ticks} domain={domain} yDomain={extent("vwc")} ariaLabel={`Calibrated VWC around the change, ${potsText([pairingName])}`} />

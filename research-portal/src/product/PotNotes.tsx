@@ -1,32 +1,59 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { draftKey, loadDraft, saveDraft, type OutboxEntry } from "../noteOutbox";
 import { formatMeasurementTime } from "../measurementFreshness";
-import { loadPotNotes, type PotNote } from "../potNotesClient";
+import { loadPotNotes, subscribeNoteSession, subscribePotNotes, type PotNote } from "../potNotesClient";
 import "./product.css";
 
 export const quickTags = ["sensor reseated", "emitter checked", "pot moved", "hand-watered", "plant observation"];
 
 /** Notes for one pot from the database; refreshed when `refreshKey` changes. */
-export function usePotNotes(projectId: string | null, deviceId: string | null, pairingName: string | null, refreshKey: unknown) {
-  const [notes, setNotes] = useState<PotNote[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function usePotNotes(projectId: string | null, deviceId: string | null, pairingName: string | null, refreshKey: unknown, userId: string | null) {
+  const scope = JSON.stringify([userId, projectId, deviceId, pairingName]);
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
+  const [sessionUserId, setSessionUserId] = useState<string | null>(userId);
+  const currentSessionUser = useRef(userId);
+  const request = useRef(0);
+  const [result, setResult] = useState<{ scope: string; notes: PotNote[]; loading: boolean; error: string | null }>({ scope: "", notes: [], loading: false, error: null });
   const load = useCallback(async () => {
-    if (!projectId || !deviceId || !pairingName) return;
-    setLoading(true);
+    if (!userId || !projectId || !deviceId || !pairingName || currentScope.current !== scope || currentSessionUser.current !== userId) return;
+    const ticket = ++request.current;
+    const isCurrent = () => currentScope.current === scope && request.current === ticket && currentSessionUser.current === userId;
+    setResult((previous) => ({ scope, notes: previous.scope === scope ? previous.notes : [], loading: true, error: null }));
     try {
-      setNotes(await loadPotNotes(projectId, deviceId, { pairingNames: [pairingName], limit: 100 }));
-      setError(null);
+      const notes = await loadPotNotes(projectId, deviceId, { pairingNames: [pairingName], limit: 100 });
+      if (isCurrent()) setResult({ scope, notes, loading: false, error: null });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Notes could not be loaded.");
-    } finally {
-      setLoading(false);
+      if (isCurrent()) setResult((previous) => ({ ...previous, loading: false, error: nextError instanceof Error ? nextError.message : "Notes could not be loaded." }));
     }
-  }, [deviceId, pairingName, projectId]);
+  }, [deviceId, pairingName, projectId, scope, userId]);
+  useEffect(() => {
+    return subscribeNoteSession((id) => {
+      const changedAccount = currentSessionUser.current !== id;
+      currentSessionUser.current = id;
+      setSessionUserId(id);
+      if (changedAccount) request.current += 1;
+    });
+  }, []);
   useEffect(() => {
     void load();
-  }, [load, refreshKey]);
-  return { notes, loading, error, reload: load };
+    return () => { request.current += 1; };
+  }, [load, refreshKey, sessionUserId]);
+  useEffect(() => {
+    if (!userId || !projectId || !deviceId || !pairingName) return undefined;
+    // Reload on a recorded insert and after reconnect; disconnected events cannot be assumed.
+    const unsubscribe = subscribePotNotes({ userId, projectId, deviceId, pairingName }, () => void load());
+    const onVisible = () => { if (document.visibilityState === "visible") void load(); };
+    window.addEventListener("online", load);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", load);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [deviceId, load, pairingName, projectId, scope, userId]);
+  const visible = result.scope === scope && sessionUserId === userId ? result : { notes: [], loading: Boolean(userId && pairingName), error: null };
+  return { notes: visible.notes, loading: visible.loading, error: visible.error, reload: load };
 }
 
 function stateLabel(entry: OutboxEntry) {
@@ -39,6 +66,7 @@ function stateLabel(entry: OutboxEntry) {
 export function NoteComposer({
   userId,
   projectId,
+  deviceId,
   pairingName,
   potLabel,
   large = false,
@@ -48,6 +76,7 @@ export function NoteComposer({
 }: {
   userId: string;
   projectId: string;
+  deviceId: string;
   pairingName: string;
   potLabel: string;
   large?: boolean;
@@ -55,7 +84,18 @@ export function NoteComposer({
   onSave: (body: string, tags: string[]) => Promise<void>;
   onCancel?: () => void;
 }) {
-  const key = draftKey(userId, projectId, supersedes ? `${pairingName}:correct:${supersedes.id}` : pairingName);
+  const key = draftKey(userId, projectId, deviceId, pairingName, supersedes?.id ?? null);
+  return <ScopedNoteComposer key={key} storageKey={key} potLabel={potLabel} large={large} supersedes={supersedes} onSave={onSave} onCancel={onCancel} />;
+}
+
+function ScopedNoteComposer({ storageKey: key, potLabel, large, supersedes, onSave, onCancel }: {
+  storageKey: string;
+  potLabel: string;
+  large: boolean;
+  supersedes?: PotNote | null;
+  onSave: (body: string, tags: string[]) => Promise<void>;
+  onCancel?: () => void;
+}) {
   const initial = loadDraft(key);
   const [body, setBody] = useState(initial?.body ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);

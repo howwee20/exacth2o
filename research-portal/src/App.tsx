@@ -3166,6 +3166,7 @@ export default function App() {
   if (route.view === "workbench") {
     return productShell(
       <FeatureBoundary name="Workbench" fallback={<FeatureLoading name="Workbench" />}><WorkbenchView
+        key={`${portalAccess.userId}:${activeProjectId}:${activeDeviceId}`}
         projectId={activeProjectId}
         deviceId={activeDeviceId}
         userId={portalAccess.userId ?? null}
@@ -3229,6 +3230,7 @@ export default function App() {
       >
         <FeatureBoundary name="Notes" fallback={<FeatureLoading name="Notes" />}>
           <PotNotesSection
+            key={`${outboxScope?.userId}:${activeProjectId}:${activeDeviceId}:${potName}`}
             userId={outboxScope?.userId ?? null}
             projectId={activeProjectId}
             deviceId={activeDeviceId}
@@ -3251,6 +3253,7 @@ export default function App() {
       <main className="px-shell">
         <FeatureBoundary name="At the bench" fallback={<FeatureLoading name="At the bench" />}>
           <PocketView
+            key={`${outboxScope?.userId}:${activeProjectId}:${activeDeviceId}`}
             potKey={pocketPot}
             writing={route.view === "pocket" && route.note}
             userId={outboxScope?.userId ?? "signed-out"}
@@ -3337,7 +3340,7 @@ export default function App() {
           /></FeatureBoundary>
         ) : tab === "record" ? (
           <FeatureBoundary name="Record" fallback={<FeatureLoading name="Record" />}><RecordView
-            key={routeExperiment.id}
+            key={`${portalAccess.userId}:${activeProjectId}:${activeDeviceId}:${routeExperiment.id}`}
             experiment={routeExperiment}
             projectId={activeProjectId}
             deviceId={activeDeviceId}

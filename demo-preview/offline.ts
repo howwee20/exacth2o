@@ -49,3 +49,7 @@ export const supabase={
  },
  channel(){return new DemoChannel();},removeChannel(channel:any){channel?.close?.();},
 };
+
+// The production request-scoped factory is replaced at the same adapter boundary. A token
+// never creates a network client in the demo; every operation stays on these local fixtures.
+export function portalClientWithToken(_accessToken:string){return supabase;}

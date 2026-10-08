@@ -357,13 +357,45 @@ export default function register({ journey, scenario, sql, session, text, assert
     await context.close();
   });
 
+  journey("pocket: drafts follow each pot and a second phone sees new notes", async () => {
+    const a = await session("researcher", { viewport: phone });
+    const b = await session("admin", { viewport: phone });
+    const draft17 = noteBody("draft17");
+    const draft18 = noteBody("draft18");
+    const openDraft = async (page, pot) => {
+      await page.goto(`${base}?view=pocket&pot=Zone3-Pot${pot}&note=1`);
+      await page.waitForSelector("textarea");
+    };
+    await openDraft(a.page, 17);
+    await a.page.fill("textarea", draft17);
+    await openDraft(a.page, 18);
+    assert(await a.page.inputValue("textarea") === "", "pot 18 inherited pot 17's draft");
+    await a.page.fill("textarea", draft18);
+    await openDraft(a.page, 17);
+    assert(await a.page.inputValue("textarea") === draft17, "switching pots overwrote the first draft");
+    await openDraft(a.page, 18);
+    assert(await a.page.inputValue("textarea") === draft18, "switching pots overwrote the second draft");
+    await b.page.goto(`${base}?view=pocket&pot=Zone3-Pot18`);
+    await b.page.waitForSelector('h1:has-text("Pot 18")');
+    await a.page.click('button[type="submit"]:has-text("Save note")');
+    await until(() => countNotes(draft18) === 1, "draft did not reach the server");
+    await until(async () => (await text(b.page)).includes(draft18), "a second phone did not refresh the new note", 20000);
+    await a.context.close();
+    await b.context.close();
+  });
+
   journey("notes: viewers read but cannot write; other projects cannot read; the record is append-only", async () => {
     const spoof = await rest("researcher", "portal_pot_notes", {
       method: "POST",
       body: JSON.stringify({ id: randomUUID(), project_id: projectId, device_id: deviceId, pairing_name: "Zone3-Pot17", body: noteBody("spoofed author"), observed_at: new Date().toISOString(), author_label: "someone-else@example.invalid", created_by: userId("admin") }),
     });
-    assert(spoof.status < 300 && spoof.body?.[0]?.author_label === "researcher@product.local" && spoof.body?.[0]?.created_by === userId("researcher"), `the server accepted a spoofed author (${spoof.status} ${JSON.stringify(spoof.body).slice(0, 200)})`);
-    const someId = spoof.body[0].id;
+    assert(spoof.status === 403, `the server accepted a mismatched writer (${spoof.status})`);
+    const own = await rest("researcher", "portal_pot_notes", {
+      method: "POST",
+      body: JSON.stringify({ id: randomUUID(), project_id: projectId, device_id: deviceId, pairing_name: "Zone3-Pot17", body: noteBody("spoofed author"), observed_at: new Date().toISOString(), author_label: "someone-else@example.invalid", created_by: userId("researcher") }),
+    });
+    assert(own.status < 300 && own.body?.[0]?.author_label === "researcher@product.local", "the server did not bind the author label to the authenticated writer");
+    const someId = own.body[0].id;
     const edit = await rest("researcher", `portal_pot_notes?id=eq.${someId}`, { method: "PATCH", body: JSON.stringify({ body: "edited" }) });
     const remove = await rest("researcher", `portal_pot_notes?id=eq.${someId}`, { method: "DELETE" });
     assert(sql(`select body from portal_pot_notes where id = '${someId}'`) === noteBody("spoofed author"), `a note was edited or deleted (${edit.status}/${remove.status})`);

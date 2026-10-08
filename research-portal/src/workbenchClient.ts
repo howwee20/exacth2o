@@ -101,14 +101,26 @@ function toExclusion(row: ExclusionRow): Exclusion {
 }
 
 export async function loadExclusions(comparisonId: string) {
-  const { data, error } = await supabase
-    .from("portal_comparison_exclusions")
-    .select(exclusionColumns)
-    .eq("comparison_id", comparisonId)
-    .order("created_at", { ascending: true })
-    .limit(500);
-  if (error) throw error;
-  return ((data ?? []) as ExclusionRow[]).map(toExclusion);
+  const pageSize = 500;
+  const maxHistory = 10_000;
+  const rows: ExclusionRow[] = [];
+  for (let offset = 0; offset <= maxHistory; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("portal_comparison_exclusions")
+      .select(exclusionColumns)
+      .eq("comparison_id", comparisonId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset === maxHistory ? offset : offset + pageSize - 1);
+    if (error) throw new Error(`Exclusion history could not be fully loaded: ${error.message}`);
+    const page = (data ?? []) as ExclusionRow[];
+    if (offset === maxHistory && page.length) {
+      throw new Error(`Exclusion history exceeds ${maxHistory.toLocaleString()} rows. This comparison cannot be analyzed or exported with an incomplete exclusion history.`);
+    }
+    rows.push(...page);
+    if (page.length < pageSize) return rows.map(toExclusion);
+  }
+  return rows.map(toExclusion);
 }
 
 export async function addExclusion(input: {

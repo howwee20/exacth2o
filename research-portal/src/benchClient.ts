@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { BenchLayoutDocument } from "./benchLayout";
+import { parseBenchLayout, type BenchLayoutDocument } from "./benchLayout";
 
 /** Physical identity of a pot: the research pot record and its current hardware binding. */
 export type PotBinding = {
@@ -78,11 +78,18 @@ export async function loadLatestBenchLayout(projectId: string, deviceId: string)
     .order("version", { ascending: false })
     .limit(1);
   if (error) throw error;
-  return { latest: (data?.[0] as BenchLayoutVersion | undefined) ?? null, versions: count ?? (data?.length ?? 0) };
+  const latest = (data?.[0] as BenchLayoutVersion | undefined) ?? null;
+  if (latest) {
+    const layout = parseBenchLayout(latest.layout);
+    if (!layout) throw new Error("The recorded bench layout is invalid. An administrator must record a corrected version.");
+    latest.layout = layout;
+  }
+  return { latest, versions: count ?? (data?.length ?? 0) };
 }
 
 /** Record a new layout version (administrators). The database assigns the version number. */
 export async function recordBenchLayout(projectId: string, deviceId: string, layout: BenchLayoutDocument, note: string | null, authorLabel: string) {
+  if (!parseBenchLayout(layout)) throw new Error("This bench layout has missing or invalid positions.");
   const { data, error } = await supabase
     .from("portal_bench_layout_versions")
     .insert({ project_id: projectId, device_id: deviceId, version: 1, layout, basis: "recorded", note, author_label: authorLabel })

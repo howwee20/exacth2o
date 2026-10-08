@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   dueEntries,
   inScope,
@@ -10,7 +10,7 @@ import {
   type OutboxEntry,
   type SendOutcome,
 } from "../noteOutbox";
-import { NoteSendError, sendPotNote } from "../potNotesClient";
+import { NoteSendError, sendPotNote, subscribeNoteSession } from "../potNotesClient";
 
 const channelName = "exacth2o-note-outbox";
 const lockName = "exacth2o-note-outbox-send";
@@ -31,7 +31,7 @@ async function send(entry: OutboxEntry): Promise<SendOutcome> {
       author_label: entry.authorLabel,
       supersedes_id: entry.supersedesId,
       client_context: { written_offline: entry.writtenOffline, attempts: entry.attempts + 1, client: "portal" },
-    });
+    }, entry.userId);
     return { kind: "sent", atIso: stored.recorded_at };
   } catch (error) {
     if (error instanceof NoteSendError) return { kind: error.kind, message: error.message } as SendOutcome;
@@ -54,7 +54,7 @@ export type NoteDraftInput = {
  * then to the database when the connection and session allow; other tabs see the same queue.
  */
 export function useNoteOutbox(scope: { userId: string; projectId: string; authorLabel: string } | null, options: { enabled: boolean }) {
-  const [entries, setEntries] = useState<OutboxEntry[]>([]);
+  const [storedEntries, setStoredEntries] = useState<{ scope: string; entries: OutboxEntry[] }>({ scope: "", entries: [] });
   const [syncing, setSyncing] = useState(false);
   const inFlight = useRef(false);
   // One channel per mounted hook, opened and closed by the same effect so a remount (or React's
@@ -69,25 +69,47 @@ export function useNoteOutbox(scope: { userId: string; projectId: string; author
   }, []);
   const userId = scope?.userId ?? null;
   const projectId = scope?.projectId ?? null;
+  const scopeKey = JSON.stringify([userId, projectId]);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(userId);
+  const currentSessionUser = useRef(userId);
+  const currentScope = useRef({ key: scopeKey, enabled: options.enabled, mounted: true });
+  currentScope.current.key = scopeKey;
+  currentScope.current.enabled = options.enabled;
+  const entries = useMemo(() => storedEntries.scope === scopeKey && sessionUserId === userId ? storedEntries.entries : [], [scopeKey, sessionUserId, storedEntries, userId]);
+  useEffect(() => {
+    const lifecycle = currentScope.current;
+    lifecycle.mounted = true;
+    return () => { lifecycle.mounted = false; };
+  }, []);
+  useEffect(() => {
+    return subscribeNoteSession((id) => {
+      // Auth changes arrive before a new project's access lookup necessarily finishes.
+      currentSessionUser.current = id;
+      setSessionUserId(id);
+    });
+  }, []);
 
   const reload = useCallback(async () => {
     if (!userId || !projectId) {
-      setEntries([]);
+      if (currentScope.current.mounted && currentScope.current.key === scopeKey) setStoredEntries({ scope: scopeKey, entries: [] });
       return;
     }
     const store = await outboxStore();
     const all = await store.all();
-    setEntries(all.filter((entry) => inScope(entry, userId, projectId)).sort((a, b) => b.observedAt.localeCompare(a.observedAt)));
-  }, [projectId, userId]);
+    if (currentScope.current.mounted && currentScope.current.key === scopeKey && currentSessionUser.current === userId) {
+      setStoredEntries({ scope: scopeKey, entries: all.filter((entry) => inScope(entry, userId, projectId)).sort((a, b) => b.observedAt.localeCompare(a.observedAt)) });
+    }
+  }, [projectId, scopeKey, userId]);
 
   const sync = useCallback(async () => {
-    if (!userId || !projectId || !options.enabled || inFlight.current) return;
+    if (!userId || !projectId || !options.enabled || inFlight.current || currentSessionUser.current !== userId) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return;
     inFlight.current = true;
     setSyncing(true);
     const run = async () => {
       const store = await outboxStore();
-      const changed = await syncOutbox(store, { userId, projectId }, send);
+      const isCurrent = () => currentScope.current.mounted && currentScope.current.key === scopeKey && currentScope.current.enabled && currentSessionUser.current === userId;
+      const changed = await syncOutbox(store, { userId, projectId }, send, Date.now(), isCurrent);
       if (changed.length) announce();
     };
     try {
@@ -99,7 +121,7 @@ export function useNoteOutbox(scope: { userId: string; projectId: string; author
       setSyncing(false);
       await reload();
     }
-  }, [announce, options.enabled, projectId, reload, userId]);
+  }, [announce, options.enabled, projectId, reload, scopeKey, userId]);
 
   useEffect(() => {
     void reload();
@@ -176,7 +198,7 @@ export function useNoteOutbox(scope: { userId: string; projectId: string; author
   const retry = useCallback(async (id: string) => {
     const store = await outboxStore();
     const entry = (await store.all()).find((item) => item.id === id);
-    if (!entry || !inScope(entry, userId, projectId)) return;
+    if (!entry || !inScope(entry, userId, projectId) || currentSessionUser.current !== userId) return;
     await store.put(retryEntry(entry));
     announce();
     await reload();
@@ -186,7 +208,7 @@ export function useNoteOutbox(scope: { userId: string; projectId: string; author
   const discard = useCallback(async (id: string) => {
     const store = await outboxStore();
     const entry = (await store.all()).find((item) => item.id === id);
-    if (!entry || !inScope(entry, userId, projectId) || entry.state === "sent") return;
+    if (!entry || !inScope(entry, userId, projectId) || currentSessionUser.current !== userId || entry.state === "sent") return;
     await store.remove(id);
     announce();
     await reload();

@@ -3,7 +3,7 @@ import { experimentFactors } from "../experimentFactors";
 import { experimentIsCompleted } from "../experimentMeasurement";
 import type { PortalExperiment } from "../experimentRegistry";
 import { formatMeasurementTime } from "../measurementFreshness";
-import { navigatePortal } from "../portalRoute";
+import { navigatePortal, portalRouteUrl } from "../portalRoute";
 import { loadAlignmentEvents, type AlignmentEvent } from "../recordClient";
 import type { PairingRow } from "../types";
 import { measures, type Measure } from "../waterline";
@@ -111,7 +111,10 @@ export function WorkbenchView({
   const [buckets, setBuckets] = useState<PotBucket[]>([]);
   const [stats, setStats] = useState<FetchStats>(emptyStats());
   const [loading, setLoading] = useState(false);
+  const [loadedQueryKey, setLoadedQueryKey] = useState<string | null>(null);
   const [events, setEvents] = useState<AlignmentEvent[]>([]);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [loadedEventKey, setLoadedEventKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -135,6 +138,9 @@ export function WorkbenchView({
     let cancelled = false;
     setProblem(null);
     setNotice(null);
+    setDefinition(null);
+    setCurrent(null);
+    setExclusions([]);
     if (comparisonId) {
       setMissing(false);
       void loadComparison(comparisonId).then(async (row) => {
@@ -145,13 +151,17 @@ export function WorkbenchView({
           setCurrent(null);
           return;
         }
+        const nextExclusions = await loadExclusions(row.id);
+        if (cancelled) return;
         setCurrent(row);
         setQuestion(row.question);
         setDefinition(parsed);
         setSharing(row.sharing);
         setAnchorMs(Date.now());
-        setExclusions(await loadExclusions(row.id).catch(() => []));
-      }).catch(() => !cancelled && setMissing(true));
+        setExclusions(nextExclusions);
+      }).catch((error) => {
+        if (!cancelled) setProblem(`Comparison could not be opened: ${error instanceof Error ? error.message : "read failed"}. Its exclusions have not been verified. Reopen it to retry.`);
+      });
     } else {
       const now = Date.now();
       const experiment = experiments.find((item) => item.id === experimentId)
@@ -175,23 +185,33 @@ export function WorkbenchView({
   const range = useMemo(() => (definition ? resolveWindow(definition, anchorMs) : null), [anchorMs, definition]);
   const activeRanges = useMemo(() => exclusionRanges(exclusions), [exclusions]);
   const potNames = useMemo(() => (experiment ? [...experiment.pairingNames] : []), [experiment]);
+  const eventKey = experiment ? JSON.stringify([projectId, deviceId, experiment.id, experiment.startedAt, potNames]) : null;
 
   useEffect(() => {
     if (!experiment) return;
     let cancelled = false;
+    setEventsError(null);
     void loadAlignmentEvents({
       projectId,
       deviceId,
       experimentDatabaseId: experiment.databaseId ?? null,
       startedAt: experiment.startedAt ?? null,
       pairingNames: experiment.pairingNames,
-    }).then((list) => !cancelled && setEvents(list)).catch(() => !cancelled && setEvents([]));
+    }).then((list) => {
+      if (cancelled) return;
+      setEvents(list);
+      setLoadedEventKey(eventKey);
+    }).catch((error) => {
+      if (cancelled) return;
+      setEvents([]);
+      setEventsError(`Plan and calibration history could not be verified (${error instanceof Error ? error.message : "read failed"}). Reopen the comparison to retry.`);
+    });
     return () => {
       cancelled = true;
     };
-  }, [deviceId, experiment, projectId]);
+  }, [deviceId, experiment, projectId, eventKey]);
 
-  const queryKey = range && potNames.length ? JSON.stringify([potNames, range.queryStartMs, range.endMs, range.bucketMs, activeRanges]) : null;
+  const queryKey = range && potNames.length ? JSON.stringify([projectId, deviceId, comparisonId, potNames, range.queryStartMs, range.endMs, range.bucketMs, activeRanges]) : null;
   useEffect(() => {
     if (!queryKey || !range) return;
     let cancelled = false;
@@ -202,6 +222,14 @@ export function WorkbenchView({
         if (cancelled) return;
         setBuckets(rows);
         setStats(nextStats);
+        setLoadedQueryKey(queryKey);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        nextStats.failed += 1;
+        setStats(nextStats);
+        setBuckets([]);
+        setProblem(`Readings could not be loaded (${error instanceof Error ? error.message : "read failed"}).`);
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -212,9 +240,10 @@ export function WorkbenchView({
   }, [queryKey]);
 
   const result = useMemo(
-    () => (definition && range ? computeComparison({ groups, buckets, measure: definition.measure, window: range, hiddenGroups: definition.hiddenGroups }) : null),
-    [buckets, definition, groups, range],
+    () => (definition && range && queryKey === loadedQueryKey ? computeComparison({ groups, buckets, measure: definition.measure, window: range, hiddenGroups: definition.hiddenGroups }) : null),
+    [buckets, definition, groups, range, queryKey, loadedQueryKey],
   );
+  const exportReady = Boolean(result && !loading && stats.failed === 0 && !eventsError && eventKey === loadedEventKey);
 
   if (!experiments.length) {
     return <section className="px-page"><h1 className="px-title">Workbench</h1><p className="px-empty">No experiment is visible to this account, so there is nothing to compare.</p></section>;
@@ -295,7 +324,7 @@ export function WorkbenchView({
       window: range,
       exclusions,
       result,
-      calibrationEvents: events.filter((event) => event.kind === "calibration" && Date.parse(event.atIso) >= range.queryStartMs && Date.parse(event.atIso) <= range.endMs).map((event) => ({ atIso: event.atIso, label: event.label, pots: [] })),
+      calibrationEvents: events.filter((event) => event.kind === "calibration" && Date.parse(event.atIso) >= range.queryStartMs && Date.parse(event.atIso) <= range.endMs).map((event) => ({ atIso: event.atIso, label: event.label, pots: event.pairingNames ?? [] })),
       query: { requests: stats.requests, rows: stats.rows, bytes: stats.bytes, failed: stats.failed },
     })
     : null;
@@ -316,7 +345,7 @@ export function WorkbenchView({
               {saved.map((row) => (
                 <li key={row.id}>
                   <a
-                    href={`?view=workbench&comparison=${row.id}`}
+                    href={portalRouteUrl({ view: "workbench", comparison: row.id, experiment: null })}
                     aria-current={row.id === current?.id ? "page" : undefined}
                     onClick={(event) => {
                       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
@@ -334,10 +363,12 @@ export function WorkbenchView({
         </aside>
 
         <div className="px-wb-main">
+          {eventsError ? <p className="px-notice is-bad" role="alert">{eventsError} Exports are paused until the history can be loaded.</p> : null}
+          {problem && !definition ? <p className="px-notice is-bad" role="alert">{problem}</p> : null}
           {missing ? (
             <p className="px-empty" role="alert">This comparison is not shared with this account, its experiment is not visible to this account, or it no longer exists.</p>
           ) : !definition || !experiment || !range ? (
-            <p className="px-empty">Loading…</p>
+            <p className="px-empty">{problem ? "No comparison has been opened." : "Loading…"}</p>
           ) : (
             <>
               <label className="px-wb-question">
@@ -569,14 +600,14 @@ export function WorkbenchView({
                 {current ? <button type="button" className="px-button is-small is-quiet" onClick={() => void copy({ view: "workbench", comparison: current.id, experiment: null })}>{copied ?? "Copy link"}</button> : null}
               </div>
               <div className="px-wb-actions" role="group" aria-label="Export">
-                <span className="px-muted px-small">Export what is shown, with the same exclusions:</span>
-                <button type="button" className="px-button is-small" disabled={!result || loading} onClick={() => {
+                <span className="px-muted px-small">{stats.failed ? "Exports paused: retry the incomplete reading load." : "Export what is shown, with the same exclusions:"}</span>
+                <button type="button" className="px-button is-small" disabled={!exportReady} onClick={() => {
                   if (!result) return;
                   const ticks = aligned ? eventDayTicks({ startMs: range.queryStartMs, endMs: range.endMs }, range.originMs, 872) : timeTicks({ startMs: range.queryStartMs, endMs: range.endMs }, 872);
                   download(`${fileStem(question, anchorMs)}.svg`, "image/svg+xml", comparisonSvg({ question: question.trim() || "Untitled comparison", subtitle: subtitle(), result, window: range, measure: definition.measure, hiddenGroups: definition.hiddenGroups, xTicks: ticks, footer: exportFooter() }));
                 }}>Figure (SVG)</button>
-                <button type="button" className="px-button is-small" disabled={!result || loading} onClick={() => result && download(`${fileStem(question, anchorMs)}.csv`, "text/csv", comparisonCsv(result, definition.measure, range))}>Data (CSV)</button>
-                <button type="button" className="px-button is-small" disabled={!result || loading} onClick={() => {
+                <button type="button" className="px-button is-small" disabled={!exportReady} onClick={() => result && download(`${fileStem(question, anchorMs)}.csv`, "text/csv", comparisonCsv(result, definition.measure, range))}>Data (CSV)</button>
+                <button type="button" className="px-button is-small" disabled={!exportReady} onClick={() => {
                   const body = sidecar();
                   if (body) download(`${fileStem(question, anchorMs)}.methods.json`, "application/json", `${JSON.stringify(body, null, 2)}\n`);
                 }}>Methods (JSON)</button>

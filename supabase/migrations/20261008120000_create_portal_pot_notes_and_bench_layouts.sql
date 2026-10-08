@@ -79,6 +79,9 @@ declare
   writer_email text;
 begin
   -- The author and receive time are the database's, not the client's.
+  if new.created_by is distinct from (select auth.uid()) then
+    raise exception 'The signed-in account must be the account that wrote this note.' using errcode = '42501';
+  end if;
   new.created_by := (select auth.uid());
   new.recorded_at := now();
   if new.created_by is null then
@@ -101,6 +104,7 @@ begin
   if new.supersedes_id is not null and not exists (
     select 1 from public.portal_pot_notes previous
     where previous.id = new.supersedes_id and previous.project_id = new.project_id
+      and previous.device_id = new.device_id
       and previous.pairing_name = new.pairing_name
   ) then
     raise exception 'A correction must supersede a note about the same pot.' using errcode = '23514';
@@ -184,35 +188,56 @@ begin
   limit 1;
   new.author_label := coalesce(writer_email, new.author_label);
 
-  if jsonb_typeof(new.layout -> 'benches') <> 'array' or jsonb_typeof(new.layout -> 'positions') <> 'array'
-     or jsonb_array_length(new.layout -> 'benches') not between 1 and 50
+  if jsonb_typeof(new.layout -> 'benches') is distinct from 'array'
+     or jsonb_typeof(new.layout -> 'positions') is distinct from 'array' then
+    raise exception 'A layout needs benches and positions arrays.' using errcode = '23514';
+  end if;
+  if jsonb_array_length(new.layout -> 'benches') not between 1 and 50
      or jsonb_array_length(new.layout -> 'positions') > 2000 then
     raise exception 'A layout needs 1–50 benches and at most 2000 positions.' using errcode = '23514';
   end if;
   for bench in select * from jsonb_array_elements(new.layout -> 'benches') loop
-    if jsonb_typeof(bench -> 'id') <> 'string' or char_length(bench ->> 'id') not between 1 and 40
-       or jsonb_typeof(bench -> 'rows') <> 'number' or (bench ->> 'rows')::int not between 1 and 100
-       or jsonb_typeof(bench -> 'columns') <> 'number' or (bench ->> 'columns')::int not between 1 and 100
+    if jsonb_typeof(bench -> 'id') is distinct from 'string'
+       or jsonb_typeof(bench -> 'label') is distinct from 'string'
+       or jsonb_typeof(bench -> 'rows') is distinct from 'number'
+       or jsonb_typeof(bench -> 'columns') is distinct from 'number' then
+      raise exception 'Each bench needs an id, label, rows and columns.' using errcode = '23514';
+    end if;
+    if char_length(bench ->> 'id') not between 1 and 40
+       or char_length(bench ->> 'label') not between 1 and 200 or btrim(bench ->> 'label') = ''
+       or (bench ->> 'rows')::numeric not between 1 and 100
+       or (bench ->> 'rows')::numeric <> trunc((bench ->> 'rows')::numeric)
+       or (bench ->> 'columns')::numeric not between 1 and 100
+       or (bench ->> 'columns')::numeric <> trunc((bench ->> 'columns')::numeric)
        or (bench ->> 'id') = any (bench_ids) then
       raise exception 'Each bench needs a unique id and 1–100 rows and columns.' using errcode = '23514';
     end if;
     bench_ids := bench_ids || (bench ->> 'id');
   end loop;
   for entry in select * from jsonb_array_elements(new.layout -> 'positions') loop
-    if jsonb_typeof(entry -> 'pairing_name') <> 'string'
+    if jsonb_typeof(entry -> 'pairing_name') is distinct from 'string'
+       or jsonb_typeof(entry -> 'bench') is distinct from 'string'
+       or jsonb_typeof(entry -> 'row') is distinct from 'number'
+       or jsonb_typeof(entry -> 'column') is distinct from 'number' then
+      raise exception 'Each position needs a pot, bench, row and column.' using errcode = '23514';
+    end if;
+    if char_length(entry ->> 'pairing_name') not between 1 and 120
        or not ((entry ->> 'bench') = any (bench_ids))
-       or jsonb_typeof(entry -> 'row') <> 'number' or jsonb_typeof(entry -> 'column') <> 'number' then
+       or (entry ->> 'row')::numeric not between 1 and 100
+       or (entry ->> 'row')::numeric <> trunc((entry ->> 'row')::numeric)
+       or (entry ->> 'column')::numeric not between 1 and 100
+       or (entry ->> 'column')::numeric <> trunc((entry ->> 'column')::numeric) then
       raise exception 'Each position needs a pot, one of the benches, a row and a column.' using errcode = '23514';
     end if;
     if exists (
       select 1 from jsonb_array_elements(new.layout -> 'benches') b
       where b ->> 'id' = entry ->> 'bench'
-        and ((entry ->> 'row')::int not between 1 and (b ->> 'rows')::int
-          or (entry ->> 'column')::int not between 1 and (b ->> 'columns')::int)
+        and ((entry ->> 'row')::numeric::int not between 1 and (b ->> 'rows')::numeric::int
+          or (entry ->> 'column')::numeric::int not between 1 and (b ->> 'columns')::numeric::int)
     ) then
       raise exception 'A position lies outside its bench.' using errcode = '23514';
     end if;
-    cell := concat_ws(':', entry ->> 'bench', entry ->> 'row', entry ->> 'column');
+    cell := concat_ws(':', entry ->> 'bench', (entry ->> 'row')::numeric::int, (entry ->> 'column')::numeric::int);
     if (entry ->> 'pairing_name') = any (seen_pots) or cell = any (seen_cells) then
       raise exception 'Each pot and each place may appear once.' using errcode = '23514';
     end if;

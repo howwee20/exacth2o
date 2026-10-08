@@ -20,6 +20,19 @@ export type RecordSources = {
   stats: FetchStats;
 };
 
+/** Page bounded histories; never silently present a server row limit as a complete record. */
+export async function readRecordPages<T>(fetchPage: (from: number, to: number) => Promise<T[]>, cap = 10000): Promise<T[]> {
+  const rows: T[] = [];
+  while (rows.length < cap) {
+    const size = Math.min(1000, cap - rows.length);
+    const page = await fetchPage(rows.length, rows.length + size - 1);
+    rows.push(...page);
+    if (page.length < size) return rows;
+  }
+  if ((await fetchPage(cap, cap)).length) throw new Error(`history exceeds the ${cap}-row review limit`);
+  return rows;
+}
+
 function localMidnight(ms: number) {
   const date = new Date(ms);
   date.setHours(0, 0, 0, 0);
@@ -58,44 +71,40 @@ export async function loadRecordSources(input: {
     }
   };
 
-  const gapStart = Math.floor(input.startMs / hour) * hour;
+  const pages = <T,>(query: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>, cap = 10000) =>
+    readRecordPages<T>(async (from, to) => {
+      const { data, error } = await query(from, to);
+      if (error) throw error;
+      return count(data) as T[];
+    }, cap);
+  const gapStart = Math.max(input.endMs - 120 * day, Math.floor(input.startMs / hour) * hour);
   const dailyOrigin = localMidnight(input.startMs);
 
   const [revisions, audits, assignments, commands, requests, notes, gaps, valves, mark] = await Promise.all([
     settle("Plan versions", async () => {
-      const { data, error } = await supabase.from("experiment_revisions").select("id,version,source,created_at,created_by")
-        .eq("experiment_id", input.experimentDatabaseId).order("version", { ascending: true }).limit(200);
-      if (error) throw error;
-      return count(data as RevisionRow[]);
+      return pages<RevisionRow>((from, to) => supabase.from("experiment_revisions").select("id,version,source,created_at,created_by")
+        .eq("experiment_id", input.experimentDatabaseId).order("version", { ascending: true }).range(from, to), 2000);
     }, [] as RevisionRow[]),
     settle("Experiment events", async () => {
-      const { data, error } = await supabase.from("experiment_audit_events").select("id,event_type,revision_id,details,created_at,actor_id")
-        .eq("experiment_id", input.experimentDatabaseId).order("created_at", { ascending: true }).limit(500);
-      if (error) throw error;
-      return count(data as AuditRow[]);
+      return pages<AuditRow>((from, to) => supabase.from("experiment_audit_events").select("id,event_type,revision_id,details,created_at,actor_id")
+        .eq("experiment_id", input.experimentDatabaseId).order("created_at", { ascending: true }).order("id").range(from, to));
     }, [] as AuditRow[]),
     settle("Plan assignments", async () => {
-      const { data, error } = await supabase.from("experiment_assignments").select("revision_id,pairing_name,pot_number,treatment,target_vwc_percent,calibration_name_snapshot")
-        .eq("experiment_id", input.experimentDatabaseId).limit(5000);
-      if (error) throw error;
-      return count(data as AssignmentRow[]);
+      return pages<AssignmentRow>((from, to) => supabase.from("experiment_assignments").select("revision_id,pairing_name,pot_number,treatment,target_vwc_percent,calibration_name_snapshot")
+        .eq("experiment_id", input.experimentDatabaseId).order("revision_id").order("pairing_name").range(from, to), 20000);
     }, [] as AssignmentRow[]),
     settle("Controller settings", async () => {
-      const { data, error } = await supabase.from("project_control_commands")
+      return pages<CommandRow>((from, to) => supabase.from("project_control_commands")
         .select("id,command_type,payload,status,requested_at,confirmed_at,started_at,completed_at,error,experiment_id,requested_by")
         .eq("project_id", input.projectId).eq("device_id", input.deviceId)
         .gte("requested_at", startIso).lte("requested_at", endIso)
-        .order("requested_at", { ascending: false }).limit(300);
-      if (error) throw error;
-      return count(data as CommandRow[]);
+        .order("requested_at", { ascending: false }).order("id").range(from, to), 5000);
     }, [] as CommandRow[]),
     settle("Calibration requests", async () => {
-      const { data, error } = await supabase.from("calibration_set_requests")
+      const rows = await pages<Omit<CalibrationRequestRow, "candidate" | "study_name"> & { candidate_id: string; study_id: string }>((from, to) => supabase.from("calibration_set_requests")
         .select("id,pairing_names,status,requested_at,reviewed_at,notes,candidate_id,study_id")
         .eq("project_id", input.projectId).gte("requested_at", startIso).lte("requested_at", endIso)
-        .order("requested_at", { ascending: false }).limit(100);
-      if (error) throw error;
-      const rows = count(data as (Omit<CalibrationRequestRow, "candidate" | "study_name"> & { candidate_id: string; study_id: string })[]);
+        .order("requested_at", { ascending: false }).order("id").range(from, to), 1000);
       if (!rows.length) return [] as CalibrationRequestRow[];
       const [candidates, studies] = await Promise.all([
         supabase.from("calibration_candidates").select("id,version,fit_type,equation_text,rmse,sample_count").in("id", rows.map((row) => row.candidate_id)),
@@ -115,10 +124,14 @@ export async function loadRecordSources(input: {
     }, [] as CalibrationRequestRow[]),
     settle("Notes", async () => {
       const rows = await loadPotNotes(input.projectId, input.deviceId, { pairingNames: input.pairingNames, sinceIso: startIso, untilIso: endIso, limit: 1000 });
+      if (rows.length >= 1000) {
+        stats.failed += 1;
+        problems.push("Notes reached the 1000-note review limit; this record may be incomplete.");
+      }
       return count(rows);
     }, [] as PotNote[]),
     settle("Gaps in readings", async () => {
-      const { data, error } = await supabase.rpc("portal_reading_gaps", {
+      const rows = await pages<{ pairing_name: string; gap_start: string; gap_end: string; ongoing: boolean }>((from, to) => supabase.rpc("portal_reading_gaps", {
         p_project_id: input.projectId,
         p_device_id: input.deviceId,
         p_pairing_names: [...input.pairingNames],
@@ -126,9 +139,8 @@ export async function loadRecordSources(input: {
         p_end: endIso,
         p_bucket_seconds: 3600,
         p_min_buckets: 2,
-      });
-      if (error) throw error;
-      return count(data as { pairing_name: string; gap_start: string; gap_end: string; ongoing: boolean }[]).map((row): GapRow => ({
+      }).order("pairing_name").order("gap_start").range(from, to));
+      return rows.map((row): GapRow => ({
         pairingName: row.pairing_name,
         startMs: Date.parse(row.gap_start),
         endMs: Date.parse(row.gap_end),
@@ -168,10 +180,12 @@ export async function loadAround(input: { projectId: string; deviceId: string; p
   const span = input.spanMs ?? 6 * hour;
   const bucketMs = 10 * 60_000;
   const window = { queryStartMs: input.atMs - span, endMs: Math.min(Date.now(), input.atMs + span), bucketMs };
+  const stats = emptyStats();
   const [buckets, valves] = await Promise.all([
-    loadReadingBuckets({ projectId: input.projectId, deviceId: input.deviceId, pairingNames: [input.pairingName], window, exclusions: [] }),
-    loadValveOpenBuckets({ projectId: input.projectId, deviceId: input.deviceId, pairingNames: [input.pairingName], window }),
+    loadReadingBuckets({ projectId: input.projectId, deviceId: input.deviceId, pairingNames: [input.pairingName], window, exclusions: [] }, stats),
+    loadValveOpenBuckets({ projectId: input.projectId, deviceId: input.deviceId, pairingNames: [input.pairingName], window }, stats),
   ]);
+  if (stats.failed) throw new Error("The calibration window is incomplete. Retry before comparing the change.");
   return { buckets, openings: valves.filter((bucket) => bucket.openings > 0).map((bucket) => bucket.startMs + bucketMs / 2) };
 }
 
@@ -185,7 +199,7 @@ export async function markExperimentSeen(projectId: string, experimentDatabaseId
   if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
 }
 
-export type AlignmentEvent = { key: string; label: string; atIso: string; kind: "start" | "plan" | "calibration" };
+export type AlignmentEvent = { key: string; label: string; atIso: string; kind: "start" | "plan" | "calibration"; pairingNames?: string[] };
 
 /**
  * Recorded moments a comparison can be aligned to: the experiment start, each later plan version
@@ -206,6 +220,8 @@ export async function loadAlignmentEvents(input: {
       supabase.from("experiment_audit_events").select("revision_id,details").eq("experiment_id", input.experimentDatabaseId).eq("event_type", "revision_created").limit(200),
     ]);
     if (revisions.error) throw revisions.error;
+    if (audits.error) throw audits.error;
+    if (revisions.data?.length === 200 || audits.data?.length === 200) throw new Error("Plan alignment history reached its review limit");
     const summaries = new Map((audits.data ?? []).map((row) => [row.revision_id as string, (row.details as { summary?: unknown } | null)?.summary]));
     for (const revision of (revisions.data ?? []) as { id: string; version: number; created_at: string }[]) {
       if (revision.version <= 1) continue;
@@ -216,13 +232,15 @@ export async function loadAlignmentEvents(input: {
   const commands = await supabase.from("project_control_commands").select("id,payload,completed_at")
     .eq("project_id", input.projectId).eq("device_id", input.deviceId).eq("command_type", "apply_calibration").eq("status", "succeeded")
     .order("completed_at", { ascending: false }).limit(50);
-  if (!commands.error) {
+  if (commands.error) throw commands.error;
+  if (commands.data?.length === 50) throw new Error("Calibration alignment history reached its review limit");
+  {
     const pots = new Set(input.pairingNames);
     for (const command of (commands.data ?? []) as { id: string; payload: Record<string, unknown> | null; completed_at: string | null }[]) {
       const names = Array.isArray(command.payload?.pairing_names) ? (command.payload?.pairing_names as unknown[]).filter((name): name is string => typeof name === "string") : [];
       if (!command.completed_at || !names.some((name) => pots.has(name))) continue;
       const calibration = typeof command.payload?.calibration_name === "string" ? command.payload.calibration_name : "a calibration";
-      events.push({ key: `command:${command.id}`, label: `Calibration ${calibration} applied`, atIso: command.completed_at, kind: "calibration" });
+      events.push({ key: `command:${command.id}`, label: `Calibration ${calibration} applied`, atIso: command.completed_at, kind: "calibration", pairingNames: names.filter((name) => pots.has(name)) });
     }
   }
   return events.sort((a, b) => a.atIso.localeCompare(b.atIso));

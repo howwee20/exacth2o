@@ -12,3 +12,6 @@ export const supabase={
  auth:{getSession:()=>success({session:null}),signOut:()=>success(null),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
  channel(){return {on(){return this},subscribe(){return this}}},removeChannel(){},
 };
+
+// Request-scoped production writers stay inside this offline fixture adapter.
+export function portalClientWithToken(_accessToken:string){return supabase;}

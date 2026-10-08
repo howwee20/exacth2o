@@ -35,9 +35,11 @@ export function PotNotesSection({
   canWrite: boolean;
   outbox: ReturnType<typeof useNoteOutbox>;
 }) {
-  const notes = usePotNotes(projectId, deviceId, pairingName, outbox.entries.filter((item) => item.state === "sent").length);
-  const [correcting, setCorrecting] = useState<PotNote | null>(null);
-  const waiting = outbox.entries.filter((entry) => entry.pairingName === pairingName);
+  const notes = usePotNotes(projectId, deviceId, pairingName, outbox.entries.filter((item) => item.state === "sent").length, userId);
+  const scope = JSON.stringify([userId, projectId, deviceId, pairingName]);
+  const [correction, setCorrection] = useState<{ scope: string; note: PotNote } | null>(null);
+  const correcting = correction?.scope === scope ? correction.note : null;
+  const waiting = outbox.entries.filter((entry) => entry.deviceId === deviceId && entry.pairingName === pairingName);
   return (
     <>
       <section className="px-card" style={{ padding: "12px 14px", display: "grid", gap: 10 }} aria-label="Notes">
@@ -47,10 +49,11 @@ export function PotNotesSection({
             key={correcting?.id ?? "new"}
             userId={userId}
             projectId={projectId}
+            deviceId={deviceId}
             pairingName={pairingName}
             potLabel={`Pot ${potNumber}`}
             supersedes={correcting}
-            onCancel={correcting ? () => setCorrecting(null) : undefined}
+            onCancel={correcting ? () => setCorrection(null) : undefined}
             onSave={async (body, tags) => {
               await outbox.add({
                 deviceId,
@@ -61,7 +64,7 @@ export function PotNotesSection({
                 tags,
                 supersedesId: correcting?.id ?? null,
               });
-              setCorrecting(null);
+              setCorrection(null);
             }}
           />
         ) : null}
@@ -73,7 +76,7 @@ export function PotNotesSection({
           canWrite={canWrite && Boolean(userId)}
           onRetry={(id) => void outbox.retry(id)}
           onDiscard={(id) => void outbox.discard(id)}
-          onCorrect={setCorrecting}
+          onCorrect={(note) => setCorrection({ scope, note })}
         />
       </section>
       <section className="px-card" style={{ padding: "4px 16px 10px" }} aria-label="Physical identity">
