@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, renameSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { changedPaths, isWebsiteOnly } from './website-change-scope.mjs';
+import { changedPaths, isWebsiteOnly, isPortalOnly } from './website-change-scope.mjs';
 
 test('marketing copy and deleted root image assets use static publishing', () => {
   assert.equal(isWebsiteOnly(['about.html', 'index.html', 'quote.html', 'scheduling.jpg', 'scheduling.avif']), true);
@@ -39,4 +39,16 @@ test('git comparison includes both rename paths and software since the last succ
     assert.ok(sinceDeployment.includes('image.svg'));
     assert.equal(isWebsiteOnly(sinceDeployment), false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+ test('portal changes run frontend checks, while mixed backend and workflow changes retain full validation', () => {
+  assert.equal(isPortalOnly(['research-portal/src/App.tsx', 'research-portal/package-lock.json',
+    'portal-app/assets/portal.js', 'portal.html', 'demo-preview/demo.css',
+    'applications-preview/preview.css', 'demo-app/assets/demo.js', 'about.html']), true);
+  for (const path of ['supabase/migrations/access.sql', 'controller-release/agent.py',
+    'portal-app/gas-mixer-agent.py', 'portal-app/pi-agent-update.sh', '.github/workflows/pages.yml',
+    'scripts/website-change-scope.mjs', 'unknown.txt']) {
+    assert.equal(isPortalOnly(['research-portal/src/styles.css', path]), false, path);
+  }
+  assert.equal(isPortalOnly([]), false);
 });

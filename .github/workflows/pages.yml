@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - ej-supabase-research-portal
-  pull_request:
-    branches:
-      - ej-supabase-research-portal
   workflow_dispatch:
 
 permissions:
@@ -20,6 +17,7 @@ jobs:
       actions: read
     outputs:
       website_only: ${{ steps.scope.outputs.website_only }}
+      portal_only: ${{ steps.scope.outputs.portal_only }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -36,12 +34,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_SHA: ${{ github.sha }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           base_sha=""
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            base_sha="$PR_BASE_SHA"
-          elif [ "$EVENT_NAME" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ]; then
             # Compare with the last successful deployment, not merely the last
             # push: an earlier failed software change must not bypass checks.
             base_sha="$(gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?branch=ej-supabase-research-portal&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)"
@@ -74,18 +69,23 @@ jobs:
             controller-release/matt-balena-release-4174753/ui/package-lock.json
 
       - name: Set up Deno
+        if: needs.changes.outputs.portal_only != 'true'
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.2
 
       - name: Set up Supabase CLI
+        if: needs.changes.outputs.portal_only != 'true'
         uses: supabase/setup-cli@v1
         with:
           version: 2.65.5
 
-      - name: Install locked dependencies
+      - name: Install portal dependencies
+        run: npm ci --prefix research-portal
+
+      - name: Install controller dependencies
+        if: needs.changes.outputs.portal_only != 'true'
         run: |
-          npm ci --prefix research-portal
           npm ci --prefix controller-release/control-executor
           npm ci --prefix controller-release/matt-balena-release-4174753/control-executor
           npm ci --prefix controller-release/walker-telemetry-publisher
@@ -94,6 +94,7 @@ jobs:
           npm ci --prefix controller-release/matt-balena-release-4174753/ui
 
       - name: Test control authorization and executor safety
+        if: needs.changes.outputs.portal_only != 'true'
         run: |
           node scripts/generate-platform-contracts.mjs --check
           node scripts/audit-walker-observation.mjs
@@ -170,7 +171,7 @@ jobs:
 
   deploy:
     if: >-
-      ${{ !cancelled() && github.event_name != 'pull_request'
+      ${{ !cancelled()
           && github.ref == 'refs/heads/ej-supabase-research-portal'
           && needs.changes.result == 'success'
           && (needs.validate.result == 'success'

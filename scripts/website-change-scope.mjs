@@ -13,6 +13,15 @@ export function isWebsiteOnly(paths) {
     || /^[^/]+\.(?:avif|gif|ico|jpe?g|mp4|png|svg|webp)$/i.test(path));
 }
 
+// Frontend builds do not require booting the database or testing unrelated device runtimes.
+// Agent files under portal-app are deliberately excluded from this route.
+export function isPortalOnly(paths) {
+  return paths.length > 0 && paths.every(path => isWebsiteOnly([path])
+    || ['portal.html', 'demo.html', 'site-metrics.js'].includes(path)
+    || ['research-portal/', 'demo-preview/', 'applications-preview/',
+      'portal-app/assets/', 'demo-app/', 'applications-demo-app/'].some(prefix => path.startsWith(prefix)));
+}
+
 export function changedPaths(base, head, cwd = process.cwd()) {
   // Disable rename detection so moving software into a website path still
   // includes the original software path and requires full validation.
@@ -22,12 +31,17 @@ export function changedPaths(base, head, cwd = process.cwd()) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   let websiteOnly = false;
+  let portalOnly = false;
   try {
     const [base, head] = process.argv.slice(2);
-    if (base && head) websiteOnly = isWebsiteOnly(changedPaths(base, head));
+    if (base && head) {
+      const paths = changedPaths(base, head);
+      websiteOnly = isWebsiteOnly(paths);
+      portalOnly = !websiteOnly && isPortalOnly(paths);
+    }
   } catch {
     console.log('Comparison unavailable; keeping full software validation.');
   }
-  console.log(websiteOnly ? 'Website-only change: publish static files.' : 'Software or workflow change: run full validation.');
-  appendFileSync(process.env.GITHUB_OUTPUT, `website_only=${websiteOnly}\n`);
+  console.log(websiteOnly ? 'Website-only change: publish static files.' : portalOnly ? 'Portal change: run frontend validation.' : 'Backend, controller, or workflow change: run full validation.');
+  appendFileSync(process.env.GITHUB_OUTPUT, `website_only=${websiteOnly}\nportal_only=${portalOnly}\n`);
 }
