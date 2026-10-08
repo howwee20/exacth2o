@@ -34,7 +34,7 @@ body:has(.is-experiment-overview){overflow:hidden}
 .experiment-shell .dashboard-main:not(.is-experiment-overview) .control-panel .pot-group-head{margin-bottom:6px}
 
 /* Match the demo's quiet experiment colors and readable sensor controls. */
-.portal-experiment-edit-button{display:none}
+.portal-experiment-menu{display:none}
 .portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-card{border-color:rgba(4,120,87,.2);background:linear-gradient(145deg,#fff,#f0fdf8)}
 .portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-icon{background:#f0fdf8;color:#047857}
 .portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-card{border-color:rgba(124,58,237,.18);background:linear-gradient(145deg,#fff,#f7f3ff)}
