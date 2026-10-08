@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, Clock3, Loader2, Mail, Maximize2, Minimize2, Pencil, Plus, Server, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock3, Loader2, Mail, Maximize2, Minimize2, Plus, Server, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlAdminTile, ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerAdminTile } from "./WalkerObservationView";
@@ -10,8 +10,8 @@ import { SensorCanvasChart } from "./charts/SensorCanvasChart";
 import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
 import { chartSeries, compareGroup, describeVwcReading, formatVwcReading, latestPoint } from "./charts/chartSeries";
-import { FreshnessPill, LatestReadingText, MeasurementStatusBar } from "./experiment/MeasurementStatus";
-import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, latestMeasurementByPot, pairingTargetText, reportingCoverage, targetLinesForPairings, withReportingCoverage } from "./experimentMeasurement";
+import { MeasurementStatusBar } from "./experiment/MeasurementStatus";
+import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, pairingTargetText, targetLinesForPairings, withReportingCoverage } from "./experimentMeasurement";
 import { formatAge, formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
 import { controllerPresence } from "./settingsPresentation";
 import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
@@ -146,40 +146,22 @@ function initialAuthMode(): AuthMode {
 function ExperimentLaunchCards({
   data,
   experiments,
-  nowMs,
   onOpenExperiment,
   onEditExperiment,
 }: {
   data: LoadState;
   experiments: readonly PortalExperiment[];
-  nowMs: number;
   onOpenExperiment: (experimentId: ExperimentId) => void;
   onEditExperiment?: (experiment: PortalExperiment) => void;
 }) {
-  // Newest reading per pot, per experiment; recomputed when data changes, not on every clock tick.
-  const latestByExperiment = useMemo(
-    () => new Map(experiments.map((experiment) => [experiment.id, latestMeasurementByPot(readingsForExperiment(data.readings, experiment))])),
-    [data.readings, experiments],
-  );
   return (
     <div className="portal-experiment-stack" aria-label="Experiments">
       {experiments.map((experiment) => {
         const pairings = pairingsForExperiment(data.pairings, experiment);
-        const latestByPot = latestByExperiment.get(experiment.id) ?? new Map<string, number>();
-        let latestMeasuredAt: number | null = null;
-        for (const at of latestByPot.values()) if (latestMeasuredAt == null || at > latestMeasuredAt) latestMeasuredAt = at;
-        const activeCount = pairings.length;
         const expectedCount = experiment.pairingNames.length;
         const observationOnly = isObservationOnlyExperiment(experiment);
         const editable = !experiment.status ||
           ["published_sensing", "active", "activation_failed"].includes(experiment.status);
-        // Freshness comes from the newest measurement of this experiment's pots, never from
-        // when the portal last fetched or from the device-state row's update time; with only
-        // some pots reporting it says how many rather than "Current".
-        const freshness = withReportingCoverage(
-          experimentFreshness({ experiment, pairings, latestMeasuredAt, nowMs }),
-          reportingCoverage(pairings, latestByPot, nowMs),
-        );
 
         return (
           <article className="portal-launch-card-shell" key={experiment.id}>
@@ -188,10 +170,7 @@ function ExperimentLaunchCards({
             className={`portal-launch-card is-experiment ${observationOnly ? "is-observation" : ""}`}
             onClick={() => onOpenExperiment(experiment.id)}
           >
-            <span className="portal-launch-top">
-              <span className="portal-launch-icon">
-                <Activity size={20} />
-              </span>
+            {experiment.status === "activating" || experiment.status === "activation_failed" ? <span className="portal-launch-top">
               {experiment.status === "activating" ? (
                 <span className="portal-experiment-progress is-running">
                   <Clock3 size={12} />
@@ -203,29 +182,32 @@ function ExperimentLaunchCards({
                   Review
                 </span>
               ) : null}
-            </span>
+            </span> : null}
             <span className="portal-launch-copy">
               <span className="portal-launch-title">{experiment.name}</span>
-              <strong>{activeCount} / {expectedCount} pots</strong>
-              <em>{experimentCardDescription(experiment, pairings)}</em>
-              <em className="portal-launch-freshness">
-                <FreshnessPill freshness={freshness} compact />
-                <LatestReadingText freshness={freshness} />
-              </em>
+              <strong>{expectedCount} {expectedCount === 1 ? "pot" : "pots"}</strong>
+              {observationOnly || experimentCardDescription(experiment, pairings) === "Sensing only" ? <em>Sensing only</em> : null}
             </span>
           </button>
           {onEditExperiment ? (
-            <button
-              type="button"
-              className="portal-experiment-edit-button"
-              onClick={() => onEditExperiment(experiment)}
-              disabled={!editable}
-              aria-label={`Edit ${experiment.name}`}
-              title={editable ? `Edit ${experiment.name}` : "Wait for the current experiment action to finish"}
-            >
-              <Pencil size={14} />
-              Edit
-            </button>
+            <details className="portal-experiment-menu" onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }
+            }} onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+            }}>
+              <summary aria-label={`Options for ${experiment.name}`} title="Experiment options">⋯</summary>
+              <div className="portal-experiment-menu-panel">
+                <button type="button" disabled={!editable}
+                  title={editable ? undefined : "Wait for the current experiment action to finish"}
+                  onClick={(event) => {
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                    onEditExperiment(experiment);
+                  }}>Edit experiment</button>
+              </div>
+            </details>
           ) : null}
           </article>
         );
@@ -237,7 +219,6 @@ function ExperimentLaunchCards({
 function PortalResearcherHome({
   data,
   experiments,
-  nowMs,
   canCreateExperiment,
   onOpenExperiment,
   onNewExperiment,
@@ -245,7 +226,6 @@ function PortalResearcherHome({
   onOpenMixer,
 }: {
   data: LoadState;
-  nowMs: number;
   experiments: readonly PortalExperiment[];
   canCreateExperiment: boolean;
   onOpenExperiment: (experimentId: ExperimentId) => void;
@@ -268,7 +248,6 @@ function PortalResearcherHome({
         <ExperimentLaunchCards
           data={data}
           experiments={experiments}
-          nowMs={nowMs}
           onOpenExperiment={onOpenExperiment}
           onEditExperiment={canCreateExperiment ? onEditExperiment : undefined}
         />
@@ -279,7 +258,6 @@ function PortalResearcherHome({
 
 function PortalAdminHome({
   data,
-  nowMs,
   healthSnapshot,
   healthLoading,
   salesSupportData,
@@ -295,7 +273,6 @@ function PortalAdminHome({
   onOpenAnalytics,
 }: {
   data: LoadState;
-  nowMs: number;
   healthSnapshot: DeviceHealthSnapshot | null;
   healthLoading: boolean;
   salesSupportData: SalesSupportData;
@@ -337,7 +314,6 @@ function PortalAdminHome({
           <ExperimentLaunchCards
             data={data}
             experiments={experiments}
-            nowMs={nowMs}
             onOpenExperiment={onOpenExperiment}
             onEditExperiment={onEditExperiment}
           />
@@ -2866,7 +2842,6 @@ export default function App() {
         {portalHeader}
         <PortalAdminHome
           data={data}
-          nowMs={clockNowMs}
           experiments={availableExperiments}
           healthSnapshot={healthSnapshot}
           healthLoading={healthLoading}
@@ -2930,7 +2905,6 @@ export default function App() {
         <PortalResearcherHome
           onOpenMixer={portalAccess.gasMixerAllowed ? () => setPortalView("chamber") : undefined}
           data={data}
-          nowMs={clockNowMs}
           experiments={availableExperiments}
           canCreateExperiment={canCreateExperiment}
           onOpenExperiment={openExperiment}
@@ -3075,6 +3049,7 @@ export default function App() {
       ) : null}
 
       <h1 className="experiment-view-title">{selectedExperiment.name}</h1>
+      {selectedExperiment.shortDescription ? <p className="experiment-view-description">{selectedExperiment.shortDescription}</p> : null}
       <MeasurementStatusBar
         freshness={experimentStatusFreshness}
         checkedAt={data.lastCheckedAt}
