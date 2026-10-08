@@ -70,11 +70,11 @@ export function PotPage({
   const sensing = experiment ? isObservationOnlyExperiment(experiment) : true;
   const disabled = pairingWateringDisabled(pairing);
   const plan = assignment?.target_vwc_percent ?? null;
-  const targetText = sensing
+  const targetText = experiment && sensing
     ? "Sensing only"
     : disabled
       ? "Watering disabled on the controller"
-      : `Target ${pairing.wtc_percent_limit}% VWC${plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
+      : `${experiment ? "Target" : "Controller target"} ${pairing.wtc_percent_limit}% VWC${plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
   const opens = valveEvents
     .filter((event) => event.action === "open")
     .map((event) => Date.parse(event.device_recorded_at ?? event.server_received_at))

@@ -62,13 +62,28 @@ sed -i.bak \
   "$restore_workdir/config.toml"
 rm -f "$restore_workdir/config.toml.bak"
 
+# CI uses the default local ports. EXACTH2O_BASELINE_PORT_BASE (e.g. 56300) moves the disposable
+# stack to base+20..+29 so the proof can run beside another local Supabase project.
+db_url='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+if [[ -n "${EXACTH2O_BASELINE_PORT_BASE:-}" ]]; then
+  port_base="$EXACTH2O_BASELINE_PORT_BASE"
+  printf '%s\n' \
+    '[api]' "port = $((port_base + 21))" \
+    '[db]' "port = $((port_base + 22))" "shadow_port = $((port_base + 20))" \
+    '[db.pooler]' "port = $((port_base + 29))" \
+    '[studio]' "port = $((port_base + 23))" \
+    '[inbucket]' "port = $((port_base + 24))" \
+    '[analytics]' "port = $((port_base + 27))" >> "$restore_workdir/config.toml"
+  db_url="postgresql://postgres:postgres@127.0.0.1:$((port_base + 22))/postgres"
+fi
+
 supabase start \
   --workdir "$restore_root" \
   -x studio,imgproxy,edge-runtime,logflare,vector,supavisor \
   >/dev/null
 started=true
 
-psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
+psql "$db_url" \
   -v ON_ERROR_STOP=1 \
   -Atc "
     do \$\$
@@ -648,6 +663,9 @@ psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' \
     \$\$;
   " >/dev/null
 
-psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/gas_mixer_researcher_access.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/gas_mixer_researcher_access.sql" >/dev/null
+# Portal notes, bench layouts, comparisons, exclusions and experiment views: RLS matrix as the
+# authenticated role (rolled back).
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/portal_product_access.sql" >/dev/null
 
 echo "ExactH2O database baseline restored and verified."

@@ -47,6 +47,9 @@ import { FindPotDialog } from "./product/FindPotDialog";
 import { PortalLink } from "./product/PortalLink";
 import { ProductHeader } from "./product/ProductHeader";
 import { type InstallationState, QuietSpineHome } from "./product/QuietSpineHome";
+import { atBenchRemembered, rememberAtBench } from "./product/pocketMode";
+import { useNoteOutbox } from "./product/useNoteOutbox";
+import { loadLatestBenchLayout, loadPotBindings, recordBenchLayout, type BenchLayoutVersion, type PotBinding } from "./benchClient";
 
 
 // Features loaded on first use: the sign-in page and home stay small, and admin-only views never
@@ -63,6 +66,9 @@ const WaterlineOverview = lazyFeature(() => import("./product/WaterlineOverview"
 const PotPage = lazyFeature(() => import("./product/PotPage").then((module) => ({ default: module.PotPage })));
 const PotsTable = lazyFeature(() => import("./product/PotsTable").then((module) => ({ default: module.PotsTable })));
 const TrendsView = lazyFeature(() => import("./product/TrendsView").then((module) => ({ default: module.TrendsView })));
+const BenchView = lazyFeature(() => import("./product/BenchView").then((module) => ({ default: module.BenchView })));
+const PocketView = lazyFeature(() => import("./product/PocketView").then((module) => ({ default: module.PocketView })));
+const PotNotesSection = lazyFeature(() => import("./product/PotNotesSection").then((module) => ({ default: module.PotNotesSection })));
 const prefetchSettings = () => {
   void loadSettingsPanel().catch(() => undefined);
 };
@@ -203,6 +209,10 @@ export default function App() {
     navigatePortal(view === "home" || view === "experiment" ? { view: "home" } : { view } as PortalRoute);
   }, []);
   const [findPotOpen, setFindPotOpen] = useState(false);
+  // "At the bench" is a remembered choice on this device; the full portal stays one tap away.
+  const [atBench, setAtBench] = useState(() => atBenchRemembered());
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
+  const [benchData, setBenchData] = useState<{ scope: string; bindings: PotBinding[]; layout: BenchLayoutVersion | null; versions: number; error: string | null } | null>(null);
   const [refreshFailedAt, setRefreshFailedAt] = useState<number | null>(null);
   const [lastSuccessfulCheckAt, setLastSuccessfulCheckAt] = useState<number | null>(null);
   // Re-evaluates measurement ages ("4 min ago") without refetching anything.
@@ -428,6 +438,49 @@ export default function App() {
     loadTokenRef.current += 1;
   }
 
+  // Bench notes: written to this device first, sent under the signed-in account's permissions.
+  const outboxUserId = projectAccess ? portalAccess?.userId ?? null : null;
+  const outboxEmail = portalAccess?.email ?? null;
+  const outboxScope = useMemo(
+    () => (outboxUserId && activeProjectId ? { userId: outboxUserId, projectId: activeProjectId, authorLabel: outboxEmail ?? "Portal member" } : null),
+    [activeProjectId, outboxEmail, outboxUserId],
+  );
+  const canWriteNotes = Boolean(outboxScope) && canUseExperimentSettings;
+  const noteOutbox = useNoteOutbox(outboxScope, { enabled: sessionReady && canWriteNotes });
+  const benchScope = `${activeProjectId}:${activeDeviceId}`;
+  const benchDataNeeded = sessionReady && canReadProjectData && Boolean(activeProjectId && activeDeviceId) &&
+    (atBench || route.view === "bench" || route.view === "pocket" || route.view === "pot" || (route.view === "experiment" && Boolean(route.pot)));
+  const currentBench = benchData?.scope === benchScope ? benchData : null;
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!benchDataNeeded || benchData?.scope === benchScope) return undefined;
+    let active = true;
+    // Physical identity and recorded layouts are read only when a bench, pot or pocket view needs them.
+    void Promise.allSettled([loadPotBindings(activeProjectId, activeDeviceId), loadLatestBenchLayout(activeProjectId, activeDeviceId)]).then(([bindings, layout]) => {
+      if (!active) return;
+      setBenchData({
+        scope: benchScope,
+        bindings: bindings.status === "fulfilled" ? bindings.value : [],
+        layout: layout.status === "fulfilled" ? layout.value.latest : null,
+        versions: layout.status === "fulfilled" ? layout.value.versions : 0,
+        error: layout.status === "rejected" ? errorMessage(layout.reason) : null,
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [activeDeviceId, activeProjectId, benchData?.scope, benchDataNeeded, benchScope]);
+
   const resetPortalSessionUi = useCallback(() => {
     setSettingsOpen(false);
     setSettingsSection("overview");
@@ -532,6 +585,7 @@ export default function App() {
           requestedProjectId,
         );
         if (!accessRow) return { data: null };
+        const signedInUserId = userId;
 
         const mixerAccess = await withSupabaseTimeout(
           supabase.rpc("has_gas_mixer_native_access", {
@@ -543,7 +597,7 @@ export default function App() {
         if (mixerAccess.error) throw mixerAccess.error;
         const gas_mixer_allowed = mixerAccess.data === true;
         if (accessRow.access_scope !== "project") {
-          return { data: { ...accessRow, device_id: null, gas_mixer_allowed } };
+          return { data: { ...accessRow, device_id: null, gas_mixer_allowed, user_id: signedInUserId } };
         }
 
         const deviceResponse = await withSupabaseTimeout(
@@ -562,6 +616,7 @@ export default function App() {
           data: {
             ...accessRow,
             gas_mixer_allowed,
+            user_id: signedInUserId,
             device_id: selectProjectDevice(deviceResponse.data ? [deviceResponse.data] : []),
           },
         };
@@ -582,6 +637,7 @@ export default function App() {
       }
       const access: Exclude<PortalAccess, null> = {
         role,
+        userId: response.data?.user_id ?? undefined,
         email: response.data?.email ?? null,
         projectId: response.data?.project_id ?? "",
         deviceId: response.data?.device_id ?? null,
@@ -1517,6 +1573,8 @@ export default function App() {
   }
 
   async function signOut() {
+    const unsent = noteOutbox.waiting.length;
+    if (unsent && !window.confirm(`${unsent} ${unsent === 1 ? "note has" : "notes have"} not reached the record yet. ${unsent === 1 ? "It stays" : "They stay"} on this device, visible only to this account, and ${unsent === 1 ? "sends" : "send"} when you sign in here again. Sign out?`)) return;
     await supabase.auth.signOut();
     navigatePortal({ view: "home" }, { replace: true });
     setError(null);
@@ -2506,7 +2564,7 @@ export default function App() {
       }
     : undefined;
   const showSettingsControl = canUseExperimentSettings;
-  const productSections = { bench: false, workbench: false };
+  const productSections = { bench: true, workbench: false };
   const recordAvailable = false;
   const visiblePairings = visibleExperimentPairings(data.pairings);
   const lastGoodCheckAt = lastSuccessfulCheckAt ?? (data.lastCheckedAt && !error ? Date.parse(data.lastCheckedAt) : null);
@@ -2985,6 +3043,13 @@ export default function App() {
         prefetchSettings();
         setSettingsOpen(true);
       } : undefined}
+      atBench={atBench}
+      onToggleAtBench={projectAccess ? () => {
+        const next = !atBench;
+        setAtBench(next);
+        rememberAtBench(next);
+        navigatePortal(next ? { view: "pocket", pot: route.view === "pot" ? route.pot : route.view === "experiment" || route.view === "bench" ? route.pot : null, note: false } : { view: "home" });
+      } : undefined}
       onSignOut={() => void signOut()}
     />
   );
@@ -3101,9 +3166,11 @@ export default function App() {
     );
   }
 
-  const renderPotPage = (potKey: string, experimentContext: PortalExperiment | null) => {
+  const renderPotPage = (potKey: string, experimentContext: PortalExperiment | null, from: "bench" | null = null) => {
+    const boundName = currentBench?.bindings.find((binding) => binding.researchPotId === potKey)?.pairingName ?? null;
     const match = resolvePot(potKey, visiblePairings, availableExperiments, {
       preferExperimentId: experimentContext?.id ?? null,
+      boundPairingName: boundName,
       nowMs: clockNowMs,
     });
     if (!match) {
@@ -3127,12 +3194,87 @@ export default function App() {
         nowMs={clockNowMs}
         asOfMs={lastGoodCheckAt}
         loadedWindowMs={rollingExperimentHistoryMs}
-        backTo={experimentContext
-          ? { label: `${experimentContext.name} · Pots`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
-          : { label: "Experiments", route: { view: "home" } }}
-      /></FeatureBoundary>
+        backTo={from === "bench"
+          ? { label: "Bench", route: { view: "bench", pot: null } }
+          : experimentContext
+            ? { label: `${experimentContext.name} · Pots`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
+            : { label: "Experiments", route: { view: "home" } }}
+      >
+        <FeatureBoundary name="Notes" fallback={<FeatureLoading name="Notes" />}>
+          <PotNotesSection
+            userId={outboxScope?.userId ?? null}
+            projectId={activeProjectId}
+            deviceId={activeDeviceId}
+            pairingName={potName}
+            potNumber={match.pairing.pot_number}
+            experimentId={match.current?.databaseId ?? null}
+            binding={currentBench?.bindings.find((binding) => binding.pairingName === potName) ?? null}
+            canWrite={canWriteNotes}
+            outbox={noteOutbox}
+          />
+        </FeatureBoundary>
+      </PotPage></FeatureBoundary>
     );
   };
+
+  const pocketActive = route.view === "pocket" || (atBench && (route.view === "home" || route.view === "pot"));
+  if (pocketActive && projectAccess) {
+    const pocketPot = route.view === "pocket" ? route.pot : route.view === "pot" ? route.pot : null;
+    return (
+      <main className="px-shell">
+        <FeatureBoundary name="At the bench" fallback={<FeatureLoading name="At the bench" />}>
+          <PocketView
+            potKey={pocketPot}
+            writing={route.view === "pocket" && route.note}
+            userId={outboxScope?.userId ?? "signed-out"}
+            projectId={activeProjectId}
+            deviceId={activeDeviceId}
+            canWrite={canWriteNotes}
+            pairings={visiblePairings}
+            experiments={availableExperiments}
+            readings={data.readings}
+            bindings={currentBench?.bindings ?? []}
+            nowMs={clockNowMs}
+            asOfMs={lastGoodCheckAt}
+            online={online}
+            refreshFailed={refreshFailedAt != null && (lastGoodCheckAt == null || refreshFailedAt > lastGoodCheckAt)}
+            outbox={noteOutbox}
+            onLeave={() => {
+              setAtBench(false);
+              rememberAtBench(false);
+              navigatePortal(pocketPot ? { view: "pot", pot: pocketPot } : { view: "home" });
+            }}
+          />
+        </FeatureBoundary>
+      </main>
+    );
+  }
+
+  if (route.view === "bench") {
+    if (route.pot) return productShell(renderPotPage(route.pot, null, "bench"));
+    return productShell(
+      <FeatureBoundary name="Bench" fallback={<FeatureLoading name="Bench" />}>
+        <BenchView
+          pairings={visiblePairings}
+          experiments={availableExperiments}
+          readings={data.readings}
+          bindings={currentBench?.bindings ?? []}
+          layout={currentBench?.layout ?? null}
+          layoutVersions={currentBench?.versions ?? 0}
+          layoutError={currentBench?.error ?? null}
+          nowMs={clockNowMs}
+          asOfMs={lastGoodCheckAt}
+          canRecord={isAdmin && Boolean(outboxScope)}
+          onRecord={async (document, note) => {
+            const recorded = await recordBenchLayout(activeProjectId, activeDeviceId, document, note, portalAccess.email ?? "Administrator");
+            setBenchData((current) => current && current.scope === benchScope
+              ? { ...current, layout: recorded, versions: Math.max(current.versions, recorded.version), error: null }
+              : current);
+          }}
+        />
+      </FeatureBoundary>,
+    );
+  }
 
   if (route.view === "pot") {
     return productShell(renderPotPage(route.pot, null));

@@ -75,6 +75,8 @@ export type PortalView = "home" | "experiment" | "health" | "support" | "walker"
 
 export type PortalAccess = {
   role: PortalRole;
+  /** The signed-in user (auth.users id); scopes this device's note outbox. */
+  userId?: string;
   email: string | null;
   projectId: string;
   deviceId: string | null;

@@ -43,8 +43,11 @@ export function journey(name, fn) {
 
 const browser = await launch();
 
+const openContexts = new Set();
 async function session(role, options = {}) {
   const context = await browser.newContext({ viewport: options.viewport ?? { width: 1440, height: 900 }, reducedMotion: options.reducedMotion, ...options.context });
+  openContexts.add(context);
+  context.on("close", () => openContexts.delete(context));
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -202,13 +205,17 @@ journey("phone, tablet, keyboard and reduced motion", async () => {
   await moving.context.close();
 });
 
-// Later slices register more journeys from their own modules.
+// Later slices register more journeys from their own modules (a default export that receives
+// the harness, so the modules never import this entry point back).
 for (const module of ["journeys-bench.mjs", "journeys-workbench.mjs"]) {
+  let register;
   try {
-    await import(join(here, module));
+    ({ default: register } = await import(join(here, module)));
   } catch (error) {
     if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
+    continue;
   }
+  register({ journey, scenario, sql, session, text, assert, settle, base, out, accounts, browser });
 }
 
 for (const { name, fn } of journeys) {
@@ -221,7 +228,17 @@ for (const { name, fn } of journeys) {
   } catch (error) {
     results.push({ name, ok: false, ms: Date.now() - started, error: error.message.split("\n")[0] });
     console.log(`  FAIL ${name} — ${error.message.split("\n")[0]}`);
+    // Keep what each open page showed when the journey failed.
+    const slug = name.replace(/[^a-z0-9]+/gi, "-").slice(0, 60);
+    let index = 0;
+    for (const context of openContexts) {
+      for (const page of context.pages()) {
+        await page.screenshot({ path: join(out, `FAIL-${slug}-${index++}.png`) }).catch(() => undefined);
+        console.log(`       at ${page.url()}`);
+      }
+    }
   }
+  for (const context of [...openContexts]) await context.close().catch(() => undefined);
 }
 await browser.close();
 const failed = results.filter((result) => !result.ok).length;
