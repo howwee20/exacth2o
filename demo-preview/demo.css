@@ -1,24 +1,5 @@
 .demo-account-mark{position:absolute;z-index:3;pointer-events:none;transform:translateX(-50%);font:600 10px/1 "DM Mono","SFMono-Regular",Menlo,monospace;letter-spacing:.2em;text-transform:uppercase;color:#b9dcc7;text-align:center}
 
-/* Reuse production cards, vertical experiment stack, and animated health connectors. */
-.portal-launch-grid{grid-template-columns:minmax(0,392px);width:100%}
-.portal-business-stack,.portal-experiment-menu{display:none}
-.portal-new-experiment-action{max-width:392px}
-
-/* The same quiet white-to-tint wash as Experiment 1, with distinct study colors. */
-.portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-card {
-  border-color: rgba(4, 120, 87, 0.2);
-  background: linear-gradient(145deg, #ffffff, #f0fdf8);
-}
-.portal-experiment-stack > .portal-launch-card-shell:nth-child(2) .portal-launch-icon {
-  background: #f0fdf8;
-  color: #047857;
-}
-.portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-card {
-  border-color: rgba(124, 58, 237, 0.18);
-  background: linear-gradient(145deg, #ffffff, #f7f3ff);
-}
-.portal-experiment-stack > .portal-launch-card-shell:nth-child(3) .portal-launch-icon {
-  background: #f7f3ff;
-  color: #8055b4;
-}
+/* The monitor-only demo account: the production product without installation tools or editing. */
+.px-tools,.px-menu{display:none!important}
+.px-home-grid{grid-template-columns:minmax(0,720px);justify-content:center}

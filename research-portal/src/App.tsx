@@ -1,5 +1,5 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock3, Loader2, Mail, Maximize2, Minimize2, Plus, Server, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
-import { type CSSProperties, type FormEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, Server, ShieldCheck } from "lucide-react";
+import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlAdminTile, ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerAdminTile } from "./WalkerObservationView";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
@@ -17,12 +17,12 @@ import { controllerPresence } from "./settingsPresentation";
 import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups } from "./experimentPresentation";
-import { experimentCardDescription, type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, mergePortalExperiments, pairingBelongsToExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
+import { type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, mergePortalExperiments, pairingBelongsToExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
-import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, visibleExperimentPairings } from "./portalData";
-import { controlCommandLabel, errorMessage, formatHealthInteger, formatSettingsTimestamp, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
+import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
+import { controlCommandLabel, errorMessage, formatHealthInteger, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
 import { colorForPairing, orderedPairings, plantGroupForPairing, plantGroupLabel, treatmentForPairing, treatmentLabel } from "./portalPresentation";
 import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectContext";
 import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime, sourceLabelForReading } from "./portalReadings";
@@ -39,6 +39,15 @@ import { createCoalescedTrigger, scheduleVisiblePolling } from "./visiblePolling
 import { usePageClock } from "./pageClock";
 import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
+import { homeExceptions } from "./homeExceptions";
+import { type ExperimentTab, navigatePortal, type PortalRoute, stripAuthQuery, usePortalRoute } from "./portalRoute";
+import { resolvePot } from "./potIdentity";
+import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
+import { FindPotDialog } from "./product/FindPotDialog";
+import { PortalLink } from "./product/PortalLink";
+import { ProductHeader } from "./product/ProductHeader";
+import { type InstallationState, QuietSpineHome } from "./product/QuietSpineHome";
+
 
 // Features loaded on first use: the sign-in page and home stay small, and admin-only views never
 // reach researchers' browsers unless opened.
@@ -49,6 +58,11 @@ const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").t
 const SalesSupportView = lazyFeature(() => import("./support/SalesSupportView").then((module) => ({ default: module.SalesSupportView })));
 const WalkerExperimentView = lazyFeature(() => import("./walker/WalkerExperimentView").then((module) => ({ default: module.WalkerExperimentView })));
 const WebsiteAnalyticsWorkspace = lazyFeature(() => import("./analytics/WebsiteAnalyticsWorkspace"));
+// Experiment, pot and trend views load when first opened; the home and header stay in the entry.
+const WaterlineOverview = lazyFeature(() => import("./product/WaterlineOverview").then((module) => ({ default: module.WaterlineOverview })));
+const PotPage = lazyFeature(() => import("./product/PotPage").then((module) => ({ default: module.PotPage })));
+const PotsTable = lazyFeature(() => import("./product/PotsTable").then((module) => ({ default: module.PotsTable })));
+const TrendsView = lazyFeature(() => import("./product/TrendsView").then((module) => ({ default: module.TrendsView })));
 const prefetchSettings = () => {
   void loadSettingsPanel().catch(() => undefined);
 };
@@ -115,13 +129,6 @@ const initialSalesSupportData: SalesSupportData = {
   messages: [],
 };
 
-function portalUrl() {
-  if (window.location.hostname === "exacth2o.com") {
-    return `${window.location.origin}/portal`;
-  }
-  return `${window.location.origin}${window.location.pathname}`;
-}
-
 function inviteTokenFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return params.get("invite") ?? params.get("token") ?? "";
@@ -140,240 +147,6 @@ function initialAuthMode(): AuthMode {
   if (inviteTokenFromUrl()) return "accept-invite";
   if (authType === "recovery") return "set-password";
   return "sign-in";
-}
-
-
-function ExperimentLaunchCards({
-  data,
-  experiments,
-  onOpenExperiment,
-  onEditExperiment,
-}: {
-  data: LoadState;
-  experiments: readonly PortalExperiment[];
-  onOpenExperiment: (experimentId: ExperimentId) => void;
-  onEditExperiment?: (experiment: PortalExperiment) => void;
-}) {
-  return (
-    <div className="portal-experiment-stack" aria-label="Experiments">
-      {experiments.map((experiment) => {
-        const pairings = pairingsForExperiment(data.pairings, experiment);
-        const expectedCount = experiment.pairingNames.length;
-        const observationOnly = isObservationOnlyExperiment(experiment);
-        const editable = !experiment.status ||
-          ["published_sensing", "active", "activation_failed"].includes(experiment.status);
-
-        return (
-          <article className="portal-launch-card-shell" key={experiment.id}>
-          <button
-            type="button"
-            className={`portal-launch-card is-experiment ${observationOnly ? "is-observation" : ""}`}
-            onClick={() => onOpenExperiment(experiment.id)}
-          >
-            {experiment.status === "activating" || experiment.status === "activation_failed" ? <span className="portal-launch-top">
-              {experiment.status === "activating" ? (
-                <span className="portal-experiment-progress is-running">
-                  <Clock3 size={12} />
-                  Starting
-                </span>
-              ) : experiment.status === "activation_failed" ? (
-                <span className="portal-experiment-progress is-failed">
-                  <AlertTriangle size={12} />
-                  Review
-                </span>
-              ) : null}
-            </span> : null}
-            <span className="portal-launch-copy">
-              <span className="portal-launch-title">{experiment.name}</span>
-              <strong>{expectedCount} {expectedCount === 1 ? "pot" : "pots"}</strong>
-              {observationOnly || experimentCardDescription(experiment, pairings) === "Sensing only" ? <em>Sensing only</em> : null}
-            </span>
-          </button>
-          {onEditExperiment ? (
-            <details className="portal-experiment-menu" onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.currentTarget.open = false;
-                event.currentTarget.querySelector("summary")?.focus();
-              }
-            }} onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
-            }}>
-              <summary aria-label={`Options for ${experiment.name}`} title="Experiment options">⋯</summary>
-              <div className="portal-experiment-menu-panel">
-                <button type="button" disabled={!editable}
-                  title={editable ? undefined : "Wait for the current experiment action to finish"}
-                  onClick={(event) => {
-                    event.currentTarget.closest("details")?.removeAttribute("open");
-                    onEditExperiment(experiment);
-                  }}>Edit experiment</button>
-              </div>
-            </details>
-          ) : null}
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
-function PortalResearcherHome({
-  data,
-  experiments,
-  canCreateExperiment,
-  onOpenExperiment,
-  onNewExperiment,
-  onEditExperiment,
-  onOpenMixer,
-}: {
-  data: LoadState;
-  experiments: readonly PortalExperiment[];
-  canCreateExperiment: boolean;
-  onOpenExperiment: (experimentId: ExperimentId) => void;
-  onNewExperiment: () => void;
-  onEditExperiment: (experiment: PortalExperiment) => void;
-  onOpenMixer?: () => void;
-}) {
-  return (
-    <section className="portal-admin-main" aria-label="Research experiments">
-      {canCreateExperiment ? (
-        <div className="portal-new-experiment-action">
-          <button type="button" onClick={onNewExperiment}>
-            <Plus size={17} />
-            New Experiment
-          </button>
-        </div>
-      ) : null}
-      <div className="portal-launch-grid">
-        {onOpenMixer ? <GasMixerResearcherTile onOpen={onOpenMixer} /> : null}
-        <ExperimentLaunchCards
-          data={data}
-          experiments={experiments}
-          onOpenExperiment={onOpenExperiment}
-          onEditExperiment={canCreateExperiment ? onEditExperiment : undefined}
-        />
-      </div>
-    </section>
-  );
-}
-
-function PortalAdminHome({
-  data,
-  healthSnapshot,
-  healthLoading,
-  salesSupportData,
-  salesSupportLoading,
-  experiments,
-  onOpenExperiment,
-  onNewExperiment,
-  onEditExperiment,
-  onOpenHealth,
-  onOpenSupport,
-  onOpenWalker,
-  onOpenChamber,
-  onOpenAnalytics,
-}: {
-  data: LoadState;
-  healthSnapshot: DeviceHealthSnapshot | null;
-  healthLoading: boolean;
-  salesSupportData: SalesSupportData;
-  salesSupportLoading: boolean;
-  experiments: readonly PortalExperiment[];
-  onOpenExperiment: (experimentId: ExperimentId) => void;
-  onNewExperiment: () => void;
-  onEditExperiment: (experiment: PortalExperiment) => void;
-  onOpenHealth: () => void;
-  onOpenSupport: () => void;
-  onOpenWalker: () => void;
-  onOpenChamber: () => void;
-  onOpenAnalytics: () => void;
-}) {
-  const healthUpdated = healthSnapshot?.captured_at ?? healthSnapshot?.created_at ?? null;
-  const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
-  const openSupportCount = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
-  const newSupportCount = supportThreads.filter((item) => item.status === "new").length;
-  const quoteCount = salesSupportData.quotes.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
-  const supportUpdated = supportThreads
-    .map((item) => item.last_message_at ?? item.updated_at ?? item.created_at)
-    .concat(salesSupportData.quotes.map((item) => item.updated_at ?? item.created_at))
-    .filter(Boolean)
-    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
-  const sensorLine = healthSnapshot
-    ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors`
-    : "No health snapshot";
-
-  return (
-    <section className="portal-admin-main is-assistant-below" aria-label="Portal sections">
-      <div className="portal-new-experiment-action">
-        <button type="button" onClick={onNewExperiment}>
-          <Plus size={17} />
-          New Experiment
-        </button>
-      </div>
-      <div className="portal-launch-grid">
-        <div className="portal-experiment-column">
-          <ExperimentLaunchCards
-            data={data}
-            experiments={experiments}
-            onOpenExperiment={onOpenExperiment}
-            onEditExperiment={onEditExperiment}
-          />
-
-          <span className="portal-health-link" aria-hidden="true">
-            <span className="portal-health-link-arm is-left" />
-            <span className="portal-health-link-drop" />
-          </span>
-
-          <button type="button" className="portal-launch-card is-health" onClick={onOpenHealth}>
-            <span className="portal-launch-top">
-              <span className="portal-launch-icon">
-                <Server size={18} />
-              </span>
-            </span>
-            <span className="portal-launch-copy">
-              <span className="portal-launch-title">System Health</span>
-              <strong>{healthLoading && !healthSnapshot ? "Loading..." : sensorLine}</strong>
-              <em>{healthUpdated ? `Snapshot ${formatMeasurementTime(healthUpdated)}` : "No health snapshot yet"}</em>
-            </span>
-            <span className="portal-launch-action">
-              Open <ArrowRight size={14} />
-            </span>
-          </button>
-        </div>
-
-        <div className="portal-business-stack">
-          <WalkerAdminTile onOpen={onOpenWalker} />
-
-          {/* Secondary tools: two half-width tiles sharing one tile slot. */}
-          <div className="portal-compact-row">
-          <ChamberControlAdminTile onOpen={onOpenChamber} />
-
-          <button type="button" className="portal-launch-card is-support" onClick={onOpenSupport}>
-            <span className="portal-launch-top">
-              <span className="portal-launch-icon">
-                <Mail size={20} />
-              </span>
-              {newSupportCount ? (
-                <span className="portal-status-pill is-warning">NEW</span>
-              ) : null}
-            </span>
-            <span className="portal-launch-copy">
-              <span className="portal-launch-title">Sales &amp; Support</span>
-              <strong>{salesSupportLoading ? "Loading..." : `${newSupportCount} new · ${openSupportCount + quoteCount} open`}</strong>
-              <em>Updated {formatSettingsTimestamp(supportUpdated)}</em>
-            </span>
-            <span className="portal-launch-action">
-              Open <ArrowRight size={14} />
-            </span>
-          </button>
-          </div>
-          <div className="portal-compact-row">
-            <WebsiteAnalyticsTile onOpen={onOpenAnalytics} />
-          </div>
-        </div>
-      </div>
-
-    </section>
-  );
 }
 
 
@@ -419,10 +192,25 @@ export default function App() {
   const [data, setData] = useState<LoadState>(initialLoadState);
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
   const [accessLoading, setAccessLoading] = useState(false);
-  const [portalView, setPortalView] = useState<PortalView>("home");
+  // The URL is the source of truth for what is on screen: Back, Forward, refresh and copied links work.
+  const route = usePortalRoute();
+  const portalView: PortalView = route.view === "experiment" || route.view === "pot"
+    ? "experiment"
+    : route.view === "health" || route.view === "support" || route.view === "walker" || route.view === "chamber" || route.view === "analytics"
+      ? route.view
+      : "home";
+  const setPortalView = useCallback((view: PortalView) => {
+    navigatePortal(view === "home" || view === "experiment" ? { view: "home" } : { view } as PortalRoute);
+  }, []);
+  const [findPotOpen, setFindPotOpen] = useState(false);
+  const [refreshFailedAt, setRefreshFailedAt] = useState<number | null>(null);
+  const [lastSuccessfulCheckAt, setLastSuccessfulCheckAt] = useState<number | null>(null);
   // Re-evaluates measurement ages ("4 min ago") without refetching anything.
   const clockNowMs = usePageClock(clockTickMs);
-  const [selectedExperimentId, setSelectedExperimentId] = useState<ExperimentId>("");
+  const selectedExperimentId: ExperimentId = route.view === "experiment" ? route.experiment : "";
+  // Per-experiment view state (hidden pots, graph mode, window) starts fresh for each experiment,
+  // whether it was opened by a click, Back/Forward or a copied link.
+  const [uiExperimentId, setUiExperimentId] = useState<ExperimentId>(selectedExperimentId);
   const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
   const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
   const [editingExperiment, setEditingExperiment] = useState<PortalExperiment | null>(null);
@@ -640,7 +428,7 @@ export default function App() {
     loadTokenRef.current += 1;
   }
 
-  const resetPortalSessionUi = useCallback((nextView: PortalView = "home") => {
+  const resetPortalSessionUi = useCallback(() => {
     setSettingsOpen(false);
     setSettingsSection("overview");
     setControlBusy(false);
@@ -652,11 +440,10 @@ export default function App() {
     setTermsAccepted(false);
     setExperimentGraphMode("vwc");
     setSelectedWateringDetail(null);
-    setPortalView(nextView);
   }, []);
 
-  const openExperiment = useCallback((experimentId: ExperimentId) => {
-    setSelectedExperimentId(experimentId);
+  if (uiExperimentId !== selectedExperimentId) {
+    setUiExperimentId(selectedExperimentId);
     setExperimentGraphMode("vwc");
     setPotPreset("all");
     setHiddenPots(new Set());
@@ -664,8 +451,12 @@ export default function App() {
     setSelectedSeriesName(null);
     setSelectedWateringDetail(null);
     setTimeWindow(fullTimeWindow);
+    setGraphExpanded(false);
+  }
+
+  const openExperiment = useCallback((experimentId: ExperimentId) => {
     setSettingsOpen(false);
-    setPortalView("experiment");
+    navigatePortal({ view: "experiment", experiment: experimentId, tab: "overview", pot: null });
   }, []);
 
   const loadExperimentCatalog = useCallback(async () => {
@@ -787,7 +578,6 @@ export default function App() {
       const role = parsePortalRole(response.data?.role);
       if (!role) {
         setPortalAccess(null);
-        setPortalView("home");
         return;
       }
       const access: Exclude<PortalAccess, null> = {
@@ -800,11 +590,9 @@ export default function App() {
       };
       if (!access.projectId) {
         setPortalAccess(null);
-        setPortalView("home");
         return;
       }
       setPortalAccess(access);
-      setPortalView("home");
     } catch (err) {
       if (isSessionAuthorizationError(err)) {
         expirePortalSession();
@@ -815,7 +603,6 @@ export default function App() {
       setExperimentBuilderOpen(false);
       setEditingExperiment(null);
       setExperimentCatalogError(null);
-      setPortalView("home");
     } finally {
       setAccessLoading(false);
     }
@@ -1179,6 +966,12 @@ export default function App() {
             return readingsState(current, reconciled, fetched, nowIso, effectiveMode);
           });
         }
+        if (token === loadTokenRef.current) {
+          // Only a completed check may make the home quiet; a failed one is stated, with the
+          // time of the last good data.
+          setLastSuccessfulCheckAt(Date.now());
+          setRefreshFailedAt(null);
+        }
       } catch (err) {
         if (token === loadTokenRef.current) {
           if (isSessionAuthorizationError(err)) {
@@ -1186,6 +979,7 @@ export default function App() {
             return;
           }
           setError(errorMessage(err));
+          setRefreshFailedAt(Date.now());
         }
       } finally {
         if (token === loadTokenRef.current) {
@@ -1682,7 +1476,7 @@ export default function App() {
       window.localStorage.removeItem(rememberEmailKey);
     }
 
-    window.history.replaceState(null, "", portalUrl());
+    stripAuthQuery();
     resetPortalSessionUi();
     setPassword("");
     setSessionReady(true);
@@ -1709,7 +1503,7 @@ export default function App() {
       return;
     }
 
-    window.history.replaceState(null, "", portalUrl());
+    stripAuthQuery();
     resetPortalSessionUi();
     setPassword("");
     setSessionReady(true);
@@ -1719,17 +1513,12 @@ export default function App() {
     setAuthMode(nextMode);
     setLoginError(null);
     setAuthNotice(null);
-    if (nextMode !== "set-password") {
-      window.history.replaceState(
-        null,
-        "",
-        portalUrl(),
-      );
-    }
+    if (nextMode !== "set-password") stripAuthQuery();
   }
 
   async function signOut() {
     await supabase.auth.signOut();
+    navigatePortal({ view: "home" }, { replace: true });
     setError(null);
     setLoginError(null);
     setSessionReady(false);
@@ -2092,6 +1881,9 @@ export default function App() {
     // new scope, declared below, sets it again. A request being tracked belongs to the old scope.
     setLoading(false);
     setTrackedCommand(null);
+    // Check outcomes belong to the previous account, project or device.
+    setLastSuccessfulCheckAt(null);
+    setRefreshFailedAt(null);
   }, [scopeKey]);
 
   useEffect(() => {
@@ -2108,7 +1900,6 @@ export default function App() {
       setEditingExperiment(null);
       setExperimentBuilderPrompt("");
       setSettingsAssistantPrompt("");
-      setPortalView("home");
       setHealthSnapshot(null);
       setHealthHistory([]);
       setRuntimeState(null);
@@ -2700,8 +2491,8 @@ export default function App() {
     }, new Map<number, PairingRow[]>()),
   ).sort(([zoneA], [zoneB]) => zoneA - zoneB);
   const hasExperimentGraphOverview = selectedExperimentGraphGroups.length > 1;
-  const showExperimentGraphOverview =
-    hasExperimentGraphOverview && experimentGraphMode === "vwc" && !graphExpanded;
+  // Group comparison cards were replaced by the Waterline overview tab; Pots shows every pot.
+  const showExperimentGraphOverview = false;
   const activeExperimentGraphGroup = selectedExperimentGraphGroups.find(
     (group) => group.id === selectedExperimentGraphGroupId,
   ) ?? selectedExperimentGraphGroups[0];
@@ -2714,45 +2505,52 @@ export default function App() {
           : {}),
       }
     : undefined;
-  const showSettingsControl = canUseExperimentSettings && portalView === "experiment";
-  const showHomeActions = Boolean(portalAccess) && portalView === "home";
-  const showExperimentHomeControl = Boolean(portalAccess) && portalView === "experiment";
+  const showSettingsControl = canUseExperimentSettings;
+  const productSections = { bench: false, workbench: false };
+  const recordAvailable = false;
+  const visiblePairings = visibleExperimentPairings(data.pairings);
+  const lastGoodCheckAt = lastSuccessfulCheckAt ?? (data.lastCheckedAt && !error ? Date.parse(data.lastCheckedAt) : null);
+  const presence = runtimeState
+    ? controllerPresence({
+      stateFreshUntil: runtimeState.state_fresh_until,
+      stateObservedAt: runtimeState.state_observed_at,
+      controllerState: runtimeState.controller_state,
+      lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
+    }, clockNowMs)
+    : null;
+  const presenceLastSeenMs = presence?.lastSeenAt ? Date.parse(presence.lastSeenAt) : null;
+  const installationState: InstallationState = !presence
+    ? { status: "hidden" }
+    : presence.status === "offline"
+      ? { status: "offline", lastSeenAt: presenceLastSeenMs }
+      : presence.status === "never"
+        ? { status: "unknown" }
+        : { status: "online" };
+  const portalExceptions = homeExceptions({
+    experiments: availableExperiments,
+    pairings: visiblePairings,
+    readings: data.readings,
+    nowMs: clockNowMs,
+    checked: lastGoodCheckAt != null,
+    refresh: { failedAt: refreshFailedAt, lastSuccessAt: lastGoodCheckAt },
+    controller: presence ? { offline: presence.status === "offline", lastSeenAt: presenceLastSeenMs } : null,
+    formatTime: (ms) => formatMeasurementTime(ms) ?? "",
+  });
+  const dataSourceLabel = data.effectiveMode === "live" ? "live controller readings" : "imported snapshot readings";
+  const routeExperiment = route.view === "experiment"
+    ? availableExperiments.find((experiment) => experiment.id === route.experiment) ?? null
+    : null;
+  const catalogReady = experimentCatalog.length > 0 || experimentCatalogError != null || (!loading && lastGoodCheckAt != null);
 
   const portalActions = (
     <div className="header-actions">
-      {showHomeActions ? (
+      {portalAccess ? (
         <button className="header-action" type="button" onClick={signOut}>
           Sign out
         </button>
       ) : null}
-      {showExperimentHomeControl ? (
-        <button className="header-action" type="button" onClick={() => setPortalView("home")}>
-          <ArrowLeft size={14} />
-          Home
-        </button>
-      ) : null}
-      {showSettingsControl ? (
-        <button
-          className="header-action"
-          type="button"
-          aria-label="Portal settings"
-          title="Settings"
-          onPointerEnter={prefetchSettings}
-          onFocus={prefetchSettings}
-          onClick={() => setSettingsOpen(true)}
-        >
-          <SettingsIcon size={14} />
-          Settings
-        </button>
-      ) : null}
     </div>
   );
-
-  const experimentCornerActions = showExperimentHomeControl || showSettingsControl ? (
-    <div className="experiment-corner-actions" aria-label="Experiment actions">
-      {portalActions}
-    </div>
-  ) : null;
 
   const experimentBuilder = experimentBuilderOpen && canCreateExperiment ? (
     <FeatureBoundary name="Experiment builder"><ExperimentBuilder
@@ -2836,211 +2634,8 @@ export default function App() {
     );
   }
 
-  if (isAdmin && portalView === "home") {
-    return (
-      <main className="dashboard-shell portal-admin-shell">
-        {portalHeader}
-        <PortalAdminHome
-          data={data}
-          experiments={availableExperiments}
-          healthSnapshot={healthSnapshot}
-          healthLoading={healthLoading}
-          salesSupportData={salesSupportData}
-          salesSupportLoading={salesSupportLoading}
-          onOpenExperiment={openExperiment}
-          onNewExperiment={() => {
-            setEditingExperiment(null);
-            setExperimentBuilderOpen(true);
-          }}
-          onEditExperiment={(experiment) => {
-            setEditingExperiment(experiment);
-            setExperimentBuilderOpen(true);
-          }}
-          onOpenHealth={() => setPortalView("health")}
-          onOpenSupport={() => setPortalView("support")}
-          onOpenWalker={() => setPortalView("walker")}
-          onOpenChamber={() => setPortalView("chamber")}
-          onOpenAnalytics={() => setPortalView("analytics")}
-        />
-        {experimentCatalogError ? (
-          <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
-        ) : null}
-        {experimentBuilder}
-        {settingsMounted ? <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
-          open={settingsOpen}
-          projectId={activeProjectId}
-          portalRole={portalAccess.role}
-          experiment={selectedExperiment}
-          activeSection={settingsSection}
-          data={data}
-          runtimeState={runtimeState}
-          configState={configState}
-          pairings={sortedPairings}
-          visiblePotCount={visiblePotCount}
-          csvDownload={csvDownload}
-          csvError={csvError}
-          exportingCsv={exportingCsv}
-          controlBusy={controlBusy}
-          controlNotice={controlNotice}
-          commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
-          controlError={controlError}
-          assistantInitialPrompt={settingsAssistantPrompt}
-          operatorEmail={portalAccess.email ?? null}
-          onClose={() => setSettingsOpen(false)}
-          onSectionChange={setSettingsSection}
-          onPrepareCsvDownload={prepareCsvDownload}
-          onDownloadPairingsCsv={downloadPairingsCsv}
-          onQueueCommand={queueControlCommand}
-          onQueueSettingsPlan={queueSettingsPlan}
-          onSignOut={signOut}
-        /></FeatureBoundary> : null}
-      </main>
-    );
-  }
-
-  if (!isAdmin && portalView === "home") {
-    return (
-      <main className="dashboard-shell portal-admin-shell">
-        {portalHeader}
-        <PortalResearcherHome
-          onOpenMixer={portalAccess.gasMixerAllowed ? () => setPortalView("chamber") : undefined}
-          data={data}
-          experiments={availableExperiments}
-          canCreateExperiment={canCreateExperiment}
-          onOpenExperiment={openExperiment}
-          onNewExperiment={() => {
-            setEditingExperiment(null);
-            setExperimentBuilderOpen(true);
-          }}
-          onEditExperiment={(experiment) => {
-            setEditingExperiment(experiment);
-            setExperimentBuilderOpen(true);
-          }}
-        />
-        {experimentCatalogError ? (
-          <div className="portal-catalog-notice" role="status">New experiments are temporarily unavailable.</div>
-        ) : null}
-        {experimentBuilder}
-        {settingsMounted ? <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
-          open={settingsOpen}
-          projectId={activeProjectId}
-          portalRole={portalAccess.role}
-          experiment={selectedExperiment}
-          activeSection={settingsSection}
-          data={data}
-          runtimeState={runtimeState}
-          configState={configState}
-          pairings={sortedPairings}
-          visiblePotCount={visiblePotCount}
-          csvDownload={csvDownload}
-          csvError={csvError}
-          exportingCsv={exportingCsv}
-          controlBusy={controlBusy}
-          controlNotice={controlNotice}
-          commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
-          controlError={controlError}
-          assistantInitialPrompt={settingsAssistantPrompt}
-          operatorEmail={portalAccess.email ?? null}
-          onClose={() => setSettingsOpen(false)}
-          onSectionChange={setSettingsSection}
-          onPrepareCsvDownload={prepareCsvDownload}
-          onDownloadPairingsCsv={downloadPairingsCsv}
-          onQueueCommand={queueControlCommand}
-          onQueueSettingsPlan={queueSettingsPlan}
-          onSignOut={signOut}
-        /></FeatureBoundary> : null}
-      </main>
-    );
-  }
-
-  if (isAdmin && portalView === "analytics") {
-    return (
-      <main className="dashboard-shell portal-admin-shell">
-        {portalHeader}
-        <FeatureBoundary name="Web Analytics"><WebsiteAnalyticsWorkspace onBack={() => setPortalView("home")} /></FeatureBoundary>
-      </main>
-    );
-  }
-
-  if (isAdmin && portalView === "health") {
-    return (
-      <main className="dashboard-shell portal-admin-shell">
-        {portalHeader}
-        <FeatureBoundary name="System Health">
-          <SystemHealthView
-            snapshot={healthSnapshot}
-            history={healthHistory}
-            runtimeState={runtimeState}
-            error={healthError}
-            onBackHome={() => setPortalView("home")}
-          />
-        </FeatureBoundary>
-      </main>
-    );
-  }
-
-  if (isAdmin && portalView === "support") {
-    return (
-      <main className="dashboard-shell portal-admin-shell">
-        <FeatureBoundary name="Sales & Support">
-          <SalesSupportView
-            data={salesSupportData}
-            loading={salesSupportLoading}
-            error={salesSupportError}
-            onDeleteQuote={deleteQuoteRequest}
-            onBackHome={() => setPortalView("home")}
-          />
-        </FeatureBoundary>
-      </main>
-    );
-  }
-
-  if (isAdmin && portalView === "walker") {
-    return <FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>;
-  }
-
-  if (isAdmin && portalView === "chamber") {
-    return <ChamberControlView onBack={() => setPortalView("home")} />;
-  }
-
-  return (
-    <main className="dashboard-shell experiment-shell">
-      {experimentCornerActions}
-      <HealthSelectedDetailDrawer
-        detail={selectedWateringDetail}
-        onClose={() => setSelectedWateringDetail(null)}
-      />
-
-      {canUseExperimentSettings && settingsMounted ? (
-        <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
-          open={settingsOpen}
-          projectId={activeProjectId}
-          portalRole={portalAccess.role}
-          experiment={selectedExperiment}
-          activeSection={settingsSection}
-          data={data}
-          runtimeState={runtimeState}
-          configState={configState}
-          pairings={sortedPairings}
-          visiblePotCount={visiblePotCount}
-          csvDownload={csvDownload}
-          csvError={csvError}
-          exportingCsv={exportingCsv}
-          controlBusy={controlBusy}
-          controlNotice={controlNotice}
-          commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
-          controlError={controlError}
-          operatorEmail={portalAccess.email ?? null}
-          onClose={() => setSettingsOpen(false)}
-          onSectionChange={setSettingsSection}
-          onPrepareCsvDownload={prepareCsvDownload}
-          onDownloadPairingsCsv={downloadPairingsCsv}
-          onQueueCommand={queueControlCommand}
-          onQueueSettingsPlan={queueSettingsPlan}
-          onSignOut={signOut}
-        /></FeatureBoundary>
-      ) : null}
-
+  const potsTabContent = (
+    <>
       {error && !data.readings.length ? (
         <div className="banner error" role="alert">
           <AlertTriangle size={18} />
@@ -3048,8 +2643,6 @@ export default function App() {
         </div>
       ) : null}
 
-      <h1 className="experiment-view-title">{selectedExperiment.name}</h1>
-      {selectedExperiment.shortDescription ? <p className="experiment-view-description">{selectedExperiment.shortDescription}</p> : null}
       <MeasurementStatusBar
         freshness={experimentStatusFreshness}
         checkedAt={data.lastCheckedAt}
@@ -3380,6 +2973,283 @@ export default function App() {
           </aside>
         ) : null}
       </section>
+    </>
+  );
+
+  const productHeader = (
+    <ProductHeader
+      route={route}
+      sections={productSections}
+      onFindPot={() => setFindPotOpen(true)}
+      onOpenSettings={showSettingsControl ? () => {
+        prefetchSettings();
+        setSettingsOpen(true);
+      } : undefined}
+      onSignOut={() => void signOut()}
+    />
+  );
+
+  const settingsPanel = canUseExperimentSettings && settingsMounted ? (
+    <FeatureBoundary name="Settings" hidden={!settingsOpen} resetKey={settingsOpen} fallback={settingsOpen ? <FeatureLoading name="Settings" /> : null}><PortalSettingsPanel
+      open={settingsOpen}
+      projectId={activeProjectId}
+      portalRole={portalAccess.role}
+      experiment={selectedExperiment}
+      activeSection={settingsSection}
+      data={data}
+      runtimeState={runtimeState}
+      configState={configState}
+      pairings={sortedPairings}
+      visiblePotCount={visiblePotCount}
+      csvDownload={csvDownload}
+      csvError={csvError}
+      exportingCsv={exportingCsv}
+      controlBusy={controlBusy}
+      controlNotice={controlNotice}
+      commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
+      controlError={controlError}
+      assistantInitialPrompt={settingsAssistantPrompt}
+      operatorEmail={portalAccess.email ?? null}
+      onClose={() => setSettingsOpen(false)}
+      onSectionChange={setSettingsSection}
+      onPrepareCsvDownload={prepareCsvDownload}
+      onDownloadPairingsCsv={downloadPairingsCsv}
+      onQueueCommand={queueControlCommand}
+      onQueueSettingsPlan={queueSettingsPlan}
+      onSignOut={signOut}
+    /></FeatureBoundary>
+  ) : null;
+
+  const findPotDialog = (
+    <FindPotDialog
+      open={findPotOpen}
+      onClose={() => setFindPotOpen(false)}
+      pairings={visiblePairings}
+      experiments={availableExperiments}
+      routeFor={(pairingName) => ({ view: "pot", pot: pairingName })}
+    />
+  );
+
+  const productShell = (content: ReactNode) => (
+    <main className="px-shell">
+      {productHeader}
+      {content}
+      {experimentBuilder}
+      {settingsPanel}
+      {findPotDialog}
+      <HealthSelectedDetailDrawer
+        detail={selectedWateringDetail}
+        onClose={() => setSelectedWateringDetail(null)}
+      />
     </main>
+  );
+
+  if (isAdmin && portalView === "analytics") {
+    return productShell(
+      <FeatureBoundary name="Web Analytics"><WebsiteAnalyticsWorkspace onBack={() => setPortalView("home")} /></FeatureBoundary>,
+    );
+  }
+
+  if (isAdmin && portalView === "health") {
+    return productShell(
+      <FeatureBoundary name="System Health">
+        <SystemHealthView
+          snapshot={healthSnapshot}
+          history={healthHistory}
+          runtimeState={runtimeState}
+          error={healthError}
+          onBackHome={() => setPortalView("home")}
+        />
+      </FeatureBoundary>,
+    );
+  }
+
+  if (isAdmin && portalView === "support") {
+    return (
+      <main className="dashboard-shell portal-admin-shell">
+        <FeatureBoundary name="Sales & Support">
+          <SalesSupportView
+            data={salesSupportData}
+            loading={salesSupportLoading}
+            error={salesSupportError}
+            onDeleteQuote={deleteQuoteRequest}
+            onBackHome={() => setPortalView("home")}
+          />
+        </FeatureBoundary>
+      </main>
+    );
+  }
+
+  if (isAdmin && portalView === "walker") {
+    return <FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>;
+  }
+
+  if (isAdmin && portalView === "chamber") {
+    return <ChamberControlView onBack={() => setPortalView("home")} />;
+  }
+
+  if (route.view === "trends") {
+    return productShell(
+      <FeatureBoundary name="Trends" fallback={<FeatureLoading name="Trends" />}><TrendsView
+        experiments={availableExperiments}
+        pairings={visiblePairings}
+        readings={data.readings}
+        nowMs={clockNowMs}
+        asOfMs={lastGoodCheckAt}
+        loadedWindowMs={rollingExperimentHistoryMs}
+      /></FeatureBoundary>,
+    );
+  }
+
+  const renderPotPage = (potKey: string, experimentContext: PortalExperiment | null) => {
+    const match = resolvePot(potKey, visiblePairings, availableExperiments, {
+      preferExperimentId: experimentContext?.id ?? null,
+      nowMs: clockNowMs,
+    });
+    if (!match) {
+      return (
+        <section className="px-page">
+          <PortalLink className="px-crumb" to={experimentContext ? { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } : { view: "home" }}>
+            ← {experimentContext ? experimentContext.name : "Experiments"}
+          </PortalLink>
+          <p className="px-empty" role={loading ? "status" : "alert"}>
+            {loading && !data.pairings.length ? "Loading pots…" : `No pot “${potKey}” on this project's controller.`}
+          </p>
+        </section>
+      );
+    }
+    const potName = match.pairing.name;
+    return (
+      <FeatureBoundary name="Pot" fallback={<FeatureLoading name="Pot" />}><PotPage
+        match={match}
+        readings={data.readings.filter((reading) => reading.pairing_name === potName)}
+        valveEvents={valveEvents.filter((event) => event.pairing_name === potName)}
+        nowMs={clockNowMs}
+        asOfMs={lastGoodCheckAt}
+        loadedWindowMs={rollingExperimentHistoryMs}
+        backTo={experimentContext
+          ? { label: `${experimentContext.name} · Pots`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
+          : { label: "Experiments", route: { view: "home" } }}
+      /></FeatureBoundary>
+    );
+  };
+
+  if (route.view === "pot") {
+    return productShell(renderPotPage(route.pot, null));
+  }
+
+  if (route.view === "experiment") {
+    if (!routeExperiment) {
+      return productShell(<ExperimentNotFound id={route.experiment} loading={!catalogReady || accessLoading} />);
+    }
+    if (route.pot) {
+      return productShell(renderPotPage(route.pot, routeExperiment));
+    }
+    const experimentTabs: ExperimentTab[] = recordAvailable ? ["overview", "pots", "record"] : ["overview", "pots"];
+    const tab: ExperimentTab = experimentTabs.includes(route.tab) ? route.tab : "overview";
+    return productShell(
+      <ExperimentPage
+        experiment={routeExperiment}
+        tab={tab}
+        nowMs={clockNowMs}
+        exceptions={portalExceptions}
+        tabs={experimentTabs}
+      >
+        {tab === "overview" ? (
+          <FeatureBoundary name="Overview" fallback={<FeatureLoading name="Overview" />}><WaterlineOverview
+            experiment={routeExperiment}
+            pairings={sortedPairings}
+            readings={experimentReadings}
+            valveEvents={valveEventsForExperiment(valveEvents, routeExperiment)}
+            nowMs={clockNowMs}
+            asOfMs={lastGoodCheckAt}
+            loadedWindowMs={rollingExperimentHistoryMs}
+            dataSourceLabel={dataSourceLabel}
+          /></FeatureBoundary>
+        ) : (
+          <div className="px-pots-tab">
+            {potsTabContent}
+            <FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
+              experiment={routeExperiment}
+              pairings={sortedPairings}
+              readings={experimentReadings}
+              nowMs={clockNowMs}
+              asOfMs={lastGoodCheckAt}
+            /></FeatureBoundary>
+          </div>
+        )}
+      </ExperimentPage>,
+    );
+  }
+
+  const supportThreads = salesSupportData.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
+  const openSupportCount = supportThreads.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
+  const newSupportCount = supportThreads.filter((item) => item.status === "new").length;
+  const quoteCount = salesSupportData.quotes.filter((item) => item.status !== "closed" && item.status !== "won" && item.status !== "lost").length;
+
+  const adminTools = isAdmin ? (
+    <>
+      <WalkerAdminTile onOpen={() => setPortalView("walker")} />
+      <div className="portal-compact-row">
+        <ChamberControlAdminTile onOpen={() => setPortalView("chamber")} />
+        <button type="button" className="portal-launch-card is-support" onClick={() => setPortalView("support")}>
+          <span className="portal-launch-top">
+            <span className="portal-launch-icon">
+              <Mail size={20} />
+            </span>
+            {newSupportCount ? (
+              <span className="portal-status-pill is-warning">NEW</span>
+            ) : null}
+          </span>
+          <span className="portal-launch-copy">
+            <span className="portal-launch-title">Sales &amp; Support</span>
+            <strong>{salesSupportLoading ? "Loading..." : `${newSupportCount} new · ${openSupportCount + quoteCount} open`}</strong>
+          </span>
+          <span className="portal-launch-action">
+            Open <ArrowRight size={14} />
+          </span>
+        </button>
+      </div>
+      <div className="portal-compact-row">
+        <WebsiteAnalyticsTile onOpen={() => setPortalView("analytics")} />
+      </div>
+      <button type="button" className="portal-launch-card is-health" onClick={() => setPortalView("health")}>
+        <span className="portal-launch-top">
+          <span className="portal-launch-icon">
+            <Server size={18} />
+          </span>
+        </span>
+        <span className="portal-launch-copy">
+          <span className="portal-launch-title">System Health</span>
+          <strong>{healthLoading && !healthSnapshot ? "Loading..." : healthSnapshot ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors` : "No health snapshot"}</strong>
+        </span>
+        <span className="portal-launch-action">
+          Open <ArrowRight size={14} />
+        </span>
+      </button>
+    </>
+  ) : null;
+
+  return productShell(
+    <QuietSpineHome
+      experiments={availableExperiments}
+      exceptions={portalExceptions}
+      nowMs={clockNowMs}
+      checking={lastGoodCheckAt == null && refreshFailedAt == null}
+      catalogError={experimentCatalogError}
+      installation={installationState}
+      canCreate={canCreateExperiment}
+      onNewExperiment={() => {
+        setEditingExperiment(null);
+        setExperimentBuilderOpen(true);
+      }}
+      onEditExperiment={(experiment) => {
+        setEditingExperiment(experiment);
+        setExperimentBuilderOpen(true);
+      }}
+      healthLink={isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : undefined}
+      tools={adminTools ?? (portalAccess.gasMixerAllowed ? <GasMixerResearcherTile onOpen={() => setPortalView("chamber")} /> : undefined)}
+      recordAvailable={recordAvailable}
+    />,
   );
 }
