@@ -4,8 +4,16 @@ import { runInNewContext } from "node:vm";
 import { ModuleKind, transpileModule } from "typescript";
 import { sendPotNote, type NewPotNote } from "./potNotesClient";
 
-const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
+const { getSession, RestOnlyWebSocket } = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  // Node 20 has no browser WebSocket. These tests exercise real REST authorization only;
+  // fail if an unexpected realtime connection is attempted instead of opening a socket.
+  RestOnlyWebSocket: class {
+    constructor() { throw new Error("Unexpected realtime connection in a REST-only test"); }
+  },
+}));
 vi.mock("./supabase", async (importOriginal) => {
+  vi.stubGlobal("WebSocket", RestOnlyWebSocket);
   vi.stubEnv("VITE_SUPABASE_URL", "https://portal-notes-test.invalid");
   vi.stubEnv("VITE_SUPABASE_ANON_KEY", "public-test-anon-key");
   const original = await importOriginal<typeof import("./supabase")>();
@@ -22,6 +30,7 @@ const note: NewPotNote = {
 const stored = { ...note, created_by: "user-a", author_label: "Account A", recorded_at: "2026-10-08T15:01:00Z" };
 
 beforeEach(() => {
+  vi.stubGlobal("WebSocket", RestOnlyWebSocket);
   vi.stubEnv("VITE_SUPABASE_URL", "https://portal-notes-test.invalid");
   vi.stubEnv("VITE_SUPABASE_ANON_KEY", "public-test-anon-key");
   getSession.mockResolvedValue({ data: { session: { user: { id: "user-a" }, access_token: tokenA } }, error: null });
