@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { type ReactNode } from "react";
-import { experimentIsCompleted } from "../experimentMeasurement";
+import { experimentIsCompleted, orderHomeExperiments } from "../experimentMeasurement";
 import { isCalibrationExperiment, isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
 import { type HomeException, primaryExperimentException } from "../homeExceptions";
 import { formatMeasurementTime } from "../measurementFreshness";
@@ -179,7 +179,7 @@ export function QuietSpineHome({
   recordAvailable: boolean;
 }) {
   const installationNotices = exceptions.filter((item) => item.scope !== "experiment");
-  const ordered = experiments.slice().sort((a, b) => Number(experimentIsCompleted(a, nowMs)) - Number(experimentIsCompleted(b, nowMs)));
+  const ordered = orderHomeExperiments(experiments, nowMs);
   return (
     <section className="px-home" aria-label="Experiments">
       <div className="px-home-top">

@@ -11,6 +11,16 @@ export function experimentIsCompleted(experiment: Pick<PortalExperiment, "status
   return Number.isFinite(ended) && ended <= nowMs;
 }
 
+/** Active experiments lead; completed records sort naturally by name so numbered runs stay together. */
+export function orderHomeExperiments(experiments: readonly PortalExperiment[], nowMs = Date.now()) {
+  return experiments.slice().sort((a, b) => {
+    const aCompleted = experimentIsCompleted(a, nowMs);
+    const bCompleted = experimentIsCompleted(b, nowMs);
+    if (aCompleted !== bCompleted) return Number(aCompleted) - Number(bCompleted);
+    return aCompleted ? a.name.localeCompare(b.name, "en", { numeric: true }) : 0;
+  });
+}
+
 /** Shortest configured cadence among the pots; the experiment is current only if its fastest reporters are. */
 export function experimentCadenceMs(pairings: readonly Pick<PairingRow, "measurement_interval_ms">[]) {
   let cadence: number | null = null;

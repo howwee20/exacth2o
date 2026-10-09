@@ -1,17 +1,33 @@
-/* Centered animation occupies the existing footer, without a new section. */
-footer { position: relative; }
+html { overscroll-behavior-y: none; }
+/* A full-height wordmark anchors the footer, with contact details to its right. */
+footer {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: flex-end;
+  min-height: clamp(190px, 17vw, 340px);
+  padding: 2rem clamp(1.5rem, 3.7vw, 4rem);
+  overflow: hidden;
+  isolation: isolate;
+}
 .brand-finale {
   position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: clamp(200px, 23vw, 300px);
+  left: -.8vw;
+  bottom: 1rem;
+  width: min(76vw, calc(100% - 300px));
+  transform: none;
   pointer-events: none;
+  z-index: -1;
 }
 .brand-finale svg { display: block; width: 100%; height: auto; overflow: visible; }
 .brand-finale-type { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 240px; font-weight: 600; font-style: italic; }
-/* Both words remain scan lines, including the transient colored splash. */
+footer .footer-details { align-items: flex-end; text-align: right; gap: .7rem; }
+footer .footer-support { color: #d3d9d4; }
+footer .footer-copyright { color: #a5b1aa; }
+footer .made-in-america { margin-top: .15rem; }
 @media (max-width: 768px) {
-  footer .footer-identity { align-items: flex-start; align-self: flex-start; }
-  .brand-finale { width: min(40vw, 200px); left: auto; right: 1.5rem; bottom: 0; transform: none; }
+  footer { min-height: 230px; padding: 1.5rem; align-items: flex-start; }
+  .brand-finale { left: -1vw; right: auto; width: 100%; bottom: 1rem; transform: none; }
+  footer .footer-details { align-items: flex-end; text-align: right; }
 }

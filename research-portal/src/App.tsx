@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, Server, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlAdminTile, ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerAdminTile } from "./WalkerObservationView";
@@ -22,7 +22,7 @@ import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
 import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
-import { controlCommandLabel, errorMessage, formatHealthInteger, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
+import { controlCommandLabel, errorMessage, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
 import { colorForPairing, orderedPairings, plantGroupForPairing, plantGroupLabel, treatmentForPairing, treatmentLabel } from "./portalPresentation";
 import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectContext";
 import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime, sourceLabelForReading } from "./portalReadings";
@@ -242,7 +242,6 @@ export default function App() {
   const [runtimeState, setRuntimeState] = useState<DeviceRuntimeState | null>(null);
   const [configState, setConfigState] = useState<DeviceConfigState | null>(null);
   const [valveEvents, setValveEvents] = useState<ValveEvent[]>([]);
-  const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
   const salesSupportLoadId = useRef(0);
   const [salesSupportData, setSalesSupportData] = useState<SalesSupportData>(initialSalesSupportData);
@@ -678,7 +677,6 @@ export default function App() {
     if (!isAdmin || !activeProjectId || !activeDeviceId) return;
     const silent = options.silent === true;
     if (!silent) {
-      setHealthLoading(true);
       setHealthError(null);
     }
 
@@ -702,8 +700,6 @@ export default function App() {
       setHealthSnapshot(selectHealthSnapshot(snapshots));
     } catch (err) {
       if (!silent) setHealthError(errorMessage(err));
-    } finally {
-      if (!silent) setHealthLoading(false);
     }
   }, [activeDeviceId, activeProjectId, isAdmin]);
 
@@ -1597,7 +1593,6 @@ export default function App() {
     setHealthHistory([]);
     setRuntimeState(null);
     setConfigState(null);
-    setHealthLoading(false);
     setHealthError(null);
     setSalesSupportData(initialSalesSupportData);
     setSalesSupportLoading(false);
@@ -3395,20 +3390,6 @@ export default function App() {
       <div className="portal-compact-row">
         <WebsiteAnalyticsTile onOpen={() => setPortalView("analytics")} />
       </div>
-      <button type="button" className="portal-launch-card is-health" onClick={() => setPortalView("health")}>
-        <span className="portal-launch-top">
-          <span className="portal-launch-icon">
-            <Server size={18} />
-          </span>
-        </span>
-        <span className="portal-launch-copy">
-          <span className="portal-launch-title">System Health</span>
-          <strong>{healthLoading && !healthSnapshot ? "Loading..." : healthSnapshot ? `${formatHealthInteger(healthSnapshot.sensors_current)} / ${formatHealthInteger(healthSnapshot.sensors_expected)} sensors` : "No health snapshot"}</strong>
-        </span>
-        <span className="portal-launch-action">
-          Open <ArrowRight size={14} />
-        </span>
-      </button>
     </>
   ) : null;
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { measurementFreshness } from "./measurementFreshness";
 import {
   experimentFreshness,
+  orderHomeExperiments,
   experimentProgressText,
   groupTarget,
   latestMeasurementByPot,
@@ -11,6 +12,7 @@ import {
   targetLinesForPairings,
 } from "./experimentMeasurement";
 import { pairingWateringDisabled, presentTarget, wateringDisabledTarget } from "./targetPresentation";
+import type { PortalExperiment } from "./experimentRegistry";
 import type { PairingRow } from "./types";
 
 function pairing(name: string, overrides: Partial<PairingRow> = {}): PairingRow {
@@ -161,3 +163,17 @@ describe("reporting coverage", () => {
   });
 });
 
+
+describe("home experiment ordering", () => {
+  it("places the current run first and keeps completed numbered runs together", () => {
+    const make = (name: string, status: PortalExperiment["status"]): PortalExperiment => ({
+      id: name, name, status, mode: "controlled", shortDescription: "", pairingNames: [], groupNames: [],
+    });
+    const runs = [make("SWC Saturation Calibration", "completed"), make("Matt Experiment 10", "completed"),
+      make("Matt Experiment 2", "completed"), make("Huiqiao Pan experiment", "active"), make("Matt Experiment 1", "completed")];
+    expect(orderHomeExperiments(runs).map(run => run.name)).toEqual([
+      "Huiqiao Pan experiment", "Matt Experiment 1", "Matt Experiment 2", "Matt Experiment 10", "SWC Saturation Calibration",
+    ]);
+    expect(runs[0].name).toBe("SWC Saturation Calibration");
+  });
+});
