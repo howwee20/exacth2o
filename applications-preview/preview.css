@@ -7,8 +7,6 @@ body{margin:0;background:#f4f1eb}
 .px-page{padding-top:44px}
 .px-home-grid{grid-template-columns:minmax(0,720px);justify-content:center}
 
-/* Sample-data label: always visible inside the public demonstration. */
-.demo-sample-badge{position:fixed;left:12px;top:10px;z-index:30;padding:3px 9px;border:1px solid #d6ddd9;border-radius:999px;background:rgba(255,255,255,.94);color:#475569;font:500 11px/1.4 "DM Mono",monospace;letter-spacing:.03em;pointer-events:none}
 
 /* The Pots tab keeps the chart and pot list side by side within the frame. */
 .px-pots-tab .dashboard-main{grid-template-columns:minmax(0,1fr) 304px!important;gap:12px;min-height:0!important;height:max(430px,calc(100vh - 200px));align-items:stretch}

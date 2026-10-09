@@ -74,7 +74,7 @@ const forbiddenApplicationsCopy = [
 ];
 const requiredApplicationsCopy = [
   'src="/applications-demo-app/index.html"',
-  'title="ExactH2O experiment portal with sample readings"',
+  'title="ExactH2O experiment portal"',
   "/applications-plant-stress-20260804.jpg",
   "/applications-plant-phenotyping-20260804.jpg",
   "/applications-research-greenhouse-20260804.jpg",

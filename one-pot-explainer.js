@@ -99,7 +99,7 @@
     chart.append(el("path", { d, class: "one-pot-line" }));
 
     const count = waterings.length;
-    chart.setAttribute("aria-label", `A synthetic pot over three days with a ${targetPercent}% target. The valve opened ${count} ${count === 1 ? "time" : "times"}.`);
+    chart.setAttribute("aria-label", `An irrigation example over three days with a ${targetPercent}% target. The valve opened ${count} ${count === 1 ? "time" : "times"}.`);
     result.textContent = `Simulation: ${count} valve ${count === 1 ? "opening" : "openings"} over three days at a ${targetPercent}% target.`;
     if (targetValue) targetValue.textContent = `${targetPercent}%`;
   }

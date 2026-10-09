@@ -55,7 +55,7 @@ h1 em, h2 em { font-style: normal; }
 .research-proof .research-brief h3 { font-family: var(--sans); font-size: 1.5rem; font-weight: 600; margin: .5rem 0; letter-spacing: -.025em; }
 .research-proof .research-brief a { flex: none; font-family: var(--sans); font-weight: 600; font-size: .9rem; letter-spacing: 0; text-transform: none; }
 .cta-strip { background: #edf3ef; border-top: 1px solid var(--rule); padding: 3.5rem 1.5rem; }
-.cta-strip h2 { font-family: var(--sans); font-weight: 600; font-size: 2rem; letter-spacing: -.03em; }
+.cta-strip h2 { color: var(--ink); font-family: var(--sans); font-weight: 600; font-size: 2rem; letter-spacing: -.03em; }
 .cta-strip p { color: #53665d; font-size: 1rem; }
 .app-card { border-color: var(--rule); background: #fff; box-shadow: none; border-radius: 8px; }
 .app-card-title { font-size: 1.6rem; font-weight: 600; letter-spacing: -.025em; }
