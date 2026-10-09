@@ -176,8 +176,8 @@ export function targetLinesForPairings(
 /** Tooltip text for one pot's target. */
 export function pairingTargetText(pairing: PairingRow | undefined, experiment: Pick<PortalExperiment, "status" | "wateringState" | "mode" | "endedAt">) {
   if (!pairing) return null;
-  if (isObservationOnlyExperiment(experiment as PortalExperiment)) return "Sensing only";
   if (pairingWateringDisabled(pairing)) return "Watering disabled";
+  if (isObservationOnlyExperiment(experiment as PortalExperiment)) return `Controller target ${formatVwc(pairing.wtc_percent_limit)} · plan sensing only`;
   return `Target ${formatVwc(pairing.wtc_percent_limit)}`;
 }
 

@@ -25,7 +25,7 @@ export function experimentModeLine(experiment: PortalExperiment, nowMs: number) 
   }
   if (experiment.status === "activating") return "Starting on the controller";
   if (isCalibrationExperiment(experiment)) return "Calibration";
-  if (isObservationOnlyExperiment(experiment)) return "Sensing only";
+  if (isObservationOnlyExperiment(experiment)) return "Sensing-only plan";
   return null;
 }
 

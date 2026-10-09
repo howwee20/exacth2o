@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo } from "react";
 import { levelLabel } from "../experimentFactors";
-import { experimentIsCompleted } from "../experimentMeasurement";
+import { experimentIsCompleted, pairingTargetText } from "../experimentMeasurement";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
 import { formatCadence, formatMeasurementTime, measurementFreshness } from "../measurementFreshness";
 import { setPortalQuery, usePortalQueryValue } from "../portalRoute";
@@ -25,6 +25,7 @@ export function potReadingSentence(input: {
   target: string | null;
 }) {
   if (input.value == null || input.measuredAt == null) return `Pot ${input.potNumber} has no reading in the loaded window.`;
+  if (input.value < 0 || input.value > 100) return `Pot ${input.potNumber}: invalid VWC reading ${input.value.toFixed(1)}%, outside 0–100%.${input.target ? ` ${input.target}.` : ""}`;
   const reading = `${input.value.toFixed(1)}% VWC at ${formatMeasurementTime(input.measuredAt)}`;
   const state = input.freshnessState === "current" ? "current" : input.freshnessDetail.replace(/\.$/, "").toLowerCase();
   return `Pot ${input.potNumber}: ${reading} (${state}).${input.target ? ` ${input.target}.` : ""}`;
@@ -67,14 +68,15 @@ export function PotPage({
     completed,
     nowMs: asOfMs ?? nowMs,
   });
-  const sensing = experiment ? isObservationOnlyExperiment(experiment) : true;
   const disabled = pairingWateringDisabled(pairing);
+  const sensingPlan = experiment ? isObservationOnlyExperiment(experiment) : false;
+  const sensing = sensingPlan && disabled;
   const plan = assignment?.target_vwc_percent ?? null;
-  const targetText = experiment && sensing
-    ? "Sensing only"
-    : disabled
-      ? "Watering disabled on the controller"
-      : `${experiment ? "Target" : "Controller target"} ${pairing.wtc_percent_limit}% VWC${plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
+  const targetText = completed
+    ? `Experiment complete${plan != null ? ` · recorded target ${plan}% VWC` : ""}`
+    : disabled ? "Watering disabled on the controller"
+      : `${experiment ? pairingTargetText(pairing, experiment) : `Controller target ${pairing.wtc_percent_limit}% VWC`}${!sensingPlan && plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
+  const invalidVwc = latestVwc != null && (latestVwc.value < 0 || latestVwc.value > 100);
   const opens = valveEvents
     .filter((event) => event.action === "open")
     .map((event) => Date.parse(event.device_recorded_at ?? event.server_received_at))
@@ -85,7 +87,7 @@ export function PotPage({
   const info = measures[measure];
   const points = (trace?.points ?? []).filter((point) => point.timestampMs >= window.startMs);
   const values = points.map((point) => point.value);
-  const showTarget = measure === "vwc" && !sensing && !disabled && !completed;
+  const showTarget = measure === "vwc" && !disabled && !completed;
   const lo = Math.min(...values, ...(showTarget ? [pairing.wtc_percent_limit] : []));
   const hi = Math.max(...values, ...(showTarget ? [pairing.wtc_percent_limit] : []));
   const yDomain: [number, number] = Number.isFinite(lo) && Number.isFinite(hi)
@@ -118,7 +120,9 @@ export function PotPage({
         <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
           <div className={`px-card px-reading ${latestVwc && freshness.state !== "stale" && freshness.state !== "unknown" ? "" : "is-silent"}`}>
             {latestVwc ? (
-              freshness.state === "stale" ? (
+              invalidVwc ? (
+                <strong>Invalid VWC reading</strong>
+              ) : freshness.state === "stale" ? (
                 <strong>No current reading</strong>
               ) : (
                 <strong>{latestVwc.value.toFixed(1)}<small>% VWC</small></strong>
@@ -127,6 +131,7 @@ export function PotPage({
             <span className="px-muted">
               {latestVwc ? `Measured ${formatMeasurementTime(latestVwc.timestampMs)} · ${freshness.detail}` : "The controller has not reported this pot in the loaded window."}
             </span>
+            {invalidVwc && latestVwc ? <span className="px-notice is-bad">Reported {latestVwc.value.toFixed(1)}% VWC, outside 0–100%. This reading cannot be used for automatic watering.</span> : null}
             {latestVwc && freshness.state === "stale" ? (
               <span className="px-muted">Last value {latestVwc.value.toFixed(1)}% VWC — kept for reference, not a current reading.</span>
             ) : null}

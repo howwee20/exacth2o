@@ -112,7 +112,8 @@ describe("targetLinesForPairings", () => {
   it("describes each pot's target for tooltips", () => {
     expect(pairingTargetText(pairing("Pot 1", { wtc_percent_limit: 0 }), active)).toBe("Target 0% VWC");
     expect(pairingTargetText(pairing("Pot 1", { wtc_percent_limit: -999_999 }), active)).toBe("Watering disabled");
-    expect(pairingTargetText(pairing("Pot 1"), { ...active, mode: "observation" })).toBe("Sensing only");
+    expect(pairingTargetText(pairing("Pot 1"), { ...active, mode: "observation" })).toBe("Controller target 30% VWC · plan sensing only");
+    expect(pairingTargetText(pairing("Pot 1", { valve_open_time_ms: 0 }), { ...active, mode: "observation" })).toBe("Watering disabled");
   });
 });
 
@@ -160,4 +161,3 @@ describe("reporting coverage", () => {
     expect(withReportingCoverage(measurementFreshness({ measuredAt: now, nowMs: now }), { reporting: 12, total: 12 }).state).toBe("current");
   });
 });
-

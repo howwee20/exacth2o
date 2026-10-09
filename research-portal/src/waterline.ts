@@ -91,6 +91,7 @@ export type TimedPoint = { timestampMs: number; value: number };
 
 export type PotTrace = {
   name: string;
+  measure?: Measure;
   potNumber: number | null;
   points: TimedPoint[];
   /** Configured cadence, or the observed one when the controller did not report it. */
@@ -123,6 +124,7 @@ export function potTraces(
     const cadence = resolveCadence(points, configured);
     traces.set(pairing.name, {
       name: pairing.name,
+      measure,
       potNumber: Number.isFinite(pairing.pot_number) ? pairing.pot_number : null,
       points,
       intervalMs: cadence.intervalMs,
@@ -154,7 +156,7 @@ export type GroupWaterline = {
   potTotal: number;
   /** Pots whose newest reading is current against their own cadence, as of `asOfMs`. */
   reporting: number;
-  silent: { name: string; potNumber: number | null; lastAt: number | null }[];
+  silent: { name: string; potNumber: number | null; lastAt: number | null; invalid?: boolean }[];
   /** Median and range of each reporting pot's newest value. */
   latest: { median: number; low: number; high: number; pots: number; atMs: number } | null;
   /** Newest observation time among the group's pots. */
@@ -199,6 +201,7 @@ export function groupWaterline(
     const points = trace?.points ?? [];
     for (const point of points) {
       if (point.timestampMs < window.startMs || point.timestampMs > window.endMs) continue;
+      if (trace?.measure === "vwc" && (point.value < 0 || point.value > 100)) continue;
       const index = Math.min(count - 1, Math.floor((point.timestampMs - first) / bucketMs));
       const cell = sums[index].get(name) ?? { sum: 0, n: 0 };
       cell.sum += point.value;
@@ -209,13 +212,14 @@ export function groupWaterline(
     const lastPoint = [...points].reverse().find((point) => point.timestampMs <= options.asOfMs) ?? null;
     if (lastPoint && (lastObservationMs == null || lastPoint.timestampMs > lastObservationMs)) lastObservationMs = lastPoint.timestampMs;
     const { currentMs } = freshnessThresholds(trace?.intervalMs ?? null);
-    const isCurrent = lastPoint != null && options.asOfMs - lastPoint.timestampMs <= currentMs;
+    const invalid = lastPoint != null && trace?.measure === "vwc" && (lastPoint.value < 0 || lastPoint.value > 100);
+    const isCurrent = lastPoint != null && !invalid && options.asOfMs - lastPoint.timestampMs <= currentMs;
     if (isCurrent && lastPoint) {
       reporting += 1;
       latestValues.push(lastPoint.value);
       latestAt = Math.max(latestAt, lastPoint.timestampMs);
     } else {
-      silent.push({ name, potNumber: trace?.potNumber ?? null, lastAt: lastPoint?.timestampMs ?? null });
+      silent.push({ name, potNumber: trace?.potNumber ?? null, lastAt: lastPoint?.timestampMs ?? null, ...(invalid ? { invalid: true } : {}) });
     }
   }
 

@@ -163,6 +163,16 @@ export function homeExceptions(input: HomeExceptionInput): HomeException[] {
       }
     }
 
+    const configured = input.pairings.filter((pairing) => experiment.pairingNames.includes(pairing.name) && !pairingWateringDisabled(pairing));
+    if (isObservationOnlyExperiment(experiment) && configured.length) {
+      const targets = Array.from(new Set(configured.map((pairing) => trimNumber(pairing.wtc_percent_limit))));
+      out.push({
+        kind: "configuration-discrepancy", scope: "experiment", experimentId: experiment.id,
+        pairingNames: configured.map((pairing) => pairing.name),
+        short: `Sensing-only plan · controller watering configured on ${configured.length} pots`,
+        sentence: `The saved plan says sensing only, but the controller configuration enables watering on ${configured.length} ${configured.length === 1 ? "pot" : "pots"}, targeting ${targets.map((target) => `${target}%`).join(" / ")} VWC. Review the applied settings before relying on the plan.`,
+      });
+    }
     const differing = targetDiscrepancies(experiment, input.pairings);
     if (differing.length) {
       const plans = Array.from(new Set(differing.map((pot) => trimNumber(pot.plan))));
