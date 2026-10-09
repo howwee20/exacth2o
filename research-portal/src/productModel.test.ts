@@ -5,9 +5,48 @@ import { homeExceptions, primaryExperimentException } from "./homeExceptions";
 import { parsePortalRoute, portalRouteSearch } from "./portalRoute";
 import type { PairingRow, SensorReading } from "./types";
 import { availableMeasures, groupWaterline, median, potTraces, waterlineSegments } from "./waterline";
+import { appliedGroupTarget } from "./product/WaterlineOverview";
 
 const minute = 60_000;
 const hour = 60 * minute;
+
+describe("native controller changes after a sensing-only plan", () => {
+  it("shows the applied 35% target and the disabled pot even when the saved plan still says sensing only", () => {
+    const pan: PortalExperiment = {
+      ...experiment, mode: "observation", wateringState: "off",
+      pairingNames: ["Zone1-Pot1", "Zone1-Pot2"],
+      assignments: [assignment(1, "", "maize"), assignment(2, "", "maize")],
+    };
+    const group = potGroups(pan, [])[0];
+    const enabled = { ...pairing(1, 35), valve_open_time_ms: 2000 };
+    const disabled = { ...pairing(2, 35), valve_open_time_ms: 0 };
+    const target = appliedGroupTarget(group, [enabled, disabled], pan, Date.now());
+    expect(target.line?.value).toBe(35);
+    expect(target.text).toBe("Controller target 35% VWC · plan sensing only · 1 pot unwatered");
+    expect(target.planMismatch).toBe(true);
+    const notices = homeExceptions({ experiments: [pan], pairings: [enabled, disabled], readings: [], nowMs: Date.now(), checked: false, refresh: { failedAt: null, lastSuccessAt: null }, controller: null, formatTime: String });
+    expect(notices).toHaveLength(1);
+    expect(notices[0].kind).toBe("configuration-discrepancy");
+    expect(notices[0].sentence).toContain("configuration enables watering on 1 pot, targeting 35% VWC");
+    expect(appliedGroupTarget(group, [enabled, disabled], { ...pan, status: "completed" }, Date.now()).line).toBeNull();
+  });
+
+  it("keeps an invalid probe visible while excluding it from current VWC coverage and group statistics", () => {
+    const now = Date.parse("2026-10-09T19:00:00Z");
+    const pan = { ...experiment, pairingNames: [1, 2, 3, 4, 5, 6].map((p) => `Zone1-Pot${p}`), assignments: [1, 2, 3, 4, 5, 6].map((p) => assignment(p, "", "maize")) };
+    const pairings = [1, 2, 3, 4, 5, 6].map((p) => pairing(p, 35));
+    const readings = [reading(1, now - minute, 34), reading(1, now, -1.2), ...[2, 3, 4, 5, 6].map((p) => reading(p, now, 28 + p))];
+    const traces = potTraces(readings, pairings, "vwc");
+    const group = potGroups(pan, [])[0];
+    const line = groupWaterline(group, traces, { startMs: now - hour, endMs: now }, { asOfMs: now });
+    expect(traces.get("Zone1-Pot1")?.points.at(-1)?.value).toBe(-1.2);
+    expect(line.reporting).toBe(5);
+    expect(line.latest?.median).toBe(32);
+    expect(line.latest?.low).toBe(30);
+    expect(line.silent.find((p) => p.name === "Zone1-Pot1")?.invalid).toBe(true);
+    expect(groupWaterline(group, potTraces(readings, pairings, "raw"), { startMs: now - hour, endMs: now }, { asOfMs: now }).reporting).toBe(6);
+  });
+});
 
 function assignment(pot: number, treatment: string, crop: string, target: number | null = null): PortalExperimentAssignment {
   return {

@@ -33,24 +33,24 @@ type AppliedTarget = { line: ChartTarget | null; text: string | null; planMismat
 
 /** What the controller is applying to a group, with the plan beside it when they differ. */
 export function appliedGroupTarget(group: PotGroup, pairings: readonly PairingRow[], experiment: PortalExperiment, nowMs: number): AppliedTarget {
-  if (isObservationOnlyExperiment(experiment)) return { line: null, text: "Sensing only", planMismatch: false };
   if (experimentIsCompleted(experiment, nowMs)) return { line: null, text: null, planMismatch: false };
+  const sensingPlan = isObservationOnlyExperiment(experiment);
   const names = new Set(group.pairingNames);
   const groupPairings = pairings.filter((pairing) => names.has(pairing.name));
   const active = groupPairings.filter((pairing) => !pairingWateringDisabled(pairing));
-  if (!groupPairings.length) return { line: null, text: null, planMismatch: false };
+  if (!groupPairings.length) return { line: null, text: sensingPlan ? "Sensing-only plan" : null, planMismatch: false };
   if (!active.length) return { line: null, text: "Watering disabled", planMismatch: false };
   const applied = Array.from(new Set(active.map((pairing) => Number(pairing.wtc_percent_limit.toFixed(2)))));
-  const planMismatch = group.plannedTargets.length > 0 && applied.some((value) => !group.plannedTargets.some((plan) => Math.abs(plan - value) < 0.001));
+  const planMismatch = sensingPlan || (group.plannedTargets.length > 0 && applied.some((value) => !group.plannedTargets.some((plan) => Math.abs(plan - value) < 0.001)));
   const disabled = groupPairings.length - active.length;
   const disabledText = disabled ? ` · ${disabled} ${disabled === 1 ? "pot" : "pots"} unwatered` : "";
   if (applied.length !== 1) {
     return { line: null, text: `Mixed targets ${applied.map((value) => `${value}%`).join(" / ")}${disabledText}`, planMismatch };
   }
-  const plan = planMismatch ? ` · plan ${group.plannedTargets.map((value) => `${value}%`).join(" / ")}` : "";
+  const plan = sensingPlan ? " · plan sensing only" : planMismatch ? ` · plan ${group.plannedTargets.map((value) => `${value}%`).join(" / ")}` : "";
   return {
     line: { value: applied[0], label: `Target ${applied[0]}%${plan}`, color: group.pattern.color, dash: "1 0" },
-    text: `Target ${applied[0]}% VWC${plan}${disabledText}`,
+    text: `${sensingPlan ? "Controller target" : "Target"} ${applied[0]}% VWC${plan}${disabledText}`,
     planMismatch,
   };
 }
@@ -187,6 +187,7 @@ export function WaterlineOverview({
   }, [pairings]);
   const totalPots = experiment.pairingNames.length;
   const reportingTotal = lines.reduce((sum, line) => sum + line.reporting, 0);
+  const invalidTotal = lines.reduce((sum, line) => sum + line.silent.filter((pot) => pot.invalid).length, 0);
   const cadences = Array.from(new Set(pairings.map((pairing) => formatCadence(pairing.measurement_interval_ms)).filter(Boolean)));
   const readout = (line: GroupWaterline) => (t: number) => {
     const bucket = line.buckets.find((item) => t >= item.startMs && t < item.endMs);
@@ -237,14 +238,14 @@ export function WaterlineOverview({
           Show individual pots
         </label>
         <span className="px-spacer" />
-        <span className="px-muted px-small">{reportingTotal} of {totalPots} pots reporting{asOfMs ? ` · checked ${formatMeasurementTime(asOfMs)}` : ""}</span>
+        <span className="px-muted px-small">{reportingTotal} of {totalPots} {measure === "vwc" ? "pots with valid VWC" : "pots reporting"}{invalidTotal ? ` · ${invalidTotal} invalid` : ""}{asOfMs ? ` · checked ${formatMeasurementTime(asOfMs)}` : ""}</span>
       </div>
 
       {lines.map((line) => {
         const target = targets.get(line.group.id);
         const { median, band } = lineFromWaterline(line);
         const pots = showPots ? potLines(line.group, traces, window) : [];
-        const ticks = isObservationOnlyExperiment(experiment) || measure !== "vwc"
+        const ticks = measure !== "vwc"
           ? []
           : line.group.pairingNames.flatMap((name) => (opensByPot.get(name) ?? []).map((timestampMs) => ({ timestampMs })));
         const coverageWarn = line.reporting < line.potTotal;
@@ -287,15 +288,18 @@ export function WaterlineOverview({
                 const trace = traces.get(name);
                 const silent = line.silent.find((pot) => pot.name === name);
                 const last = trace?.points.length ? trace.points[trace.points.length - 1] : null;
+                const readingLabel = silent?.invalid
+                  ? `invalid VWC reading ${formatMeasureValue(last?.value, measure)}`
+                  : silent ? (silent.lastAt ? `no current reading, last at ${formatMeasurementTime(silent.lastAt)}` : "no readings in this window") : formatMeasureValue(last?.value, measure);
                 return (
                   <PortalLink
                     key={name}
                     className={`px-pot-chip ${silent ? "is-silent" : ""}`}
                     to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: name }}
-                    aria-label={`Pot ${trace?.potNumber ?? name}: ${silent ? (silent.lastAt ? `no current reading, last at ${formatMeasurementTime(silent.lastAt)}` : "no readings in this window") : `${formatMeasureValue(last?.value, measure)}`}`}
+                    aria-label={`Pot ${trace?.potNumber ?? name}: ${readingLabel}`}
                   >
                     <b>{trace?.potNumber ?? name}</b>
-                    <span>{silent ? (silent.lastAt ? "silent" : "no data") : formatMeasureValue(last?.value, measure)}</span>
+                    <span>{silent?.invalid ? "invalid VWC" : silent ? (silent.lastAt ? "silent" : "no data") : formatMeasureValue(last?.value, measure)}</span>
                   </PortalLink>
                 );
               })}
@@ -310,8 +314,8 @@ export function WaterlineOverview({
       <div className="px-legend" aria-label="How to read the overview">
         <span className="px-legend-item"><span className="px-swatch-line" style={{ color: "#1d2a24" }} /> median of pots</span>
         <span className="px-legend-item"><span className="px-swatch-band" style={{ background: "rgba(29,42,36,0.16)" }} /> lowest–highest pot (a range, not a confidence interval)</span>
-        {info.hasTargets && !isObservationOnlyExperiment(experiment) ? <span className="px-legend-item"><span className="px-swatch-line" style={{ color: "#1d2a24", borderTopWidth: 1 }} /> controller target</span> : null}
-        {!isObservationOnlyExperiment(experiment) && measure === "vwc" ? <span className="px-legend-item"><span className="px-swatch-line" style={{ color: "#1f5f8b", width: 2, height: 8, borderTop: 0, borderLeft: "2px solid #1f5f8b" }} /> valve opening (controller record, not measured water)</span> : null}
+        {info.hasTargets && Array.from(targets.values()).some((target) => target.line) ? <span className="px-legend-item"><span className="px-swatch-line" style={{ color: "#1d2a24", borderTopWidth: 1 }} /> controller target</span> : null}
+        {measure === "vwc" ? <span className="px-legend-item"><span className="px-swatch-line" style={{ color: "#1f5f8b", width: 2, height: 8, borderTop: 0, borderLeft: "2px solid #1f5f8b" }} /> valve opening (controller record, not measured water)</span> : null}
         <span className="px-legend-item">Line breaks where fewer than half of a group's pots reported.</span>
       </div>
 
@@ -322,7 +326,7 @@ export function WaterlineOverview({
           <dt>Grouping</dt><dd>{groupingLabel(grouping)}, from the experiment plan{experiment.currentVersion ? ` (revision ${experiment.currentVersion})` : ""}. {factors.length ? `Factors in this plan: ${factors.map((factor) => `${factor.label} (${factor.levels.map((level) => level.label).join(", ")})`).join("; ")}.` : "The plan has no varying factor, so all pots form one group."}</dd>
           <dt>Pot value</dt><dd>Each pot contributes one value per {Math.round(bucketMs / 60_000)}-minute bucket: the mean of its own readings in that bucket. The pot is the experimental unit; a pot that reports more often does not count more.</dd>
           <dt>Group line</dt><dd>Median of the pot values in each bucket. The shaded band is the lowest to highest pot value — a range, not a confidence interval. Where fewer than half of the group's pots reported, the line breaks instead of being drawn from too few pots.</dd>
-          <dt>Reporting</dt><dd>A pot is reporting when its newest reading is within two of its own reporting intervals (at least 5 minutes) plus 2 minutes for upload{asOfMs ? `, judged as of the last successful check (${formatMeasurementTime(asOfMs)})` : ""}.</dd>
+          <dt>Reporting</dt><dd>A pot is reporting when its newest reading is within two of its own reporting intervals (at least 5 minutes) plus 2 minutes for upload{asOfMs ? `, judged as of the last successful check (${formatMeasurementTime(asOfMs)})` : ""}. VWC outside 0–100% is marked invalid and excluded from group summaries; its sensor output remains available on the pot page.</dd>
           <dt>Targets</dt><dd>{info.hasTargets ? "The hairline is the target the controller is applying (what watering follows). When the experiment plan differs, the label says so." : "Targets apply to calibrated VWC only, so none are drawn for this measure."}</dd>
           <dt>Calibration</dt><dd>{Array.from(calibrations.entries()).map(([name, pots]) => `${name} (${pots.length} ${pots.length === 1 ? "pot" : "pots"})`).join("; ")}.</dd>
           <dt>Cadence</dt><dd>{cadences.length ? cadences.join(", ") : "Not reported by the controller; gaps use the observed spacing."}</dd>

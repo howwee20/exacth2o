@@ -213,12 +213,12 @@ export function PocketView({
     const freshness = measurementFreshness({ measuredAt: last?.timestampMs, expectedIntervalMs: pairing.measurement_interval_ms, completed, nowMs: asOfMs ?? nowMs });
     const stale = !last || freshness.state === "stale" || freshness.state === "unknown";
     const cached = !online || refreshFailed;
-    const sensing = experiment ? isObservationOnlyExperiment(experiment) : true;
-    const target = experiment && sensing
-      ? "Sensing only"
-      : pairingWateringDisabled(pairing)
-        ? "Watering disabled on the controller"
-        : experiment ? `Target ${pairing.wtc_percent_limit}%` : `Controller target ${pairing.wtc_percent_limit}%`;
+    const sensing = experiment ? isObservationOnlyExperiment(experiment) : false;
+    const target = completed ? "Experiment complete" : pairingWateringDisabled(pairing)
+      ? "Watering disabled on the controller"
+      : `Controller target ${pairing.wtc_percent_limit}%${sensing ? " · plan sensing only" : ""}`;
+    const showTarget = !pairingWateringDisabled(pairing) && !completed;
+    const invalidVwc = last != null && (last.value < 0 || last.value > 100);
     const group = experiment ? potGroups(experiment, defaultGrouping(experimentFactors(experiment))).find((item) => item.pairingNames.includes(pairingName)) : null;
     const window = { startMs: nowMs - 6 * 3_600_000, endMs: nowMs };
     const points = (trace?.points ?? []).filter((point) => point.timestampMs >= window.startMs);
@@ -229,7 +229,9 @@ export function PocketView({
     const pending = outbox.entries.filter((item) => item.deviceId === deviceId && item.pairingName === pairingName);
     const binding = bindings.find((item) => item.pairingName === pairingName) ?? null;
     const labelRoute = { view: "pocket" as const, pot: binding?.researchPotId ?? pairingName, note: false };
-    const summary = last
+    const summary = invalidVwc && last
+      ? `Pot ${pairing.pot_number}: invalid VWC reading ${last.value.toFixed(1)}%, outside 0–100%. ${target}.`
+      : last
       ? `Pot ${pairing.pot_number}: ${last.value.toFixed(1)}% VWC measured at ${formatMeasurementTime(last.timestampMs)}${stale ? ", no newer reading" : ""}${cached ? ", shown from the last successful load" : ""}. ${target}.`
       : `Pot ${pairing.pot_number} has no reading in the loaded window. ${target}.`;
 
@@ -281,10 +283,11 @@ export function PocketView({
             <p className="px-muted">{experiment ? experiment.name : "No running experiment visible to this account"}{group && group.label !== "All pots" ? ` · ${group.label}` : ""}</p>
           </div>
           <div className={`px-pocket-reading ${stale ? "is-silent" : ""}`} aria-hidden="true">
-            {last && !stale ? <strong>{last.value.toFixed(1)}<small>% VWC</small></strong> : <strong className="is-text">{last ? "No current reading" : "No reading loaded"}</strong>}
+            {invalidVwc ? <strong className="is-text">Invalid VWC reading</strong> : last && !stale ? <strong>{last.value.toFixed(1)}<small>% VWC</small></strong> : <strong className="is-text">{last ? "No current reading" : "No reading loaded"}</strong>}
             <span>{last ? `${stale ? "Last reading" : "Measured"} ${formatMeasurementTime(last.timestampMs)}` : "Nothing in the last 72 hours"}{last && stale ? ` · ${last.value.toFixed(1)}%` : ""}</span>
             <span>{target}{assignment?.target_vwc_percent != null && !sensing && Math.abs(assignment.target_vwc_percent - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${assignment.target_vwc_percent}%` : ""}</span>
           </div>
+          {invalidVwc && last ? <p className="px-notice is-bad" role="status">Reported {last.value.toFixed(1)}% VWC, outside 0–100%. This reading cannot be used for automatic watering.</p> : null}
           {cached ? (
             <p className="px-notice" role="status">{online ? "The portal could not check for new readings." : "This phone is offline."} The reading above is from the last successful load, not a new one.</p>
           ) : null}
@@ -292,9 +295,9 @@ export function PocketView({
             <TimeSeriesChart
               compact
               lines={[{ id: pairingName, label: `Pot ${pairing.pot_number}`, color: "#1a6b4a", width: 2, segments: decimateForDisplay(points, { startMs: window.startMs, endMs: window.endMs, buckets: 300, gapMs: trace?.gapMs ?? 30 * 60_000 }) }]}
-              targets={!sensing && !pairingWateringDisabled(pairing) && !completed ? [{ value: pairing.wtc_percent_limit, label: target, color: "#0e1a14" }] : []}
+              targets={showTarget ? [{ value: pairing.wtc_percent_limit, label: target, color: "#0e1a14" }] : []}
               domain={window}
-              yDomain={values.length ? [Math.floor(Math.min(...values, sensing ? Infinity : pairing.wtc_percent_limit) - 1), Math.ceil(Math.max(...values, sensing ? -Infinity : pairing.wtc_percent_limit) + 1)] : [0, 50]}
+              yDomain={values.length ? [Math.floor(Math.min(...values, showTarget ? pairing.wtc_percent_limit : Infinity) - 1), Math.ceil(Math.max(...values, showTarget ? pairing.wtc_percent_limit : -Infinity) + 1)] : [0, 50]}
               height={120}
               ariaLabel={`Pot ${pairing.pot_number}, last 6 hours.`}
             />
