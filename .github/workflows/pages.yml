@@ -201,7 +201,7 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist/portal-app/assets
 
-          cp site-metrics.js site-navigation.js one-pot-explainer.js site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
+          cp site-metrics.js site-navigation.js one-pot-explainer.js site-ui.css site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp team-*-20260913.webp team-binod-20260915.png site-dist/
           cp hero-greenhouse-*-20260913.webp site-dist/
@@ -210,6 +210,7 @@ jobs:
           cp smart-scheduling-20260821.jpg sensor.jpg web-dashboard-20260804.jpg web-dashboard-20260831.webp easy-scaling-20260804.jpg data-visualization-20260804.jpg site-dist/
           cp product1.avif product2.avif product3.avif site-dist/
           cp sensor.avif site-dist/
+          cp portal-preview-20261009.jpg independent-irrigation-20261009.jpg site-dist/
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
 
           cp -R applications-demo-app site-dist/
