@@ -3417,7 +3417,7 @@ export default function App() {
       experiments={availableExperiments}
       exceptions={portalExceptions}
       nowMs={clockNowMs}
-      checking={lastGoodCheckAt == null && refreshFailedAt == null}
+      checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
       catalogError={experimentCatalogError}
       installation={installationState}
       canCreate={canCreateExperiment}

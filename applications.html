@@ -985,6 +985,28 @@ footer .footer-logo { flex: none; width: 126px; }
 
 
 <script>
+  // Keep the overview frame close to its list; detail screens retain their scrolling viewport.
+  const portalDemo = document.querySelector('.portal-demo-frame');
+  function fitPortalOverview() {
+    const demoDocument = portalDemo.contentDocument;
+    if (!demoDocument?.getElementById('root')) return;
+    let overview = null;
+    const resize = new ResizeObserver(() => fit());
+    const fit = () => {
+      const nextOverview = demoDocument.querySelector('.px-home');
+      if (nextOverview !== overview) {
+        resize.disconnect();
+        overview = nextOverview;
+        if (overview) resize.observe(overview);
+      }
+      portalDemo.style.height = overview ? `${Math.ceil(overview.getBoundingClientRect().height) + 2}px` : '';
+    };
+    new MutationObserver(fit).observe(demoDocument.getElementById('root'), {childList: true, subtree: true});
+    fit();
+  }
+  portalDemo.addEventListener('load', fitPortalOverview);
+  if (portalDemo.contentDocument?.readyState === 'complete') fitPortalOverview();
+
   const applicationsHeader = document.querySelector('nav');
   new ResizeObserver(() => document.documentElement.style.setProperty('--applications-header-height', applicationsHeader.getBoundingClientRect().height + 'px')).observe(applicationsHeader);
 
