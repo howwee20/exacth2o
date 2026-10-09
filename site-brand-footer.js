@@ -7,7 +7,7 @@
   const empty = 'M600 250H1040V260H600Z';
   let height = 0, velocity = 0, frame = 0, previous = 0, started = 0;
   let inputFrame = 0, pending = 0, inputAt = -Infinity;
-  let touchY = null, pull = 0, pullVelocity = 0, pullTarget = 0, pullUntil = 0;
+  let touchY = null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   function atBottom() {
     const rect = logo.getBoundingClientRect();
@@ -18,8 +18,6 @@
   function settle() {
     cancelAnimationFrame(frame);
     frame = 0; height = 0; velocity = 0;
-    pull = 0; pullVelocity = 0; pullTarget = 0; pullUntil = 0;
-    logo.style.transform = '';
     water.style.opacity = '';
     surface.setAttribute('d', empty);
   }
@@ -27,19 +25,13 @@
     if (document.hidden || !atBottom()) { settle(); return; }
     const dt = Math.min((now - previous) / 1000, .025);
     previous = now;
-    const target = now < pullUntil ? pullTarget : 0;
-    // A resisted pull follows the gesture, then a damped spring snaps it home.
-    pullVelocity += ((target - pull) * 340 - pullVelocity * 24) * dt;
-    pull += pullVelocity * dt;
-    logo.style.transform = `translate3d(0,${-pull}px,0)`;
     velocity -= 3.4 * dt;
     height += velocity * dt;
     if (height >= 1) { height = 1; velocity = Math.min(velocity, 0); }
-    if (height <= 0) { height = 0; velocity = 0; }
-    if (!height && !target && Math.abs(pull) < .08 && Math.abs(pullVelocity) < .5) { settle(); return; }
+    if (height <= 0) { settle(); return; }
     const y = 218 - height * 205;
     const ripple = Math.sin((now - started) / 110) * 10 * Math.sin(Math.PI * height);
-    surface.setAttribute('d', height ? `M600 ${y} Q660 ${y-8-ripple} 710 ${y} T820 ${y} T930 ${y} T1040 ${y} V260 H600Z` : empty);
+    surface.setAttribute('d', `M600 ${y} Q660 ${y-8-ripple} 710 ${y} T820 ${y} T930 ${y} T1040 ${y} V260 H600Z`);
     frame = requestAnimationFrame(draw);
   }
   function flushInput(now) {
@@ -49,8 +41,6 @@
     if (!pending || !atBottom()) return;
     const strength = Math.sqrt(Math.min(1, pending));
     pending = 0;
-    pullTarget = Math.min(28, window.innerWidth * .04, Math.max(0, pull) + 6 + 14 * strength);
-    pullUntil = now + 130;
     if (frame) return;
     velocity = .95 + 1.85 * strength;
     previous = started = now;
