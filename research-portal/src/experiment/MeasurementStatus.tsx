@@ -56,30 +56,22 @@ export function MeasurementStatusBar({
     <section className={`measurement-status is-${freshness.state}`} aria-label="Measurement status">
       <FreshnessPill freshness={freshness} />
       <span className="measurement-status-main">
-        {freshness.measuredAtMs == null ? (
-          <strong>No readings in the last 72 hours</strong>
-        ) : (
-          <>
-            <strong><LatestReadingText freshness={freshness} /></strong>
-            {absolute ? <span>{absolute}</span> : null}
-          </>
-        )}
+        <strong><LatestReadingText freshness={freshness} /></strong>
       </span>
-      <span className="measurement-status-meta">
-        {progress ? <span>{progress}</span> : null}
-        {totalPots ? <span>{`${reportingPots} of ${totalPots} pots reporting`}</span> : null}
-        {freshness.expectedIntervalMs == null ? null : (
-          <span title="Reporting interval configured on the controller">{freshness.detail.match(/expected [^)]+/)?.[0] ?? ""}</span>
-        )}
-      </span>
+      {totalPots ? <span className="measurement-status-meta">{reportingPots} of {totalPots} pots reporting</span> : null}
+      <details className="measurement-status-details">
+        <summary>Data details</summary>
+        <div>
+          {absolute ? <p>Measured {absolute}</p> : null}
+          {progress ? <p>{progress}</p> : null}
+          <p>{freshness.detail}</p>
+          {checked ? <p>Portal checked {checked}</p> : null}
+        </div>
+      </details>
       <span className="measurement-status-checked" aria-live="polite">
         {fetchError
-          ? <span className="is-error" title={fetchError}>Couldn’t check for new data · showing readings already loaded</span>
-          : refreshing
-            ? "Checking for new readings…"
-            : checked
-              ? `Portal checked ${checked}`
-              : null}
+          ? <span className="is-error" title={fetchError}>Couldn’t refresh · showing previously loaded readings</span>
+          : refreshing ? "Checking for new readings…" : null}
       </span>
     </section>
   );

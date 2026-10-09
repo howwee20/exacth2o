@@ -498,10 +498,11 @@ footer .footer-logo { flex: none; width: 126px; }
 }
 </style>
 <script src="/site-navigation.js" defer></script>
-<script src="/one-pot-explainer.js?v=20261008" defer></script>
+<script src="/one-pot-explainer.js?v=20261009" defer></script>
 <link rel="stylesheet" href="/site-brand-footer.css?v=20260916">
 <script src="/site-brand-footer.js?v=20260916" defer></script>
 <script src="/site-metrics.js" defer></script>
+<link rel="stylesheet" href="/site-ui.css?v=20261009">
 </head>
 <body>
 
@@ -569,17 +570,13 @@ footer .footer-logo { flex: none; width: 126px; }
     </div>
   </div>
   <div class="cinema-content">
-    <h1 class="cinema-title" id="cinema-title">Exactly the <em>Water</em><br>Your Plants Need</h1>
-    <p class="cinema-copy">Sensor-based irrigation control with real-time web monitoring and control. Built for plant researchers, greenhouse operators, and teams who can't afford guesswork.</p>
+    <h1 class="cinema-title" id="cinema-title">Irrigation control.<br><em>Pot by pot.</em></h1>
+    <p class="cinema-copy">Set moisture targets for individual pots. ExactH2O measures, waters, and records each experiment in one web portal.</p>
     <div class="cinema-actions">
       <a class="cinema-button" href="#system">Explore the system</a>
-      <a class="cinema-text-link" href="/quote">Discuss your setup</a>
+      <a class="cinema-text-link" href="/quote">Request a quote</a>
     </div>
-    <dl class="cinema-stats" aria-label="System highlights">
-      <div><dt>Each pot</dt><dd>Its own target</dd></div>
-      <div><dt>Every valve opening</dt><dd>Recorded</dd></div>
-      <div><dt>Journal of Experimental Botany</dt><dd>Published</dd></div>
-    </dl>
+    <p class="cinema-caption">Designed for controlled plant research.</p>
   </div>
 </section>
 
@@ -588,18 +585,10 @@ footer .footer-logo { flex: none; width: 126px; }
   <div class="strip-inner">
     <div class="strip-header reveal">
       <div>
-        <div class="section-label">Why exactH2O</div>
-        <h2 class="section-title">Smart irrigation technology<br>6 years of R&D</h2>
+        <div class="section-label">The system</div>
+        <h2 class="section-title">Sensors, valves,<br>and a research portal.</h2>
       </div>
-    <!-- PUBLISHED RESEARCH -->
-    <aside class="research-brief" aria-labelledby="research-brief-title">
-      <div>
-        <p class="research-brief-label">Published research</p>
-        <h3 id="research-brief-title">Studying drought timing in switchgrass.</h3>
-        <p class="research-brief-meta">122 days · 4 watering treatments<br>Basyal et al., Journal of Experimental Botany, 2026</p>
-      </div>
-      <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study</a>
-    </aside>
+
     <figure class="research-video" aria-label="ExactH2O greenhouse installation video">
       <video id="researchVideo" muted loop playsinline preload="none" poster="/research-video-poster-20260913.jpg" aria-label="Research pots with ExactH2O sensors and irrigation lines">
         <source src="/research-video-20260913.mp4" type="video/mp4">
@@ -608,84 +597,28 @@ footer .footer-logo { flex: none; width: 126px; }
     </div>
 
     <div class="features-grid reveal">
-      <div class="feat-card">
-        <div class="feat-card-img feat-card-img--schedule" tabindex="0" aria-label="Smart Scheduling product interface">
-          <div class="feature-artifact artifact-schedule">
-            <div class="artifact-topbar"><strong>Irrigation Schedule</strong></div>
-            <div class="artifact-schedule-body">
-              <section class="artifact-pane">
-                <div class="artifact-pane-title">Today <span>Wed · Aug 21</span></div>
-                <div class="artifact-schedule-row"><span class="artifact-schedule-time">6 AM</span><div class="artifact-schedule-event"><b>Maize Drought</b><small>Zone 2 · 10% VWC</small></div></div>
-                <div class="artifact-schedule-row"><span class="artifact-schedule-time">9 AM</span><div class="artifact-schedule-event"><b>Sorghum Control</b><small>Zone 4 · 30% VWC</small></div></div>
-                <div class="artifact-schedule-row"><span class="artifact-schedule-time">12 PM</span><div class="artifact-schedule-event"><b>System Check</b><small>Sensors &amp; valves</small></div></div>
-                <div class="artifact-schedule-row"><span class="artifact-schedule-time">9 PM</span><div class="artifact-schedule-event"><b>Data Sync</b><small>Upload &amp; backup</small></div></div>
-              </section>
-              <section class="artifact-pane">
-                <div class="artifact-pane-title">Automation Rules <span>4 active</span></div>
-                <div class="artifact-rule"><div class="artifact-rule-copy"><b>If VWC &lt; 12%</b><small>Maize Drought</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle Maize Drought rule" aria-pressed="true"></button></div>
-                <div class="artifact-rule"><div class="artifact-rule-copy"><b>If VWC &lt; 28%</b><small>Sorghum Control</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle Sorghum Control rule" aria-pressed="true"></button></div>
-                <div class="artifact-rule"><div class="artifact-rule-copy"><b>Daily Report</b><small>8:00 AM</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle Daily Report rule" aria-pressed="true"></button></div>
-                <div class="artifact-rule"><div class="artifact-rule-copy"><b>If Temp &gt; 32°C</b><small>Mist · 3 min</small></div><button class="artifact-toggle is-on" type="button" data-artifact-toggle aria-label="Toggle heat rule" aria-pressed="true"></button></div>
-              </section>
-            </div>
-          </div>
+      <article class="feat-card">
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
+          <img src="hero-greenhouse-3684-20260913.webp" alt="Valve manifold with individual irrigation lines" width="1650" height="2200" loading="lazy" decoding="async">
         </div>
-        <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="18" cy="18" r="14"/><path d="M18 8 L18 18 L24 22"/></svg>
-        <h3>Smart Scheduling</h3>
-        <p>Automated irrigation triggered by real-time soil moisture thresholds — not timers. Water when the plant needs it, stop when it doesn't.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Enlarge the ExactH2O Web Dashboard photograph">
-          <div class="feature-artifact artifact-dashboard is-photo">
-            <img class="artifact-dashboard-photo" src="web-dashboard-20260831.webp" alt="ExactH2O portal showing experiment, calibration, research, observation, support, and system-health cards" width="2713" height="1993" loading="lazy" decoding="async">
-          </div>
+        <h3>Independent irrigation</h3>
+        <p>Set moisture thresholds for individual pots and record each valve opening.</p>
+      </article>
+      <article class="feat-card">
+        <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Enlarge the research portal preview">
+          <img src="portal-preview-20261009.jpg" alt="ExactH2O research portal showing experiments and sensor readings with sample data" width="1728" height="940" loading="lazy" decoding="async">
         </div>
-        <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="6" width="30" height="21" rx="2"/><path d="M12 27 L12 32"/><path d="M24 27 L24 32"/><path d="M8 32 L28 32"/><polyline points="8 20 14 14 18 17 24 11 28 14"/></svg>
-        <h3>Web Dashboard</h3>
-        <p>Web-based monitoring and control from any device-desktop or mobile. Real-time sensor readings, historical data plots, system status, and irrigation history in one interface.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-card-img feat-card-img--sensor" tabindex="0" aria-label="Sensor Integration product photograph">
-          <div class="feature-artifact artifact-sensor is-photo">
-            <img class="artifact-sensor-photo" src="sensor.avif?v=20260709-avif" alt="ExactH2O soil moisture sensor installed beside a plant" width="1200" height="1600" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='sensor.jpg'">
-          </div>
+        <h3>A complete experiment record</h3>
+        <p>Compare readings, review irrigation history, and export data from the portal.</p>
+        <a class="feature-link" href="/demo">Explore the demo <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="feat-card">
+        <div class="feat-card-img feat-card-img--sensor" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
+          <img src="sensor.avif?v=20260709-avif" alt="Soil moisture sensor installed beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
         </div>
-        <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="18" cy="12" r="6"/><line x1="18" y1="18" x2="18" y2="33"/><circle cx="18" cy="33" r="2.5"/></svg>
-        <h3>Sensor Integration</h3>
-        <p>High-resolution VWC, electrical conductivity, and temperature sensors with substrate-specific calibration for several types of media.</p>
-      </div>
-      <div class="feat-card">
-        <div class="feat-card-img feat-card-img--scaling" tabindex="0" aria-label="Easy Scaling product interface">
-          <div class="feature-artifact artifact-chart" data-mode="all">
-            <div class="artifact-topbar"><strong>VWC · 72 hours</strong></div>
-            <div class="artifact-chart-body">
-              <div class="artifact-chart-plot">
-                <svg viewBox="0 0 520 250" preserveAspectRatio="none" role="img" aria-label="Animated VWC telemetry traces">
-                  <g aria-hidden="true"><path class="artifact-grid-line" d="M28 38H506M28 84H506M28 130H506M28 176H506M28 222H506M100 20V230M190 20V230M280 20V230M370 20V230M460 20V230" /></g>
-                  <path pathLength="1" class="artifact-trace is-control" stroke="#5368cc" d="M28 48 C80 45 112 50 150 73 S218 88 260 91 S326 116 368 130 S438 124 506 147" />
-                  <path pathLength="1" class="artifact-trace is-treatment" stroke="#9b51c6" d="M28 58 C82 54 116 60 152 82 S220 102 260 104 S328 130 370 144 S440 141 506 163" />
-                  <path pathLength="1" class="artifact-trace is-control" stroke="#38a65b" d="M28 74 C80 70 116 76 154 97 S220 112 260 116 S326 145 370 160 S440 156 506 178" />
-                  <path pathLength="1" class="artifact-trace is-treatment" stroke="#e3a52b" d="M28 104 C82 101 118 107 155 126 S220 141 262 144 S330 168 372 180 S442 179 506 197" />
-                  <path pathLength="1" class="artifact-trace is-control" stroke="#2f9aa5" d="M28 126 C82 121 118 127 154 150 S220 166 262 166 S328 189 370 201 S442 197 506 211" />
-                  <path pathLength="1" class="artifact-trace is-treatment" stroke="#d45562" d="M28 92 C82 88 116 95 154 116 S220 130 262 133 S330 156 372 170 S442 168 506 188" />
-                  <path pathLength="1" class="artifact-trace is-control" stroke="#59bcb1" d="M28 151 C84 147 120 153 156 171 S222 183 264 186 S330 205 372 214 S442 213 506 224" />
-                  <path class="artifact-flow-trace is-control" stroke="#ffffff" d="M28 48 C80 45 112 50 150 73 S218 88 260 91 S326 116 368 130 S438 124 506 147" />
-                  <path class="artifact-flow-trace is-treatment" stroke="#ffffff" d="M28 58 C82 54 116 60 152 82 S220 102 260 104 S328 130 370 144 S440 141 506 163" />
-                </svg>
-              </div>
-              <div class="artifact-chart-controls" aria-label="Graph filters">
-                <button class="artifact-filter is-active" type="button" data-artifact-filter="all">All</button>
-                <button class="artifact-filter" type="button" data-artifact-filter="control">Control</button>
-                <button class="artifact-filter" type="button" data-artifact-filter="drought">Drought</button>
-                <div class="artifact-chart-reading"><span>Pot 49</span><strong>47.2%</strong></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <svg class="feat-card-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="10" height="10" rx="1"/><rect x="23" y="3" width="10" height="10" rx="1"/><rect x="3" y="23" width="10" height="10" rx="1"/><rect x="23" y="23" width="10" height="10" rx="1"/><circle cx="18" cy="18" r="3"/></svg>
-        <h3>Easy Scaling</h3>
-        <p>Modular architecture supports growth from a single bench to larger multi-zone deployments. Controller, network, and irrigation requirements are confirmed for each facility.</p>
-      </div>
+        <h3>Calibrated measurements</h3>
+        <p>Measure moisture, conductivity, and temperature with calibration for your growing media.</p>
+      </article>
     </div>
   </div>
 </div>
@@ -702,7 +635,7 @@ footer .footer-logo { flex: none; width: 126px; }
     <div class="one-pot-head reveal">
       <div class="section-label">How control works</div>
       <h2 class="section-title" id="one-pot-title">One pot, your target</h2>
-      <p class="one-pot-lede">The controller waters a pot only when <em>that pot's own</em> measured moisture falls below the target you set for it. Move the target and watch one synthetic pot over three days.</p>
+      <p class="one-pot-lede">Set a target. The controller opens the pot’s valve when its measured moisture falls below it. Adjust this example to see the response.</p>
     </div>
     <div class="one-pot-card">
       <div class="one-pot-controls">
@@ -716,28 +649,39 @@ footer .footer-logo { flex: none; width: 126px; }
       <svg id="one-pot-chart" class="one-pot-chart" role="img" aria-label="A synthetic pot over three days"></svg>
       <p class="one-pot-legend"><span><span class="key-line"></span>measured moisture</span><span><span class="key-target"></span>target</span><span><span class="key-tick"></span>valve opening</span></p>
       <p id="one-pot-result" class="one-pot-result" aria-live="polite">Each time the pot's reading falls below the target, the controller opens its valve once and records it.</p>
-      <p class="one-pot-fine">Synthetic illustration of the control rule, drawn with a simplified response model. It does not predict how your substrate, emitters or crop will respond, and nothing on this page connects to a controller.</p>
+      <p class="one-pot-fine">Simulated readings. Actual response and delivered water depend on substrate, crop, and irrigation hardware.</p>
     </div>
     <div class="one-pot-record">
-      <h3>Every experiment keeps its record</h3>
-      <p>Target changes, calibrations and notes sit on the same timeline as the readings, so a step in a curve is explained by what happened, not guessed.</p>
+      <h3>Readings with context</h3>
+      <p>Review target changes, calibrations, and field notes alongside sensor readings.</p>
       <svg id="record-example" class="record-chart" role="img" aria-label="Synthetic example: calibrated moisture of one pot steps up when a new calibration is applied, while the raw sensor output is continuous."></svg>
       <p class="record-key"><span style="border-top:2px solid #1a6b4a"></span>calibrated moisture<span style="border-top:1.5px dashed #8a9690"></span>raw sensor output (own scale)</p>
       <ol class="record-events">
-        <li><b>R</b><span>Revision 2: the deficit pots move to a 22% target, so their moisture falls to it over two days.</span></li>
-        <li><b>C</b><span>A new calibration is applied. Calibrated moisture steps up while the raw output does not: a measurement change, not a change in the plant.</span></li>
-        <li><b>N</b><span>A note from the bench, kept beside the readings it explains.</span></li>
+        <li><b>R</b><span>Target changed to 22% VWC.</span></li>
+        <li><b>C</b><span>Calibration changed. The raw sensor output remains continuous.</span></li>
+        <li><b>N</b><span>Field note recorded.</span></li>
       </ol>
       <p class="one-pot-fine">Synthetic example for illustration.</p>
     </div>
   </div>
 </section>
 
+<section class="research-proof" aria-label="Published research">
+    <aside class="research-brief" aria-labelledby="research-brief-title">
+      <div>
+        <p class="research-brief-label">Published research</p>
+        <h3 id="research-brief-title">Studying drought timing in switchgrass.</h3>
+        <p class="research-brief-meta">122 days · 4 watering treatments<br>Basyal et al., Journal of Experimental Botany, 2026</p>
+      </div>
+      <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study</a>
+    </aside>
+</section>
+
 <!-- CTA: homepage only -->
 <div class="cta-strip">
-  <h2>Ready to optimize your irrigation?</h2>
-  <p>Get a custom quote tailored to your facility, experiment, and research needs</p>
-  <a href="/quote" class="btn-primary">Get Started Today</a>
+  <h2>Request a quote</h2>
+  <p>Tell us about your facility, pot count, and irrigation requirements.</p>
+  <a href="/quote" class="btn-primary">Request a quote</a>
 </div>
 
 <!-- FOOTER -->
@@ -882,7 +826,7 @@ footer .footer-logo { flex: none; width: 126px; }
     });
   });
 
-  const featurePreviewSources = document.querySelectorAll('.feat-card-img--sensor, .feat-card-img--dashboard, .research-video');
+  const featurePreviewSources = document.querySelectorAll('.feat-card-img, .research-video');
   const featurePreview = document.querySelector('.feature-image-preview');
   const featurePreviewImage = featurePreview?.querySelector('img');
   const featurePreviewVideo = featurePreview?.querySelector('video');

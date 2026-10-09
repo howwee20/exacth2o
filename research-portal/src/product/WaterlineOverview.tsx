@@ -253,8 +253,7 @@ export function WaterlineOverview({
           <article key={line.group.id} className="px-wl-group" aria-label={line.group.label}>
             <header className="px-wl-head">
               <h2 className="px-wl-name"><GroupGlyph group={line.group} />{line.group.label}</h2>
-              <span className="px-wl-caps">{line.potTotal} {line.potTotal === 1 ? "pot" : "pots"}</span>
-              <span className={`px-wl-caps ${coverageWarn ? "is-warn" : ""}`}>{line.reporting} reporting</span>
+              <span className={`px-wl-caps ${coverageWarn ? "is-warn" : ""}`}>{line.reporting} of {line.potTotal} pots reporting</span>
               {target?.text ? <span className={`px-wl-caps ${target.planMismatch ? "is-warn" : ""}`}>{target.text}</span> : null}
               <span className="px-wl-now">
                 {line.latest ? (

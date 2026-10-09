@@ -135,7 +135,7 @@ function InstallationNode({ state, checking, healthLink }: { state: Installation
           Offline{state.lastSeenAt ? ` since ${formatMeasurementTime(state.lastSeenAt)}` : ""}
         </span>
       ) : state.status === "unknown" ? (
-        <span className="px-node-detail">No controller state reported yet</span>
+        <span className="px-node-detail">Controller status unavailable</span>
       ) : checking ? (
         <span className="px-node-detail">Checking readings…</span>
       ) : null}
@@ -183,13 +183,13 @@ export function QuietSpineHome({
   return (
     <section className="px-home" aria-label="Experiments">
       <div className="px-home-top">
-        <div className="px-home-links">
-          <PortalLink className="px-button is-small" to={{ view: "trends" }}>Trends across experiments</PortalLink>
-        </div>
+        <div className="px-home-heading"><h1 className="px-title">Experiments</h1><div className="px-home-links">
+          <PortalLink className="px-button is-small" to={{ view: "trends" }}>Trends</PortalLink>
+        </div></div>
         {canCreate ? (
           <button type="button" className="px-button is-primary" onClick={onNewExperiment}>
             <Plus size={16} aria-hidden="true" />
-            New Experiment
+            New experiment
           </button>
         ) : null}
       </div>
@@ -232,7 +232,7 @@ export function QuietSpineHome({
             <p className="px-empty">{checking ? "Loading experiments…" : "No experiments are visible to this account yet."}</p>
           )}
         </div>
-        {tools ? <aside className="px-tools" aria-label="Installation tools">{tools}</aside> : null}
+        {tools ? <aside className="px-tools" aria-label="Installation tools"><details className="px-admin-tools"><summary>Administration</summary><div className="px-admin-tools-body">{tools}</div></details></aside> : null}
       </div>
     </section>
   );

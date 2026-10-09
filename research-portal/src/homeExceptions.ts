@@ -118,8 +118,8 @@ export function homeExceptions(input: HomeExceptionInput): HomeException[] {
       scope: "installation",
       lastSeenAt: controller?.lastSeenAt ?? null,
       sentence: controller?.lastSeenAt != null
-        ? `Controller offline since ${formatTime(controller.lastSeenAt)}: it has not reported; readings and watering status are unconfirmed.`
-        : "Controller offline: it has not reported its state recently; readings and watering status are unconfirmed.",
+        ? `Controller offline since ${formatTime(controller.lastSeenAt)}; readings and watering status are unconfirmed.`
+        : "Controller offline; readings and watering status are unconfirmed.",
     });
   }
 

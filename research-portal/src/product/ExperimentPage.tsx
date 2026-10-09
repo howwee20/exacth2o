@@ -62,9 +62,9 @@ export function ExperimentPage({
           <span className="px-mono">{count} {count === 1 ? "pot" : "pots"}</span>
           {mode ? <span>{mode}</span> : null}
           {progress ? <span>{progress}</span> : null}
-          {experiment.currentVersion ? <span>Revision {experiment.currentVersion}</span> : null}
+
         </p>
-        {experiment.shortDescription ? <p className="px-lede">{experiment.shortDescription}</p> : null}
+        {experiment.shortDescription || experiment.currentVersion ? <details className="px-details"><summary>Experiment details</summary>{experiment.shortDescription ? <p>{experiment.shortDescription}</p> : null}{experiment.currentVersion ? <p className="px-muted">Revision {experiment.currentVersion}</p> : null}</details> : null}
       </div>
       {own.map((item, index) => (
         <p key={`${item.kind}-${index}`} className={`px-notice ${item.kind === "controller-offline" || item.kind === "activation-failed" ? "is-bad" : ""}`} role="status">

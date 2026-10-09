@@ -67,19 +67,29 @@ export function ProductHeader({
           <span className="px-label-wide">Find pot</span>
           <kbd aria-hidden="true">/</kbd>
         </button>
-        {onToggleAtBench ? (
-          <button type="button" className="px-header-button" aria-pressed={atBench} onClick={onToggleAtBench} title="A phone-sized pot finder and notebook; the full portal stays one tap away">
-            At the bench
-          </button>
-        ) : null}
         {extra}
-        {onOpenSettings ? (
-          <button type="button" className="px-header-button" onClick={onOpenSettings} aria-label="Portal settings">
-            <SettingsIcon size={14} aria-hidden="true" />
-            <span className="px-label-wide">Settings</span>
-          </button>
-        ) : null}
-        <button type="button" className="px-header-button" onClick={onSignOut}>Sign out</button>
+        <details className="px-menu px-header-menu" onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector("summary")?.focus();
+          }
+        }} onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false;
+        }}>
+          <summary><SettingsIcon size={15} aria-hidden="true" /><span className="px-label-wide">Account</span></summary>
+          <div className="px-menu-panel">
+            {onOpenSettings ? <button type="button" onClick={(event) => {
+              event.currentTarget.closest("details")?.removeAttribute("open");
+              onOpenSettings();
+            }}>Settings</button> : null}
+            {onToggleAtBench ? <button type="button" aria-pressed={atBench} onClick={(event) => {
+              event.currentTarget.closest("details")?.removeAttribute("open");
+              onToggleAtBench();
+            }}>{atBench ? "Leave field mode" : "Field mode"}</button> : null}
+            <hr />
+            <button type="button" onClick={onSignOut}>Sign out</button>
+          </div>
+        </details>
       </div>
     </header>
   );

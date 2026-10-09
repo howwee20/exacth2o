@@ -31,7 +31,7 @@ const [bundle, applications, appSource, stressImage, phenotypingImage, greenhous
 ]);
 
 const requiredPortalCopy = [
-  "New Experiment",
+  "New experiment",
   "Pots in another active experiment stay visible but cannot be selected.",
   "Marker color matches VWC line",
 ];

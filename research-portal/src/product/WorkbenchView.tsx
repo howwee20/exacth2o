@@ -333,7 +333,7 @@ export function WorkbenchView({
     <section className="px-page is-wide" aria-label="Workbench">
       <div className="px-exp-head">
         <h1 className="px-title">Workbench</h1>
-        <p className="px-subtitle"><span>Compare groups of pots over time. A saved comparison keeps its question, settings and exclusions, and can be shared with the project.</span></p>
+        <p className="px-subtitle"><span>Compare groups of pots over time.</span></p>
       </div>
       <div className="px-wb">
         <aside className="px-wb-list" aria-label="Saved comparisons">
@@ -372,15 +372,42 @@ export function WorkbenchView({
           ) : (
             <>
               <label className="px-wb-question">
-                <span>Question</span>
+                <span>Comparison name</span>
                 <input
                   value={question}
                   maxLength={200}
                   readOnly={!editable}
-                  placeholder="What are you asking? e.g. Did the deficit pots dry faster after the plan change?"
+                  placeholder="e.g. Deficit vs. control"
                   onChange={(event) => setQuestion(event.target.value)}
                 />
               </label>
+              <div className="px-wb-actions">
+                {editable ? (
+                  <>
+                    <label className="px-select">
+                      Sharing
+                      <select value={sharing} onChange={(event) => setSharing(event.target.value as "private" | "project")}>
+                        <option value="private">Only me</option>
+                        <option value="project">Everyone on this project</option>
+                      </select>
+                    </label>
+                    <button type="button" className="px-button is-primary" disabled={busy || !questionOk || (Boolean(current) && !dirty)} onClick={() => void save(false)}>
+                      {busy ? "Saving…" : current ? (dirty ? "Save changes" : "Saved") : "Save comparison"}
+                    </button>
+                    {current ? <button type="button" className="px-button is-small is-quiet" disabled={busy || !questionOk} onClick={() => void save(true)}>Save as new</button> : null}
+                    {current && owner ? <button type="button" className="px-button is-small is-quiet" disabled={busy} onClick={async () => {
+                      if (!window.confirm("Archive this comparison? It disappears from the list; its exclusions stay in the database.")) return;
+                      await updateComparison(current.id, { archived_at: new Date().toISOString() });
+                      await refreshSaved();
+                      navigatePortal({ view: "workbench", comparison: null, experiment: experiment.id });
+                    }}>Archive</button> : null}
+                  </>
+                ) : canSave && current ? (
+                  <button type="button" className="px-button is-small" disabled={busy || !questionOk} onClick={() => void save(true)}>Save a copy as mine</button>
+                ) : null}
+                {!questionOk && editable ? <span className="px-muted px-small">Enter a name to save this comparison.</span> : null}
+                {current ? <button type="button" className="px-button is-small is-quiet" onClick={() => void copy({ view: "workbench", comparison: current.id, experiment: null })}>{copied ?? "Copy link"}</button> : null}
+              </div>
               {current && !owner ? <p className="px-muted px-small">Saved by {current.author_label} and shared with the project. You can explore and export it; only they can change it or its exclusions.</p> : null}
 
               <div className="px-toolbar px-wb-controls">
@@ -410,6 +437,8 @@ export function WorkbenchView({
                 </label>
               </div>
 
+              <details className="px-details px-wb-options">
+                <summary>Time range &amp; alignment <span className="px-muted">{aligned ? "Event aligned" : "Calendar time"} · {range.bucketMs / 60_000 >= 60 ? `${range.bucketMs / 3_600_000} h` : `${range.bucketMs / 60_000} min`}</span></summary>
               <div className="px-toolbar px-wb-controls">
                 <div className="px-segmented" role="group" aria-label="Time axis">
                   <button type="button" aria-pressed={!aligned} onClick={() => update({ alignment: { kind: "calendar" }, window: definition.window.kind === "around" ? { kind: "last", days: 7 } : definition.window })}>Calendar time</button>
@@ -455,17 +484,18 @@ export function WorkbenchView({
                   </>
                 )}
                 <label className="px-select">
-                  Buckets
+                  Resolution
                   <select value={definition.bucketMinutes ?? ""} onChange={(event) => update({ bucketMinutes: event.target.value ? Number(event.target.value) : null })}>
                     <option value="">Automatic ({range.bucketMs / 60_000 >= 60 ? `${range.bucketMs / 3_600_000} h` : `${range.bucketMs / 60_000} min`})</option>
                     {[30, 60, 120, 360, 720, 1440].map((minutes) => <option key={minutes} value={minutes}>{minutes >= 60 ? `${minutes / 60} h` : `${minutes} min`}</option>)}
                   </select>
                 </label>
-                <button type="button" className="px-button is-small is-quiet" onClick={() => setAnchorMs(Date.now())}>Refresh to now</button>
+                <button type="button" className="px-button is-small is-quiet" onClick={() => setAnchorMs(Date.now())}>Refresh</button>
               </div>
+              </details>
 
               <p className="px-muted px-small" role="status" aria-live="polite">
-                {loading ? "Loading…" : `${formatTime(new Date(range.queryStartMs).toISOString())} – ${formatTime(new Date(range.endMs).toISOString())} · ${range.bucketMs >= 3_600_000 ? `${range.bucketMs / 3_600_000}-hour` : `${range.bucketMs / 60_000}-minute`} buckets · ${stats.requests} ${stats.requests === 1 ? "request" : "requests"}, ${stats.rows.toLocaleString()} rows (${Math.round(stats.bytes / 1024)} kB)`}
+                {loading ? "Loading…" : `${formatTime(new Date(range.queryStartMs).toISOString())} – ${formatTime(new Date(range.endMs).toISOString())} · ${range.bucketMs >= 3_600_000 ? `${range.bucketMs / 3_600_000}-hour` : `${range.bucketMs / 60_000}-minute`} buckets`}
               </p>
               {range.clipped ? <p className="px-notice" role="status">The range was cut to the most recent 120 days, the longest one comparison covers.</p> : null}
               {stats.failed ? <p className="px-notice is-bad" role="alert">{stats.failed} of {stats.requests} data requests failed, so the figure, statistics and exports are incomplete. <button type="button" className="px-link-button" onClick={() => setAnchorMs(Date.now())}>Try again</button></p> : null}
@@ -572,35 +602,8 @@ export function WorkbenchView({
                 }}
               />
 
-              <div className="px-wb-actions">
-                {editable ? (
-                  <>
-                    <label className="px-select">
-                      Sharing
-                      <select value={sharing} onChange={(event) => setSharing(event.target.value as "private" | "project")}>
-                        <option value="private">Only me</option>
-                        <option value="project">Everyone on this project</option>
-                      </select>
-                    </label>
-                    <button type="button" className="px-button is-primary" disabled={busy || !questionOk || (Boolean(current) && !dirty)} onClick={() => void save(false)}>
-                      {busy ? "Saving…" : current ? (dirty ? "Save changes" : "Saved") : "Save comparison"}
-                    </button>
-                    {current ? <button type="button" className="px-button is-small is-quiet" disabled={busy || !questionOk} onClick={() => void save(true)}>Save as new</button> : null}
-                    {current && owner ? <button type="button" className="px-button is-small is-quiet" disabled={busy} onClick={async () => {
-                      if (!window.confirm("Archive this comparison? It disappears from the list; its exclusions stay in the database.")) return;
-                      await updateComparison(current.id, { archived_at: new Date().toISOString() });
-                      await refreshSaved();
-                      navigatePortal({ view: "workbench", comparison: null, experiment: experiment.id });
-                    }}>Archive</button> : null}
-                  </>
-                ) : canSave && current ? (
-                  <button type="button" className="px-button is-small" disabled={busy || !questionOk} onClick={() => void save(true)}>Save a copy as mine</button>
-                ) : null}
-                {!questionOk && editable ? <span className="px-muted px-small">Write the question first; it is the comparison's title.</span> : null}
-                {current ? <button type="button" className="px-button is-small is-quiet" onClick={() => void copy({ view: "workbench", comparison: current.id, experiment: null })}>{copied ?? "Copy link"}</button> : null}
-              </div>
               <div className="px-wb-actions" role="group" aria-label="Export">
-                <span className="px-muted px-small">{stats.failed ? "Exports paused: retry the incomplete reading load." : "Export what is shown, with the same exclusions:"}</span>
+                <span className="px-muted px-small">{stats.failed ? "Exports paused: retry the incomplete reading load." : "Export"}</span>
                 <button type="button" className="px-button is-small" disabled={!exportReady} onClick={() => {
                   if (!result) return;
                   const ticks = aligned ? eventDayTicks({ startMs: range.queryStartMs, endMs: range.endMs }, range.originMs, 872) : timeTicks({ startMs: range.queryStartMs, endMs: range.endMs }, 872);

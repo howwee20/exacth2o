@@ -216,9 +216,9 @@ export function BenchView({
           {model.basis === "recorded" && layout ? (
             <span>Recorded layout, version {layout.version}{layoutVersions > 1 ? ` of ${layoutVersions}` : ""} · {layout.author_label} · {formatMeasurementTime(layout.created_at)}{layout.note ? ` · “${layout.note}”` : ""}</span>
           ) : (
-            <span><span className="px-schematic-mark" aria-hidden="true" /> Schematic: pots numbered by zone. Where they stand has not been recorded.</span>
+            <span><span className="px-schematic-mark" aria-hidden="true" /> Schematic layout · positions not recorded</span>
           )}
-          <span>{confirmed ? `${confirmed} of ${bindings.length} pots physically confirmed` : bindings.length ? "No pot is physically confirmed yet (software matches only)" : ""}</span>
+          <span>{confirmed ? `${confirmed} of ${bindings.length} pots physically confirmed` : bindings.length ? "Physical pot identities not yet confirmed" : ""}</span>
         </p>
       </div>
       {layoutError ? <p className="px-notice" role="status">The recorded layout could not be loaded ({layoutError}); showing the schematic layout.</p> : null}

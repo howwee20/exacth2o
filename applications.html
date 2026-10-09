@@ -738,10 +738,6 @@
   .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
   .nav-cta:hover { background: #1d4ed8 !important; }
 
-  .application-flow { position: relative; }
-  .application-flow-lines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: hidden; }
-  .application-flow-lines path { fill: none; stroke: #78a99a; stroke-width: 1.5; stroke-dasharray: 5 5; stroke-linecap: round; stroke-linejoin: round; animation: application-flow 1.2s linear infinite; }
-  @keyframes application-flow { to { stroke-dashoffset: -20; } }
 
 /* Compact footer with clear visual hierarchy. */
 footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
@@ -793,6 +789,7 @@ footer .footer-logo { flex: none; width: 126px; }
 <link rel="stylesheet" href="/site-brand-footer.css?v=20260916">
 <script src="/site-brand-footer.js?v=20260916" defer></script>
 <script src="/site-metrics.js" defer></script>
+<link rel="stylesheet" href="/site-ui.css?v=20261009">
 </head>
 <body>
 
@@ -823,16 +820,15 @@ footer .footer-logo { flex: none; width: 126px; }
 <main id="main-content">
 
 <div class="application-flow">
-  <svg class="application-flow-lines" aria-hidden="true"></svg>
 <!-- APPLICATIONS -->
 <div class="applications" id="application-areas">
   <div class="app-intro-grid reveal">
     <div>
       <div class="section-label">Application Areas</div>
-      <h1 class="section-title">Three domains,<br>one system</h1>
+      <h1 class="section-title">Irrigation for<br>controlled research.</h1>
     </div>
     <p class="app-intro-copy">
-      ExactH2O is built for controlled-environment work where water must be measured, repeated, and explained. One platform supports configurable sensors, per-pot or per-zone targets, sampling cadence, and a continuous record across stress studies, phenotyping, and greenhouse operations.
+      Control moisture targets and keep a continuous record across stress studies, phenotyping, and greenhouse operations.
     </p>
   </div>
 
@@ -849,7 +845,7 @@ footer .footer-logo { flex: none; width: 126px; }
       </svg>
       <h3 class="app-card-title">Plant Stress<br>Experiments</h3>
       <p class="app-card-desc">
-        Set and hold defined substrate-water targets across replicated pots for controlled drought, recovery, and stress-response studies. Continuous readings preserve each pot's water trajectory for comparison with physiological measurements and biomass.
+        Apply defined moisture targets across replicated pots. Review each pot’s readings through drought and recovery.
       </p>
       <div class="app-card-image">
         <img src="/applications-plant-stress-20260804.jpg" width="1200" height="1600" loading="lazy" decoding="async" alt="Young plants in individually irrigated pots with moisture sensors and color-coded tubing">
@@ -869,7 +865,7 @@ footer .footer-logo { flex: none; width: 126px; }
       </svg>
       <h3 class="app-card-title">Plant<br>Phenotyping</h3>
       <p class="app-card-desc">
-        Apply consistent water regimes across genotypes so growth and stress-response differences are less confounded by uneven irrigation. Per-pot water histories support phenotyping analysis and environmental-quality review.
+        Apply consistent water treatments across genotypes and compare growth measurements with individual irrigation histories.
       </p>
       <div class="app-card-image is-photo is-photo-phenotyping">
         <img src="/applications-plant-phenotyping-20260804.jpg" width="1448" height="1086" loading="lazy" decoding="async" alt="Researcher using a tablet while examining greenhouse plants">
@@ -888,7 +884,7 @@ footer .footer-logo { flex: none; width: 126px; }
       </svg>
       <h3 class="app-card-title">Research &amp; Commercial<br>Greenhouses</h3>
       <p class="app-card-desc">
-        Monitor and control irrigation across greenhouse benches and container arrays while preserving independent targets and histories by zone. Built for research facilities and commercial greenhouse workflows.
+        Monitor greenhouse benches and container arrays with independent irrigation targets and histories by zone.
       </p>
       <div class="app-card-image is-photo is-photo-greenhouse">
         <img src="/applications-research-greenhouse-20260804.jpg" width="1122" height="1402" loading="lazy" decoding="async" alt="Rows of container plants inside a large commercial greenhouse">
@@ -911,14 +907,14 @@ footer .footer-logo { flex: none; width: 126px; }
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <div>
           <div class="why-bullet-title">Reproducible, Citable Data</div>
-          <div class="why-bullet-desc">Timestamped, sensor-ID-tagged readings with calibration traceability — ready for supplementary data tables in publications.</div>
+          <div class="why-bullet-desc">Timestamped readings retain sensor IDs and calibration history.</div>
         </div>
       </li>
       <li class="why-bullet">
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <div>
           <div class="why-bullet-title">Closed-Loop Irrigation Control</div>
-          <div class="why-bullet-desc">Define target VWC thresholds per zone. The system irrigates to target and stops — eliminating overwatering, underwatering, and manual error.</div>
+          <div class="why-bullet-desc">Irrigation responds to measured moisture thresholds set for each pot or zone.</div>
         </div>
       </li>
       <li class="why-bullet">
@@ -932,7 +928,7 @@ footer .footer-logo { flex: none; width: 126px; }
         <svg class="why-bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <div>
           <div class="why-bullet-title">Scalable Node Architecture</div>
-          <div class="why-bullet-desc">Start with a single bench and expand across multiple greenhouse zones as the deployment grows.</div>
+          <div class="why-bullet-desc">Configure sensors and irrigation lines around your facility. Expansion requirements are reviewed during planning.</div>
         </div>
       </li>
       <li class="why-bullet">
@@ -988,82 +984,6 @@ footer .footer-logo { flex: none; width: 126px; }
 </footer>
 
 
-<script id="application-flow-script">
-(() => {
-  const wrapper = document.querySelector('.application-flow');
-  const svg = wrapper.querySelector('.application-flow-lines');
-  const intro = wrapper.querySelector('.app-intro-grid');
-  const cards = [...wrapper.querySelectorAll('.app-card')];
-  const frame = wrapper.querySelector('.portal-demo-frame');
-  const benefits = wrapper.querySelector('.why-inner');
-  // Layout coordinates ignore reveal transforms, so the connections stay anchored.
-  function box(element) {
-    let x = 0, y = 0, node = element;
-    while (node && node !== wrapper) { x += node.offsetLeft; y += node.offsetTop; node = node.offsetParent; }
-    return {x, y, width: element.offsetWidth, height: element.offsetHeight};
-  }
-  function draw() {
-    const tiles = cards.map(box), portal = box(frame);
-    const firstTop = Math.min(...tiles.map(c => c.y));
-    const lastBottom = Math.max(...tiles.map(c => c.y + c.height));
-    const merge = lastBottom + (portal.y - lastBottom) / 2;
-    const target = portal.x + portal.width / 2;
-    const lines = [];
-    if (tiles.every(c => Math.abs(c.y - firstTop) < 5)) {
-      tiles.forEach(c => {
-        const middle = c.x + c.width / 2;
-        lines.push(`M ${middle} ${c.y + c.height} V ${merge} H ${target}`);
-      });
-    } else {
-      // On stacked layouts, route around the cards instead of across their text.
-      const right = Math.max(...tiles.map(c => c.x + c.width)) + 12;
-      tiles.forEach(c => {
-        lines.push(`M ${c.x + c.width} ${c.y + c.height - 22} H ${right}`);
-      });
-      lines.push(`M ${right} ${tiles[0].y + tiles[0].height - 22} V ${merge} H ${target}`);
-    }
-    lines.push(`M ${target} ${merge} V ${portal.y}`);
-    // Lead-in: out of the intro tile, along the right edge, back to the middle, then down to each card.
-    const tile = box(wrapper.querySelector('.app-intro-copy'));
-    const edge = Math.max(...tiles.map(c => c.x + c.width));
-    const tileRight = tile.x + tile.width, tileMid = tile.y + tile.height / 2;
-    const gap = firstTop - (tile.y + tile.height);
-    if (gap > 40) {
-      const turn = tile.y + tile.height + gap * 0.42, split = tile.y + tile.height + gap * 0.72;
-      const r = 12, centre = (Math.min(...tiles.map(c => c.x)) + edge) / 2;
-      const sideBySide = tiles.every(c => Math.abs(c.y - firstTop) < 5);
-      const end = sideBySide ? centre : tiles[0].x + tiles[0].width / 2;
-      const out = edge - tileRight > r * 2
-        ? `M ${tileRight} ${tileMid} H ${edge - r} Q ${edge} ${tileMid} ${edge} ${tileMid + r} V ${turn - r} Q ${edge} ${turn} ${edge - r} ${turn}`
-        : `M ${tileRight - r} ${tile.y + tile.height} V ${turn}`;
-      lines.push(`${out} H ${end + r} Q ${end} ${turn} ${end} ${turn + r} V ${sideBySide ? split : firstTop}`);
-      if (sideBySide) tiles.forEach(c => {
-        const middle = c.x + c.width / 2;
-        lines.push(`M ${centre} ${split} H ${middle} V ${c.y}`);
-      });
-    }
-    const bulletBox = box(benefits);
-    const inset = Math.min(24, bulletBox.x - 8);
-    const left = bulletBox.x - inset, right = bulletBox.x + bulletBox.width + inset;
-    const top = bulletBox.y - 24, bottom = bulletBox.y + bulletBox.height + 24;
-    lines.push(`M ${target} ${portal.y + portal.height} V ${top}`);
-    // A closed, animated perimeter surrounds all six benefits.
-    lines.push(`M ${target} ${top} H ${right - 12} Q ${right} ${top} ${right} ${top + 12} V ${bottom - 12} Q ${right} ${bottom} ${right - 12} ${bottom} H ${left + 12} Q ${left} ${bottom} ${left} ${bottom - 12} V ${top + 12} Q ${left} ${top} ${left + 12} ${top} H ${target} Z`);
-    svg.setAttribute('viewBox', `0 0 ${wrapper.offsetWidth} ${wrapper.offsetHeight}`);
-    svg.replaceChildren(...lines.map(d => {
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d); return path;
-    }));
-  }
-  let pending = 0;
-  function schedule() { cancelAnimationFrame(pending); pending = requestAnimationFrame(draw); }
-  const observer = new ResizeObserver(schedule);
-  [wrapper, intro, wrapper.querySelector('.app-intro-copy'), ...cards, frame, benefits].forEach(element => observer.observe(element));
-  window.addEventListener('resize', schedule);
-  document.fonts?.ready.then(schedule);
-  schedule();
-})();
-</script>
 <script>
   const applicationsHeader = document.querySelector('nav');
   new ResizeObserver(() => document.documentElement.style.setProperty('--applications-header-height', applicationsHeader.getBoundingClientRect().height + 'px')).observe(applicationsHeader);

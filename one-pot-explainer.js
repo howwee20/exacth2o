@@ -100,9 +100,7 @@
 
     const count = waterings.length;
     chart.setAttribute("aria-label", `A synthetic pot over three days with a ${targetPercent}% target. The valve opened ${count} ${count === 1 ? "time" : "times"}.`);
-    result.textContent = count
-      ? `At a ${targetPercent}% target, this synthetic pot was watered ${count} ${count === 1 ? "time" : "times"} in three days — each time just after its measured moisture fell below ${targetPercent}%. Every opening is a controller record; how much water reaches the pot depends on the emitter.`
-      : `At a ${targetPercent}% target, this synthetic pot was never watered in three days: its moisture never fell below ${targetPercent}%.`;
+    result.textContent = `Simulation: ${count} valve ${count === 1 ? "opening" : "openings"} over three days at a ${targetPercent}% target.`;
     if (targetValue) targetValue.textContent = `${targetPercent}%`;
   }
 
