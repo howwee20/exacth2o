@@ -21,8 +21,9 @@ export function isResearchPotId(value: string) {
   return uuidPattern.test(value.trim());
 }
 
-export function experimentsForPot(name: string, experiments: readonly PortalExperiment[], nowMs = Date.now()) {
-  const using = experiments.filter((experiment) => experiment.pairingNames.includes(name));
+export function experimentsForPot(name: string, experiments: readonly PortalExperiment[], nowMs = Date.now(), sensorKey?: string) {
+  const using = experiments.filter((experiment) => experiment.pairingNames.includes(name) ||
+    (sensorKey && experiment.assignments?.some((assignment) => assignment.sensor_key_snapshot === sensorKey)));
   return using.sort((a, b) => {
     const aDone = experimentIsCompleted(a, nowMs) ? 1 : 0;
     const bDone = experimentIsCompleted(b, nowMs) ? 1 : 0;
@@ -40,12 +41,19 @@ export function resolvePot(
   const trimmed = key.trim();
   const name = isResearchPotId(trimmed) ? options.boundPairingName ?? null : trimmed;
   if (!name) return null;
-  const pairing = pairings.find((item) => item.name.toLowerCase() === name.toLowerCase());
+  const historicalKeys = new Set(experiments.flatMap((experiment) =>
+    (experiment.assignments ?? []).filter((assignment) => assignment.pairing_name.toLowerCase() === name.toLowerCase())
+      .flatMap((assignment) => assignment.sensor_key_snapshot ? [assignment.sensor_key_snapshot] : [])));
+  const pairing = pairings.find((item) => item.name.toLowerCase() === name.toLowerCase()) ??
+    (historicalKeys.size === 1 ? pairings.find((item) => historicalKeys.has(item.sensor_key)) : undefined);
   if (!pairing) return null;
-  const using = experimentsForPot(pairing.name, experiments, options.nowMs);
+  const using = experimentsForPot(pairing.name, experiments, options.nowMs, pairing.sensor_key);
   const current = (options.preferExperimentId ? using.find((experiment) => experiment.id === options.preferExperimentId) : null) ?? using[0] ?? null;
-  const assignment = current?.assignments?.find((item) => item.pairing_name === pairing.name) ?? null;
-  return { pairing, experiments: using, current, assignment };
+  const assignment = current?.assignments?.find((item) => item.sensor_key_snapshot === pairing.sensor_key || item.pairing_name === pairing.name) ?? null;
+  const contextualPairing = options.preferExperimentId && assignment
+    ? { ...pairing, name: assignment.pairing_name, zone: assignment.zone, pot_number: assignment.pot_number }
+    : pairing;
+  return { pairing: contextualPairing, experiments: using, current, assignment };
 }
 
 export type PotSearchResult = { pairing: PairingRow; experiment: PortalExperiment | null; score: number };
