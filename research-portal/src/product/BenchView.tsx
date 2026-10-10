@@ -212,14 +212,12 @@ export function BenchView({
     <section className="px-page is-wide" aria-label="Bench">
       <div className="px-exp-head">
         <h1 className="px-title">Bench</h1>
-        <p className="px-subtitle">
+        {model.basis === "recorded" || confirmed ? <p className="px-subtitle">
           {model.basis === "recorded" && layout ? (
             <span>Recorded layout, version {layout.version}{layoutVersions > 1 ? ` of ${layoutVersions}` : ""} · {layout.author_label} · {formatMeasurementTime(layout.created_at)}{layout.note ? ` · “${layout.note}”` : ""}</span>
-          ) : (
-            <span><span className="px-schematic-mark" aria-hidden="true" /> Schematic layout · positions not recorded</span>
-          )}
-          <span>{confirmed ? `${confirmed} of ${bindings.length} pots physically confirmed` : bindings.length ? "Physical pot identities not yet confirmed" : ""}</span>
-        </p>
+          ) : null}
+          {confirmed ? <span>{confirmed} of {bindings.length} pots physically confirmed</span> : null}
+        </p> : null}
       </div>
       {layoutError ? <p className="px-notice" role="status">The recorded layout could not be loaded ({layoutError}); showing the schematic layout.</p> : null}
 

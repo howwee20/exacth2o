@@ -196,7 +196,6 @@ describe("portal routes", () => {
       "",
       "?view=trends",
       "?view=bench&pot=Zone1-Pot3",
-      "?view=workbench&comparison=abc",
       "?experiment=matt-experiment-2&tab=pots&pot=Zone1-Pot3",
       "?pot=Zone1-Pot17",
       "?view=pocket&pot=Zone1-Pot17&note=1",
@@ -211,5 +210,11 @@ describe("portal routes", () => {
   it("falls back to the home for unknown views and to the overview for unknown tabs", () => {
     expect(parsePortalRoute("?view=nope")).toEqual({ view: "home" });
     expect(parsePortalRoute("?experiment=x&tab=nope")).toEqual({ view: "experiment", experiment: "x", tab: "overview", pot: null });
+  });
+
+  it("sends retired Workbench links to Experiments", () => {
+    expect(parsePortalRoute("?view=workbench&comparison=abc")).toEqual({ view: "home" });
+    expect(parsePortalRoute("?view=workbench&experiment=x&pot=Zone1-Pot3")).toEqual({ view: "home" });
+    expect(portalRouteSearch(parsePortalRoute("?view=workbench&project=p1"), "?project=p1")).toBe("?project=p1");
   });
 });

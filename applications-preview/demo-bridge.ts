@@ -53,6 +53,26 @@ function actionFor(target: Element): { action: DemoAction; view?: GraphView } | 
 }
 
 export function startDemoBridge() {
+  let lastExperimentHref: string | null = null;
+  let restoreExperimentFocus = false;
+  // Focus messages stay separate from the fixed analytics contract.
+  const focusMessage = (action: string, title?: string) => {
+    if (window.parent !== window) window.parent.postMessage({ type: 'exacth2o-demo-focus', action, title }, window.location.origin);
+  };
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== 'exacth2o-demo-focus' || event.data.action !== 'close') return;
+    restoreExperimentFocus = true;
+    window.history.replaceState(null, '', window.location.pathname);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('dialog[open], [role="dialog"]')) focusMessage('escape');
+  });
+  new MutationObserver(() => {
+    if (!restoreExperimentFocus) return;
+    const card = [...document.querySelectorAll<HTMLAnchorElement>('.px-exp-open')].find(link => link.getAttribute('href') === lastExperimentHref);
+    if (card) { restoreExperimentFocus = false; card.focus({ preventScroll: true }); }
+  }).observe(document.getElementById('root')!, {childList: true, subtree: true});
   let ready = false;
   const announceReady = () => {
     if (ready || !document.querySelector('.px-spine, .px-home')) return;
@@ -70,6 +90,11 @@ export function startDemoBridge() {
   // Only trusted (visitor-generated) pointer and keyboard activations count as interaction.
   const onActivate = (event: Event) => {
     if (!event.isTrusted || !(event.target instanceof Element)) return;
+    const card = event.target.closest<HTMLAnchorElement>('.px-exp-open');
+    if (card && event instanceof MouseEvent && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+      lastExperimentHref = card.getAttribute('href');
+      focusMessage('open', card.querySelector('.px-exp-name')?.textContent || 'Experiment');
+    }
     const match = actionFor(event.target);
     if (match) post({ name: 'demo_interacted', ...match });
   };

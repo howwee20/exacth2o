@@ -52,6 +52,7 @@ type ExperimentBuilderProps = {
   autoGenerate?: boolean;
   direct?: boolean;
   experiment?: PortalExperiment | null;
+  template?: PortalExperiment | null;
   experiments?: readonly PortalExperiment[];
   presentation?: "modal" | "inline";
   onClose: () => void;
@@ -136,6 +137,7 @@ function ExperimentBuilderContent({
   autoGenerate = false,
   direct = false,
   experiment = null,
+  template = null,
   experiments = noPortalExperiments,
   presentation = "modal",
   onClose,
@@ -144,9 +146,12 @@ function ExperimentBuilderContent({
   const editing = Boolean(experiment);
   const [step, setStep] = useState<BuilderStep>(direct ? "review" : "prompt");
   const [prompt, setPrompt] = useState(initialPrompt);
+  const templateAssignments = useMemo(() => template ? experimentDraftFromPortalExperiment(template, pairings).assignments : [], [template, pairings]);
   const [draft, setDraft] = useState<ExperimentDraft>(() =>
     experiment
       ? experimentDraftFromPortalExperiment(experiment, pairings)
+      : template
+      ? { ...experimentDraftFromPortalExperiment(template, pairings), name: `${template.name} copy`, start_date: null, assignments: [], questions: [] }
       : direct
       ? manualExperimentDraft(pairings)
       : emptyExperimentDraft()
@@ -305,7 +310,7 @@ function ExperimentBuilderContent({
           ? current.assignments.filter(
             (assignment) => assignment.pairing_name !== pairing.name,
           )
-          : [...current.assignments, assignmentForPairing(pairing)],
+          : [...current.assignments, templateAssignments.length ? { ...templateAssignments[current.assignments.length % templateAssignments.length], pairing_name: pairing.name } : assignmentForPairing(pairing)],
       };
     });
   };
@@ -416,7 +421,7 @@ function ExperimentBuilderContent({
           <div>
             <p>Experiment workspace</p>
             <h2 id="experiment-builder-title">
-              {editing ? `Edit ${experiment?.name ?? "experiment"}` : "Create an experiment"}
+              {editing ? `Edit ${experiment?.name ?? "experiment"}` : template ? "Duplicate as draft" : "Create an experiment"}
             </h2>
           </div>
           <ol className="experiment-builder-steps" aria-label="Experiment workflow">
@@ -445,6 +450,7 @@ function ExperimentBuilderContent({
               placeholder="Use pots 15–26 for a maize trial. Set half to 30% and keep half sensing only. Measure every 10 minutes."
               autoFocus
             />
+            {template ? <p className="settings-muted">Based on {template.name}. Choose available pots. Treatments and targets are copied in order from the original plan; review each assignment before applying the new experiment.</p> : null}
             {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
             <div className="experiment-builder-actions">
               <button type="button" className="is-secondary" onClick={beginManualDraft}>

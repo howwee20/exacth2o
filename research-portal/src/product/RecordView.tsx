@@ -65,7 +65,7 @@ export function RecordView({
   const [error, setError] = useState<string | null>(null);
   // The mark from before this visit decides what is new; the database mark moves on load.
   const previousMark = useRef<{ experiment: string; value: string | null } | null>(null);
-  const [anchorMs] = useState(() => nowMs);
+  const [anchorMs] = useState(() => Math.min(nowMs, experiment.endedAt ? Date.parse(experiment.endedAt) : nowMs));
 
   useEffect(() => {
     if (!experiment.databaseId) return;

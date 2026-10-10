@@ -109,7 +109,6 @@ export function portalExperimentById(
   experiments: readonly PortalExperiment[] = [],
 ): PortalExperiment {
   return experiments.find((experiment) => experiment.id === id) ??
-    experiments[0] ??
     emptyExperiment;
 }
 

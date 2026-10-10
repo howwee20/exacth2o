@@ -1099,6 +1099,13 @@
 .px-exp-count { font: 500 13px var(--px-sans); }
 .px-exp-exception { font-size: 13px; border-top: 1px solid var(--px-rule); padding-top: 10px; }
 .px-node { border-color: var(--px-rule); background: transparent; font-size: 13px; }
+.px-machines { display: grid; gap: 12px; margin-top: 32px; }
+.px-machines:not(:has(.px-machine-card)) { display: none; }
+.px-machines h2 { font: 600 16px/1.4 var(--px-sans); margin: 0; }
+.px-machine-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; width: 100%; padding: 17px 20px; border: 1px solid var(--px-rule-strong); border-radius: var(--px-radius); background: #fff; color: var(--px-text); font-family: var(--px-sans); text-align: left; cursor: pointer; }
+.px-machine-card:hover { border-color: var(--px-water); }
+.px-machine-error { display: flex; align-items: center; gap: 6px; grid-column: 1 / -1; color: var(--px-red); font-size: 13px; }
+@media (max-width: 560px) { .px-machine-card { grid-template-columns: minmax(0, 1fr); } }
 .px-tools { grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .px-admin-tools { min-width: 0; border-block: 1px solid var(--px-rule); }
 .px-admin-tools > summary { padding: 14px 0; font-size: 13px; font-weight: 600; color: var(--px-muted); cursor: pointer; }
@@ -1183,3 +1190,46 @@
 .measurement-status-details > div { position: absolute; right: 0; top: calc(100% + 10px); z-index: 10; width: min(320px, 75vw); padding: 12px 16px; background: white; border: 1px solid var(--px-rule-strong); border-radius: 6px; box-shadow: 0 8px 24px #102a1914; }
 .measurement-status-details p { margin: 4px 0; line-height: 1.5; }
 .measurement-status-checked:empty { display: none; }
+
+/* Product refinement: contextual actions, evidence, exports and machine pages. */
+.px-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.px-account-section { padding:24px; margin:24px 0; }
+.px-account-section h2 { margin:0 0 8px; font-size:20px; }
+.px-account-section h3 { margin:28px 0 12px; font-size:15px; }
+.px-check { display:flex; align-items:center; gap:10px; margin:16px 0; }
+.px-check input { accent-color:var(--px-accent,#176449); width:17px; height:17px; }
+.px-notification-list { list-style:none; margin:0; padding:0; }
+.px-notification-list li { display:grid; gap:4px; padding:14px 0; border-bottom:1px solid var(--px-border,#dbe3df); }
+.px-notification-list p { margin:4px 0; }
+.px-table-wrap { max-width:100%; overflow-x:auto; }
+.px-facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:20px; margin:20px 0; }
+.px-facts dt { color:var(--px-muted,#53665d); font-size:12px; margin-bottom:5px; }
+.px-facts dd { margin:0; overflow-wrap:anywhere; }
+.px-evidence { padding:20px 24px; margin:24px 0; }
+.px-evidence summary,.px-diagnostics summary { cursor:pointer; font-weight:600; padding:8px 0; }
+.px-evidence summary:focus-visible,.px-diagnostics summary:focus-visible { outline:2px solid #176449; outline-offset:4px; }
+.px-diagnostics { margin:20px 0; }
+.px-quality-note { display:block; font-size:11px; color:#805414; font-weight:500; }
+.px-export-backdrop { position:fixed; inset:0; z-index:1500; background:rgb(14 26 20 / 40%); display:flex; padding:24px; align-items:center; justify-content:center; }
+.px-export-dialog { background:var(--px-bg,#f7f9f8); color:var(--px-ink,#172a23); border-radius:12px; box-shadow:0 24px 90px #0003; width:min(1100px,100%); height:min(920px,94dvh); display:flex; flex-direction:column; overflow:hidden; }
+.px-export-dialog > header { padding:20px 24px; display:flex; gap:16px; align-items:center; justify-content:space-between; }
+.px-export-dialog h2 { font-size:21px; margin:0 0 4px; }
+.px-export-dialog p { margin:0; font-size:13px; }
+.px-export-dialog > .px-toolbar { padding:0 24px 20px; }
+.px-export-dialog iframe { width:100%; flex:1; border:0; border-top:1px solid #dbe3df; background:white; }
+.px-shell .dashboard-shell,.px-shell .system-health-main,.px-shell .sales-support-main,.px-shell .chamber-control-shell { max-width:1440px; margin:0 auto; padding:24px 32px; width:100%; font-family:var(--px-font, 'Instrument Sans', sans-serif); }
+.px-shell .experiment-view-title { font-family:inherit; font-size:30px; letter-spacing:-.04em; }
+.px-shell .treatment-dot { width:auto; min-width:24px; max-width:100px; border-radius:4px; padding:3px 6px; font-size:10px; font-style:normal; white-space:normal; line-height:1.2; }
+.px-shell .support-hero { padding:24px; }
+.px-shell .header-action,.px-shell .support-back-button { font-family:inherit; }
+@media(max-width:700px) {
+ .px-export-backdrop { padding:0; }
+ .px-export-dialog { border-radius:0; height:100dvh; width:100%; }
+ .px-export-dialog > header { padding:16px; }
+ .px-export-dialog > .px-toolbar { padding:0 16px 16px; gap:8px; }
+ .px-export-dialog > .px-toolbar button { font-size:12px; padding:9px 10px; }
+ .px-account-section,.px-evidence { padding:18px; }
+ .px-shell .dashboard-shell,.px-shell .system-health-main,.px-shell .sales-support-main,.px-shell .chamber-control-shell { padding:20px 16px; }
+}
+
+.px-demo-label{font-size:11px;color:#c6d2cc;white-space:nowrap}.px-export-dialog select{font:inherit;padding:8px;border:1px solid #bac9c1;border-radius:5px;background:white;margin-left:8px}.px-export-dialog label{font-size:12px}

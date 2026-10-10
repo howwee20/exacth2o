@@ -13,7 +13,7 @@ body { -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font-family: var(--sans); }
 a, button, input, select, textarea, [tabindex] { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid #4d9f83; outline-offset: 4px; }
-nav { padding: 1rem clamp(1.25rem, 4vw, 4rem); background: #101f1a; backdrop-filter: none; }
+body > nav { padding: 1rem clamp(1.25rem, 4vw, 4rem); background: #101f1a; backdrop-filter: none; }
 .nav-links { gap: 1.6rem; }
 .nav-links a { font-family: var(--sans); font-size: .875rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: #c6d2cc; }
 .nav-links a:hover, .nav-links a.active { color: white; }
@@ -94,3 +94,13 @@ footer .footer-tagline { font-style: normal; }
 .support-heading h1 { font: 600 clamp(2rem,4vw,3.25rem)/1.12 var(--sans); letter-spacing: -.035em; }
 .app-card-icon { display: none; }
 .portal-demo-frame { border: 1px solid var(--rule); border-radius: 8px; }
+
+/* Common public trust links and document pages. */
+.site-policy-links{display:flex;flex-wrap:wrap;gap:16px;padding:0;background:transparent;font-size:12px;line-height:1.5}
+.site-policy-links a{color:#bbc8c0;text-decoration:none}.site-policy-links a:hover{text-decoration:underline;color:white}
+.public-document{max-width:860px;margin:0 auto;padding:72px 28px 90px;color:#193127;font-family:'Instrument Sans',sans-serif;font-size:16px;line-height:1.75}
+.public-document h1{font-size:clamp(32px,5vw,46px);letter-spacing:-.04em;line-height:1.1;margin:12px 0 24px}
+.public-document h2{font-size:22px;letter-spacing:-.025em;margin-top:36px;line-height:1.35}
+.public-document a{color:#176449;text-underline-offset:3px}.public-document .eyebrow{font-size:12px;color:#52685b}
+.public-document .document-lead{font-size:19px;color:#52685b}.public-document .document-note{border-left:3px solid #a3b5a8;padding:10px 18px;background:#eef2ec}
+@media(max-width:700px){.site-policy-links{justify-content:center}.public-document{padding:42px 20px 60px}}

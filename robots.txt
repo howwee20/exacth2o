@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /portal
+Disallow: /portal-app/
+Disallow: /demo-app/
+Disallow: /applications-demo-app/
+Sitemap: https://exacth2o.com/sitemap.xml

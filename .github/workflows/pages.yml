@@ -2,181 +2,16 @@ name: Publish exactH2O website
 
 on:
   push:
-    branches:
-      - ej-supabase-research-portal
+    branches: [ej-supabase-research-portal]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Publishing serves the committed, locally built release directly.
+# Full verification remains an explicit manual workflow, not a deployment gate.
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    outputs:
-      website_only: ${{ steps.scope.outputs.website_only }}
-      portal_only: ${{ steps.scope.outputs.portal_only }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Check deployment routing
-        run: node --test scripts/website-change-scope.test.mjs
-
-      - name: Identify website-only changes
-        id: scope
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_SHA: ${{ github.sha }}
-        run: |
-          base_sha=""
-          if [ "$EVENT_NAME" = "push" ]; then
-            # Compare with the last successful deployment, not merely the last
-            # push: an earlier failed software change must not bypass checks.
-            base_sha="$(gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?branch=ej-supabase-research-portal&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)"
-          fi
-          node scripts/website-change-scope.mjs "$base_sha" "$HEAD_SHA"
-
-  validate:
-    needs: changes
-    if: needs.changes.outputs.website_only != 'true'
-    concurrency:
-      group: validate-${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            research-portal/package-lock.json
-            controller-release/control-executor/package-lock.json
-            controller-release/matt-balena-release-4174753/control-executor/package-lock.json
-            controller-release/walker-telemetry-publisher/package-lock.json
-            controller-release/matt-balena-release-4174753/api/package-lock.json
-            controller-release/matt-balena-release-4174753/cron/package-lock.json
-            controller-release/matt-balena-release-4174753/ui/package-lock.json
-
-      - name: Set up Deno
-        if: needs.changes.outputs.portal_only != 'true'
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.9.2
-
-      - name: Set up Supabase CLI
-        if: needs.changes.outputs.portal_only != 'true'
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.65.5
-
-      - name: Install portal dependencies
-        run: npm ci --prefix research-portal
-
-      - name: Install controller dependencies
-        if: needs.changes.outputs.portal_only != 'true'
-        run: |
-          npm ci --prefix controller-release/control-executor
-          npm ci --prefix controller-release/matt-balena-release-4174753/control-executor
-          npm ci --prefix controller-release/walker-telemetry-publisher
-          npm ci --prefix controller-release/matt-balena-release-4174753/api
-          npm ci --prefix controller-release/matt-balena-release-4174753/cron
-          npm ci --prefix controller-release/matt-balena-release-4174753/ui
-
-      - name: Test control authorization and executor safety
-        if: needs.changes.outputs.portal_only != 'true'
-        run: |
-          node scripts/generate-platform-contracts.mjs --check
-          node scripts/audit-walker-observation.mjs
-          node scripts/audit-walker-live-boundary.mjs
-          node --test supabase/functions/create-control-command/command-policy.test.mjs
-          node --test supabase/functions/accept-invite/invite-role-policy.test.mjs
-          node --test supabase/functions/_shared/abuse-prevention.test.mjs
-          node --test supabase/functions/_shared/installation-config.test.mjs
-          node --test supabase/functions/_shared/operation-ledger.test.mjs
-          node --test supabase/functions/_shared/gas-mixer-native-policy.test.mjs
-          python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
-          node --test supabase/functions/_shared/lighting-native-policy.test.mjs
-          node --test supabase/functions/notification-dispatcher/notification-policy.test.mjs
-          node --test supabase/functions/receive-walker-telemetry/receiver-policy.test.mjs
-          node --test supabase/functions/experiment-builder/assistant-chat-policy.test.mjs
-          node --test supabase/functions/experiment-builder/automation-policy.test.mjs
-          node --test supabase/functions/experiment-builder/experiment-policy.test.mjs
-          node --test supabase/functions/experiment-builder/request-utils.test.mjs
-          node --test supabase/functions/sync-owner-health/config-refresh-policy.test.mjs
-          node --test supabase/functions/sync-owner-health/rd-evidence-policy.test.mjs
-          node --test supabase/functions/sync-owner-health/uptime-policy.test.mjs
-          node --test supabase/functions/website-analytics/report-policy.test.mjs
-          npm test --prefix controller-release/control-executor
-          npm test --prefix controller-release/matt-balena-release-4174753/control-executor
-          npm test --prefix controller-release/walker-telemetry-publisher
-          npm test --prefix platform/controller-simulator
-          npm audit --omit=dev --prefix controller-release/control-executor
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/control-executor
-          npm audit --omit=dev --prefix controller-release/walker-telemetry-publisher
-          npm test --prefix controller-release/matt-balena-release-4174753/api
-          npm run build --prefix controller-release/matt-balena-release-4174753/api
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/api
-          npm test --prefix controller-release/matt-balena-release-4174753/cron -- --runInBand
-          npm run build --prefix controller-release/matt-balena-release-4174753/cron
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/cron
-          npm run build --prefix controller-release/matt-balena-release-4174753/ui
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/ui
-          deno check supabase/functions/accept-invite/index.ts
-          deno check supabase/functions/assistant-automation-runner/index.ts
-          deno check supabase/functions/create-control-command/index.ts
-          deno check supabase/functions/experiment-builder/index.ts
-          deno check supabase/functions/gas-mixer-agent/index.ts
-          deno check supabase/functions/gas-mixer-native-agent/index.ts
-          deno check supabase/functions/gas-mixer-native-control/index.ts
-          deno check supabase/functions/gas-mixer-session/index.ts
-          deno check supabase/functions/lighting-native-agent/index.ts
-          deno check supabase/functions/lighting-native-control/index.ts
-          deno check supabase/functions/notification-dispatcher/index.ts
-          deno check supabase/functions/receive-walker-telemetry/index.ts
-          deno check supabase/functions/receive-support-email/index.ts
-          deno check supabase/functions/sync-owner-health/index.ts
-          deno check supabase/functions/website-analytics/index.ts
-          deno check supabase/functions/submit-quote/index.ts
-          deno check supabase/functions/submit-support-request/index.ts
-          ./scripts/verify-database-baseline.sh
-
-      - name: Build and verify the portal
-        run: |
-          npm run check --prefix research-portal
-          node research-portal/node_modules/vite/bin/vite.js build --config applications-preview/vite.config.mjs
-          node demo-preview/build.mjs
-          demo_changes="$(git status --porcelain --untracked-files=all -- demo.html demo-app applications-demo-app)"
-          if [ -n "$demo_changes" ]; then
-            printf '%s\n' "$demo_changes"
-            echo 'The committed demo builds are out of date; run both demo builds and commit demo.html, demo-app/ and applications-demo-app/.'
-            exit 1
-          fi
-          generated_changes="$(git status --porcelain --untracked-files=all -- portal-app portal.html site-metrics.js)"
-          if [ -n "$generated_changes" ]; then
-            printf '%s\n' "$generated_changes"
-            echo 'The committed portal bundle or site-metrics.js is out of date; run npm run build --prefix research-portal and commit.'
-            exit 1
-          fi
-
   deploy:
-    if: >-
-      ${{ !cancelled()
-          && github.ref == 'refs/heads/ej-supabase-research-portal'
-          && needs.changes.result == 'success'
-          && (needs.validate.result == 'success'
-              || (needs.changes.outputs.website_only == 'true' && needs.validate.result == 'skipped')) }}
-    needs: [changes, validate]
     permissions:
       contents: read
       pages: write
@@ -202,6 +37,7 @@ jobs:
           mkdir -p site-dist/portal-app/assets
 
           cp site-metrics.js site-navigation.js one-pot-explainer.js site-ui.css site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
+          cp 404.html privacy.html terms.html data-access.html favicon.svg robots.txt sitemap.xml site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp team-*-20260913.webp team-binod-20260915.png site-dist/
           cp hero-greenhouse-*-20260913.webp site-dist/

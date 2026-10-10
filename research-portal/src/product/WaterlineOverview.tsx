@@ -43,7 +43,7 @@ export function appliedGroupTarget(group: PotGroup, pairings: readonly PairingRo
   const applied = Array.from(new Set(active.map((pairing) => Number(pairing.wtc_percent_limit.toFixed(2)))));
   const planMismatch = group.plannedTargets.length > 0 && applied.some((value) => !group.plannedTargets.some((plan) => Math.abs(plan - value) < 0.001));
   const disabled = groupPairings.length - active.length;
-  const disabledText = disabled ? ` · ${disabled} ${disabled === 1 ? "pot" : "pots"} unwatered` : "";
+  const disabledText = disabled ? ` · ${disabled} ${disabled === 1 ? "pot" : "pots"} with watering off` : "";
   if (applied.length !== 1) {
     return { line: null, text: `Mixed targets ${applied.map((value) => `${value}%`).join(" / ")}${disabledText}`, planMismatch };
   }
@@ -325,7 +325,7 @@ export function WaterlineOverview({
           <dt>Targets</dt><dd>{info.hasTargets ? "The hairline is the target the controller is applying (what watering follows). When the experiment plan differs, the label says so." : "Targets apply to calibrated VWC only, so none are drawn for this measure."}</dd>
           <dt>Calibration</dt><dd>{Array.from(calibrations.entries()).map(([name, pots]) => `${name} (${pots.length} ${pots.length === 1 ? "pot" : "pots"})`).join("; ")}.</dd>
           <dt>Cadence</dt><dd>{cadences.length ? cadences.join(", ") : "Not reported by the controller; gaps use the observed spacing."}</dd>
-          <dt>Window</dt><dd>{formatMeasurementTime(window.startMs)} – {formatMeasurementTime(window.endMs)} ({dataSourceLabel}). Longer histories and exports are in Workbench.</dd>
+          <dt>Window</dt><dd>{formatMeasurementTime(window.startMs)} – {formatMeasurementTime(window.endMs)} ({dataSourceLabel}).</dd>
         </dl>
       </details>
     </section>

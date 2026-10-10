@@ -160,6 +160,7 @@ export function QuietSpineHome({
   onNewExperiment,
   onEditExperiment,
   healthLink,
+  machines,
   tools,
   leading,
   recordAvailable,
@@ -174,6 +175,7 @@ export function QuietSpineHome({
   onNewExperiment: () => void;
   onEditExperiment: (experiment: PortalExperiment) => void;
   healthLink?: ReactNode;
+  machines?: ReactNode;
   tools?: ReactNode;
   leading?: ReactNode;
   recordAvailable: boolean;
@@ -231,6 +233,7 @@ export function QuietSpineHome({
           ) : (
             <p className="px-empty">{checking ? "Loading experiments…" : "No experiments are visible to this account yet."}</p>
           )}
+          {machines ? <section className="px-machines" aria-label="Machines"><h2>Machines</h2>{machines}</section> : null}
         </div>
         {tools ? <aside className="px-tools" aria-label="Installation tools"><details className="px-admin-tools"><summary>Administration</summary><div className="px-admin-tools-body">{tools}</div></details></aside> : null}
       </div>

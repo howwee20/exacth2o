@@ -14,7 +14,7 @@ footer {
 .brand-finale {
   position: absolute;
   left: -.8vw;
-  bottom: 1rem;
+  bottom: 0;
   width: min(76vw, calc(100% - 300px));
   transform: none;
   pointer-events: none;
@@ -28,6 +28,6 @@ footer .footer-copyright { color: #a5b1aa; }
 footer .made-in-america { margin-top: .15rem; }
 @media (max-width: 768px) {
   footer { min-height: 230px; padding: 1.5rem; align-items: flex-start; }
-  .brand-finale { left: -1vw; right: auto; width: 100%; bottom: 1rem; transform: none; }
+  .brand-finale { left: -1vw; right: auto; width: 100%; bottom: 0; transform: none; }
   footer .footer-details { align-items: flex-end; text-align: right; }
 }

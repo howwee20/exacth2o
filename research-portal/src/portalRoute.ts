@@ -8,7 +8,6 @@ import { useSyncExternalStore } from "react";
  *   /portal                                  Experiments (Quiet Spine home)
  *   /portal?view=trends                      Installation trends
  *   /portal?view=bench[&pot=Zone1-Pot3]      Bench layout
- *   /portal?view=workbench[&comparison=<id>] Workbench
  *   /portal?experiment=<slug>[&tab=pots|record][&pot=<pot>]
  *   /portal?pot=<pairing name | research pot id>
  *   /portal?view=pocket[&pot=<pot>][&note=1] At the bench
@@ -18,7 +17,7 @@ import { useSyncExternalStore } from "react";
  */
 
 export type ExperimentTab = "overview" | "pots" | "record";
-export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics";
+export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account";
 
 export type PortalRoute =
   | { view: "home" }
@@ -30,7 +29,7 @@ export type PortalRoute =
   | { view: "pocket"; pot: string | null; note: boolean }
   | { view: ToolView };
 
-const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics"]);
+const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics", "controller", "account"]);
 const tabs = new Set<ExperimentTab>(["overview", "pots", "record"]);
 
 /** Keys that identify the account context and survive every navigation. */
@@ -51,7 +50,8 @@ export function parsePortalRoute(search: string): PortalRoute {
   if (view && toolViews.has(view as ToolView)) return { view: view as ToolView };
   if (view === "trends") return { view: "trends" };
   if (view === "bench") return { view: "bench", pot };
-  if (view === "workbench") return { view: "workbench", comparison: clean(params.get("comparison")), experiment };
+  // Retired Workbench links land on Experiments, including links to saved comparisons.
+  if (view === "workbench") return { view: "home" };
   if (view === "pocket") return { view: "pocket", pot, note: params.get("note") === "1" };
   if (experiment) {
     const tab = clean(params.get("tab"));
@@ -116,13 +116,15 @@ export function portalRouteSearch(route: PortalRoute, current = "", extra: Recor
   return search ? `?${search}` : "";
 }
 
+/** Keep each isolated demo on its own document, including on the production hostname. */
+export function portalBasePath(pathname: string, hostname: string) {
+  if (/^\/demo(?:\.html|\/)?$/.test(pathname)) return "/demo";
+  if (pathname.startsWith("/demo-app/") || pathname.startsWith("/applications-demo-app/")) return pathname;
+  return hostname === "exacth2o.com" || hostname === "www.exacth2o.com" ? "/portal" : pathname;
+}
+
 function portalPath() {
-  if (typeof window === "undefined") return "/portal";
-  // On the production host the portal always lives at /portal (portal.html canonicalises it);
-  // locally (dev server, previews) keep whatever path served the app.
-  return window.location.hostname === "exacth2o.com" || window.location.hostname === "www.exacth2o.com"
-    ? "/portal"
-    : window.location.pathname;
+  return typeof window === "undefined" ? "/portal" : portalBasePath(window.location.pathname, window.location.hostname);
 }
 
 export function portalRouteHref(route: PortalRoute, extra: Record<string, string | null> = {}) {

@@ -8,6 +8,7 @@ import type { PairingRow, SensorReading } from "../types";
 import { potTraces } from "../waterline";
 import { PortalLink } from "./PortalLink";
 import { GroupGlyph } from "./WaterlineOverview";
+import { vwcQuality } from "../readingQuality";
 import "./product.css";
 
 /** Every pot of the experiment, in plan order, each linking to its own pot page. */
@@ -71,7 +72,7 @@ export function PotsTable({
                     <span className="px-muted px-small"> {name}</span>
                   </td>
                   <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><GroupGlyph group={group} />{group.label === "All pots" ? (assignment?.crop ? levelLabel(assignment.crop) : "—") : group.label}</span></td>
-                  <td className="px-num">{last ? `${last.value.toFixed(1)}%` : "—"}</td>
+                  <td className="px-num">{last ? `${last.value.toFixed(1)}%` : "—"}{vwcQuality(last?.value) ? <span className="px-quality-note">Review calibration</span> : null}</td>
                   <td className={freshness.state === "current" || freshness.state === "historical" ? "" : "px-num"} style={freshness.state === "stale" || freshness.state === "unknown" ? { color: "var(--px-amber)" } : undefined}>
                     {freshness.state === "current" ? "Yes" : last ? `Last ${formatMeasurementTime(last.timestampMs)}` : "No readings loaded"}
                   </td>

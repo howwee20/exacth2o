@@ -247,9 +247,10 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     : null;
 
   return (
-    <main className="dashboard-shell chamber-control-shell">
+    <section className="dashboard-shell chamber-control-shell">
       <section className="chamber-control-page">
         <header className="chamber-control-heading">
+          <div><h1 className="px-title">Chamber</h1><p className="px-subtitle">Gas mixer, lighting, and schedules</p></div>
           <button type="button" className="chamber-back-button" onClick={leaveChamber}>
             <ArrowLeft size={17} /> Back
           </button>
@@ -271,7 +272,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
             <section className="chamber-module is-gas-mixer">
               <header className="is-iconless">
                 <div>
-                  <h2>Gas Mixer</h2>
+                  <h2>Remote touchscreen</h2>
                 </div>
                 <span className={`chamber-status ${status?.online ? "is-online" : "is-offline"}`}>
                   {loading ? "Checking" : status?.online ? "Online" : "Agent pending"}
@@ -353,7 +354,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
           </div>
         )}
       </section>
-    </main>
+    </section>
   );
 }
 

@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Applications — exactH2O</title>
 <meta name="description" content="See how ExactH2O supports controlled plant-stress studies, phenotyping, and research or commercial greenhouse irrigation.">
-<link rel="canonical" href="https://exacth2o.com/applications">
 <script>
 (function () {
   var canonicalPath = "/applications";
@@ -734,6 +733,19 @@
   .applications { padding-top: calc(var(--applications-header-height, 90px) + 48px); }
   .portal-opening { padding: 24px clamp(16px,3vw,48px) 48px; }
   .portal-demo-frame { display: block; width: 100%; max-width: 900px; height: min(710px, calc(100svh - var(--applications-header-height, 90px) - 48px)); margin: 0 auto; border: 3px solid #78998a; border-radius: 12px; background: #f4f1eb; scroll-margin-top: 7rem; }
+  .portal-demo-stage { position: relative; inset: auto; width: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: var(--ink); }
+  .demo-focus-bar { display: none; }
+  .portal-demo-stage:modal { position: fixed; inset: 0; width: min(1480px, calc(100vw - 48px)); height: min(960px, calc(100svh - 48px)); margin: auto; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dbe3df; border-radius: 14px; background: #f7f9f8; box-shadow: 0 24px 100px #071a2440; animation: experiment-focus-in .28s cubic-bezier(.2,.8,.2,1); }
+  .portal-demo-stage::backdrop { background: #0e1a1452; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .portal-demo-stage:modal .demo-focus-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1.25rem; border-bottom: 1px solid #dbe3df; background: #fff; }
+  .demo-focus-bar h2 { font: 600 .95rem var(--sans); letter-spacing: -.015em; margin: 0; }
+  .demo-focus-bar button { border: 1px solid #dbe3df; border-radius: 6px; padding: .5rem .75rem; background: #fff; color: var(--ink); font: 500 .85rem var(--sans); cursor: pointer; }
+  .demo-focus-bar button:hover { background: #edf1ef; }
+  .portal-demo-stage:modal .portal-demo-frame { flex: 1; min-height: 0; width: 100%; max-width: none; height: 100% !important; margin: 0; border: 0; border-radius: 0; }
+  body:has(.portal-demo-stage:modal) { overflow: hidden; }
+  @keyframes experiment-focus-in { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: scale(1); } }
+  @media(max-width: 600px) { .portal-demo-stage:modal { width: calc(100vw - 16px); height: calc(100svh - 16px); border-radius: 10px; } .portal-demo-stage:modal .demo-focus-bar { padding: .7rem .85rem; } }
+  @media(prefers-reduced-motion: reduce) { .portal-demo-stage:modal { animation: none; } .portal-demo-stage::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: #0e1a14b3; } }
   .nav-cta, .cta-strip .btn-primary { background: #2563eb; color: #fff; }
   .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
   .nav-cta:hover { background: #1d4ed8 !important; }
@@ -786,10 +798,18 @@ footer .footer-logo { flex: none; width: 126px; }
 .nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
 </style>
 <script src="/site-navigation.js" defer></script>
-<link rel="stylesheet" href="/site-brand-footer.css?v=2f08774264ec">
+<link rel="stylesheet" href="/site-brand-footer.css?v=7338f8de044a">
 <script src="/site-brand-footer.js?v=fb624af4c20d" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=7dfcec37358b">
+<link rel="stylesheet" href="/site-ui.css?v=b762fc2650d3">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://exacth2o.com/applications">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Applications — exactH2O">
+<meta property="og:description" content="See how ExactH2O supports controlled plant-stress studies, phenotyping, and research or commercial greenhouse irrigation.">
+<meta property="og:url" content="https://exacth2o.com/applications">
+<meta property="og:image" content="https://exacth2o.com/portal-preview-20261009.jpg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -896,7 +916,13 @@ footer .footer-logo { flex: none; width: 126px; }
 
 <!-- PORTAL -->
 <section class="portal-opening" aria-label="Explore the portal">
-  <iframe class="portal-demo-frame" src="/applications-demo-app/index.html" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads" loading="lazy"></iframe>
+  <dialog class="portal-demo-stage" open role="presentation" aria-labelledby="demo-focus-title">
+    <div class="demo-focus-bar">
+      <h2 id="demo-focus-title">Experiment</h2>
+      <button type="button" class="demo-focus-close" aria-label="Close experiment">Close <span aria-hidden="true">×</span></button>
+    </div>
+    <iframe class="portal-demo-frame" src="/applications-demo-app/index.html" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe>
+  </dialog>
 </section>
 
 <!-- WHY EXACTH2O -->
@@ -972,7 +998,8 @@ footer .footer-logo { flex: none; width: 126px; }
   </div>
   <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
-    <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
+    <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
+<div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
     <div class="made-in-america">
       <svg viewBox="0 0 190 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="190" height="100" fill="#fff"/><rect y="0.0000" width="190" height="7.6923" fill="#b22234"/><rect y="15.3846" width="190" height="7.6923" fill="#b22234"/><rect y="30.7692" width="190" height="7.6923" fill="#b22234"/><rect y="46.1538" width="190" height="7.6923" fill="#b22234"/><rect y="61.5385" width="190" height="7.6923" fill="#b22234"/><rect y="76.9231" width="190" height="7.6923" fill="#b22234"/><rect y="92.3077" width="190" height="7.6923" fill="#b22234"/><rect width="76" height="53.8462" fill="#3c3b6e"/><defs><polygon id="made-in-america-star" points="0.000,-3.080 0.694,-0.955 2.929,-0.952 1.122,0.365 1.810,2.492 0.000,1.180 -1.810,2.492 -1.122,0.365 -2.929,-0.952 -0.694,-0.955" fill="#fff"/></defs><use href="#made-in-america-star" x="6.333" y="5.385"/><use href="#made-in-america-star" x="19.000" y="5.385"/><use href="#made-in-america-star" x="31.667" y="5.385"/><use href="#made-in-america-star" x="44.333" y="5.385"/><use href="#made-in-america-star" x="57.000" y="5.385"/><use href="#made-in-america-star" x="69.667" y="5.385"/><use href="#made-in-america-star" x="12.667" y="10.769"/><use href="#made-in-america-star" x="25.333" y="10.769"/><use href="#made-in-america-star" x="38.000" y="10.769"/><use href="#made-in-america-star" x="50.667" y="10.769"/><use href="#made-in-america-star" x="63.333" y="10.769"/><use href="#made-in-america-star" x="6.333" y="16.154"/><use href="#made-in-america-star" x="19.000" y="16.154"/><use href="#made-in-america-star" x="31.667" y="16.154"/><use href="#made-in-america-star" x="44.333" y="16.154"/><use href="#made-in-america-star" x="57.000" y="16.154"/><use href="#made-in-america-star" x="69.667" y="16.154"/><use href="#made-in-america-star" x="12.667" y="21.538"/><use href="#made-in-america-star" x="25.333" y="21.538"/><use href="#made-in-america-star" x="38.000" y="21.538"/><use href="#made-in-america-star" x="50.667" y="21.538"/><use href="#made-in-america-star" x="63.333" y="21.538"/><use href="#made-in-america-star" x="6.333" y="26.923"/><use href="#made-in-america-star" x="19.000" y="26.923"/><use href="#made-in-america-star" x="31.667" y="26.923"/><use href="#made-in-america-star" x="44.333" y="26.923"/><use href="#made-in-america-star" x="57.000" y="26.923"/><use href="#made-in-america-star" x="69.667" y="26.923"/><use href="#made-in-america-star" x="12.667" y="32.308"/><use href="#made-in-america-star" x="25.333" y="32.308"/><use href="#made-in-america-star" x="38.000" y="32.308"/><use href="#made-in-america-star" x="50.667" y="32.308"/><use href="#made-in-america-star" x="63.333" y="32.308"/><use href="#made-in-america-star" x="6.333" y="37.692"/><use href="#made-in-america-star" x="19.000" y="37.692"/><use href="#made-in-america-star" x="31.667" y="37.692"/><use href="#made-in-america-star" x="44.333" y="37.692"/><use href="#made-in-america-star" x="57.000" y="37.692"/><use href="#made-in-america-star" x="69.667" y="37.692"/><use href="#made-in-america-star" x="12.667" y="43.077"/><use href="#made-in-america-star" x="25.333" y="43.077"/><use href="#made-in-america-star" x="38.000" y="43.077"/><use href="#made-in-america-star" x="50.667" y="43.077"/><use href="#made-in-america-star" x="63.333" y="43.077"/><use href="#made-in-america-star" x="6.333" y="48.462"/><use href="#made-in-america-star" x="19.000" y="48.462"/><use href="#made-in-america-star" x="31.667" y="48.462"/><use href="#made-in-america-star" x="44.333" y="48.462"/><use href="#made-in-america-star" x="57.000" y="48.462"/><use href="#made-in-america-star" x="69.667" y="48.462"/></svg>
       <span>MADE IN USA</span>
@@ -984,6 +1011,43 @@ footer .footer-logo { flex: none; width: 126px; }
 <script>
   // Keep the overview frame close to its list; detail screens retain their scrolling viewport.
   const portalDemo = document.querySelector('.portal-demo-frame');
+  const demoStage = document.querySelector('.portal-demo-stage');
+  const demoClose = document.querySelector('.demo-focus-close');
+  const demoTitle = document.getElementById('demo-focus-title');
+  let focusedDemo = false;
+  function focusDemo(title) {
+    if (title) demoTitle.textContent = title;
+    if (focusedDemo) return;
+    focusedDemo = true;
+    demoStage.close();
+    demoStage.removeAttribute('role');
+    demoStage.setAttribute('aria-modal', 'true');
+    demoStage.showModal();
+    demoClose.focus({preventScroll: true});
+  }
+  function unfocusDemo() {
+    if (!focusedDemo) return;
+    focusedDemo = false;
+    demoStage.close();
+    demoStage.setAttribute('role', 'presentation');
+    demoStage.removeAttribute('aria-modal');
+    demoStage.show();
+  }
+  function closeDemo() {
+    portalDemo.contentWindow.postMessage({type: 'exacth2o-demo-focus', action: 'close'}, window.location.origin);
+    unfocusDemo();
+  }
+  demoClose.addEventListener('click', closeDemo);
+  demoStage.addEventListener('cancel', event => { event.preventDefault(); closeDemo(); });
+  demoStage.addEventListener('click', event => {
+    const rect = demoStage.getBoundingClientRect();
+    if (focusedDemo && event.target === demoStage && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) closeDemo();
+  });
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== portalDemo.contentWindow || event.data?.type !== 'exacth2o-demo-focus') return;
+    if (event.data.action === 'open') focusDemo(typeof event.data.title === 'string' ? event.data.title : 'Experiment');
+    if (event.data.action === 'escape') closeDemo();
+  });
   function fitPortalOverview() {
     const demoDocument = portalDemo.contentDocument;
     if (!demoDocument?.getElementById('root')) return;
@@ -996,7 +1060,15 @@ footer .footer-logo { flex: none; width: 126px; }
         overview = nextOverview;
         if (overview) resize.observe(overview);
       }
-      portalDemo.style.height = overview ? `${Math.ceil(overview.getBoundingClientRect().height) + 2}px` : '';
+      if (overview) {
+        // A route can change before React has replaced the overview. Keep the focus
+        // view open during that render, including the first lazy-loaded experiment.
+        const openingExperiment = new URLSearchParams(portalDemo.contentWindow.location.search).has('experiment');
+        if (!openingExperiment) unfocusDemo();
+        if (!focusedDemo) portalDemo.style.height = `${Math.ceil(overview.getBoundingClientRect().height) + 2}px`;
+      } else if (focusedDemo) {
+        focusDemo(demoDocument.querySelector('.px-title, .dashboard-title')?.textContent || 'Experiment');
+      }
     };
     new MutationObserver(fit).observe(demoDocument.getElementById('root'), {childList: true, subtree: true});
     fit();

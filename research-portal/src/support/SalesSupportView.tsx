@@ -182,8 +182,8 @@ export function SalesSupportView({
       </button>
       <header className="support-hero">
         <div>
-          <p>Sales &amp; Support</p>
-          <h1>{newItems.length} new</h1>
+          <h1 className="px-title">Sales &amp; support</h1>
+          <p>{newItems.length ? `${newItems.length} new items to review` : "No new requests"}</p>
         </div>
         {loading ? (
           <Loader2 className="chart-loading-spinner" size={22} aria-label="Loading support queue" />

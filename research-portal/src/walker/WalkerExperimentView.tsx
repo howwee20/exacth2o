@@ -67,6 +67,7 @@ export function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
 }
 
 export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
+  const [lastRecorded, setLastRecorded] = useState(false);
   const [snapshot, setSnapshot] = useState<WalkerLiveSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
     // Only the newest request may update the view; a late answer from an earlier one is dropped.
     const request = ++requestRef.current;
     try {
-      const nextSnapshot = await loadWalkerLiveSnapshot();
+      const nextSnapshot = await loadWalkerLiveSnapshot(lastRecorded);
       if (!mountedRef.current || request !== requestRef.current) return;
       setSnapshot(nextSnapshot);
       setError(null);
@@ -116,9 +117,12 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
     } finally {
       if (mountedRef.current && request === requestRef.current) setLoading(false);
     }
-  }, []);
+  }, [lastRecorded]);
 
   useEffect(() => {
+    setLoading(true);
+    setSnapshot(null);
+    setTimeWindow(fullTimeWindow);
     void refresh();
     // Paused while the tab is hidden; one refresh on return if a poll was missed.
     return scheduleVisiblePolling(refresh, walkerLivePollMs);
@@ -188,8 +192,8 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
   }, [sensorBySeriesName, toggleSensor]);
 
   return (
-    <main className="dashboard-shell experiment-shell walker-experiment-shell">
-      <div className="experiment-corner-actions" aria-label="Experiment actions">
+    <section className="dashboard-shell experiment-shell walker-experiment-shell">
+      <div className="experiment-corner-actions" aria-label="Machine actions">
         <div className="header-actions">
           <button className="header-action" type="button" onClick={onBack}>
             <ArrowLeft size={14} />
@@ -225,6 +229,12 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
         </p>
       ) : null}
 
+      {snapshot && (lastRecorded || !series.some((item) => item.points.length > 0)) ? (
+        <div className="px-notice px-toolbar" role="status">
+          <span>{lastRecorded ? `Recorded window · ${formatMeasurementTime(snapshot.range_start)} to ${formatMeasurementTime(snapshot.range_end)}` : "No readings in the current window."}</span>
+          <button className="px-button" onClick={() => setLastRecorded((current) => !current)}>{lastRecorded ? "Back to current window" : "View last recorded data"}</button>
+        </div>
+      ) : null}
       <section className={`dashboard-main ${graphExpanded ? "is-expanded" : ""}`}>
         <section className="chart-card">
           <div className="chart-tools">
@@ -274,7 +284,7 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
                   setSelectedSeriesName(null);
                 }}
               >
-                All {snapshot?.evidenced_sensor_count ?? sensors.length}/100
+                Select all · {selectedSensorIds.size}/{sensors.length} selected
               </button>
             </div>
           </section>
@@ -342,6 +352,6 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
           })}
         </aside>
       </section>
-    </main>
+    </section>
   );
 }

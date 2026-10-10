@@ -5,5 +5,6 @@ import './preview.css';
 import {startDemoBridge} from './demo-bridge';
 
 // The Applications page embeds the portal demonstration.
+document.documentElement.dataset.portalMode = "demo";
 createRoot(document.getElementById('root')!).render(<App/>);
 startDemoBridge();

@@ -66,6 +66,7 @@ export const settingsNavItems: SettingsNavItem[] = [
 
 export type PortalSettingsPanelProps = {
   open: boolean;
+  scope?: "installation" | "experiment";
   projectId: string;
   portalRole: PortalRole;
   experiment: PortalExperiment;
@@ -111,10 +112,11 @@ function commandStageClass(current: CommandStage, stage: CommandStage) {
 
 export function PortalSettingsPanel({
   open,
+  scope = "experiment",
   projectId,
   portalRole,
   experiment,
-  activeSection,
+  activeSection: requestedSection,
   data,
   runtimeState,
   configState,
@@ -140,8 +142,8 @@ export function PortalSettingsPanel({
   const isAdmin = portalRole === "admin";
   // Autocalibrate commissions the installation, not one experiment's watering, so it
   // stays available when an experiment is sensing-only. It is administrator-only.
-  const availableSettingsNavItems = (isObservationOnlyExperiment(experiment)
-    ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id))
+  const availableSettingsNavItems = (scope === "experiment"
+    ? settingsNavItems.filter((item) => ["overview", "calibrations", "exports"].includes(item.id))
     : settingsNavItems
   ).filter((item) => item.id !== "autocalibrate" || isAdmin);
   const availableSettingsNavGroups = Array.from(
@@ -151,7 +153,8 @@ export function PortalSettingsPanel({
     }, new Map<SettingsNavItem["group"], SettingsNavItem[]>()),
     ([label, items]) => ({ label, items }),
   );
-  const activeItem = availableSettingsNavItems.find((item) => item.id === activeSection) ?? availableSettingsNavItems[0];
+  const activeItem = availableSettingsNavItems.find((item) => item.id === requestedSection) ?? availableSettingsNavItems[0];
+  const activeSection = activeItem.id;
   const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
   const mirroredBoardCount = configState?.board_count ?? boardConfigs.length;
   const uniqueSensors = new Set(pairings.map((pairing) => pairing.sensor_key).filter(Boolean));
@@ -422,9 +425,21 @@ export function PortalSettingsPanel({
   );
 
   const renderSection = () => {
+    if (activeSection === "overview" && scope === "experiment") {
+      return <section className="settings-card">
+        <h3>{experiment.name}</h3>
+        <div className="settings-rows">
+          <div className="settings-row"><span>Experiment state</span><strong>{experiment.status?.replace(/_/g, " ") ?? "Not recorded"}</strong></div>
+          <div className="settings-row"><span>Pots in the plan</span><strong>{experiment.pairingNames.length}</strong></div>
+          <div className="settings-row"><span>Mode</span><strong>{experiment.mode === "observation" ? "Sensing only" : experiment.mode === "calibration" ? "Calibration" : "Controlled"}</strong></div>
+          <div className="settings-row"><span>Plan revision</span><strong>{experiment.currentVersion ?? "Not recorded"}</strong></div>
+        </div>
+        <p className="settings-muted">Edit the experiment from its page to review changes to its pots and targets. Controller operation and wiring are managed in Research controller settings.</p>
+      </section>;
+    }
     if (activeSection === "overview") {
       const wateringEnabled = runtimeState?.watering_enabled ?? null;
-      const sensingOnly = isObservationOnlyExperiment(experiment);
+      const sensingOnly = scope === "experiment" && isObservationOnlyExperiment(experiment);
       const canOpen = (section: SettingsSection) => availableSettingsNavItems.some((item) => item.id === section);
       const next = overviewNextAction({
         presence: presence.status,
@@ -458,7 +473,7 @@ export function PortalSettingsPanel({
           </section>
           <div className="settings-readiness-grid">
             <ReadinessTile
-              title="Experiment"
+              title="Research controller"
               tone={!presence.controllerState ? "unknown" : controllerIsLive ? (presence.controllerState === "Running" ? "ok" : "warning") : "unknown"}
               status={presence.controllerState ? `${presence.controllerState}${lastKnown}` : "Not reported"}
               lines={[
@@ -781,8 +796,8 @@ export function PortalSettingsPanel({
             deviceId={data.latestState?.device_id ?? runtimeState?.device_id ?? configState?.device_id ?? null}
             operator={operatorEmail}
             portalRole={portalRole}
-            experimentId={experiment.id}
-            experimentName={experiment.name}
+            experimentId={scope === "installation" ? "installation" : experiment.id}
+            experimentName={scope === "installation" ? "Research controller" : experiment.name}
             pairings={pairings}
             configHash={configState?.config_hash?.trim() || null}
             controlBusy={controlBusy}
@@ -882,7 +897,8 @@ export function PortalSettingsPanel({
               <p className="settings-muted">The controller waters in short pulses, then waits and measures again before deciding whether to pulse again. Per-pot pulse length and check interval are set under Pairings.</p>
             </section>
             <section className="settings-card">
-              <h3>Experiment state</h3>
+              <h3>Controller state</h3>
+              <p className="settings-muted">Starting or stopping affects every experiment on this controller.</p>
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>{controllerIsLive ? "Controller" : "Last known state"}</span>
@@ -907,14 +923,14 @@ export function PortalSettingsPanel({
                   checked={destructiveConfirm}
                   onChange={(event) => setDestructiveConfirm(event.target.checked)}
                 />
-                <span>Confirm experiment stop</span>
+                <span>Confirm stop for the whole controller</span>
               </label>
               <div className="settings-action-stack">
                 <button type="button" onClick={() => void queueSystemState("running")} disabled={controlBusy}>
-                  <CheckCircle2 size={14} /> Start experiment
+                  <CheckCircle2 size={14} /> Start controller
                 </button>
                 <button type="button" onClick={() => void queueSystemState("stopped")} disabled={controlBusy || !destructiveConfirm}>
-                  <AlertTriangle size={14} /> Stop experiment
+                  <AlertTriangle size={14} /> Stop controller
                 </button>
               </div>
             </section>
@@ -1239,7 +1255,7 @@ export function PortalSettingsPanel({
   };
 
   return (
-    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label="Portal settings">
+    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label={scope === "installation" ? "Research controller settings" : `${experiment.name} settings`}>
       <section className={`settings-modal${navOpen ? " is-nav-open" : ""}`}>
         <div className="settings-mobile-bar">
           <button
@@ -1292,7 +1308,7 @@ export function PortalSettingsPanel({
         <section className={`settings-content is-${activeSection}`}>
           <header className="settings-content-header">
             <div>
-              <p className="settings-content-eyebrow">{activeSection === "assistant" ? "Assistant" : activeItem.group}</p>
+              <p className="settings-content-eyebrow">{scope === "installation" ? "Research controller · Installation settings" : `${experiment.name} · Experiment settings`}</p>
               <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
               <p className="settings-content-lede">
                 {activeSection === "assistant"
@@ -1301,7 +1317,7 @@ export function PortalSettingsPanel({
               </p>
             </div>
             <div className="settings-content-actions">
-              <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip>
+              {scope === "installation" ? <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip> : null}
             </div>
           </header>
           <div className="settings-section-body">

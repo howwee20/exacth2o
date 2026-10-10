@@ -668,4 +668,6 @@ psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/gas_mixer_resear
 # authenticated role (rolled back).
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/portal_product_access.sql" >/dev/null
 
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/product_read_views.sql" >/dev/null
+
 echo "ExactH2O database baseline restored and verified."

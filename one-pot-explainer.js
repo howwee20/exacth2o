@@ -1,40 +1,37 @@
-// "One pot, your target" — the public explainer of the controller's watering rule.
-//
-// A synthetic, deterministic illustration that runs entirely in the page: no network request,
-// no portal session and no connection to any controller. The response model (drying driven by a
-// daily light cycle, a pulse of water soaking in over a few readings) is deliberately simple; it
-// explains the rule, it does not predict any substrate, emitter or crop.
+// Deterministic public illustration, entirely in the page. No controller or network access.
+// The simple drying/absorption model explains control; it does not predict a crop or substrate.
 (() => {
-  const root = document.getElementById("one-pot");
+  const root = document.getElementById('one-pot');
   if (!root) return;
-
-  const MIN = 60_000;
-  const HOUR = 60 * MIN;
-  const DAY = 24 * HOUR;
-  const STEP = 10 * MIN;
-  const DAYS = 3;
-
-  const target = root.querySelector("#one-pot-target");
-  const targetValue = root.querySelector("#one-pot-target-value");
-  const chart = root.querySelector("#one-pot-chart");
-  const result = root.querySelector("#one-pot-result");
-  const presets = root.querySelectorAll("[data-one-pot-target]");
+  const target = root.querySelector('#one-pot-target');
+  const chart = root.querySelector('#one-pot-chart');
+  const record = root.querySelector('#record-example');
+  const result = root.querySelector('#one-pot-result');
+  const comparisons = root.querySelector('#one-pot-comparisons');
+  const presets = [...root.querySelectorAll('[data-one-pot-target]')];
   if (!target || !chart || !result) return;
 
-  /** Moisture of one synthetic pot over three days under the rule "water when below target". */
-  function simulate(targetPercent) {
-    let level = 36;
-    let pending = 0;
-    let lastWater = -Infinity;
-    let seed = 7;
-    const random = () => {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    let noise = 0;
-    const points = [];
-    const waterings = [];
-    for (let t = 0; t <= DAYS * DAY; t += STEP) {
+  const HOUR = 3_600_000, DAY = 24 * HOUR, STEP = HOUR / 6, DURATION = 3 * DAY;
+  const references = [18, 26, 36];
+  let comparing = false, scheduled = 0;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const el = (name, attrs = {}, text) => {
+    const node = document.createElementNS(svgNS, name);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
+    if (text != null) node.textContent = text;
+    return node;
+  };
+  function color(value) {
+    const stops = [[15, [169, 91, 28]], [27, [22, 124, 101]], [40, [49, 105, 184]]];
+    const [a, b] = value <= 27 ? stops.slice(0, 2) : stops.slice(1);
+    const fraction = Math.max(0, Math.min(1, (value - a[0]) / (b[0] - a[0])));
+    return `rgb(${a[1].map((v, i) => Math.round(v + (b[1][i] - v) * fraction)).join(',')})`;
+  }
+  function simulate(targetPercent, withRecord = false) {
+    let level = 36, pending = 0, lastWater = -Infinity, seed = 7, noise = 0;
+    const points = [], waterings = [];
+    const changeAt = DAY / 4;
+    for (let t = 0; t <= DURATION; t += STEP) {
       const hour = (t / HOUR) % 24;
       const daylight = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
       const stress = Math.max(0.3, Math.min(1, (level - 9) / 17));
@@ -42,12 +39,12 @@
       const absorbed = pending * 0.32;
       pending -= absorbed;
       level += absorbed;
-      noise = noise * 0.72 + (random() - 0.5) * 0.14;
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      noise = noise * 0.72 + (seed / 4294967296 - 0.5) * 0.14;
       const measured = level + noise;
       points.push({ t, v: measured });
-      // The controller rule: a reading below the target opens the valve once; it then waits
-      // for the water to soak in before it can open again.
-      if (measured < targetPercent && t - lastWater >= HOUR && pending < 0.4) {
+      const activeTarget = withRecord && t < changeAt ? 34 : targetPercent;
+      if (measured < activeTarget && t - lastWater >= HOUR && pending < 0.4) {
         pending += 3;
         lastWater = t;
         waterings.push(t);
@@ -55,139 +52,117 @@
     }
     return { points, waterings };
   }
-
-  const svgNS = "http://www.w3.org/2000/svg";
-  const el = (name, attrs = {}, text) => {
-    const node = document.createElementNS(svgNS, name);
-    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
-    if (text != null) node.textContent = text;
-    return node;
-  };
-
-  function draw(targetPercent) {
-    const { points, waterings } = simulate(targetPercent);
-    // Drawn at the element's real width so labels stay legible on a phone.
-    const width = Math.max(300, Math.round(chart.getBoundingClientRect().width || 720));
-    const height = width < 520 ? 230 : 260;
-    const m = { left: 40, right: 16, top: 14, bottom: 34 };
-    const plotW = width - m.left - m.right;
-    const plotH = height - m.top - m.bottom;
-    const yMin = 10;
-    const yMax = 45;
-    const x = (t) => m.left + (t / (DAYS * DAY)) * plotW;
-    const y = (v) => m.top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
-
-    chart.replaceChildren();
-    chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    for (const value of [10, 20, 30, 40]) {
-      chart.append(el("line", { x1: m.left, x2: m.left + plotW, y1: y(value), y2: y(value), class: "one-pot-grid" }));
-      chart.append(el("text", { x: m.left - 8, y: y(value) + 4, "text-anchor": "end", class: "one-pot-axis" }, `${value}%`));
+  const referenceData = new Map(references.map(value => [value, simulate(value)]));
+  function geometry(svg, height, bottom = 32) {
+    const width = Math.max(260, Math.round(svg.getBoundingClientRect().width || 640));
+    const m = { left: 34, right: 12, top: 18, bottom };
+    const plotW = width - m.left - m.right, plotH = height - m.top - m.bottom;
+    const x = t => m.left + (t / DURATION) * plotW;
+    const y = v => m.top + (1 - (v - 10) / 40) * plotH;
+    svg.replaceChildren();
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    for (const value of [10, 20, 30, 40, 50]) {
+      svg.append(el('line', { x1: m.left, x2: width - m.right, y1: y(value), y2: y(value), class: 'one-pot-grid' }));
+      svg.append(el('text', { x: m.left - 7, y: y(value) + 4, 'text-anchor': 'end', class: 'one-pot-axis' }, `${value}%`));
     }
-    for (let day = 0; day <= DAYS; day += 1) {
-      chart.append(el("line", { x1: x(day * DAY), x2: x(day * DAY), y1: m.top, y2: m.top + plotH, class: "one-pot-grid" }));
-      if (day < DAYS) chart.append(el("text", { x: x(day * DAY + DAY / 2), y: height - 10, "text-anchor": "middle", class: "one-pot-axis" }, `Day ${day + 1}`));
+    for (let day = 0; day < 3; day++) {
+      if (day) svg.append(el('line', { x1: x(day * DAY), x2: x(day * DAY), y1: m.top, y2: height - bottom, class: 'one-pot-grid' }));
+      svg.append(el('text', { x: x((day + 0.5) * DAY), y: height - 7, 'text-anchor': 'middle', class: 'one-pot-axis' }, `Day ${day + 1}`));
     }
-    // Watering events: one short tick per valve opening, along the bottom.
+    const path = points => points.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${y(p.v).toFixed(1)}`).join('');
+    return { width, height, m, x, y, path, plotW, plotH };
+  }
+  function drawRecord(value, ink) {
+    if (!record) return;
+    const { points } = simulate(value, true);
+    const g = geometry(record, 260, 60);
+    const calibrationAt = 1.6 * DAY, noteAt = 1.85 * DAY;
+    const calibrated = points.map(p => ({ t: p.t, v: p.v * (p.t >= calibrationAt ? 1.12 : 1) }));
+    // Raw values are shown on their own explicitly labelled scale; they stay continuous
+    // through calibration. Their pixel offset is presentation, not another VWC measurement.
+    record.append(el('path', { d: g.path(points.map(p => ({ t: p.t, v: p.v - 3 }))), class: 'record-raw' }));
+    record.append(el('path', { d: g.path(calibrated), class: 'one-pot-line', style: `stroke:${ink}` }));
+    const lane = g.height - 35;
+    record.append(el('line', { x1: g.m.left, x2: g.width - g.m.right, y1: lane, y2: lane, class: 'one-pot-grid' }));
+    for (const [at, letter, title] of [[DAY / 4, 'T', `Target changed to ${value}% VWC`], [calibrationAt, 'C', 'Calibration updated; raw output remains continuous'], [noteAt, 'N', 'Field note added']]) {
+      record.append(el('line', { x1: g.x(at), x2: g.x(at), y1: g.m.top, y2: lane - 9, class: 'record-marker' }));
+      const dot = el('circle', { cx: g.x(at), cy: lane, r: 9, class: `record-dot is-${letter}` });
+      dot.append(el('title', {}, title));
+      record.append(dot, el('text', { x: g.x(at), y: lane + 4, 'text-anchor': 'middle', class: 'record-letter' }, letter));
+    }
+    record.setAttribute('aria-label', `Simulated record: target changes from 34% to ${value}% VWC; calibrated moisture changes at C while raw output remains continuous; field note at N.`);
+    root.querySelector('#record-target-event').textContent = `Target → ${value}% VWC`;
+  }
+  function draw() {
+    scheduled = 0;
+    const value = Number(target.value), ink = color(value);
+    const { points, waterings } = simulate(value);
+    const g = geometry(chart, 290);
+    root.style.setProperty('--target-color', ink);
+    target.style.setProperty('--target-position', `${(value - 15) / 25 * 100}%`);
+    chart.append(el('rect', { x: g.m.left, y: g.y(value), width: g.plotW, height: g.height - g.m.bottom - g.y(value), fill: ink, opacity: '.045' }));
+    if (comparing) {
+      for (const reference of references.filter(v => v !== value)) {
+        const trace = el('path', { d: g.path(referenceData.get(reference).points), class: 'one-pot-comparison', style: `stroke:${color(reference)}` });
+        trace.append(el('title', {}, `${reference}% target`));
+        chart.append(trace);
+      }
+    }
+    chart.append(el('line', { x1: g.m.left, x2: g.width - g.m.right, y1: g.y(value), y2: g.y(value), class: 'one-pot-target', style: `stroke:${ink}` }));
+    chart.append(el('text', { x: g.width - g.m.right - 3, y: g.y(value) - 7, 'text-anchor': 'end', class: 'one-pot-target-label', style: `fill:${ink}` }, `${value}% target`));
+    chart.append(el('path', { d: g.path(points), class: 'one-pot-line' }));
     for (const at of waterings) {
-      chart.append(el("line", { x1: x(at), x2: x(at), y1: m.top + plotH - 10, y2: m.top + plotH, class: "one-pot-tick" }));
+      chart.append(el('line', { x1: g.x(at), x2: g.x(at), y1: g.height - g.m.bottom - 9, y2: g.height - g.m.bottom, class: 'one-pot-tick' }));
+      const point = points[Math.round(at / STEP)];
+      const dot = el('circle', { cx: g.x(at), cy: g.y(point.v), r: 2.4, class: 'one-pot-opening' });
+      dot.append(el('title', {}, `Valve opening at ${(at / HOUR).toFixed(1)} hours`));
+      chart.append(dot);
     }
-    // The target hairline.
-    chart.append(el("line", { x1: m.left, x2: m.left + plotW, y1: y(targetPercent), y2: y(targetPercent), class: "one-pot-target" }));
-    chart.append(el("text", { x: m.left + plotW - 4, y: y(targetPercent) - 6, "text-anchor": "end", class: "one-pot-target-label" }, `Target ${targetPercent}%`));
-    // The pot's measured moisture.
-    const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)} ${y(p.v).toFixed(1)}`).join("");
-    chart.append(el("path", { d, class: "one-pot-line" }));
-
+    if (comparisons) {
+      comparisons.hidden = !comparing;
+      comparisons.replaceChildren();
+      for (const reference of references.filter(v => v !== value)) {
+        const chip = document.createElement('span');
+        chip.style.setProperty('--comparison-color', color(reference));
+        chip.textContent = `${reference}%`;
+        comparisons.append(chip);
+      }
+      const selected = document.createElement('strong');
+      selected.textContent = `Your target · ${value}%`;
+      comparisons.append(selected);
+    }
     const count = waterings.length;
-    chart.setAttribute("aria-label", `An irrigation example over three days with a ${targetPercent}% target. The valve opened ${count} ${count === 1 ? "time" : "times"}.`);
-    result.textContent = `Simulation: ${count} valve ${count === 1 ? "opening" : "openings"} over three days at a ${targetPercent}% target.`;
-    if (targetValue) targetValue.textContent = `${targetPercent}%`;
+    result.textContent = `${count} valve ${count === 1 ? 'opening' : 'openings'} · 3 days`;
+    root.querySelector('#one-pot-target-value').textContent = `${value}%`;
+    target.setAttribute('aria-valuetext', `${value}% volumetric water content`);
+    chart.setAttribute('aria-label', `Simulated moisture at a ${value}% target with ${count} valve openings over three days.${comparing ? ' Thin lines compare 18%, 26%, and 36% targets; the bold line is your selected target.' : ''}`);
+    for (const button of presets) {
+      const preset = Number(button.dataset.onePotTarget);
+      button.style.setProperty('--preset-color', color(preset));
+      button.setAttribute('aria-pressed', String(preset === value));
+    }
+    drawRecord(value, ink);
   }
-
-  const update = () => draw(Number(target.value));
-  target.addEventListener("input", update);
-  if (typeof ResizeObserver !== "undefined") {
-    let lastWidth = 0;
-    new ResizeObserver(() => {
-      const next = Math.round(chart.getBoundingClientRect().width);
-      if (Math.abs(next - lastWidth) > 8) {
-        lastWidth = next;
-        update();
+  const update = () => { if (!scheduled) scheduled = requestAnimationFrame(draw); };
+  target.addEventListener('input', () => { comparing = true; update(); });
+  for (const button of presets) button.addEventListener('click', () => {
+    target.value = button.dataset.onePotTarget;
+    comparing = true;
+    update();
+  });
+  if (typeof ResizeObserver !== 'undefined') {
+    const widths = new WeakMap();
+    const observer = new ResizeObserver(entries => {
+      for (const { target: observed, contentRect } of entries) {
+        const width = Math.round(contentRect.width);
+        if (Math.abs(width - (widths.get(observed) || 0)) > 4) {
+          widths.set(observed, width);
+          update();
+        }
       }
-    }).observe(chart);
-  }
-  for (const button of presets) {
-    button.addEventListener("click", () => {
-      target.value = button.getAttribute("data-one-pot-target");
-      update();
     });
+    observer.observe(chart);
+    if (record) observer.observe(record);
   }
-  update();
-})();
-
-// "Every experiment keeps its record" — a concise synthetic example: the calibrated reading of
-// one pot steps up when a new calibration is applied, while the raw sensor output is continuous.
-(() => {
-  const svg = document.getElementById("record-example");
-  if (!svg) return;
-  const svgNS = "http://www.w3.org/2000/svg";
-  const el = (name, attrs = {}, text) => {
-    const node = document.createElementNS(svgNS, name);
-    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
-    if (text != null) node.textContent = text;
-    return node;
-  };
-  const drawRecord = () => {
-  svg.replaceChildren();
-  const width = Math.max(300, Math.round(svg.getBoundingClientRect().width || 720));
-  const height = 210;
-  const m = { left: 40, right: 16, top: 12, bottom: 46 };
-  const plotW = width - m.left - m.right;
-  const plotH = height - m.top - m.bottom;
-  // Two and a half days around the events; one reading every 10 minutes.
-  const steps = Math.round(2.5 * 144);
-  const targetChangeAt = Math.round(0.25 * 144);
-  // Mid-way between two waterings, so the step cannot be mistaken for one.
-  const calibrationAt = 231;
-  const x = (i) => m.left + (i / steps) * plotW;
-  const y = (v) => m.top + (1 - (v - 18) / (36 - 18)) * plotH;
-  const calibrated = [];
-  const raw = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const hours = i / 6;
-    const target = i < targetChangeAt ? 34 : 22;
-    const drying = i < targetChangeAt ? 0 : Math.max(0, 34 - 0.4 * (hours - targetChangeAt / 6));
-    const saw = target + 2.6 * (1 - ((hours / 7) % 1));
-    const truth = Math.max(saw, drying);
-    calibrated.push(i >= calibrationAt ? truth * 1.12 : truth);
-    raw.push(truth);
-  }
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  for (const value of [20, 25, 30, 35]) {
-    svg.append(el("line", { x1: m.left, x2: m.left + plotW, y1: y(value), y2: y(value), class: "one-pot-grid" }));
-    svg.append(el("text", { x: m.left - 8, y: y(value) + 4, "text-anchor": "end", class: "one-pot-axis" }, `${value}%`));
-  }
-  const path = (values, offset = 0) => values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${(y(v) + offset).toFixed(1)}`).join("");
-  // Raw output has its own units; it is drawn on its own scale, shifted below, to show continuity.
-  svg.append(el("path", { d: path(raw, 18), class: "record-raw" }));
-  svg.append(el("path", { d: path(calibrated), class: "one-pot-line" }));
-  const lane = m.top + plotH + 22;
-  svg.append(el("line", { x1: m.left, x2: m.left + plotW, y1: lane, y2: lane, class: "one-pot-grid" }));
-  for (const [i, letter] of [[targetChangeAt, "R"], [calibrationAt, "C"], [calibrationAt + 30, "N"]]) {
-    svg.append(el("line", { x1: x(i), x2: x(i), y1: m.top, y2: lane - 9, class: "record-marker" }));
-    svg.append(el("circle", { cx: x(i), cy: lane, r: 9, class: `record-dot is-${letter}` }));
-    svg.append(el("text", { x: x(i), y: lane + 4, "text-anchor": "middle", class: "record-letter" }, letter));
-  }
-  };
-  drawRecord();
-  if (typeof ResizeObserver !== "undefined") {
-    let lastWidth = 0;
-    new ResizeObserver(() => {
-      const next = Math.round(svg.getBoundingClientRect().width);
-      if (Math.abs(next - lastWidth) > 8) {
-        lastWidth = next;
-        drawRecord();
-      }
-    }).observe(svg);
-  }
+  draw();
 })();

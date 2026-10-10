@@ -12,6 +12,8 @@ import { availableMeasures, measures, potTraces, type Measure } from "../waterli
 import { PortalLink, useCopyRoute } from "./PortalLink";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { formatMeasureValue } from "./WaterlineOverview";
+import { ReadingEvidence } from "./ReadingEvidence";
+import { vwcQuality } from "../readingQuality";
 import "./product.css";
 
 const hour = 3_600_000;
@@ -60,6 +62,8 @@ export function PotPage({
   const vwcTrace = useMemo(() => potTraces(readings, [pairing], "vwc").get(pairing.name), [pairing, readings]);
   const window = { startMs: nowMs - loadedWindowMs, endMs: nowMs };
   const latestVwc = vwcTrace?.points.length ? vwcTrace.points[vwcTrace.points.length - 1] : null;
+  const latestReading = readings.slice().sort((a, b) => Date.parse(b.device_recorded_at) - Date.parse(a.device_recorded_at))[0] ?? null;
+  const quality = vwcQuality(latestReading?.calibrated_value);
   const completed = experiment ? experimentIsCompleted(experiment, nowMs) : false;
   const freshness = measurementFreshness({
     measuredAt: latestVwc?.timestampMs,
@@ -131,6 +135,7 @@ export function PotPage({
               <span className="px-muted">Last value {latestVwc.value.toFixed(1)}% VWC — kept for reference, not a current reading.</span>
             ) : null}
             <span>{targetText}</span>
+            {quality ? <a className="px-quality-link" href="#reading-evidence" onClick={() => { const evidence = document.getElementById("reading-evidence"); if (evidence instanceof HTMLDetailsElement) evidence.open = true; }}>{quality} · Review evidence</a> : null}
           </div>
 
           <div className="px-card" style={{ padding: "12px 14px", display: "grid", gap: 10 }}>
@@ -171,6 +176,7 @@ export function PotPage({
             />
             {!sensing && measure === "vwc" ? <p className="px-muted px-small">Ticks along the bottom are valve openings recorded by the controller, not measured water.</p> : null}
           </div>
+          <ReadingEvidence pairing={pairing} reading={latestReading} assignment={assignment} valveEvents={valveEvents} />
           {children}
         </div>
 

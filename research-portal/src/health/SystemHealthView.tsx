@@ -234,8 +234,10 @@ export function SystemHealthView({
         </div>
       ) : null}
 
+      <h1 className="px-title">System health</h1>
+      <p className="px-subtitle">Research controller · connection and recent interruptions</p>
       <HealthPanel
-        title="Restart / Outage Evidence"
+        title="Recent interruptions"
         detail={restartOutageStatus.detail}
         badge={restartOutageStatus.badge}
         badgeTone={restartOutageStatus.badgeTone}
@@ -247,6 +249,7 @@ export function SystemHealthView({
           <HealthMiniFact label="Service restored" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.end) : "none detected"} />
           <HealthMiniFact label="Outage duration" value={!restartEvidenceKnown ? "Not synced" : lastGap ? healthCompactDuration(lastGap.durationMs) : "none detected"} />
         </div>
+        <details className="px-diagnostics"><summary>Uptime history</summary>
         <HealthTrendChart
           yTitle="Uptime minutes"
           onSelectDetail={setSelectedDetail}
@@ -278,6 +281,7 @@ export function SystemHealthView({
             },
           ]}
         />
+        </details>
       </HealthPanel>
 
       <div className="health-evidence-grid">

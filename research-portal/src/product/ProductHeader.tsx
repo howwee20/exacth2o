@@ -5,37 +5,37 @@ import { type PortalRoute } from "../portalRoute";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
 
-export type NavSection = "experiments" | "bench" | "workbench" | "other";
+export type NavSection = "experiments" | "bench" | "other";
 
 export function navSectionForRoute(route: PortalRoute): NavSection {
   if (route.view === "home" || route.view === "experiment" || route.view === "pot" || route.view === "trends") return "experiments";
   if (route.view === "bench") return "bench";
-  if (route.view === "workbench") return "workbench";
   return "other";
 }
 
 /**
- * One header for every product view: Experiments, Bench and Workbench, with Find pot as a global
- * action. The bench and workbench links appear only when those views are available.
+ * One header for every product view: Experiments and Bench, with Find pot as a global action.
  */
 export function ProductHeader({
   route,
   sections,
   onFindPot,
-  onOpenSettings,
+  onOpenAccount,
   atBench,
   onToggleAtBench,
   onSignOut,
   extra,
+  demo = false,
 }: {
   route: PortalRoute;
-  sections: { bench: boolean; workbench: boolean };
+  sections: { bench: boolean };
   onFindPot: () => void;
-  onOpenSettings?: () => void;
+  onOpenAccount?: () => void;
   atBench?: boolean;
   onToggleAtBench?: () => void;
   onSignOut: () => void;
   extra?: ReactNode;
+  demo?: boolean;
 }) {
   const section = navSectionForRoute(route);
 
@@ -59,7 +59,6 @@ export function ProductHeader({
       <nav className="px-nav" aria-label="Portal">
         <PortalLink to={{ view: "home" }} aria-current={section === "experiments" ? "page" : undefined}>Experiments</PortalLink>
         {sections.bench ? <PortalLink to={{ view: "bench", pot: null }} aria-current={section === "bench" ? "page" : undefined}>Bench</PortalLink> : null}
-        {sections.workbench ? <PortalLink to={{ view: "workbench", comparison: null, experiment: null }} aria-current={section === "workbench" ? "page" : undefined}>Workbench</PortalLink> : null}
       </nav>
       <div className="px-header-actions">
         <button type="button" className="px-header-button" onClick={onFindPot} aria-keyshortcuts="/" aria-label="Find pot">
@@ -68,7 +67,7 @@ export function ProductHeader({
           <kbd aria-hidden="true">/</kbd>
         </button>
         {extra}
-        <details className="px-menu px-header-menu" onKeyDown={(event) => {
+        {demo ? <span className="px-demo-label">Sample workspace</span> : <details className="px-menu px-header-menu" onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.currentTarget.open = false;
             event.currentTarget.querySelector("summary")?.focus();
@@ -78,10 +77,10 @@ export function ProductHeader({
         }}>
           <summary><SettingsIcon size={15} aria-hidden="true" /><span className="px-label-wide">Account</span></summary>
           <div className="px-menu-panel">
-            {onOpenSettings ? <button type="button" onClick={(event) => {
+            {onOpenAccount ? <button type="button" onClick={(event) => {
               event.currentTarget.closest("details")?.removeAttribute("open");
-              onOpenSettings();
-            }}>Settings</button> : null}
+              onOpenAccount();
+            }}>Account &amp; access</button> : null}
             {onToggleAtBench ? <button type="button" aria-pressed={atBench} onClick={(event) => {
               event.currentTarget.closest("details")?.removeAttribute("open");
               onToggleAtBench();
@@ -89,7 +88,7 @@ export function ProductHeader({
             <hr />
             <button type="button" onClick={onSignOut}>Sign out</button>
           </div>
-        </details>
+        </details>}
       </div>
     </header>
   );

@@ -47,7 +47,7 @@ function NativeNumberInput({
       min={spec.min}
       max={spec.max}
       step={spec.step}
-      value={value}
+      value={Number.isFinite(value) ? Number(value.toFixed(6)) : ""}
       readOnly={!ready}
       inputMode="decimal"
       onFocus={(event) => event.currentTarget.select()}
@@ -234,7 +234,7 @@ export function GasMixerNativeControl() {
   return (
     <section className="chamber-module is-gas-mixer-native">
       <header className="is-iconless">
-        <div><h2>Gas Mixer V2</h2></div>
+        <div><h2>Gas mixer</h2></div>
         <span className={`chamber-status ${ready ? "is-online" : "is-offline"}`}>
           {loading ? "Checking" : connection.label}
         </span>

@@ -18,8 +18,8 @@ describe("mixer researcher screens", () => {
   });
   it("includes native controls, the original live remote screen, and lighting in the same tile", () => {
     const html = renderToStaticMarkup(<GasMixerResearcherView onBack={() => {}} />);
-    expect(html).toContain("Gas Mixer");
-    expect(html).toContain("Gas Mixer V2");
+    expect(html).toContain("Gas mixer");
+    expect(html).toContain("Remote touchscreen");
     expect(html).toContain("Secure view");
     expect(html).toContain("Request control");
     expect(html).toContain("Lights");

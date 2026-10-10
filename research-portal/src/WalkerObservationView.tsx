@@ -9,7 +9,7 @@ import { loadWalkerLiveStatus } from "./walkerObservationClient";
 
 const walkerStatusPollMs = 60_000;
 
-export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
+export function WalkerMachineTile({ onOpen }: { onOpen: () => void }) {
   const [status, setStatus] = useState<WalkerLiveStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
@@ -52,22 +52,19 @@ export function WalkerAdminTile({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
-      className="portal-launch-card is-experiment is-walker-live"
+      className="px-machine-card"
       onClick={onOpen}
     >
-      {failed ? <span className="portal-experiment-progress is-failed" title="The portal could not check Walker status. Open the experiment to retry."><AlertTriangle size={12} />Check failed</span> : null}
-      <span className="portal-launch-copy">
-        <span className="portal-launch-title">Walker Pi 5 Observation</span>
-        <strong>
+        <span className="px-exp-name">Walker Pi 5 Observation</span>
+        <span className="px-exp-count">
           {loading && !status
             ? "Checking sensor access..."
             : status
               ? `${status.expected_sensor_count} sensors`
               : "Sensor status unavailable"}
-        </strong>
-        <em>VWC · sensing only</em>
-
-      </span>
+        </span>
+        <span className="px-exp-mode">VWC · sensing only</span>
+        {failed ? <span className="px-machine-error" title="The portal could not check Walker status. Open the machine to retry."><AlertTriangle size={12} />Check failed</span> : null}
     </button>
   );
 }

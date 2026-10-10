@@ -209,7 +209,15 @@ footer .footer-logo { flex: none; width: 126px; }
 </style>
 <script src="/site-navigation.js" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=7dfcec37358b">
+<link rel="stylesheet" href="/site-ui.css?v=b762fc2650d3">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://exacth2o.com/quote">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Get a Quote — exactH2O">
+<meta property="og:description" content="Request a free ExactH2O quote for your facility, irrigation zones, and research goals. Get a system configuration tailored to your setup.">
+<meta property="og:url" content="https://exacth2o.com/quote">
+<meta property="og:image" content="https://exacth2o.com/portal-preview-20261009.jpg">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -315,15 +323,18 @@ footer .footer-logo { flex: none; width: 126px; }
             </select>
           </div>
           <div class="form-group">
+            <label for="potCount">Approximate pot count <span class="form-hint">(optional)</span></label><input id="potCount" name="potCount" type="text" inputmode="numeric" maxlength="30" placeholder="For example, 48 or 100–200">
+          </div><div class="form-group">
             <label for="message">Project Details <span class="req">*</span></label>
             <p class="form-hint" id="projectHint">Include your approximate pot count, growing media, irrigation zones, and research goals. Estimates are fine.</p>
-            <textarea id="message" name="message" required aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="3000"></textarea>
+            <textarea id="message" name="message" required aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="2900"></textarea>
               <p class="field-error" id="messageError" hidden></p>
           </div>
           <p class="validation-summary" id="validationSummary" role="alert" aria-atomic="true"></p>
           <div class="form-msg success" id="successMsg" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
           <div class="form-msg error" id="errorMsg" role="alert" aria-atomic="true" tabindex="-1"></div>
           <button type="submit" class="submit-btn" id="submitBtn">Submit Quote Request</button>
+          <p class="form-hint">We review your setup, follow up by email to clarify requirements, and prepare a configuration and quote. <a href="/privacy">How we use your information</a>.</p>
         </form>
       </div>
     </div>
@@ -336,7 +347,8 @@ footer .footer-logo { flex: none; width: 126px; }
 <footer>
 <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
-    <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
+    <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
+<div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
     <div class="made-in-america">
       <svg viewBox="0 0 190 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="190" height="100" fill="#fff"/><rect y="0.0000" width="190" height="7.6923" fill="#b22234"/><rect y="15.3846" width="190" height="7.6923" fill="#b22234"/><rect y="30.7692" width="190" height="7.6923" fill="#b22234"/><rect y="46.1538" width="190" height="7.6923" fill="#b22234"/><rect y="61.5385" width="190" height="7.6923" fill="#b22234"/><rect y="76.9231" width="190" height="7.6923" fill="#b22234"/><rect y="92.3077" width="190" height="7.6923" fill="#b22234"/><rect width="76" height="53.8462" fill="#3c3b6e"/><defs><polygon id="made-in-america-star" points="0.000,-3.080 0.694,-0.955 2.929,-0.952 1.122,0.365 1.810,2.492 0.000,1.180 -1.810,2.492 -1.122,0.365 -2.929,-0.952 -0.694,-0.955" fill="#fff"/></defs><use href="#made-in-america-star" x="6.333" y="5.385"/><use href="#made-in-america-star" x="19.000" y="5.385"/><use href="#made-in-america-star" x="31.667" y="5.385"/><use href="#made-in-america-star" x="44.333" y="5.385"/><use href="#made-in-america-star" x="57.000" y="5.385"/><use href="#made-in-america-star" x="69.667" y="5.385"/><use href="#made-in-america-star" x="12.667" y="10.769"/><use href="#made-in-america-star" x="25.333" y="10.769"/><use href="#made-in-america-star" x="38.000" y="10.769"/><use href="#made-in-america-star" x="50.667" y="10.769"/><use href="#made-in-america-star" x="63.333" y="10.769"/><use href="#made-in-america-star" x="6.333" y="16.154"/><use href="#made-in-america-star" x="19.000" y="16.154"/><use href="#made-in-america-star" x="31.667" y="16.154"/><use href="#made-in-america-star" x="44.333" y="16.154"/><use href="#made-in-america-star" x="57.000" y="16.154"/><use href="#made-in-america-star" x="69.667" y="16.154"/><use href="#made-in-america-star" x="12.667" y="21.538"/><use href="#made-in-america-star" x="25.333" y="21.538"/><use href="#made-in-america-star" x="38.000" y="21.538"/><use href="#made-in-america-star" x="50.667" y="21.538"/><use href="#made-in-america-star" x="63.333" y="21.538"/><use href="#made-in-america-star" x="6.333" y="26.923"/><use href="#made-in-america-star" x="19.000" y="26.923"/><use href="#made-in-america-star" x="31.667" y="26.923"/><use href="#made-in-america-star" x="44.333" y="26.923"/><use href="#made-in-america-star" x="57.000" y="26.923"/><use href="#made-in-america-star" x="69.667" y="26.923"/><use href="#made-in-america-star" x="12.667" y="32.308"/><use href="#made-in-america-star" x="25.333" y="32.308"/><use href="#made-in-america-star" x="38.000" y="32.308"/><use href="#made-in-america-star" x="50.667" y="32.308"/><use href="#made-in-america-star" x="63.333" y="32.308"/><use href="#made-in-america-star" x="6.333" y="37.692"/><use href="#made-in-america-star" x="19.000" y="37.692"/><use href="#made-in-america-star" x="31.667" y="37.692"/><use href="#made-in-america-star" x="44.333" y="37.692"/><use href="#made-in-america-star" x="57.000" y="37.692"/><use href="#made-in-america-star" x="69.667" y="37.692"/><use href="#made-in-america-star" x="12.667" y="43.077"/><use href="#made-in-america-star" x="25.333" y="43.077"/><use href="#made-in-america-star" x="38.000" y="43.077"/><use href="#made-in-america-star" x="50.667" y="43.077"/><use href="#made-in-america-star" x="63.333" y="43.077"/><use href="#made-in-america-star" x="6.333" y="48.462"/><use href="#made-in-america-star" x="19.000" y="48.462"/><use href="#made-in-america-star" x="31.667" y="48.462"/><use href="#made-in-america-star" x="44.333" y="48.462"/><use href="#made-in-america-star" x="57.000" y="48.462"/><use href="#made-in-america-star" x="69.667" y="48.462"/></svg>
       <span>MADE IN USA</span>
@@ -446,7 +458,7 @@ footer .footer-logo { flex: none; width: 126px; }
       organization: this.querySelector('[name="organization"]').value.trim(),
       application,
       timeline: this.querySelector('[name="timeline"]').value,
-      message,
+      message: (this.querySelector('[name="potCount"]').value.trim() ? 'Approximate pot count: ' + this.querySelector('[name="potCount"]').value.trim() + '\n\n' : '') + message,
       honey: honey ? honey.value : '',
       sourceUrl: window.location.href
     };
@@ -467,7 +479,7 @@ footer .footer-logo { flex: none; width: 126px; }
 
       if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
-        successMsg.textContent = 'Quote request received. We will follow up shortly.';
+        successMsg.textContent = 'Quote request received. We will follow up at the email address you provided to confirm your setup and next steps.';
         announce('exacth2o:quote-submitted', {
           submissionId,
           attempt,

@@ -126,7 +126,7 @@ if (!/\bloading="lazy"/.test(demoFrame || "")) {
   throw new Error("Applications demo iframe must load lazily.");
 }
 if (!sandbox.includes("allow-scripts") || sandbox.some((token) =>
-  !["allow-scripts", "allow-same-origin", "allow-downloads"].includes(token))) {
+  !["allow-scripts", "allow-same-origin", "allow-downloads", "allow-modals"].includes(token))) {
   throw new Error("Applications demo iframe has missing or unexpected sandbox permissions.");
 }
 const demoPolicy = demoPage.match(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*content="([^"]+)"/)?.[1];
@@ -139,7 +139,7 @@ for (const name of ["connect-src", "form-action", "base-uri"]) {
     throw new Error(`Applications demo must disable ${name}.`);
   }
 }
-if (!demoPage.includes('src="/applications-demo-app/assets/demo.js"')) {
+if (!/src="\/applications-demo-app\/assets\/demo-[a-zA-Z0-9_-]+\.js"/.test(demoPage)) {
   throw new Error("Applications demo must load its own bundle.");
 }
 
