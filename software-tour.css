@@ -1,0 +1,28 @@
+/* A deliberate, on-demand look at the current product. */
+.software-tour { padding: 4.5rem 4rem 5.5rem; background: #edf1ed; border-block: 1px solid var(--rule); scroll-margin-top: 6rem; }
+.software-tour-inner { max-width: 1240px; margin: 0 auto; }
+.software-tour-heading { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: end; margin-bottom: 2.25rem; }
+.software-tour-intro { max-width: 420px; justify-self: end; }
+.software-tour-intro p { margin: 0 0 1.1rem; color: #4b5b51; font-size: 1rem; line-height: 1.7; }
+.software-tour-intro .feature-link { margin-top: 0; }
+.software-tour-figure { margin: 0; }
+.software-tour-player { position: relative; overflow: hidden; border: 1px solid #243e32; border-radius: 8px; background: #10251e; box-shadow: 0 18px 44px #10251e12; }
+.software-tour-player video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.software-tour-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: .8rem; padding: 1rem 1.4rem; border: 1px solid #ffffff60; border-radius: 100px; background: #10251ef2; color: #fff; font: 600 .95rem var(--sans); white-space: nowrap; box-shadow: 0 5px 30px #10251e35; cursor: pointer; }
+.software-tour-play[hidden], .software-tour-error[hidden] { display: none; }
+.software-tour-play:hover { background: #24573f; }
+.software-tour-play:focus-visible, .software-tour-player video:focus-visible { outline: 3px solid #53b888; outline-offset: 4px; }
+.software-tour-duration { padding-left: .8rem; border-left: 1px solid #ffffff40; font: 400 .8rem var(--mono); color: #c5dccf; }
+.software-tour-figure figcaption { display: flex; justify-content: space-between; gap: .5rem 1rem; margin-top: 1rem; color: #5e6d63; font-size: .78rem; line-height: 1.5; }
+.software-tour-transcript { margin-top: .7rem; color: #5e6d63; font-size: .78rem; line-height: 1.7; }
+.software-tour-transcript summary { cursor: pointer; width: fit-content; }
+.software-tour-transcript p { max-width: 800px; margin: .7rem 0 0; }
+.software-tour-error { color: #6f3d27; font-size: .875rem; margin-top: 1rem; }
+.software-tour-error a { color: inherit; text-decoration: underline; }
+@media (max-width: 700px) {
+ .software-tour { padding: 3rem 1.25rem; }
+ .software-tour-heading { grid-template-columns: 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
+ .software-tour-intro { justify-self: start; max-width: 100%; }
+ .software-tour-play { gap: .55rem; padding: .8rem 1rem; font-size: .85rem; }
+ .software-tour-figure figcaption { flex-direction: column; font-size: .73rem; }
+}

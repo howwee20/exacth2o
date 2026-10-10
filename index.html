@@ -520,6 +520,8 @@ footer .footer-logo { flex: none; width: 126px; }
 <meta property="og:url" content="https://exacth2o.com/">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261009.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/software-tour.css?v=20261010-1">
+<script src="/software-tour.js?v=20261010-1" defer></script>
 </head>
 <body>
 
@@ -627,7 +629,7 @@ footer .footer-logo { flex: none; width: 126px; }
         </div>
         <h3>A complete experiment record</h3>
         <p>Compare readings, review irrigation history, and export data from the portal.</p>
-        <a class="feature-link" href="/demo">Explore the demo <span aria-hidden="true">→</span></a>
+        <a class="feature-link" href="#software-tour">Watch the software tour <span aria-hidden="true">→</span></a>
       </article>
       <article class="feat-card">
         <div class="feat-card-img feat-card-img--sensor" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
@@ -645,6 +647,41 @@ footer .footer-logo { flex: none; width: 126px; }
   <video muted loop playsinline preload="none" aria-label="Research pots with ExactH2O sensors and irrigation lines"></video>
 </div>
 
+
+<!-- CURRENT SOFTWARE TOUR -->
+<section class="software-tour" id="software-tour" aria-labelledby="software-tour-title">
+  <div class="software-tour-inner">
+    <div class="software-tour-heading">
+      <div>
+        <div class="section-label">The research portal</div>
+        <h2 class="section-title" id="software-tour-title">From experiment<br>to individual pot.</h2>
+      </div>
+      <div class="software-tour-intro">
+        <p>Compare treatments, inspect the reading behind a chart, and take your experiment data with you.</p>
+        <a class="feature-link" href="/demo">Try the sample workspace <span aria-hidden="true">→</span></a>
+      </div>
+    </div>
+    <figure class="software-tour-figure">
+      <div class="software-tour-player">
+        <video id="softwareTourVideo" controls playsinline preload="none" width="1920" height="1080" poster="/media/software-tour-poster-20261010.jpg" aria-label="30-second tour of the ExactH2O research portal" aria-describedby="software-tour-caption">
+          <source src="/media/software-tour-20261010.mp4" type="video/mp4">
+          <track kind="captions" src="/media/software-tour-20261010.vtt" srclang="en" label="English">
+          <a href="/media/software-tour-20261010.mp4">Watch the software tour</a>
+        </video>
+        <button class="software-tour-play" id="softwareTourPlay" type="button" aria-controls="softwareTourVideo" hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l14-8z"/></svg>
+          <span>Watch the tour</span><span class="software-tour-duration">0:30</span>
+        </button>
+      </div>
+      <figcaption id="software-tour-caption"><span>Actual interface. Sample data.</span><span>30 seconds · Silent, with on-screen captions</span></figcaption>
+      <details class="software-tour-transcript">
+        <summary>Read the tour</summary>
+        <p>In the sample workspace, open Experiment 1, group readings by treatment, and reveal individual pot traces. Open Pot 61 to inspect its moisture history, then expand “Explain this reading” to see the raw signal, calibration, timestamps, and valve records. Return to the experiment and open Export to view a reporting window, download readings, or save an experiment brief.</p>
+      </details>
+      <p class="software-tour-error" id="softwareTourError" role="status" hidden>The video could not load. <a href="/media/software-tour-20261010.mp4">Open the video directly</a> or <a href="/demo">explore the demo</a>.</p>
+    </figure>
+  </div>
+</section>
 
 <!-- ONE POT, YOUR TARGET -->
 <section class="one-pot" id="one-pot" aria-labelledby="one-pot-title">

@@ -20,6 +20,7 @@ const types = {
   ".webp": "image/webp",
   ".avif": "image/avif",
   ".mp4": "video/mp4",
+  ".vtt": "text/vtt; charset=utf-8",
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
 };

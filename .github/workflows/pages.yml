@@ -37,6 +37,8 @@ jobs:
           mkdir -p site-dist/portal-app/assets
 
           cp site-metrics.js site-navigation.js one-pot-explainer.js site-ui.css site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
+          cp software-tour.css software-tour.js site-dist/
+          cp -R media site-dist/
           cp 404.html privacy.html terms.html data-access.html favicon.svg robots.txt sitemap.xml site-dist/
           cp ceo.jpg cto.jpg coo.jpg ej-howe.jpg site-dist/
           cp team-*-20260913.webp team-binod-20260915.png site-dist/
