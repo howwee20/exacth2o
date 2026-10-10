@@ -439,6 +439,8 @@ function ExperimentBuilderContent({
           </button>
         </header>
 
+        {template ? <p className="settings-muted">Based on {template.name}. Choose available pots. Treatments and targets are copied in order from the original plan; review each assignment before applying the new experiment.</p> : null}
+
         {step === "prompt" ? (
           <div className="experiment-builder-prompt">
             <label htmlFor="experiment-request">Describe the experiment</label>
@@ -450,7 +452,6 @@ function ExperimentBuilderContent({
               placeholder="Use pots 15–26 for a maize trial. Set half to 30% and keep half sensing only. Measure every 10 minutes."
               autoFocus
             />
-            {template ? <p className="settings-muted">Based on {template.name}. Choose available pots. Treatments and targets are copied in order from the original plan; review each assignment before applying the new experiment.</p> : null}
             {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
             <div className="experiment-builder-actions">
               <button type="button" className="is-secondary" onClick={beginManualDraft}>

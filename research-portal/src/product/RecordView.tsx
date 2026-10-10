@@ -65,7 +65,8 @@ export function RecordView({
   const [error, setError] = useState<string | null>(null);
   // The mark from before this visit decides what is new; the database mark moves on load.
   const previousMark = useRef<{ experiment: string; value: string | null } | null>(null);
-  const [anchorMs] = useState(() => Math.min(nowMs, experiment.endedAt ? Date.parse(experiment.endedAt) : nowMs));
+  const [visitedAt] = useState(nowMs);
+  const anchorMs = Math.min(visitedAt, experiment.endedAt ? Date.parse(experiment.endedAt) : visitedAt);
 
   useEffect(() => {
     if (!experiment.databaseId) return;
@@ -87,7 +88,7 @@ export function RecordView({
           previousMark.current = { experiment: experiment.id, value: next.lastSeenAt };
         }
         if (!next.problems.length && next.stats.failed === 0) {
-          await markExperimentSeen(projectId, experiment.databaseId as string, new Date(anchorMs).toISOString()).catch(() => undefined);
+          await markExperimentSeen(projectId, experiment.databaseId as string, new Date(visitedAt).toISOString()).catch(() => undefined);
         }
         if (!cancelled) setSources(next);
       })
@@ -96,7 +97,7 @@ export function RecordView({
     return () => {
       cancelled = true;
     };
-  }, [anchorMs, deviceId, experiment.databaseId, experiment.id, experiment.pairingNames, projectId, spanDays]);
+  }, [anchorMs, visitedAt, deviceId, experiment.databaseId, experiment.id, experiment.pairingNames, projectId, spanDays]);
 
   const experimentPairings = useMemo(() => pairings.filter((pairing) => experiment.pairingNames.includes(pairing.name)), [experiment.pairingNames, pairings]);
   const items = useMemo(() => {

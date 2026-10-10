@@ -17,13 +17,13 @@ export const settingsNavItems: SettingsNavItem[] = [
   {
     id: "overview",
     label: "Overview",
-    description: "Whether this experiment is ready, and the next useful thing to do.",
+    description: "Status and configuration for the selected workspace.",
     group: "Experiment",
   },
   {
     id: "water",
     label: "Watering",
-    description: "Start or stop the experiment and see the target each group is held to. You choose the targets; calibration only measures how each pot responds.",
+    description: "Review installation targets and controller-wide operation. Starting or stopping affects every experiment on this controller.",
     group: "Experiment",
   },
   {
@@ -459,7 +459,7 @@ export function PortalSettingsPanel({
         : <span className="settings-empty-value">{empty}</span>);
       return (
         <>
-          <section className={`settings-next-step is-${next.tone}`} aria-label="Next step">
+          {!controllerIsLive || pairings.length === 0 ? <section className={`settings-next-step is-${next.tone}`} aria-label="Next step">
             <div>
               <p className="settings-next-step-eyebrow">Next step</p>
               <h3>{next.title}</h3>
@@ -470,7 +470,7 @@ export function PortalSettingsPanel({
                 {next.actionLabel} <ArrowRight size={14} aria-hidden="true" />
               </button>
             ) : null}
-          </section>
+          </section> : null}
           <div className="settings-readiness-grid">
             <ReadinessTile
               title="Research controller"
@@ -482,11 +482,11 @@ export function PortalSettingsPanel({
               ]}
             />
             <ReadinessTile
-              title="Watering"
-              tone={sensingOnly ? "info" : wateringEnabled == null || !controllerIsLive ? "unknown" : wateringEnabled ? "ok" : "warning"}
-              status={sensingOnly ? "Sensing only" : wateringEnabled == null ? "Not reported" : `${wateringEnabled ? "Automatic" : "Off"}${lastKnown}`}
+              title="Valve activity"
+              tone="info"
+              status={runtimeState?.watering_last_event_at ? "Opening recorded" : "None recorded"}
               lines={[
-                { label: "Last watering", value: when(runtimeState?.watering_last_event_at, "None recorded") },
+                { label: "Last opening", value: when(runtimeState?.watering_last_event_at, "None recorded") },
               ]}
               actionLabel={canOpen("water") ? "Open Watering" : undefined}
               onAction={() => onSectionChange("water")}
@@ -1281,7 +1281,7 @@ export function PortalSettingsPanel({
           <nav>
             {availableSettingsNavGroups.map((group) => (
               <div className="settings-sidebar-group" key={group.label}>
-                <p className="settings-sidebar-group-label">{group.label}</p>
+                <p className="settings-sidebar-group-label">{scope === "installation" && group.label === "Experiment" ? "Controller" : group.label}</p>
                 {group.items.map((item) => (
                     <button
                       key={item.id}
@@ -1313,7 +1313,7 @@ export function PortalSettingsPanel({
               <p className="settings-content-lede">
                 {activeSection === "assistant"
                   ? "Describe a settings change in plain language, then review it before anything is queued."
-                  : activeItem.description}
+                  : activeSection === "overview" ? (scope === "installation" ? "Status and configuration for every pot on this controller." : "The saved plan and records for this experiment.") : activeItem.description}
               </p>
             </div>
             <div className="settings-content-actions">
