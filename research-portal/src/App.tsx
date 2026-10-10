@@ -18,7 +18,7 @@ import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, tracked
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups } from "./experimentPresentation";
 import { levelLabel } from "./experimentFactors";
-import { type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, mergePortalExperiments, pairingBelongsToExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
+import { type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
@@ -43,6 +43,7 @@ import { overlayTimeBounds } from "./wateringOverlay";
 import { homeExceptions } from "./homeExceptions";
 import { type ExperimentTab, navigatePortal, type PortalRoute, stripAuthQuery, usePortalRoute } from "./portalRoute";
 import { resolvePot } from "./potIdentity";
+import { readingsForPairings, valveEventsForPairings } from "./pairingHistory";
 import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
 import { FindPotDialog } from "./product/FindPotDialog";
 import { PortalLink } from "./product/PortalLink";
@@ -299,8 +300,7 @@ export default function App() {
   );
   const sortedPairings = useMemo(
     () => orderedPairings(
-      visibleExperimentPairings(data.pairings)
-        .filter((pairing) => pairingBelongsToExperiment(pairing, selectedExperiment)),
+      pairingsForExperiment(visibleExperimentPairings(data.pairings), selectedExperiment),
     ),
     [data.pairings, selectedExperiment],
   );
@@ -2569,6 +2569,7 @@ export default function App() {
   const productSections = { bench: true };
   const recordAvailable = true;
   const visiblePairings = visibleExperimentPairings(data.pairings);
+  const currentPairingReadings = readingsForPairings(data.readings, visiblePairings);
   const lastGoodCheckAt = lastSuccessfulCheckAt ?? (data.lastCheckedAt && !error ? Date.parse(data.lastCheckedAt) : null);
   const presence = runtimeState
     ? controllerPresence({
@@ -3186,8 +3187,8 @@ export default function App() {
     return (
       <FeatureBoundary name="Pot" fallback={<FeatureLoading name="Pot" />}><PotPage
         match={match}
-        readings={data.readings.filter((reading) => reading.pairing_name === potName)}
-        valveEvents={valveEvents.filter((event) => event.pairing_name === potName)}
+        readings={readingsForPairings(data.readings, [match.pairing])}
+        valveEvents={valveEventsForPairings(valveEvents, [match.pairing])}
         nowMs={clockNowMs}
         asOfMs={lastGoodCheckAt}
         loadedWindowMs={rollingExperimentHistoryMs}
@@ -3231,7 +3232,7 @@ export default function App() {
             canWrite={canWriteNotes}
             pairings={visiblePairings}
             experiments={availableExperiments}
-            readings={data.readings}
+            readings={currentPairingReadings}
             bindings={currentBench?.bindings ?? []}
             nowMs={clockNowMs}
             asOfMs={lastGoodCheckAt}
@@ -3256,7 +3257,7 @@ export default function App() {
         <BenchView
           pairings={visiblePairings}
           experiments={availableExperiments}
-          readings={data.readings}
+          readings={currentPairingReadings}
           bindings={currentBench?.bindings ?? []}
           layout={currentBench?.layout ?? null}
           layoutVersions={currentBench?.versions ?? 0}
