@@ -20,6 +20,7 @@ const types = {
   ".webp": "image/webp",
   ".avif": "image/avif",
   ".mp4": "video/mp4",
+  ".webm": "video/webm",
   ".vtt": "text/vtt; charset=utf-8",
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
@@ -76,7 +77,7 @@ export function startStaticServer({ root, port = 0, host = "127.0.0.1" }) {
       response.end(request.method === "HEAD" ? undefined : body.data);
       return;
     }
-    if (extension === ".mp4" && request.headers.range) {
+    if ([".mp4", ".webm"].includes(extension) && request.headers.range) {
       const match = /bytes=(\d*)-(\d*)/.exec(request.headers.range);
       const start = match?.[1] ? Number(match[1]) : 0;
       const end = match?.[2] ? Number(match[2]) : stat.size - 1;
