@@ -44,8 +44,8 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
       setExportReadings(initialReadings);setProblems(["Sample data. Saved plan revisions and notes are not included in this brief."]);setLoading(false);return;
     }
     void Promise.allSettled([
-      loadExportReadings({projectId,deviceId,pairingNames:experiment.pairingNames,startMs,endMs}),
-      loadRecordSources({projectId,deviceId,experimentDatabaseId:experiment.databaseId,pairingNames:experiment.pairingNames,startMs,endMs}),
+      loadExportReadings({projectId,deviceId,pairingNames:experiment.pairingNames,sensorKeys:experiment.assignments?.flatMap((a)=>a.sensor_key_snapshot?[a.sensor_key_snapshot]:[]),startMs,endMs}),
+      loadRecordSources({projectId,deviceId,experimentDatabaseId:experiment.databaseId,pairingNames:experiment.pairingNames,pairingAssignments:experiment.assignments,startMs,endMs}),
     ]).then(([measurements,record]) => {
       if(!active)return;
       const warnings:string[]=[];
@@ -55,12 +55,12 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
       }else{setExportReadings([]);warnings.push("Readings could not be loaded. Close and reopen this export to retry.");}
       if(record.status==="fulfilled"){
         const data=record.value;warnings.push(...data.problems);
-        setEvents([...planItems(data.revisions,data.audits,data.assignments),...settingsItems(data.commands,experiment.pairingNames,experiment.databaseId ?? null),...calibrationRequestItems(data.calibrationRequests,experiment.pairingNames),...noteItems(data.notes),...gapItems(data.gaps,pairings),...wateringItems(data.daily)]);
+        setEvents([...planItems(data.revisions,data.audits,data.assignments),...settingsItems(data.commands,data.historyPairingNames,experiment.databaseId ?? null),...calibrationRequestItems(data.calibrationRequests,data.historyPairingNames),...noteItems(data.notes),...gapItems(data.gaps,pairings),...wateringItems(data.daily)]);
       }else warnings.push("The experiment record could not be loaded. Plan revisions, notes, and events are incomplete.");
       setProblems(warnings);setLoading(false);
     });
     return () => { active = false; };
-  }, [deviceId,endMs,experiment.databaseId,experiment.pairingNames,pairings,projectId,startMs,initialReadings]);
+  }, [deviceId,endMs,experiment.databaseId,experiment.pairingNames,experiment.assignments,pairings,projectId,startMs,initialReadings]);
   const input: ExperimentReportInput = useMemo(() => ({experiment,pairings,readings:exportReadings,events,problems,startMs,endMs,generatedAt:anchor,source:document.documentElement.dataset.portalMode === "demo" ? "sample measurements" : "stored measurements"}),[anchor,endMs,events,experiment,pairings,problems,exportReadings,startMs]);
   const html = useMemo(() => experimentBriefHtml(input),[input]);
   const filename = `exacth2o-${experiment.id.replace(/[^a-z0-9_-]/gi,"-")}-${new Date(anchor).toISOString().slice(0,10)}`;

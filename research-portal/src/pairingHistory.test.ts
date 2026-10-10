@@ -8,7 +8,7 @@ describe("pairing history across controller renames", () => {
     const old = { pairing_name: "Zone1-Pot16", sensor_key: "board-E:P", value: 20.7 };
     const current = { ...old, pairing_name: "Zone3-Pot16", value: 20.8 };
     expect(alignPairingHistory([old, current], identities, "sensor_key")).toEqual([
-      { ...old, pairing_name: "Zone3-Pot16" }, current,
+      { ...old, pairing_name: "Zone3-Pot16", recorded_pairing_name: "Zone1-Pot16" }, current,
     ]);
     expect(old.pairing_name).toBe("Zone1-Pot16");
   });
@@ -23,7 +23,7 @@ describe("pairing history across controller renames", () => {
     expect(alignPairingHistory([
       { pairing_name: "Zone1-Pot16", valve_key: "0x20:18", action: "open" },
     ], identities, "valve_key")).toEqual([
-      { pairing_name: "Zone3-Pot16", valve_key: "0x20:18", action: "open" },
+      { pairing_name: "Zone3-Pot16", valve_key: "0x20:18", action: "open", recorded_pairing_name: "Zone1-Pot16" },
     ]);
   });
 

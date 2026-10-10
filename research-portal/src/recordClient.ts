@@ -1,3 +1,5 @@
+import type { PortalExperimentAssignment } from "./experimentRegistry";
+import { experimentHistoryAliases, gapsAcrossPairingAliases } from "./experimentHistory";
 import { loadPotNotes, type PotNote } from "./potNotesClient";
 import type { AssignmentRow, AuditRow, CalibrationRequestRow, CommandRow, DailyOpenings, GapRow, RevisionRow } from "./recordModel";
 import { supabase } from "./supabase";
@@ -18,6 +20,7 @@ export type RecordSources = {
   lastSeenAt: string | null;
   problems: string[];
   stats: FetchStats;
+  historyPairingNames: string[];
 };
 
 /** Page bounded histories; never silently present a server row limit as a complete record. */
@@ -48,6 +51,7 @@ export async function loadRecordSources(input: {
   deviceId: string;
   experimentDatabaseId: string;
   pairingNames: readonly string[];
+  pairingAssignments?: readonly PortalExperimentAssignment[];
   startMs: number;
   endMs: number;
 }): Promise<RecordSources> {
@@ -80,7 +84,14 @@ export async function loadRecordSources(input: {
   const gapStart = Math.max(input.endMs - 120 * day, Math.floor(input.startMs / hour) * hour);
   const dailyOrigin = localMidnight(input.startMs);
 
-  const [revisions, audits, assignments, commands, requests, notes, gaps, valves, mark] = await Promise.all([
+  const assignments = await settle("Plan assignments", async () => {
+      return pages<AssignmentRow>((from, to) => supabase.from("experiment_assignments").select("revision_id,pairing_name,pot_number,treatment,target_vwc_percent,calibration_name_snapshot,sensor_key_snapshot,valve_key_snapshot")
+        .eq("experiment_id", input.experimentDatabaseId).order("revision_id").order("pairing_name").range(from, to), 20000);
+    }, [] as AssignmentRow[]);
+  const aliases = experimentHistoryAliases(input.pairingNames, input.pairingAssignments ?? [], assignments);
+  const historyPairingNames = [...aliases.keys()];
+
+  const [revisions, audits, commands, requests, notes, gaps, valves, mark] = await Promise.all([
     settle("Plan versions", async () => {
       return pages<RevisionRow>((from, to) => supabase.from("experiment_revisions").select("id,version,source,created_at,created_by")
         .eq("experiment_id", input.experimentDatabaseId).order("version", { ascending: true }).range(from, to), 2000);
@@ -89,10 +100,6 @@ export async function loadRecordSources(input: {
       return pages<AuditRow>((from, to) => supabase.from("experiment_audit_events").select("id,event_type,revision_id,details,created_at,actor_id")
         .eq("experiment_id", input.experimentDatabaseId).order("created_at", { ascending: true }).order("id").range(from, to));
     }, [] as AuditRow[]),
-    settle("Plan assignments", async () => {
-      return pages<AssignmentRow>((from, to) => supabase.from("experiment_assignments").select("revision_id,pairing_name,pot_number,treatment,target_vwc_percent,calibration_name_snapshot")
-        .eq("experiment_id", input.experimentDatabaseId).order("revision_id").order("pairing_name").range(from, to), 20000);
-    }, [] as AssignmentRow[]),
     settle("Controller settings", async () => {
       return pages<CommandRow>((from, to) => supabase.from("project_control_commands")
         .select("id,command_type,payload,status,requested_at,confirmed_at,started_at,completed_at,error,experiment_id,requested_by")
@@ -123,7 +130,7 @@ export async function loadRecordSources(input: {
       }));
     }, [] as CalibrationRequestRow[]),
     settle("Notes", async () => {
-      const rows = await loadPotNotes(input.projectId, input.deviceId, { pairingNames: input.pairingNames, sinceIso: startIso, untilIso: endIso, limit: 1000 });
+      const rows = await loadPotNotes(input.projectId, input.deviceId, { pairingNames: historyPairingNames, sinceIso: startIso, untilIso: endIso, limit: 1000 });
       if (rows.length >= 1000) {
         stats.failed += 1;
         problems.push("Notes reached the 1000-note review limit; this record may be incomplete.");
@@ -131,6 +138,14 @@ export async function loadRecordSources(input: {
       return count(rows);
     }, [] as PotNote[]),
     settle("Gaps in readings", async () => {
+      if (historyPairingNames.length > input.pairingNames.length) {
+        const gapStats = emptyStats();
+        const buckets = await loadReadingBuckets({projectId: input.projectId, deviceId: input.deviceId,
+          pairingNames: historyPairingNames, window: {queryStartMs: gapStart, endMs: input.endMs, bucketMs: hour}, exclusions: []}, gapStats);
+        for (const key of ["requests", "rows", "bytes", "failed", "ms"] as const) stats[key] += gapStats[key];
+        if (gapStats.failed) throw new Error("Incomplete hourly reading history");
+        return gapsAcrossPairingAliases(buckets, aliases, gapStart, input.endMs);
+      }
       const rows = await pages<{ pairing_name: string; gap_start: string; gap_end: string; ongoing: boolean }>((from, to) => supabase.rpc("portal_reading_gaps", {
         p_project_id: input.projectId,
         p_device_id: input.deviceId,
@@ -148,7 +163,7 @@ export async function loadRecordSources(input: {
       }));
     }, [] as GapRow[]),
     settle("Valve openings", () => loadValveOpenBuckets({
-      projectId: input.projectId, deviceId: input.deviceId, pairingNames: input.pairingNames,
+      projectId: input.projectId, deviceId: input.deviceId, pairingNames: historyPairingNames,
       window: { queryStartMs: dailyOrigin, endMs: input.endMs, bucketMs: day },
     }, stats), []),
     settle("Your last visit", async () => {
@@ -164,12 +179,12 @@ export async function loadRecordSources(input: {
     const entry = byDay.get(bucket.startMs) ?? { openings: 0, pots: new Set<string>(), ms: 0 };
     entry.openings += bucket.openings;
     entry.ms += bucket.commandedOpenMs;
-    if (bucket.openings) entry.pots.add(bucket.pairingName);
+    if (bucket.openings) entry.pots.add(aliases.get(bucket.pairingName) ?? bucket.pairingName);
     byDay.set(bucket.startMs, entry);
   }
   const daily = Array.from(byDay.entries()).map(([dayStartMs, entry]) => ({ dayStartMs, openings: entry.openings, pots: entry.pots.size, commandedOpenMs: entry.ms }));
 
-  return { revisions, audits, assignments, commands, calibrationRequests: requests, notes, gaps, daily, lastSeenAt: mark, problems, stats };
+  return { revisions, audits, assignments, commands, calibrationRequests: requests, notes, gaps, daily, lastSeenAt: mark, problems, stats, historyPairingNames };
 }
 
 /**

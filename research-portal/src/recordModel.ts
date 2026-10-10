@@ -60,6 +60,8 @@ export type AssignmentRow = {
   treatment: string | null;
   target_vwc_percent: number | null;
   calibration_name_snapshot: string | null;
+  sensor_key_snapshot?: string | null;
+  valve_key_snapshot?: string | null;
 };
 
 const auditTitles: Record<string, string> = {

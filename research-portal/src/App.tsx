@@ -2590,7 +2590,7 @@ export default function App() {
   const portalExceptions = homeExceptions({
     experiments: availableExperiments,
     pairings: visiblePairings,
-    readings: data.readings,
+    readings: currentPairingReadings,
     nowMs: clockNowMs,
     checked: lastGoodCheckAt != null,
     refresh: { failedAt: refreshFailedAt, lastSuccessAt: lastGoodCheckAt },

@@ -28,6 +28,12 @@ describe("assembled public route contexts",()=>{
  });
 });
 describe("experiment exports",()=>{
+ it("exports earlier measurements under the corrected label while retaining the recorded label",()=>{
+  const renamed={...experiment,pairingNames:["Zone3-Pot16"],assignments:experiment.assignments?.map(a=>({...a,pairing_name:"Zone3-Pot16",sensor_key_snapshot:"sensor:1"}))};
+  const csv=experimentReadingsCsv({...input,experiment:renamed,readings:[reading(end-1,"Zone1-Pot16",20.7)]});
+  expect(csv).toContain("recorded_pairing_name");
+  expect(csv).toContain("Zone3-Pot16");expect(csv).toContain("Zone1-Pot16");expect(csv).toContain(",20.7,1200,22,");
+ });
  it("limits completed exports to their own pots and lifetime, with an exclusive end",()=>{
   expect(reportReadings(input).map(r=>r.id)).toEqual([end-day,end-1]);
  });
