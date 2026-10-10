@@ -31,6 +31,8 @@ export type SensorReading = {
   id: number;
   event_id: string;
   pairing_name: string;
+  /** Original recorded label when the portal resolves a subsequent controller rename. */
+  recorded_pairing_name?: string;
   sensor_key: string;
   raw_value: number;
   calibrated_value: number;

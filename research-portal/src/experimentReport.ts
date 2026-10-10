@@ -31,10 +31,10 @@ const cell = (value: unknown) => csvEscape(typeof value === "string" && /^[=+\-@
 /** Metadata is explicitly a plan snapshot, not an assertion about historical calibration. */
 export function experimentReadingsCsv(input: ExperimentReportInput) {
   const assignments = new Map(input.experiment.assignments?.map((item) => [item.pairing_name, item]));
-  const headers = ["experiment", "plan_snapshot_revision", "pairing_name", "crop_in_plan", "treatment_in_plan", "block_in_plan", "target_vwc_in_plan", "sensor_key", "device_recorded_at_utc", "server_received_at_utc", "calibrated_vwc_percent", "raw_sensor_output", "temperature_c", "electrical_conductivity", "quality_note", "event_id"];
+  const headers = ["experiment", "plan_snapshot_revision", "pairing_name", "crop_in_plan", "treatment_in_plan", "block_in_plan", "target_vwc_in_plan", "sensor_key", "device_recorded_at_utc", "server_received_at_utc", "calibrated_vwc_percent", "raw_sensor_output", "temperature_c", "electrical_conductivity", "quality_note", "event_id", "recorded_pairing_name"];
   const rows = reportReadings(input).map((reading) => {
     const plan = assignments.get(reading.pairing_name);
-    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id].map(cell).join(",");
+    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name].map(cell).join(",");
   });
   return [headers.join(","), ...rows].join("\r\n");
 }

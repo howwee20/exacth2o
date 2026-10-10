@@ -107,7 +107,7 @@ describe("experiment registry", () => {
     const before = reading("2026-07-23T14:46:33.999Z");
     const atStart = reading(startedAt);
     expect(readingsForExperiment([before, atStart], renamed)).toEqual([
-      { ...atStart, pairing_name: "Zone3-Pot41" },
+      { ...atStart, pairing_name: "Zone3-Pot41", recorded_pairing_name: "Zone2-Pot41" },
     ]);
     const renamedPairing = pairing({ name: "Zone3-Pot41", zone: 3 });
     const oldExperiment = { ...renamed, id: "old", pairingNames: ["Zone2-Pot41"], assignments: renamed.assignments?.map((a) => ({ ...a, pairing_name: "Zone2-Pot41", zone: 2 })) };

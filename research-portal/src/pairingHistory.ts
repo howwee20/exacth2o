@@ -23,7 +23,8 @@ export function alignPairingHistory<T extends { pairing_name: string }>(
     // A shared valve cannot unambiguously identify a pot. Retain its name if it matches.
     const name = matches?.size === 1 ? [...matches][0]
       : matches?.has(record.pairing_name) ? record.pairing_name : undefined;
-    if (name) return [name === record.pairing_name ? record : { ...record, pairing_name: name }];
+    if (name) return [name === record.pairing_name ? record : { ...record, pairing_name: name,
+      recorded_pairing_name: (record as T & { recorded_pairing_name?: string }).recorded_pairing_name ?? record.pairing_name }];
     const named = byName.get(record.pairing_name);
     if (named && !named[key]) return [record];
     return [];

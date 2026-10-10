@@ -4,14 +4,17 @@ import { withSupabaseTimeout } from "./supabaseTimeout";
 import type { SensorReading } from "./types";
 
 /** Bounded, keyset-paged measurement export. RLS remains the project boundary. */
-export async function loadExportReadings(input: {projectId:string;deviceId:string;pairingNames:readonly string[];startMs:number;endMs:number}) {
+export async function loadExportReadings(input: {projectId:string;deviceId:string;pairingNames:readonly string[];sensorKeys?:readonly string[];startMs:number;endMs:number}) {
   const readings:SensorReading[]=[];
   if (!input.pairingNames.length) return {readings,truncated:false};
   const cap=50_000,pageSize=1000;
+  const sensorKeys = [...new Set(input.sensorKeys ?? [])];
+  const completeHardwareIdentity = sensorKeys.length === input.pairingNames.length;
   let before:{at:string;id:number}|null=null;
   while(readings.length<cap){
     let query=supabase.from("sensor_readings").select(readingSelectColumns)
-      .eq("project_id",input.projectId).eq("device_id",input.deviceId).in("pairing_name",[...input.pairingNames])
+      .eq("project_id",input.projectId).eq("device_id",input.deviceId)
+      .in(completeHardwareIdentity ? "sensor_key" : "pairing_name", completeHardwareIdentity ? sensorKeys : [...input.pairingNames])
       .gte("device_recorded_at",new Date(input.startMs).toISOString()).lt("device_recorded_at",new Date(input.endMs).toISOString())
       .order("device_recorded_at",{ascending:false}).order("id",{ascending:false}).limit(pageSize);
     if(before) query=query.or(`device_recorded_at.lt.${before.at},and(device_recorded_at.eq.${before.at},id.lt.${before.id})`);

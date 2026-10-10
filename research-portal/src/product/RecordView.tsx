@@ -73,12 +73,13 @@ export function RecordView({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const startMs = anchorMs - spanDays * day;
+    const startMs = Math.max(anchorMs - spanDays * day, experiment.startedAt ? Date.parse(experiment.startedAt) : -Infinity);
     void loadRecordSources({
       projectId,
       deviceId,
       experimentDatabaseId: experiment.databaseId,
       pairingNames: experiment.pairingNames,
+      pairingAssignments: experiment.assignments,
       startMs,
       endMs: anchorMs,
     })
@@ -97,20 +98,20 @@ export function RecordView({
     return () => {
       cancelled = true;
     };
-  }, [anchorMs, visitedAt, deviceId, experiment.databaseId, experiment.id, experiment.pairingNames, projectId, spanDays]);
+  }, [anchorMs, visitedAt, deviceId, experiment.databaseId, experiment.id, experiment.pairingNames, experiment.assignments, experiment.startedAt, projectId, spanDays]);
 
   const experimentPairings = useMemo(() => pairings.filter((pairing) => experiment.pairingNames.includes(pairing.name)), [experiment.pairingNames, pairings]);
   const items = useMemo(() => {
     if (!sources) return [] as RecordItem[];
     return sortRecord([
       ...planItems(sources.revisions, sources.audits, sources.assignments),
-      ...settingsItems(sources.commands, experiment.pairingNames, experiment.databaseId ?? null),
-      ...calibrationRequestItems(sources.calibrationRequests, experiment.pairingNames),
+      ...settingsItems(sources.commands, sources.historyPairingNames, experiment.databaseId ?? null),
+      ...calibrationRequestItems(sources.calibrationRequests, sources.historyPairingNames),
       ...noteItems(sources.notes),
       ...gapItems(sources.gaps, experimentPairings),
       ...wateringItems(sources.daily),
     ].filter((item) => item.happenedAt >= anchorMs - spanDays * day && item.happenedAt <= anchorMs));
-  }, [anchorMs, spanDays, experiment.databaseId, experiment.pairingNames, experimentPairings, sources]);
+  }, [anchorMs, spanDays, experiment.databaseId, experimentPairings, sources]);
   const lastSeenMs = previousMark.current?.value ? Date.parse(previousMark.current.value) : null;
   const fresh = useMemo(() => newSince(items, lastSeenMs, userId), [items, lastSeenMs, userId]);
   const shown = useMemo(() => filterRecord(items, kinds, pot || null), [items, kinds, pot]);
