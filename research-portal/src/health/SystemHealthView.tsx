@@ -235,7 +235,7 @@ export function SystemHealthView({
       ) : null}
 
       <h1 className="px-title">System health</h1>
-      <p className="px-subtitle">Research controller · connection and recent interruptions</p>
+      <p className="px-subtitle">Controller connection and recent interruptions</p>
       <HealthPanel
         title="Recent interruptions"
         detail={restartOutageStatus.detail}

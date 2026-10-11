@@ -23,7 +23,7 @@ export function ExperimentNotFound({ id, loading }: { id: string; loading: boole
   );
 }
 
-/** Header and tabs shared by Overview, Pots and Record. Each tab is its own URL. */
+/** Header and tabs shared by individual traces, Overview and Record. Each tab is its own URL. */
 export function ExperimentPage({
   experiment,
   tab,
@@ -46,7 +46,7 @@ export function ExperimentPage({
   const mode = experimentModeLine(experiment, nowMs);
   const progress = experimentProgressText(experiment, nowMs);
   const own = exceptions.filter((item) => item.scope !== "experiment" || item.experimentId === experiment.id);
-  const labels: Record<ExperimentTab, string> = { overview: "Overview", pots: "Pots", record: "Record" };
+  const labels: Record<ExperimentTab, string> = { overview: "Overview", pots: "Traces", record: "Record" };
   return (
     <section className="px-page is-wide" aria-label={experiment.name}>
       <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>

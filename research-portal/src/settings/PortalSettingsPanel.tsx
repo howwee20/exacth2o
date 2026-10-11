@@ -434,7 +434,7 @@ export function PortalSettingsPanel({
           <div className="settings-row"><span>Mode</span><strong>{experiment.mode === "observation" ? "Sensing only" : experiment.mode === "calibration" ? "Calibration" : "Controlled"}</strong></div>
           <div className="settings-row"><span>Plan revision</span><strong>{experiment.currentVersion ?? "Not recorded"}</strong></div>
         </div>
-        <p className="settings-muted">Edit the experiment from its page to review changes to its pots and targets. Controller operation and wiring are managed in Research controller settings.</p>
+        <p className="settings-muted">Edit the experiment from its page to review changes to its pots and targets. Controller operation and wiring are managed in Installation settings.</p>
       </section>;
     }
     if (activeSection === "overview") {
@@ -473,7 +473,7 @@ export function PortalSettingsPanel({
           </section> : null}
           <div className="settings-readiness-grid">
             <ReadinessTile
-              title="Research controller"
+              title="Installation"
               tone={!presence.controllerState ? "unknown" : controllerIsLive ? (presence.controllerState === "Running" ? "ok" : "warning") : "unknown"}
               status={presence.controllerState ? `${presence.controllerState}${lastKnown}` : "Not reported"}
               lines={[
@@ -797,7 +797,7 @@ export function PortalSettingsPanel({
             operator={operatorEmail}
             portalRole={portalRole}
             experimentId={scope === "installation" ? "installation" : experiment.id}
-            experimentName={scope === "installation" ? "Research controller" : experiment.name}
+            experimentName={scope === "installation" ? "Installation" : experiment.name}
             pairings={pairings}
             configHash={configState?.config_hash?.trim() || null}
             controlBusy={controlBusy}
@@ -1255,7 +1255,7 @@ export function PortalSettingsPanel({
   };
 
   return (
-    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label={scope === "installation" ? "Research controller settings" : `${experiment.name} settings`}>
+    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label={scope === "installation" ? "Installation settings" : `${experiment.name} settings`}>
       <section className={`settings-modal${navOpen ? " is-nav-open" : ""}`}>
         <div className="settings-mobile-bar">
           <button
@@ -1308,7 +1308,7 @@ export function PortalSettingsPanel({
         <section className={`settings-content is-${activeSection}`}>
           <header className="settings-content-header">
             <div>
-              <p className="settings-content-eyebrow">{scope === "installation" ? "Research controller · Installation settings" : `${experiment.name} · Experiment settings`}</p>
+              <p className="settings-content-eyebrow">{scope === "installation" ? "Installation settings" : `${experiment.name} · Experiment settings`}</p>
               <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
               <p className="settings-content-lede">
                 {activeSection === "assistant"

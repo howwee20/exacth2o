@@ -113,7 +113,7 @@ export function PotPage({
         </div>
         <p className="px-subtitle">
           <span className="px-mono">{pairing.name}</span>
-          {experiment ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "overview", pot: null }}>{experiment.name}</PortalLink> : <span>Not in a current experiment</span>}
+          {experiment ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>{experiment.name}</PortalLink> : <span>Not in a current experiment</span>}
           {levels.map((level) => <span key={level}>{level}</span>)}
         </p>
       </div>

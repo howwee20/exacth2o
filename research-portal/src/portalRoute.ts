@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
  *   /portal                                  Experiments (Quiet Spine home)
  *   /portal?view=trends                      Installation trends
  *   /portal?view=bench[&pot=Zone1-Pot3]      Bench layout
- *   /portal?experiment=<slug>[&tab=pots|record][&pot=<pot>]
+ *   /portal?experiment=<slug>[&tab=overview|record][&pot=<pot>] Individual traces by default
  *   /portal?pot=<pairing name | research pot id>
  *   /portal?view=pocket[&pot=<pot>][&note=1] At the bench
  *   /portal?view=health|support|walker|chamber|analytics
@@ -55,7 +55,7 @@ export function parsePortalRoute(search: string): PortalRoute {
   if (view === "pocket") return { view: "pocket", pot, note: params.get("note") === "1" };
   if (experiment) {
     const tab = clean(params.get("tab"));
-    return { view: "experiment", experiment, tab: tab && tabs.has(tab as ExperimentTab) ? (tab as ExperimentTab) : "overview", pot };
+    return { view: "experiment", experiment, tab: tab && tabs.has(tab as ExperimentTab) ? (tab as ExperimentTab) : "pots", pot };
   }
   if (pot) return { view: "pot", pot };
   return { view: "home" };
@@ -80,7 +80,7 @@ function routeParams(route: PortalRoute) {
       break;
     case "experiment":
       params.set("experiment", route.experiment);
-      if (route.tab !== "overview") params.set("tab", route.tab);
+      if (route.tab !== "pots") params.set("tab", route.tab);
       if (route.pot) params.set("pot", route.pot);
       break;
     case "pot":
