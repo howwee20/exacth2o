@@ -64,7 +64,7 @@ export function TrendsView({
         return (
           <article key={experiment.id} className="px-card" style={{ padding: "14px 16px", display: "grid", gap: 8 }}>
             <div className="px-toolbar">
-              <PortalLink className="px-wl-name" to={{ view: "experiment", experiment: experiment.id, tab: "overview", pot: null }}>{experiment.name}</PortalLink>
+              <PortalLink className="px-wl-name" to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>{experiment.name}</PortalLink>
               <span className="px-wl-caps">{groupingLabel(grouping)}</span>
               <span className="px-spacer" />
               <span className="px-muted px-small">{reporting} of {experiment.pairingNames.length} pots reporting</span>

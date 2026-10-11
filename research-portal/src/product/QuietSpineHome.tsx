@@ -58,12 +58,12 @@ function ExperimentOptions({
     >
       <summary aria-label={`Options for ${experiment.name}`} title="Experiment options">⋯</summary>
       <div className="px-menu-panel" role="menu">
+        <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>Individual traces</PortalLink>
         <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "overview", pot: null }}>Overview</PortalLink>
-        <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>Pots</PortalLink>
         {recordAvailable ? <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "record", pot: null }}>Record</PortalLink> : null}
         <button type="button" role="menuitem" onClick={(event) => {
           close(event.currentTarget);
-          void copy({ view: "experiment", experiment: experiment.id, tab: "overview", pot: null });
+          void copy({ view: "experiment", experiment: experiment.id, tab: "pots", pot: null });
         }}>{copied ?? "Copy link"}</button>
         {canEdit && onEdit ? (
           <>
@@ -103,7 +103,7 @@ function ExperimentCard({
   const issueTab = issue?.primary.kind === "missing-observations" ? "pots" : "overview";
   return (
     <article className={`px-exp-card ${completed ? "is-completed" : ""}`} aria-label={experiment.name}>
-      <PortalLink className="px-exp-open" to={{ view: "experiment", experiment: experiment.id, tab: "overview", pot: null }}>
+      <PortalLink className="px-exp-open" to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>
         <span className="px-exp-name">{experiment.name}</span>
         <span className="px-exp-count">{count} {count === 1 ? "pot" : "pots"}</span>
         {mode ? <span className="px-exp-mode">{mode}</span> : null}
@@ -129,7 +129,7 @@ function InstallationNode({ state, checking, healthLink }: { state: Installation
   return (
     <div className={`px-node ${tone}`}>
       <span className="px-node-mark" aria-hidden="true" />
-      <b>Research controller</b>
+      <b>Controller</b>
       {state.status === "offline" ? (
         <span className="px-node-detail">
           Offline{state.lastSeenAt ? ` since ${formatMeasurementTime(state.lastSeenAt)}` : ""}
@@ -145,7 +145,7 @@ function InstallationNode({ state, checking, healthLink }: { state: Installation
 }
 
 /**
- * The installation home: one compact card per experiment on the animated spine (identity only;
+ * The installation home: one compact card per experiment on the shared controller connection (identity only;
  * the motion never encodes data). Healthy operation is quiet; an affected experiment gets one
  * specific exception line, and installation-wide conditions are stated once above the spine.
  */
@@ -182,6 +182,8 @@ export function QuietSpineHome({
 }) {
   const installationNotices = exceptions.filter((item) => item.scope !== "experiment");
   const ordered = orderHomeExperiments(experiments, nowMs);
+  const active = ordered.filter((experiment) => !experimentIsCompleted(experiment, nowMs));
+  const completed = ordered.filter((experiment) => experimentIsCompleted(experiment, nowMs));
   return (
     <section className="px-home" aria-label="Experiments">
       <div className="px-home-top">
@@ -209,11 +211,9 @@ export function QuietSpineHome({
           {leading}
           {ordered.length ? (
             <div className="px-spine-wrap">
-            <span className="px-dash-v" aria-hidden="true" />
-            <ol className="px-spine" aria-label="Experiments on this controller">
-              {ordered.map((experiment) => (
+            <ol className={`px-spine ${active.length && installation.status !== "hidden" ? "is-connected" : ""}`} aria-label="Experiments on this controller">
+              {active.map((experiment) => (
                 <li className="px-spine-item" key={experiment.id}>
-                  <span className="px-dash-h" aria-hidden="true" />
                   <ExperimentCard
                     experiment={experiment}
                     exceptions={exceptions}
@@ -224,15 +224,34 @@ export function QuietSpineHome({
                   />
                 </li>
               ))}
-              <li className="px-spine-item">
-                <span className="px-dash-h" aria-hidden="true" />
+              {!active.length ? <li className="px-empty">No active experiments.</li> : null}
+              {installation.status !== "hidden" ? <li className="px-spine-item">
                 <InstallationNode state={installation} checking={checking} healthLink={healthLink} />
-              </li>
+              </li> : null}
             </ol>
             </div>
           ) : (
             <p className="px-empty">{checking ? "Loading experiments…" : "No experiments are visible to this account yet."}</p>
           )}
+          {completed.length ? (
+            <details className="px-completed-experiments">
+              <summary>Completed experiments <span>{completed.length}</span></summary>
+              <ul className="px-completed-list" aria-label="Completed experiments">
+                {completed.map((experiment) => (
+                  <li key={experiment.id}>
+                    <ExperimentCard
+                      experiment={experiment}
+                      exceptions={exceptions}
+                      nowMs={nowMs}
+                      canEdit={canCreate}
+                      onEdit={onEditExperiment}
+                      recordAvailable={recordAvailable}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           {machines ? <section className="px-machines" aria-label="Machines"><h2>Machines</h2>{machines}</section> : null}
         </div>
         {tools ? <aside className="px-tools" aria-label="Installation tools"><details className="px-admin-tools"><summary>Administration</summary><div className="px-admin-tools-body">{tools}</div></details></aside> : null}

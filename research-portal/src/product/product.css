@@ -297,34 +297,7 @@
 .px-notice a { color: inherit; font-weight: 600; white-space: nowrap; }
 .px-notice-mark { font-family: var(--px-mono); font-weight: 700; }
 
-/* ---------------------------------------------------------------- the animated spine (identity only) */
-
-.px-dash-v,
-.px-dash-h {
-  position: absolute;
-  pointer-events: none;
-}
-
-.px-dash-v {
-  width: 2px;
-  background-image: repeating-linear-gradient(180deg, var(--px-line) 0 8px, transparent 8px 15px);
-  background-size: 2px 30px;
-  animation: px-flow-v 0.85s linear infinite;
-}
-
-.px-dash-h {
-  height: 2px;
-  background-image: repeating-linear-gradient(90deg, var(--px-line) 0 8px, transparent 8px 15px);
-  background-size: 30px 2px;
-  animation: px-flow-h 0.85s linear infinite reverse;
-}
-
-@keyframes px-flow-v { to { background-position: 0 30px; } }
-@keyframes px-flow-h { to { background-position: 30px 0; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .px-dash-v, .px-dash-h { animation: none; }
-}
+/* ---------------------------------------------------------------- shared controller connection */
 
 .px-spine {
   position: relative;
@@ -336,9 +309,13 @@
 }
 
 .px-spine-wrap { position: relative; }
-.px-spine-wrap > .px-dash-v { left: 8px; top: 24px; bottom: 26px; }
 .px-spine-item { position: relative; min-width: 0; }
-.px-spine-item > .px-dash-h { left: -22px; width: 22px; top: 28px; }
+.px-spine.is-connected > .px-spine-item::before,
+.px-spine.is-connected > .px-spine-item::after { position: absolute; content: ""; pointer-events: none; background: var(--px-rule-strong); }
+.px-spine.is-connected > .px-spine-item::before { width: 1px; left: -20px; top: 0; bottom: -10px; }
+.px-spine.is-connected > .px-spine-item:first-child::before { top: 50%; }
+.px-spine.is-connected > .px-spine-item:last-child::before { bottom: 50%; }
+.px-spine.is-connected > .px-spine-item::after { height: 1px; left: -20px; width: 20px; top: 50%; }
 
 /* ---------------------------------------------------------------- Quiet Spine home */
 
@@ -493,6 +470,8 @@
 .px-node .px-node-detail { color: var(--px-muted); }
 .px-node.is-bad .px-node-detail { color: var(--px-red); font-weight: 600; }
 .px-node a { margin-left: auto; color: var(--px-water); font-weight: 600; text-decoration: none; }
+.px-node-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-left: auto; }
+.px-node-actions a { margin-left: 0; }
 
 .px-tools { display: grid; gap: 14px; align-content: start; }
 
@@ -1102,6 +1081,27 @@
 .px-machines { display: grid; gap: 12px; margin-top: 32px; }
 .px-machines:not(:has(.px-machine-card)) { display: none; }
 .px-machines h2 { font: 600 16px/1.4 var(--px-sans); margin: 0; }
+
+.px-completed-experiments { margin-top: 24px; border-top: 1px solid var(--px-rule); }
+.px-completed-experiments > summary { cursor: pointer; padding: 18px 0; color: var(--px-muted); font-size: 14px; font-weight: 600; }
+.px-completed-experiments > summary span { margin-left: 8px; font-variant-numeric: tabular-nums; font-weight: 400; }
+.px-completed-experiments > summary:focus-visible { outline: 2px solid var(--px-accent); outline-offset: 4px; }
+.px-completed-list { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0 0 8px; }
+.px-pot-chart .pot-group > div:not(.pot-group-head) { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+.px-pot-chart .pot-group-title { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.px-pot-chart .pot-group-treatment { min-width: 0; color: var(--px-muted); font-size: 11px; overflow-wrap: anywhere; }
+.px-pot-chart .pot-toggle { grid-template-columns: 9px minmax(0, 1fr); min-height: 38px; padding: 7px 10px; }
+.px-pot-chart .pot-reading { display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: baseline; gap: 2px 12px; width: 100%; overflow: visible; }
+.px-pot-chart .pot-reading b { white-space: nowrap; font-size: 13px; font-weight: 600; }
+.px-pot-chart .pot-reading strong { text-align: right; font-size: 13px; font-weight: 500; color: var(--px-muted); }
+.px-pot-chart .pot-age, .px-pot-chart .pot-treatment { grid-column: 1 / -1; }
+.px-pot-chart .pot-treatment { color: var(--px-muted); font-size: 11px; }
+.px-pot-chart .pot-toggle:focus-visible { outline: 2px solid var(--px-accent); outline-offset: 2px; }
+.px-pot-chart .dashboard-main:not(.is-expanded) { min-height: 0; }
+.px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart,
+.px-pot-chart .dashboard-main:not(.is-expanded) .research-watering-activity { min-height: clamp(420px, calc(100dvh - 390px), 760px); }
+.px-pot-readings { margin-top: 24px; }
+@media (max-width: 700px) { .px-pot-chart .pot-toggle { min-height: 44px; } }
 .px-machine-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; width: 100%; padding: 17px 20px; border: 1px solid var(--px-rule-strong); border-radius: var(--px-radius); background: #fff; color: var(--px-text); font-family: var(--px-sans); text-align: left; cursor: pointer; }
 .px-machine-card:hover { border-color: var(--px-water); }
 .px-machine-error { display: flex; align-items: center; gap: 6px; grid-column: 1 / -1; color: var(--px-red); font-size: 13px; }

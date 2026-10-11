@@ -16,9 +16,9 @@ import { formatAge, formatMeasurementTime, measurementFreshness } from "./measur
 import { controllerPresence } from "./settingsPresentation";
 import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
-import { experimentGraphGroups } from "./experimentPresentation";
+import { experimentGraphGroups, experimentSidebarGroups } from "./experimentPresentation";
 import { levelLabel } from "./experimentFactors";
-import { type ExperimentId, isCalibrationExperiment, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
+import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
@@ -516,7 +516,7 @@ export default function App() {
 
   const openExperiment = useCallback((experimentId: ExperimentId) => {
     setSettingsOpen(false);
-    navigatePortal({ view: "experiment", experiment: experimentId, tab: "overview", pot: null });
+    navigatePortal({ view: "experiment", experiment: experimentId, tab: "pots", pot: null });
   }, []);
 
   const loadExperimentCatalog = useCallback(async () => {
@@ -2543,14 +2543,7 @@ export default function App() {
     );
   }
 
-  const groupedPairings = Array.from(
-    sortedPairings.reduce((groups, pairing) => {
-      const current = groups.get(pairing.zone) ?? [];
-      current.push(pairing);
-      groups.set(pairing.zone, current);
-      return groups;
-    }, new Map<number, PairingRow[]>()),
-  ).sort(([zoneA], [zoneB]) => zoneA - zoneB);
+  const groupedPairings = experimentSidebarGroups(sortedPairings, selectedExperiment);
   const hasExperimentGraphOverview = selectedExperimentGraphGroups.length > 1;
   // Group comparison cards were replaced by the Waterline overview tab; Pots shows every pot.
   const showExperimentGraphOverview = false;
@@ -2924,26 +2917,23 @@ export default function App() {
               >
                 All
               </button>
-              {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${selectedExperimentGraphGroupId === group.id ? "is-selected" : ""}`} onClick={() => openExperimentGraphGroup(group.id)}>{group.label}</button>)}
+              {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${selectedExperimentGraphGroupId === group.id ? "is-selected" : ""}`} onClick={() => openExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
             </div>
           </section>
 
-          {groupedPairings.map(([zone, groupPairings]) => {
-            const plantGroups = new Set(
-              groupPairings.map((pairing) => selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.crop ?? "unknown"),
-            );
-            const plantGroup = plantGroups.size === 1 ? Array.from(plantGroups)[0] : "unknown";
-            const label =
-              !isObservationOnlyExperiment(selectedExperiment) &&
-              !isCalibrationExperiment(selectedExperiment) &&
-              plantGroup !== "unknown"
-                ? levelLabel(plantGroup)
-                : `Zone ${zone}`;
+          {groupedPairings.map(({ id, label, pairings: groupPairings }) => {
             const allVisible = groupPairings.every((pairing) => !hiddenPots.has(pairing.name));
+            const treatments = new Set(groupPairings.map((pairing) =>
+              selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.treatment?.trim(),
+            ).filter((treatment): treatment is string => Boolean(treatment)));
+            const treatment = treatments.size === 1 ? levelLabel([...treatments][0]) : null;
             return (
-              <section className="pot-group" key={zone}>
+              <section className="pot-group" key={id}>
                 <div className="pot-group-head">
-                  <h3>{label}</h3>
+                  <div className="pot-group-title">
+                    <h3>{label}</h3>
+                    <span className="pot-group-treatment">{groupPairings.length} pots{treatment && treatment.toLowerCase() !== "observation" ? ` · ${treatment}` : ""}</span>
+                  </div>
                   <button
                     type="button"
                     className={`group-toggle ${allVisible ? "is-on" : ""}`}
@@ -2957,6 +2947,7 @@ export default function App() {
                 <div>
                   {groupPairings.map((pairing) => {
                     const visible = !hiddenPots.has(pairing.name);
+                    const potTreatment = selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.treatment?.trim();
                     const potSeries = seriesByName.get(pairing.name);
                     const latest = latestPoint(potSeries);
                     const latestValue = latest?.value ?? null;
@@ -2973,20 +2964,17 @@ export default function App() {
                         type="button"
                         className={`pot-toggle ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
                         onClick={() => togglePot(pairing.name)}
+                        aria-pressed={visible}
                         aria-label={`Pot ${pairing.pot_number}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings in the last 72 hours"}`}
                         title={latest ? `${formatMeasurementTime(latest.timestampMs)} · ${potFreshness.detail}` : "No readings in the last 72 hours"}
                       >
                         <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
                         <span className="pot-reading">
-                          <b>{pairing.pot_number}</b>
+                          <b>Pot {pairing.pot_number}</b>
                           <strong>{formatVwcReading(latestValue)}</strong>
+                          {!treatment && potTreatment ? <span className="pot-treatment">{levelLabel(potTreatment)}</span> : null}
                           {showAge ? <span className="pot-age">{formatAge(potFreshness.ageMs)}</span> : null}
                         </span>
-                        {!isObservationOnlyExperiment(selectedExperiment) && !isCalibrationExperiment(selectedExperiment) ? (
-                          <em className={`treatment-dot ${treatmentForPairing(pairing, selectedExperiment)}`}>
-                            {levelLabel(selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.treatment ?? "")}
-                          </em>
-                        ) : null}
                       </button>
                     );
                   })}
@@ -3095,7 +3083,7 @@ export default function App() {
   if (route.view === "controller" && canReadProjectData) {
     return productShell(<section className="px-page">
       <PortalLink className="px-crumb" to={{view:"home"}}>← Experiments</PortalLink>
-      <div className="px-exp-head-row"><h1 className="px-title">Research controller</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
+      <div className="px-exp-head-row"><h1 className="px-title">Installation</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
       <p className="px-subtitle">Shared sensing and irrigation for this installation</p>
       <dl className="px-facts px-card px-account-section">
         <div><dt>Connection</dt><dd>{presence?.status ?? "Checking"}</dd></div>
@@ -3105,7 +3093,7 @@ export default function App() {
       </dl>
       {isAdmin ? <PortalLink className="px-button" to={{view:"health"}}>System health and diagnostics →</PortalLink> : null}
       <h2 className="px-section-title">Experiments on this controller</h2>
-      <ul className="px-notification-list">{availableExperiments.map((experiment) => <li key={experiment.id}><PortalLink to={{view:"experiment",experiment:experiment.id,tab:"overview",pot:null}}>{experiment.name}</PortalLink><span className="px-muted">{experiment.pairingNames.length} pots</span></li>)}</ul>
+      <ul className="px-notification-list">{availableExperiments.map((experiment) => <li key={experiment.id}><PortalLink to={{view:"experiment",experiment:experiment.id,tab:"pots",pot:null}}>{experiment.name}</PortalLink><span className="px-muted">{experiment.pairingNames.length} pots</span></li>)}</ul>
     </section>);
   }
 
@@ -3287,8 +3275,8 @@ export default function App() {
     if (route.pot) {
       return productShell(renderPotPage(route.pot, routeExperiment));
     }
-    const experimentTabs: ExperimentTab[] = recordAvailable ? ["overview", "pots", "record"] : ["overview", "pots"];
-    const tab: ExperimentTab = experimentTabs.includes(route.tab) ? route.tab : "overview";
+    const experimentTabs: ExperimentTab[] = recordAvailable ? ["pots", "overview", "record"] : ["pots", "overview"];
+    const tab: ExperimentTab = experimentTabs.includes(route.tab) ? route.tab : "pots";
     return productShell(
       <ExperimentPage
         experiment={routeExperiment}
@@ -3328,14 +3316,14 @@ export default function App() {
           /></FeatureBoundary>
         ) : (
           <div className="px-pots-tab">
-            <details className="px-details px-pot-chart"><summary>Explore individual traces</summary>{potsTabContent}</details>
-            <FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
+            <div className="px-pot-chart" aria-label="Individual pot traces">{potsTabContent}</div>
+            <details className="px-details px-pot-readings"><summary>Pot readings</summary><FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
               experiment={routeExperiment}
               pairings={sortedPairings}
               readings={experimentReadings}
               nowMs={clockNowMs}
               asOfMs={lastGoodCheckAt}
-            /></FeatureBoundary>
+            /></FeatureBoundary></details>
           </div>
         )}
       </ExperimentPage>,
@@ -3392,9 +3380,11 @@ export default function App() {
         setEditingExperiment(experiment);
         setExperimentBuilderOpen(true);
       }}
-      healthLink={isAdmin && !isDemo ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : undefined}
+      healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
+        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }}>Installation settings</PortalLink> : null}
+        {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
+      </div> : undefined}
       machines={!isDemo ? <>
-        <PortalLink className="px-machine-card" to={{view:"controller"}}><span className="px-exp-name">Research controller</span><span className="px-exp-count">{visiblePairings.length} pots</span><span className="px-exp-mode">{presence?.controllerState ?? "Checking"}</span></PortalLink>
         {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} /> : null}
         {isAdmin || portalAccess.gasMixerAllowed ? <button className="px-machine-card" onClick={() => setPortalView("chamber")}><span className="px-exp-name">Chamber</span><span className="px-exp-count">Gas mixer · Lighting</span><span className="px-exp-mode">Control and schedules</span></button> : null}
       </> : undefined}

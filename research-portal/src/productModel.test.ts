@@ -196,7 +196,8 @@ describe("portal routes", () => {
       "",
       "?view=trends",
       "?view=bench&pot=Zone1-Pot3",
-      "?experiment=matt-experiment-2&tab=pots&pot=Zone1-Pot3",
+      "?experiment=matt-experiment-2&pot=Zone1-Pot3",
+      "?experiment=matt-experiment-2&tab=overview",
       "?pot=Zone1-Pot17",
       "?view=pocket&pot=Zone1-Pot17&note=1",
       "?view=health",
@@ -204,12 +205,15 @@ describe("portal routes", () => {
     for (const search of cases) {
       expect(portalRouteSearch(parsePortalRoute(search))).toBe(search);
     }
-    expect(portalRouteSearch({ view: "experiment", experiment: "x", tab: "overview", pot: null }, "?project=p1&group=crop&invite=t")).toBe("?experiment=x&project=p1");
+    expect(portalRouteSearch({ view: "experiment", experiment: "x", tab: "pots", pot: null }, "?project=p1&group=crop&invite=t")).toBe("?experiment=x&project=p1");
   });
 
-  it("falls back to the home for unknown views and to the overview for unknown tabs", () => {
+  it("opens individual traces by default and preserves explicit secondary views", () => {
     expect(parsePortalRoute("?view=nope")).toEqual({ view: "home" });
-    expect(parsePortalRoute("?experiment=x&tab=nope")).toEqual({ view: "experiment", experiment: "x", tab: "overview", pot: null });
+    expect(parsePortalRoute("?experiment=x")).toEqual({ view: "experiment", experiment: "x", tab: "pots", pot: null });
+    expect(parsePortalRoute("?experiment=x&tab=nope")).toEqual({ view: "experiment", experiment: "x", tab: "pots", pot: null });
+    expect(parsePortalRoute("?experiment=x&tab=pots")).toEqual(parsePortalRoute("?experiment=x"));
+    expect(parsePortalRoute("?experiment=x&tab=overview")).toEqual({ view: "experiment", experiment: "x", tab: "overview", pot: null });
   });
 
   it("sends retired Workbench links to Experiments", () => {
