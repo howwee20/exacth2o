@@ -14,9 +14,10 @@
       if (video.ended) video.currentTime = 0;
       await video.play();
       video.focus({ preventScroll: true });
-    } catch {
+    } catch (failure) {
       play.hidden = false;
-      error.hidden = false;
+      // Pause, navigation, or a newer play request may cancel play() after a successful load.
+      error.hidden = !(video.error || failure?.name === 'NotSupportedError');
     }
   });
   video.addEventListener('ended', () => {

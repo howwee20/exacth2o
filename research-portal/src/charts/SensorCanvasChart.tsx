@@ -1,3 +1,4 @@
+import { timeTicks, timeZoneLabel } from "../timeAxis";
 import { Loader2 } from "lucide-react";
 import { type KeyboardEvent, memo, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { healthNumber } from "../healthValues";
@@ -172,21 +173,18 @@ function SensorCanvasChartComponent({
       // As many time labels as fit without touching: measured, not guessed from the width.
       const sampleLabel = axisLabel(maxX, spanX);
       const labelWidth = context.measureText(sampleLabel).width + (compact ? 16 : 28);
-      const xTickCount = Math.max(1, Math.min(compact ? 2 : 5, Math.floor(plotWidth / labelWidth) - 1));
-      context.textAlign = "center";
       context.textBaseline = "top";
       context.setLineDash([3, 6]);
       context.strokeStyle = "#edf2f7";
-      for (let index = 0; index <= xTickCount; index += 1) {
-        const timestamp = minX + (spanX * index) / xTickCount;
-        const x = crispLine(xScale(timestamp));
-        context.beginPath();
-        context.moveTo(x, margin.top);
-        context.lineTo(x, margin.top + plotHeight);
-        context.stroke();
-        context.textAlign = index === 0 ? "left" : index === xTickCount ? "right" : "center";
-        context.fillText(axisLabel(timestamp, spanX), index === 0 ? margin.left : index === xTickCount ? margin.left + plotWidth : x, margin.top + plotHeight + (compact ? 6 : 12));
+      const ticks = timeTicks({startMs:minX,endMs:maxX}, plotWidth, labelWidth);
+      for (const tick of ticks) {
+        const x = crispLine(xScale(tick.at));
+        context.beginPath(); context.moveTo(x, margin.top); context.lineTo(x, margin.top + plotHeight); context.stroke();
+        context.textAlign = x < margin.left + labelWidth / 2 ? "left" : x > margin.left + plotWidth - labelWidth / 2 ? "right" : "center";
+        context.fillText(tick.label, x, margin.top + plotHeight + (compact ? 6 : 12));
       }
+      context.textAlign = compact ? "right" : "left";
+      context.fillText(timeZoneLabel(minX,maxX), compact ? margin.left + plotWidth : margin.left, margin.top + plotHeight + (compact ? 20 : 28));
 
       context.setLineDash([]);
       context.strokeStyle = "#a8b3c3";

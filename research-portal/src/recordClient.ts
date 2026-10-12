@@ -83,6 +83,7 @@ export async function loadRecordSources(input: {
     }, cap);
   const gapStart = Math.max(input.endMs - 120 * day, Math.floor(input.startMs / hour) * hour);
   const dailyOrigin = localMidnight(input.startMs);
+  if (gapStart > input.startMs + hour) problems.push("Reading gap analysis covers the most recent 120 days. Original measurement CSV exports cover the full selected range.");
 
   const assignments = await settle("Plan assignments", async () => {
       return pages<AssignmentRow>((from, to) => supabase.from("experiment_assignments").select("revision_id,pairing_name,pot_number,treatment,target_vwc_percent,calibration_name_snapshot,sensor_key_snapshot,valve_key_snapshot")

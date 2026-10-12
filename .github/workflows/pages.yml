@@ -9,9 +9,36 @@ permissions:
   contents: read
 
 # Publishing serves the committed, locally built release directly.
-# Full verification remains an explicit manual workflow, not a deployment gate.
+# Every production publish is gated by the portal checks and reproducible committed builds.
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: research-portal/package-lock.json
+      - run: npm ci --prefix research-portal
+      - run: npm run check --prefix research-portal
+      - run: node scripts/build-product-release.mjs
+      - name: Check committed release outputs
+        run: |
+          git diff --exit-code -- portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
+          test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
+      - name: Controller dashboard authentication checks
+        run: python3 -m unittest discover -s controller-release/matt-balena-release-4174753/health -p 'test_*.py'
+  verify-database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.65.5
+      - run: ./scripts/verify-database-baseline.sh
   deploy:
+    needs: [verify, verify-database]
     permissions:
       contents: read
       pages: write

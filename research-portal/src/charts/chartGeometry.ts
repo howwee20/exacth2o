@@ -93,7 +93,7 @@ export function chartBounds(
   headerSpace = 0,
 ) {
   const margin = compact
-    ? { top: 12 + headerSpace, right: 12, bottom: 30, left: 44 }
+    ? { top: 12 + headerSpace, right: 12, bottom: 42, left: 44 }
     : { top: 22 + headerSpace, right: 24, bottom: 54, left: 68 };
   const plotWidth = Math.max(1, width - margin.left - margin.right);
   const plotHeight = Math.max(1, height - margin.top - margin.bottom);

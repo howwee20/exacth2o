@@ -93,7 +93,7 @@ export function TimeRangeControl({
       <div className="time-range-labels">
         <span>{formatDateTime(startMs)}</span>
         <button type="button" onClick={() => onChange(fullTimeWindow)} disabled={isFull}>
-          Full
+          Loaded range
         </button>
         <span>{formatDateTime(endMs)}</span>
       </div>

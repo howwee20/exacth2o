@@ -1,5 +1,6 @@
 User-agent: *
-Disallow: /portal
+Disallow: /portal$
+Disallow: /portal.html$
 Disallow: /portal-app/
 Disallow: /demo-app/
 Disallow: /applications-demo-app/

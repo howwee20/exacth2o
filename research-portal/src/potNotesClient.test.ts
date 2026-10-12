@@ -86,8 +86,9 @@ describe("note writer identity", () => {
       runInNewContext(code, {
         exports: adapter, fetch, Date, Promise, Set, setInterval, clearInterval,
         require: (name: string) => {
+          if (name.endsWith("offlineQuery")) return {offlineQuery: (rows: unknown[]) => ({select: () => Promise.resolve({data:rows,error:null})})};
           if (!name.endsWith("fixtures") && !name.endsWith("portalFixtures") && !name.endsWith("demoAggregates")) throw new Error(`Unexpected demo dependency: ${name}`);
-          return { fixture: { data: { readings: [], pairings: [] } } };
+          return { recordTables: {}, storedReadings: [], fixture: { data: { readings: [], pairings: [] } } };
         },
       });
       const writer = adapter.portalClientWithToken(tokenA);

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import platform
 import shlex
 import socket
@@ -83,8 +84,9 @@ DASHBOARD_AUTH_DISABLED = os.environ.get("DASHBOARD_AUTH_DISABLED", "0") == "1"
 DASHBOARD_REALM = os.environ.get("DASHBOARD_REALM", "ExactH2O Health")
 DASHBOARD_SESSION_SECRET = os.environ.get(
     "DASHBOARD_SESSION_SECRET",
-    DASHBOARD_PASSWORD or "replace-this-session-secret",
+    "",
 )
+DASHBOARD_SESSION_SECRET = DASHBOARD_SESSION_SECRET or (hashlib.sha256(("ExactH2O dashboard sessions:" + DASHBOARD_PASSWORD).encode()).hexdigest() if DASHBOARD_PASSWORD else secrets.token_hex(32))
 DASHBOARD_SESSION_COOKIE = os.environ.get("DASHBOARD_SESSION_COOKIE", "exacth2o_health_session")
 DASHBOARD_SESSION_TTL_SECONDS = int(os.environ.get("DASHBOARD_SESSION_TTL_SECONDS", "604800"))
 DASHBOARD_COOKIE_SECURE = os.environ.get("DASHBOARD_COOKIE_SECURE", "0") == "1"
@@ -151,7 +153,7 @@ def auth_is_enabled():
 
 def check_basic_auth(header):
     if not auth_is_enabled():
-        return True
+        return DASHBOARD_AUTH_DISABLED
     if not header or not header.lower().startswith("basic "):
         return False
     token = header.split(" ", 1)[1].strip()
@@ -184,7 +186,7 @@ def create_session_token(username):
 
 
 def verify_session_token(token):
-    if not token:
+    if not auth_is_enabled() or not token:
         return False
     try:
         decoded = base64.urlsafe_b64decode(token.encode("ascii")).decode("utf-8")
@@ -311,7 +313,7 @@ def login_page(error=""):
 
 def check_bearer_token(header, query):
     if not HEALTHCHECK_TOKEN:
-        return True
+        return check_basic_auth(header)
     expected = HEALTHCHECK_TOKEN
     candidate = ""
     if header and header.lower().startswith("bearer "):
@@ -2931,7 +2933,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def request_authenticated(self):
         if not auth_is_enabled():
-            return True
+            return DASHBOARD_AUTH_DISABLED
         cookies = parse_cookies(self.headers.get("Cookie", ""))
         if verify_session_token(cookies.get(DASHBOARD_SESSION_COOKIE, "")):
             return True

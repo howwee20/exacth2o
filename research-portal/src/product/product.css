@@ -1350,3 +1350,37 @@
 @media (max-width: 999px) { .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart { min-height: clamp(320px, 48dvh, 480px); } }
 .px-pot-chart .chart-card { align-self: start; }
 @media (min-width: 1000px) { .px-pot-chart .control-panel:not([style]) { max-height: clamp(480px, calc(100dvh - 390px), 1500px); } }
+
+/* Short viewports include high browser zoom: let the header scroll out of the reading area. */
+@media (max-height: 540px) {
+  .px-header, .px-record-day h3, .px-wb-list, .px-pot-chart .control-panel:not([style]) { position: static; }
+}
+.px-history-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin: 10px 0 18px; }
+.px-history-toolbar label { display:grid; gap:5px; font-size:13px; color:var(--px-muted); }
+.px-history-toolbar input, .px-history-toolbar select { min-height:40px; max-width:100%; padding:8px 10px; border:1px solid var(--px-rule-strong); border-radius:6px; background:white; color:var(--px-ink); font:inherit; }
+.px-history-layout { display:grid; grid-template-columns:minmax(0,1fr) 240px; gap:18px; }
+.px-history-pots { display:grid; gap:5px; max-height:520px; overflow:auto; padding:12px; align-content:start; }
+.px-history-pots label { display:flex; align-items:center; gap:8px; min-height:36px; }
+.px-history-pots input { accent-color:var(--px-water); width:17px; height:17px; }
+.px-history-range { padding:16px 20px; margin-bottom:16px; }
+.px-history-range summary { cursor:pointer; font-weight:600; }
+.px-history-range .px-notice { margin:12px 0; }
+@media (max-width:760px) { .px-history-layout { grid-template-columns:1fr; } .px-history-pots { display:flex; flex-wrap:wrap; max-height:180px; } .px-history-pots label { flex:1 0 130px; } .px-history-toolbar label { flex:1 1 150px; min-width:0; } }
+.portal-login-card { border:1px solid var(--px-rule); border-radius:12px; box-shadow:0 20px 70px rgba(14,26,20,.06); }
+.portal-submit-btn:disabled { opacity:1; color:#526158; background:#dce5df; cursor:not-allowed; }
+
+.px-chart-zone { position:absolute; right:14px; bottom:0; font-size:10px; color:var(--px-muted); pointer-events:none; }
+.px-export-dialog input[type="datetime-local"] { max-width:100%; min-width:0; padding:7px; border:1px solid var(--px-rule-strong); border-radius:5px; font:inherit; }
+@media (min-width:1600px) {
+ .px-page:not(.px-account-page) { max-width:1600px; }
+ .px-page.is-wide { max-width:none; }
+ .px-home-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .px-home-grid.is-single { grid-template-columns:minmax(0,980px); justify-content:start; }
+}
+
+@media (min-width:1800px) { .px-home { width:min(1600px,100%); } }
+
+.px-chart:has(.px-chart-zone) { padding-bottom:18px; }
+
+.px-history-toolbar input { width:100%; min-width:0; box-sizing:border-box; }
+@media (max-width:760px) { .px-history-toolbar label { flex-basis:220px; } }

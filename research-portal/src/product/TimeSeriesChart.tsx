@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
+import { timeTicks, timeZoneLabel } from "../timeAxis";
+
 export type TimedPoint = { timestampMs: number; value: number };
 export type ChartLine = {
   id: string;
@@ -40,38 +42,7 @@ export function useElementWidth<T extends HTMLElement>() {
   return [ref, width] as const;
 }
 
-const hour = 3_600_000;
-const tickSteps = [hour, 2 * hour, 3 * hour, 6 * hour, 12 * hour, 24 * hour, 48 * hour, 7 * 24 * hour, 14 * 24 * hour, 30 * 24 * hour];
-
-const dayFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-const hourFormat = new Intl.DateTimeFormat("en-US", { hour: "numeric" });
-
-function localMidnight(ms: number) {
-  const date = new Date(ms);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-/** Ticks at local clock boundaries, at least `minGapPx` apart. Midnights are labelled by date. */
-export function timeTicks(domain: { startMs: number; endMs: number }, plotWidth: number, minGapPx = 74) {
-  const span = Math.max(1, domain.endMs - domain.startMs);
-  const step = tickSteps.find((candidate) => (candidate / span) * plotWidth >= minGapPx) ?? tickSteps[tickSteps.length - 1];
-  const ticks: { at: number; label: string }[] = [];
-  let at = step >= 24 * hour ? localMidnight(domain.startMs) : localMidnight(domain.startMs);
-  while (at < domain.startMs) at += step >= 24 * hour ? 24 * hour : step;
-  let guard = 0;
-  while (at <= domain.endMs && guard < 400) {
-    guard += 1;
-    const midnight = new Date(at).getHours() === 0;
-    ticks.push({ at, label: midnight || step >= 24 * hour ? dayFormat.format(at) : hourFormat.format(at) });
-    if (step >= 24 * hour) {
-      const date = new Date(at);
-      date.setDate(date.getDate() + Math.round(step / (24 * hour)));
-      at = date.getTime();
-    } else at += step;
-  }
-  return ticks;
-}
+export { timeTicks } from "../timeAxis";
 
 export function valueTicks([low, high]: [number, number], count = 4) {
   const span = high - low;
@@ -259,6 +230,7 @@ export function TimeSeriesChart({
           ) : null}
         </svg>
       ) : <div style={{ height }} />}
+      <span className="px-chart-zone">{timeZoneLabel(domain.startMs,domain.endMs)}</span>
       {info && cursor != null ? (
         <div
           className="px-chart-readout"

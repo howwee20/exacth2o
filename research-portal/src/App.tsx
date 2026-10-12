@@ -1,3 +1,4 @@
+import { ExperimentHistory } from "./product/ExperimentHistory";
 import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
@@ -21,7 +22,7 @@ import { levelLabel } from "./experimentFactors";
 import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
-import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, staleAfterMs, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
+import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
 import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
 import { controlCommandLabel, errorMessage, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
 import { colorForPairing, orderedPairings, plantGroupForPairing, treatmentForPairing } from "./portalPresentation";
@@ -177,7 +178,7 @@ export default function App() {
   const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(() => new URLSearchParams(window.location.hash.slice(1)).has("error") ? "This access link has expired or is invalid. Request a fresh password reset below." : null);
   const [selectedMode] = useState<DataMode>("auto");
   const [experimentGraphMode, setExperimentGraphMode] = useState<ExperimentGraphMode>("vwc");
   const [potPreset, setPotPreset] = useState<PotPreset>("all");
@@ -942,7 +943,7 @@ export default function App() {
                   .eq("project_id", activeProjectId)
                   .eq("device_id", activeDeviceId)
                   .like("event_id", livePrefix)
-                  .gte("server_received_at", new Date(Date.now() - staleAfterMs).toISOString())
+
                   .limit(1),
                 supabaseQueryTimeoutMs,
                 "Live reading availability",
@@ -1006,7 +1007,7 @@ export default function App() {
         // A full reconciliation of data already on screen is assembled off-screen and swapped
         // in once complete, so the chart never empties and refills. Only a first load (or a
         // switch between live and imported data) streams batches in as they arrive.
-        const reconcileInPlace = !canIncrement && previous.readings.length > 0 && previous.effectiveMode === effectiveMode;
+        const reconcileInPlace = !canIncrement && previous.readings.length > 0;
         setData((current) => ({
           ...current,
           pairings: pairingsData,
@@ -1014,9 +1015,9 @@ export default function App() {
           latestIngestTime,
           lastCheckedAt: nowIso,
           effectiveMode,
-          readings: canIncrement || reconcileInPlace ? current.readings : [],
-          totalImportedReadings: canIncrement || reconcileInPlace ? current.totalImportedReadings : 0,
-          totalLiveReadings: canIncrement || reconcileInPlace ? current.totalLiveReadings : 0,
+          readings: current.readings,
+          totalImportedReadings: current.totalImportedReadings,
+          totalLiveReadings: current.totalLiveReadings,
         }));
 
         const applyReadingsBatch = (incomingReadings: SensorReading[]) => {
@@ -1036,6 +1037,7 @@ export default function App() {
             // Keep realtime rows that arrived while the reconciliation was running.
             const arrivedDuring = current.readings.filter((reading) =>
               Date.parse(reading.server_received_at) >= startedAtMs - incrementalCursorOverlapMs);
+            if (selectedMode === "auto" && fetched.length === 0) return {...current, effectiveMode: previous.effectiveMode};
             const reconciled = mergeRollingExperimentReadings(fetched, arrivedDuring);
             return readingsState(current, reconciled, fetched, nowIso, effectiveMode);
           });
@@ -1553,7 +1555,16 @@ export default function App() {
     stripAuthQuery();
     resetPortalSessionUi();
     setPassword("");
+    setAuthMode("sign-in");
     setSessionReady(true);
+  }
+
+  async function requestPasswordReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setLoading(true); setLoginError(null); setAuthNotice(null);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {redirectTo: `${window.location.origin}/portal?type=recovery`});
+    setLoading(false);
+    if (resetError) { setLoginError("The reset email could not be requested. Please try again or contact support."); return; }
+    setAuthNotice("If an account exists for this email, a password reset link is on its way. Check your inbox and spam folder.");
   }
 
   async function setAccountPassword(event?: FormEvent<HTMLFormElement>) {
@@ -1580,6 +1591,7 @@ export default function App() {
     stripAuthQuery();
     resetPortalSessionUi();
     setPassword("");
+    setAuthMode("sign-in");
     setSessionReady(true);
   }
 
@@ -1876,7 +1888,9 @@ export default function App() {
 
     let active = true;
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active || authMode === "set-password" || authMode === "accept-invite") return;
+      if (!active) return;
+      if (event === "PASSWORD_RECOVERY") { setAuthMode("set-password"); setSessionReady(false); return; }
+      if (authMode === "set-password" || authMode === "accept-invite" || authMode === "recover") return;
       setSessionReady(Boolean(session));
       if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
         setSessionRevision((current) => current + 1);
@@ -2407,15 +2421,16 @@ export default function App() {
   if (!sessionReady) {
     const isInviteAccept = authMode === "accept-invite";
     const isPasswordSetup = authMode === "set-password";
-    const showTermsAgreement = !isPasswordSetup;
+    const isRecovery = authMode === "recover";
+    const showTermsAgreement = isInviteAccept;
     const termsRequired = isInviteAccept;
-    const authTitle = isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign In";
-    const authNote = isPasswordSetup
+    const authTitle = isRecovery ? "Reset your password" : isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign In";
+    const authNote = isRecovery ? "Enter your account email. We’ll send a secure reset link." : isPasswordSetup
       ? "Choose a password for this exactH2O account."
       : isInviteAccept
         ? "Use the invited email and choose a password."
         : "Use your exactH2O account.";
-    const authSubmitText = loading
+    const authSubmitText = isRecovery ? (loading ? "Sending…" : "Send reset link") : loading
       ? isPasswordSetup
         ? "Saving..."
         : isInviteAccept
@@ -2425,7 +2440,7 @@ export default function App() {
         ? "Save Password"
         : isInviteAccept
           ? "Accept Invite"
-          : "Open Dashboard";
+          : "Sign in";
 
     return (
       <main className="portal-login-shell">
@@ -2443,7 +2458,7 @@ export default function App() {
             <h2>{authTitle}</h2>
             <p className="portal-login-note">{authNote}</p>
 
-            <form onSubmit={isPasswordSetup ? setAccountPassword : isInviteAccept ? acceptInvite : signIn}>
+            <form onSubmit={isRecovery ? requestPasswordReset : isPasswordSetup ? setAccountPassword : isInviteAccept ? acceptInvite : signIn}>
               {!isPasswordSetup ? (
                 <div className="portal-form-group">
                   <label htmlFor="portalEmail">Email</label>
@@ -2458,7 +2473,7 @@ export default function App() {
                   />
                 </div>
               ) : null}
-              <div className="portal-form-group">
+              {!isRecovery ? <div className="portal-form-group">
                 <label htmlFor="portalPassword">Password</label>
                 <input
                   id="portalPassword"
@@ -2469,7 +2484,7 @@ export default function App() {
                   autoComplete={isInviteAccept || isPasswordSetup ? "new-password" : "current-password"}
                   required
                 />
-              </div>
+              </div> : null}
               <div className="portal-form-row">
                 {!isPasswordSetup ? (
                   <label className="portal-check">
@@ -2484,7 +2499,7 @@ export default function App() {
                 ) : (
                   <span />
                 )}
-                {isInviteAccept || isPasswordSetup ? (
+                {isInviteAccept || isPasswordSetup || isRecovery ? (
                   <button
                     className="portal-inline-action"
                     type="button"
@@ -2493,7 +2508,7 @@ export default function App() {
                     Sign in
                   </button>
                 ) : (
-                  <span />
+                  <button className="portal-inline-action" type="button" onClick={() => switchAuthMode("recover")}>Forgot password?</button>
                 )}
               </div>
               {showTermsAgreement ? (
@@ -2533,12 +2548,12 @@ export default function App() {
               <button
                 className="portal-submit-btn"
                 type="submit"
-                disabled={loading || (!isPasswordSetup && !email) || !password || (termsRequired && !termsAccepted)}
+                disabled={loading || (!isPasswordSetup && !email) || (!isRecovery && !password) || (termsRequired && !termsAccepted)}
               >
                 {authSubmitText}
               </button>
-              {authNotice ? <p className="portal-success-line">{authNotice}</p> : null}
-              {loginError ? <p className="portal-error-line">{loginError}</p> : null}
+              {authNotice ? <p className="portal-success-line" role="status">{authNotice}</p> : null}
+              {loginError ? <p className="portal-error-line" role="alert">{loginError}</p> : null}
             </form>
 
             <div className="portal-support-line">
@@ -3343,6 +3358,8 @@ export default function App() {
           /></FeatureBoundary>
         ) : (
           <div className="px-pots-tab">
+            <ExperimentHistory key={routeExperiment.id} experiment={routeExperiment} pairings={sortedPairings} projectId={activeProjectId} deviceId={activeDeviceId} nowMs={clockNowMs}/>
+            <p className="px-muted px-small">Recent traces: {timeBounds ? `${formatMeasurementTime(timeBounds.startMs)} to ${formatMeasurementTime(timeBounds.endMs)}` : "No loaded readings"}. The recent view covers up to 72 hours and 50,000 readings. Explore history above for earlier dates.</p>
             <div className="px-pot-chart" aria-label="Individual pot traces">{potsTabContent}</div>
             <details className="px-details px-pot-readings"><summary>Pot readings</summary><FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
               experiment={routeExperiment}
