@@ -82,7 +82,8 @@ export function TrendsView({
               bands={bands}
               domain={window}
               yDomain={domain}
-              height={170}
+              height={220}
+              responsive
               ariaLabel={`${experiment.name}: group medians of calibrated VWC, last ${Math.round(loadedWindowMs / 3_600_000)} hours.`}
               readout={(t) => ({
                 title: formatMeasurementTime(t) ?? "",

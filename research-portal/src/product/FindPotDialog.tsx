@@ -47,16 +47,26 @@ export function FindPotDialog({
   return (
     <div className="px-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="px-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={(event) => {
+        if (event.key === "Tab") {
+          const nodes = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button, input, a[href]'));
+          const first = nodes[0], last = nodes[nodes.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }
         if (event.key === "Escape") {
           event.preventDefault();
           onClose();
         }
       }}>
-        <h2 id={titleId}>Find a pot</h2>
+        <div className="px-dialog-heading"><h2 id={titleId}>Find a pot</h2><button type="button" className="px-button is-small" onClick={onClose}>Close</button></div>
         <input
           ref={inputRef}
           value={query}
           inputMode="search"
+          role="combobox"
+          aria-label="Pot number, pairing or experiment"
+          aria-expanded={Boolean(query.trim() && results.length)}
+          aria-autocomplete="list"
           placeholder="Pot number, pairing or experiment"
           aria-controls={listId}
           aria-activedescendant={results[active] ? `${listId}-${active}` : undefined}

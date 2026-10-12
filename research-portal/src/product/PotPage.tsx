@@ -104,7 +104,7 @@ export function PotPage({
     : { view: "pot" as const, pot: pairing.name };
 
   return (
-    <section className="px-page" aria-label={`Pot ${pairing.pot_number}`}>
+    <section className="px-page is-wide px-pot-page" aria-label={`Pot ${pairing.pot_number}`}>
       <PortalLink className="px-crumb" to={backTo.route}>← {backTo.label}</PortalLink>
       <div className="px-exp-head">
         <div className="px-exp-head-row">
@@ -156,7 +156,8 @@ export function PotPage({
               ticks={!sensing && measure === "vwc" ? opens.filter((at) => at >= window.startMs).map((timestampMs) => ({ timestampMs })) : []}
               domain={window}
               yDomain={yDomain}
-              height={220}
+              height={300}
+              responsive
               ariaLabel={`Pot ${pairing.pot_number} ${info.label}, last ${Math.round(loadedWindowMs / hour)} hours.`}
               description={potReadingSentence({
                 potNumber: pairing.pot_number,

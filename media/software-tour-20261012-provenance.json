@@ -1,0 +1,294 @@
+{
+  "captureDate": "2026-10-12",
+  "source": "Final locally built production-source offline /demo workspace",
+  "sourceResolution": [
+    2560,
+    1440
+  ],
+  "outputResolution": [
+    2560,
+    1600
+  ],
+  "fps": 30,
+  "durationSeconds": 47,
+  "data": "Offline representative fixtures. connect-src none; no controller access.",
+  "editing": "Real working demo interaction states captured through CUA, edited with timed holds, smooth cursor motion, click cues and on-screen captions. This is an edited walkthrough, not an uncut screen recording. No UI or readings fabricated. Full interface captures fit proportionally without cropping.",
+  "scenes": [
+    {
+      "name": "01-all",
+      "seconds": 4,
+      "caption": "Every pot. One clear view.",
+      "point": [
+        2399.5,
+        485.1328125
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 20 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 6437.5%Control",
+          "Pot 6635.6%Control",
+          "Pot 6837.6%Control",
+          "Pot 7037.5%Control",
+          "Pot 7214.0%Drought",
+          "Pot 7413.2%Drought",
+          "Pot 7613.0%Drought",
+          "Pot 7813.3%Drought",
+          "Pot 8013.2%Drought",
+          "Pot 6137.1%Control",
+          "Pot 6337.5%Control",
+          "Pot 6536.2%Control",
+          "Pot 6736.4%Control",
+          "Pot 6938.5%Control",
+          "Pot 7117.9%Drought",
+          "Pot 7315.1%Drought",
+          "Pot 7515.7%Drought",
+          "Pot 7714.6%Drought",
+          "Pot 7916.6%Drought"
+        ]
+      }
+    },
+    {
+      "name": "02-empty",
+      "seconds": 2,
+      "caption": "Start a focused comparison.",
+      "point": [
+        2295,
+        585.52734375
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 0 pots. Use the arrow keys to step through readings.",
+        "selected": []
+      }
+    },
+    {
+      "name": "03-pot62",
+      "seconds": 4,
+      "caption": "Select Pot 62. Follow its moisture history.",
+      "point": [
+        2295,
+        643.31640625
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 1 pot; Current target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control"
+        ]
+      }
+    },
+    {
+      "name": "04-two",
+      "seconds": 4,
+      "caption": "Add Pot 64. Compare the individual traces.",
+      "point": [
+        2295,
+        874.47265625
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 2 pots; Current target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 6437.5%Control"
+        ]
+      }
+    },
+    {
+      "name": "05-three",
+      "seconds": 4,
+      "caption": "Add a drought pot. See the different response.",
+      "point": [
+        2295,
+        536.81640625
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 3 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 6437.5%Control",
+          "Pot 7214.0%Drought"
+        ]
+      }
+    },
+    {
+      "name": "06-two-again",
+      "seconds": 3,
+      "caption": "Remove a trace to simplify the comparison.",
+      "point": [
+        2461,
+        585.52734375
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 2 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 7214.0%Drought"
+        ]
+      }
+    },
+    {
+      "name": "07-detail",
+      "seconds": 4,
+      "caption": "Open Pot 62 for readings, targets, and sensor details.",
+      "point": [
+        1700,
+        690
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1&pot=Pot+62",
+      "state": {
+        "selected": []
+      },
+      "keyboard": true
+    },
+    {
+      "name": "08-readout",
+      "seconds": 3,
+      "caption": "Inspect a timestamp and its measured value.",
+      "point": [
+        1088,
+        1091.3125
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1&pot=Pot+62",
+      "state": {
+        "selected": []
+      }
+    },
+    {
+      "name": "09-evidence",
+      "seconds": 5,
+      "caption": "Check the raw signal, calibration, and recorded valve events.",
+      "point": [
+        145,
+        108
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1&pot=Pot+62",
+      "state": {
+        "selected": []
+      }
+    },
+    {
+      "name": "10-return",
+      "seconds": 3,
+      "caption": "Return to the traces with your comparison intact.",
+      "point": [
+        2232.5,
+        485.1328125
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 2 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 7214.0%Drought"
+        ]
+      }
+    },
+    {
+      "name": "11-restore",
+      "seconds": 4,
+      "caption": "Bring every pot back into view.",
+      "point": [
+        2025.9140625,
+        422.9375
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 20 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 6437.5%Control",
+          "Pot 6635.6%Control",
+          "Pot 6837.6%Control",
+          "Pot 7037.5%Control",
+          "Pot 7214.0%Drought",
+          "Pot 7413.2%Drought",
+          "Pot 7613.0%Drought",
+          "Pot 7813.3%Drought",
+          "Pot 8013.2%Drought",
+          "Pot 6137.1%Control",
+          "Pot 6337.5%Control",
+          "Pot 6536.2%Control",
+          "Pot 6736.4%Control",
+          "Pot 6938.5%Control",
+          "Pot 7117.9%Drought",
+          "Pot 7315.1%Drought",
+          "Pot 7515.7%Drought",
+          "Pot 7714.6%Drought",
+          "Pot 7916.6%Drought"
+        ]
+      }
+    },
+    {
+      "name": "12-overlay",
+      "seconds": 4,
+      "caption": "Review recorded watering alongside soil moisture.",
+      "point": [
+        1886.09765625,
+        422.9375
+      ],
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture with watering events (VWC %) for 20 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 6437.5%Control",
+          "Pot 6635.6%Control",
+          "Pot 6837.6%Control",
+          "Pot 7037.5%Control",
+          "Pot 7214.0%Drought",
+          "Pot 7413.2%Drought",
+          "Pot 7613.0%Drought",
+          "Pot 7813.3%Drought",
+          "Pot 8013.2%Drought",
+          "Pot 6137.1%Control",
+          "Pot 6337.5%Control",
+          "Pot 6536.2%Control",
+          "Pot 6736.4%Control",
+          "Pot 6938.5%Control",
+          "Pot 7117.9%Drought",
+          "Pot 7315.1%Drought",
+          "Pot 7515.7%Drought",
+          "Pot 7714.6%Drought",
+          "Pot 7916.6%Drought"
+        ]
+      }
+    },
+    {
+      "name": "13-final",
+      "seconds": 3,
+      "caption": "Explore the safe sample workspace at exacth2o.com/demo.",
+      "point": null,
+      "url": "http://127.0.0.1:4896/demo?experiment=experiment-1",
+      "state": {
+        "chart": "Soil moisture (VWC %) for 20 pots; Current control target 35%. Use the arrow keys to step through readings.",
+        "selected": [
+          "Pot 6236.0%Control",
+          "Pot 6437.5%Control",
+          "Pot 6635.6%Control",
+          "Pot 6837.6%Control",
+          "Pot 7037.5%Control",
+          "Pot 7214.0%Drought",
+          "Pot 7413.2%Drought",
+          "Pot 7613.0%Drought",
+          "Pot 7813.3%Drought",
+          "Pot 8013.2%Drought",
+          "Pot 6137.1%Control",
+          "Pot 6337.5%Control",
+          "Pot 6536.2%Control",
+          "Pot 6736.4%Control",
+          "Pot 6938.5%Control",
+          "Pot 7117.9%Drought",
+          "Pot 7315.1%Drought",
+          "Pot 7515.7%Drought",
+          "Pot 7714.6%Drought",
+          "Pot 7916.6%Drought"
+        ]
+      }
+    }
+  ]
+}

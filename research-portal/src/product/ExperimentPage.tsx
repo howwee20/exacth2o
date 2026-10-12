@@ -48,7 +48,7 @@ export function ExperimentPage({
   const own = exceptions.filter((item) => item.scope !== "experiment" || item.experimentId === experiment.id);
   const labels: Record<ExperimentTab, string> = { overview: "Overview", pots: "Traces", record: "Record" };
   return (
-    <section className="px-page is-wide" aria-label={experiment.name}>
+    <section className={`px-page is-wide px-experiment-page ${tab === "pots" ? "is-traces" : ""}`} aria-label={experiment.name}>
       <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
       <div className="px-exp-head">
         <div className="px-exp-head-row">

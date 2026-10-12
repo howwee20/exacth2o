@@ -186,6 +186,20 @@ export default function App() {
   const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
+  useEffect(() => {
+    if (!graphExpanded) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setGraphExpanded(false);
+        window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.expand-button')?.focus());
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", close); };
+  }, [graphExpanded]);
+
   const [selectedExperimentGraphGroupId, setSelectedExperimentGraphGroupId] =
     useState("");
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
@@ -2805,10 +2819,12 @@ export default function App() {
               </div>
             ) : null}
             <div className="chart-tools">
+              <span className="px-chart-caption">Individual traces <span>{visibleWateringPairings.length} / {sortedPairings.length} visible</span></span>
               <div className="chart-view-toggle" aria-label="Graph view">
                 <button
                   type="button"
                   className={experimentGraphMode === "vwc" ? "is-selected" : ""}
+                  aria-pressed={experimentGraphMode === "vwc"}
                   onClick={() => {
                     setSelectedWateringDetail(null);
                     setExperimentGraphMode("vwc");
@@ -2821,6 +2837,7 @@ export default function App() {
                     <button
                       type="button"
                       className={experimentGraphMode === "watering" ? "is-selected" : ""}
+                      aria-pressed={experimentGraphMode === "watering"}
                       onClick={() => setExperimentGraphMode("watering")}
                     >
                       Watering
@@ -2828,6 +2845,7 @@ export default function App() {
                     <button
                       type="button"
                       className={experimentGraphMode === "overlay" ? "is-selected" : ""}
+                      aria-pressed={experimentGraphMode === "overlay"}
                       onClick={() => {
                         setSelectedWateringDetail(null);
                         setExperimentGraphMode("overlay");
@@ -2899,7 +2917,13 @@ export default function App() {
             className="control-panel"
             style={controlPanelStyle}
           >
-          <section>
+          <section className="px-trace-controls">
+            <div className="px-trace-heading"><h2>Visible traces</h2><span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span></div>
+            <p>Toggle a pot to compare. Open its details with the arrow.</p>
+            <div className="px-trace-actions">
+              <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
+              <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
+            </div>
             {graphExpanded ? (
               <div
                 className="control-heading"
@@ -2909,7 +2933,7 @@ export default function App() {
                 <span />
               </div>
             ) : null}
-            <div className="preset-buttons research-presets">
+            {selectedExperimentGraphGroups.length > 1 ? <div className="preset-buttons research-presets">
               <button
                 type="button"
                 className={`preset-filter preset-all ${potPreset === "all" ? "is-selected" : ""}`}
@@ -2918,7 +2942,7 @@ export default function App() {
                 All
               </button>
               {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${selectedExperimentGraphGroupId === group.id ? "is-selected" : ""}`} onClick={() => openExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
-            </div>
+            </div> : null}
           </section>
 
           {groupedPairings.map(({ id, label, pairings: groupPairings }) => {
@@ -2937,6 +2961,7 @@ export default function App() {
                   <button
                     type="button"
                     className={`group-toggle ${allVisible ? "is-on" : ""}`}
+                    aria-pressed={allVisible}
                     aria-label={`${allVisible ? "Hide" : "Show"} all ${label} pots`}
                     title={allVisible ? "Hide all" : "Show all"}
                     onClick={() => setGroupVisibility(groupPairings, !allVisible)}
@@ -2959,8 +2984,8 @@ export default function App() {
                     });
                     const showAge = latest != null && potFreshness.state !== "current" && potFreshness.state !== "historical";
                     return (
+                      <div className="px-trace-row" key={pairing.name}>
                       <button
-                        key={pairing.name}
                         type="button"
                         className={`pot-toggle ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
                         onClick={() => togglePot(pairing.name)}
@@ -2976,6 +3001,8 @@ export default function App() {
                           {showAge ? <span className="pot-age">{formatAge(potFreshness.ageMs)}</span> : null}
                         </span>
                       </button>
+                      <PortalLink className="px-trace-detail" to={{view: "experiment", experiment: selectedExperiment.id, tab: "pots", pot: pairing.name}} aria-label={`Inspect Pot ${pairing.pot_number}`} title={`Open Pot ${pairing.pot_number} details`}>↗</PortalLink>
+                      </div>
                     );
                   })}
                 </div>
@@ -3183,7 +3210,7 @@ export default function App() {
         backTo={from === "bench"
           ? { label: "Bench", route: { view: "bench", pot: null } }
           : experimentContext
-            ? { label: `${experimentContext.name} · Pots`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
+            ? { label: `${experimentContext.name} · Traces`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
             : { label: "Experiments", route: { view: "home" } }}
       >
         <FeatureBoundary name="Notes" fallback={<FeatureLoading name="Notes" />}>

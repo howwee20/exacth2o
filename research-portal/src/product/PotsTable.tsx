@@ -38,7 +38,7 @@ export function PotsTable({
         <span className="px-spacer" />
         <span className="px-muted px-small">Open a pot for its history, notes and hardware.</span>
       </div>
-      <div className="px-table-wrap">
+      <div className="px-table-wrap" tabIndex={0} role="region" aria-label="Scrollable data table">
         <table className="px-table">
           <thead>
             <tr>

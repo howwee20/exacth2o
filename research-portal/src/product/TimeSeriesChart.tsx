@@ -95,7 +95,8 @@ export function TimeSeriesChart({
   shades = [],
   domain,
   yDomain,
-  height = 220,
+  height: minimumHeight = 220,
+  responsive = false,
   ariaLabel,
   description,
   readout,
@@ -114,6 +115,8 @@ export function TimeSeriesChart({
   domain: { startMs: number; endMs: number };
   yDomain: [number, number];
   height?: number;
+  /** Give wide analytical plots vertical space without scaling the text. */
+  responsive?: boolean;
   ariaLabel: string;
   description?: ReactNode;
   readout?: (timestampMs: number) => ChartReadout | null;
@@ -125,8 +128,10 @@ export function TimeSeriesChart({
   xAxis?: (domain: { startMs: number; endMs: number }, plotWidth: number) => { at: number; label: string }[];
 }) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
+  const height = responsive ? Math.max(minimumHeight, Math.min(520, Math.round(width / 3))) : minimumHeight;
   const [cursor, setCursor] = useState<number | null>(null);
   const descId = useId();
+  const clipId = useId().replace(/:/g, "");
   const margin = compact ? { left: 34, right: 8, top: 6, bottom: 20 } : chartMargin;
   const plotWidth = Math.max(10, width - margin.left - margin.right);
   const plotHeight = Math.max(10, height - margin.top - margin.bottom);
@@ -184,7 +189,7 @@ export function TimeSeriesChart({
           {xTicks.map((tick) => (
             <g key={`x${tick.at}`}>
               <line x1={x(tick.at)} x2={x(tick.at)} y1={margin.top} y2={margin.top + plotHeight} className="px-chart-grid" />
-              <text x={x(tick.at)} y={height - 7} textAnchor="middle" className="px-chart-axis">{tick.label}</text>
+              <text x={x(tick.at)} y={height - 7} textAnchor={x(tick.at) < margin.left + 24 ? "start" : x(tick.at) > width - 40 ? "end" : "middle"} className="px-chart-axis">{tick.label}</text>
             </g>
           ))}
           {shades.map((shade, index) => {
@@ -200,6 +205,8 @@ export function TimeSeriesChart({
               </g>
             );
           })}
+          <defs><clipPath id={clipId}><rect x={margin.left} y={margin.top} width={plotWidth} height={plotHeight} /></clipPath></defs>
+          <g clipPath={`url(#${clipId})`}>
           {bands.map((band) => band.segments.map((segment, index) => {
             if (!segment.length) return null;
             const top = segment.map((point) => ({ x: x(point.timestampMs), y: y(point.high) }));
@@ -231,6 +238,7 @@ export function TimeSeriesChart({
           {targets.map((target) => (
             <line key={`t${target.label}`} x1={margin.left} x2={margin.left + plotWidth} y1={y(target.value)} y2={y(target.value)} stroke={target.color} strokeWidth={1} strokeDasharray={target.dash ?? "1 0"} />
           ))}
+          </g>
           {!compact ? targets.map((target, index) => (
             <text key={`tl${target.label}`} x={margin.left + plotWidth - 4} y={y(target.value) - 4 - (index % 2) * 0} textAnchor="end" className="px-chart-target" fill={target.color}>
               {target.label}

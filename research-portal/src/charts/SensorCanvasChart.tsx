@@ -128,7 +128,7 @@ function SensorCanvasChartComponent({
 
     const draw = () => {
       const rect = wrapper.getBoundingClientRect();
-      const width = Math.max(compact ? 120 : 320, rect.width);
+      const width = Math.max(120, rect.width);
       const height = Math.max(compact ? 80 : 360, rect.height);
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.floor(width * dpr);
@@ -148,8 +148,8 @@ function SensorCanvasChartComponent({
       const { margin, plotWidth, plotHeight, minX, maxX, spanX, xScale, yScale, yTicks } = bounds;
 
       context.save();
-      const axisFont = compact ? "500 10px Inter, Arial, sans-serif" : "500 12px Inter, Arial, sans-serif";
-      const axisColor = "#64748b";
+      const axisFont = compact ? "500 10px Instrument Sans, Arial, sans-serif" : "500 12px Instrument Sans, Arial, sans-serif";
+      const axisColor = "#52675c";
 
       context.lineWidth = 1;
       context.fillStyle = axisColor;
@@ -330,7 +330,7 @@ function SensorCanvasChartComponent({
         const y = crispLine(yScale(line.value));
         const color = targetColors[line.tone];
         context.save();
-        context.font = compact ? "600 10px Inter, Arial, sans-serif" : "600 11px Inter, Arial, sans-serif";
+        context.font = compact ? "600 10px Instrument Sans, Arial, sans-serif" : "600 11px Instrument Sans, Arial, sans-serif";
         const text = line.label;
         const textWidth = context.measureText(text).width;
         let labelY = y - (compact ? 8 : 9);
@@ -356,10 +356,22 @@ function SensorCanvasChartComponent({
 
     const observer = new ResizeObserver(scheduleDraw);
     observer.observe(wrapper);
+    // Moving between displays can change pixel density without changing CSS dimensions.
+    let density = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    const densityChanged = () => {
+      density.removeEventListener("change", densityChanged);
+      density = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      density.addEventListener("change", densityChanged);
+      scheduleDraw();
+    };
+    density.addEventListener("change", densityChanged);
+    window.addEventListener("resize", scheduleDraw);
     scheduleDraw();
 
     return () => {
       observer.disconnect();
+      density.removeEventListener("change", densityChanged);
+      window.removeEventListener("resize", scheduleDraw);
       window.cancelAnimationFrame(animationFrame);
     };
   }, [compact, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
@@ -591,7 +603,7 @@ function SensorCanvasChartComponent({
         </div>
       ) : null}
       {!loading && !visibleSeries.length ? (
-        <div className="chart-empty-state" role="status">No readings in this time range</div>
+        <div className="chart-empty-state" role="status"><strong>{visibleNames.size ? "No readings in this time range" : "No traces selected"}</strong><span>{visibleNames.size ? "Try a wider time range or check reporting status." : "Select a pot or choose Show all to compare readings."}</span></div>
       ) : null}
       {wateringTooltip ? (
         <>
