@@ -672,4 +672,6 @@ psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/product_read_vie
 
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/control_authorization.sql" >/dev/null
 
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/sales_support_access.sql" >/dev/null
+
 echo "ExactH2O database baseline restored and verified."

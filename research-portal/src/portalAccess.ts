@@ -12,3 +12,7 @@ export function hasExperimentSettingsAccess(role: PortalRole | null | undefined)
 export function hasProjectDataReadAccess(role: PortalRole | null | undefined) {
   return role === "admin" || role === "researcher" || role === "viewer";
 }
+
+export function hasSalesSupportAccess(role: PortalRole | null | undefined, approved: unknown) {
+  return role === "admin" && approved === true;
+}

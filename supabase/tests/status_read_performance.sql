@@ -20,6 +20,8 @@ insert into public.devices(id,organization_id,project_id,name) values
  ('balena:a1c4ace2b367fbee8521f1aff6a6329b','99999999-9999-4999-8999-999999999900','33333333-3333-4333-8333-333333333331','Walker fixture') on conflict(id) do nothing;
 insert into public.portal_access(project_id,user_id,email,role)
  select '22222222-2222-4222-8222-222222222222',id,label||'@perf-test.invalid',label from perf_test.users where label in ('admin','researcher');
+insert into public.sales_support_staff(project_id,user_id)
+ select '22222222-2222-4222-8222-222222222222',id from perf_test.users where label='admin';
 insert into public.project_members(project_id,user_id,role)
  select '22222222-2222-4222-8222-222222222222',id,label from perf_test.users where label in ('admin','researcher');
 insert into public.system_admin_installation_access(project_id,device_id,portal_project_id,user_id)

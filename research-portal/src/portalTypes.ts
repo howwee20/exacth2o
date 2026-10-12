@@ -82,6 +82,7 @@ export type PortalAccess = {
   deviceId: string | null;
   accessScope: string;
   gasMixerAllowed: boolean;
+  salesSupportAllowed?: boolean;
 } | null;
 
 export type InviteAcceptResponse = {

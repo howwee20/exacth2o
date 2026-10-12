@@ -21,7 +21,7 @@ import { experimentGraphGroups, experimentSidebarGroups } from "./experimentPres
 import { levelLabel } from "./experimentFactors";
 import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
-import { hasExperimentSettingsAccess, hasProjectDataReadAccess, parsePortalRole } from "./portalAccess";
+import { hasExperimentSettingsAccess, hasProjectDataReadAccess, hasSalesSupportAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
 import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
 import { controlCommandLabel, errorMessage, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
@@ -445,6 +445,7 @@ export default function App() {
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
   ).length;
   const isAdmin = portalAccess?.role === "admin";
+  const canUseSalesSupport = !accessLoading && hasSalesSupportAccess(portalAccess?.role, portalAccess?.salesSupportAllowed);
   const projectAccess = portalAccess?.accessScope === "project";
   const canReadProjectData = projectAccess && hasProjectDataReadAccess(portalAccess?.role);
   const isDemo = document.documentElement.dataset.portalMode === "demo";
@@ -618,8 +619,14 @@ export default function App() {
         );
         if (mixerAccess.error) throw mixerAccess.error;
         const gas_mixer_allowed = mixerAccess.data === true;
+        // A failed capability check hides only the inbox; research access remains usable.
+        const supportAccess = accessRow.role === "admin" ? await withSupabaseTimeout(
+          supabase.rpc("is_sales_support_staff", { check_project_id: accessRow.project_id }),
+          portalAccessTimeoutMs, "Sales & Support access",
+        ).catch(() => null) : null;
+        const sales_support_allowed = supportAccess?.error == null && supportAccess?.data === true;
         if (accessRow.access_scope !== "project") {
-          return { data: { ...accessRow, device_id: null, gas_mixer_allowed, user_id: signedInUserId } };
+          return { data: { ...accessRow, device_id: null, gas_mixer_allowed, sales_support_allowed, user_id: signedInUserId } };
         }
 
         const deviceResponse = await withSupabaseTimeout(
@@ -638,6 +645,7 @@ export default function App() {
           data: {
             ...accessRow,
             gas_mixer_allowed,
+            sales_support_allowed,
             user_id: signedInUserId,
             device_id: selectProjectDevice(deviceResponse.data ? [deviceResponse.data] : []),
           },
@@ -665,6 +673,7 @@ export default function App() {
         deviceId: response.data?.device_id ?? null,
         accessScope: response.data?.access_scope ?? "none",
         gasMixerAllowed: response.data?.gas_mixer_allowed === true,
+        salesSupportAllowed: response.data?.sales_support_allowed === true,
       };
       if (!access.projectId) {
         setPortalAccess(null);
@@ -822,7 +831,7 @@ export default function App() {
 
   const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
     const loadId = ++salesSupportLoadId.current;
-    if (!isAdmin || !activeProjectId) {
+    if (!canUseSalesSupport || !activeProjectId) {
       setSalesSupportData(initialSalesSupportData);
       return;
     }
@@ -878,14 +887,15 @@ export default function App() {
         messages: (messagesResponse.data ?? []) as SupportMessageRow[],
       });
     } catch (err) {
+      if (loadId !== salesSupportLoadId.current) return;
       if (!silent) setSalesSupportError(errorMessage(err));
     } finally {
-      if (!silent) setSalesSupportLoading(false);
+      if (!silent && loadId === salesSupportLoadId.current) setSalesSupportLoading(false);
     }
-  }, [activeProjectId, isAdmin]);
+  }, [activeProjectId, canUseSalesSupport]);
 
   const deleteQuoteRequest = useCallback(async (quoteId: string) => {
-    if (!isAdmin || !activeProjectId) throw new Error("Admin access is required to delete quotes.");
+    if (!canUseSalesSupport || !activeProjectId) throw new Error("Sales & Support access is required to delete quotes.");
     const { error } = await withSupabaseTimeout(
       supabase.rpc("delete_quote_request", { p_project_id: activeProjectId, p_quote_id: quoteId }),
       supabaseQueryTimeoutMs,
@@ -903,7 +913,7 @@ export default function App() {
       };
     });
     void loadSalesSupport({ silent: true });
-  }, [activeProjectId, isAdmin, loadSalesSupport]);
+  }, [activeProjectId, canUseSalesSupport, loadSalesSupport]);
 
   const runPortalRefresh = useCallback(
     async ({ incremental }: RefreshOptions) => {
@@ -2001,7 +2011,7 @@ export default function App() {
       return;
     }
     void loadPortalAccess();
-  }, [loadPortalAccess, sessionReady]);
+  }, [loadPortalAccess, sessionReady, sessionRevision]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return;
@@ -2046,9 +2056,17 @@ export default function App() {
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady || !isAdmin) return;
+    // Discard in-flight responses and cached customer details across permission/project changes.
+    salesSupportLoadId.current += 1;
+    setSalesSupportData(initialSalesSupportData);
+    setSalesSupportError(null);
+    setSalesSupportLoading(false);
+  }, [activeProjectId, canUseSalesSupport, portalAccess?.userId]);
+
+  useEffect(() => {
+    if (!sessionReady || !canUseSalesSupport) return;
     void loadSalesSupport();
-  }, [isAdmin, loadSalesSupport, sessionReady]);
+  }, [canUseSalesSupport, loadSalesSupport, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -2074,9 +2092,9 @@ export default function App() {
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady || !isAdmin) return undefined;
+    if (!sessionReady || !canUseSalesSupport) return undefined;
     return scheduleVisiblePolling(() => loadSalesSupport({ silent: true }), supportPollMs);
-  }, [isAdmin, loadSalesSupport, sessionReady]);
+  }, [canUseSalesSupport, loadSalesSupport, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return undefined;
@@ -2383,7 +2401,7 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (!sessionReady || !isAdmin || !activeProjectId) return undefined;
+    if (!sessionReady || !canUseSalesSupport || !activeProjectId) return undefined;
 
     const channel = supabase
       .channel(`exacth2o-sales-support-live-${activeProjectId}`)
@@ -2416,7 +2434,7 @@ export default function App() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeProjectId, isAdmin, loadSalesSupport, sessionReady]);
+  }, [activeProjectId, canUseSalesSupport, loadSalesSupport, sessionReady]);
 
   if (!sessionReady) {
     const isInviteAccept = authMode === "accept-invite";
@@ -3159,10 +3177,11 @@ export default function App() {
     );
   }
 
-  if (isAdmin && portalView === "support") {
+  if (canUseSalesSupport && portalView === "support") {
     return productShell(
         <FeatureBoundary name="Sales & Support">
           <SalesSupportView
+            key={`${portalAccess?.userId}:${activeProjectId}`}
             data={salesSupportData}
             loading={salesSupportLoading}
             error={salesSupportError}
@@ -3381,7 +3400,7 @@ export default function App() {
 
   const adminTools = isAdmin ? (
     <>
-      <div className="portal-compact-row">
+      {canUseSalesSupport ? <div className="portal-compact-row">
         <button type="button" className="portal-launch-card is-support" onClick={() => setPortalView("support")}>
           <span className="portal-launch-top">
             <span className="portal-launch-icon">
@@ -3399,7 +3418,7 @@ export default function App() {
             Open <ArrowRight size={14} />
           </span>
         </button>
-      </div>
+      </div> : null}
       <div className="portal-compact-row">
         <WebsiteAnalyticsTile onOpen={() => setPortalView("analytics")} />
       </div>

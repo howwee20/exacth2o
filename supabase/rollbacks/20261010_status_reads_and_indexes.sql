@@ -113,7 +113,16 @@ $function$;
 ALTER POLICY "users read own profile" ON public.profiles USING ((id = auth.uid()));
 ALTER POLICY "members read own memberships" ON public.project_members USING ((user_id = auth.uid()));
 ALTER POLICY "Users can read software terms acceptances" ON public.software_terms_acceptances USING (((user_id = auth.uid()) OR is_portal_admin(project_id)));
-ALTER POLICY "Portal admins can add support notes" ON public.support_notes WITH CHECK ((is_portal_admin(project_id) AND (author_user_id = auth.uid())));
+-- A performance rollback must not undo a later inbox authorization boundary.
+do $$ begin
+  if to_regprocedure('public.is_sales_support_staff(uuid)') is not null then
+    alter policy "Portal admins can add support notes" on public.support_notes
+      with check (public.is_sales_support_staff(project_id) and author_user_id = auth.uid());
+  else
+    alter policy "Portal admins can add support notes" on public.support_notes
+      with check (public.is_portal_admin(project_id) and author_user_id = auth.uid());
+  end if;
+end $$;
 
 CREATE UNIQUE INDEX CONCURRENTLY rd_single_champion_model_idx ON public.rd_model_versions USING btree (status) WHERE (status = 'champion'::text);
 CREATE INDEX CONCURRENTLY sensor_readings_event_id_idx ON public.sensor_readings USING btree (event_id);
