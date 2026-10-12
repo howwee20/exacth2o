@@ -25,4 +25,11 @@ describe("whole-experiment measurement paging",()=>{
     const cancel=new AbortController();cancel.abort();state.requests=0;
     await expect(loadExportReadings({...input,signal:cancel.signal})).rejects.toThrow();expect(state.requests).toBe(0);
   });
+  it("processes queued cancellation between synchronously cached pages",async()=>{
+    state.rows=Array.from({length:2000},(_,i)=>({id:2000-i,device_recorded_at:"2026-10-01T00:00:00Z"}) as SensorReading);
+    state.requests=0;
+    const cancel=new AbortController();
+    await expect(loadExportReadings({...input,signal:cancel.signal,onProgress:()=>{setTimeout(()=>cancel.abort(),0);}})).rejects.toThrow();
+    expect(state.requests).toBe(1);
+  });
 });

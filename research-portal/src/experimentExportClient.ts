@@ -32,6 +32,9 @@ export async function loadExportReadings(input: {projectId:string;deviceId:strin
     const last=rows.at(-1)!;
     if(before && String(before.at)===last.device_recorded_at && Number(before.id)===last.id) throw new Error("Export pagination did not advance. Retry the export.");
     before={at:last.device_recorded_at,id:last.id};
+    // Cached and offline pages can resolve synchronously. Let the browser paint
+    // progress and process Close/Escape before preparing another page.
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
   }
 }
 
