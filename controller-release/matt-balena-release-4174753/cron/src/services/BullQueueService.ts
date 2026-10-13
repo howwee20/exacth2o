@@ -197,6 +197,7 @@ export class BullQueueService {
 
   async processQueue(): Promise<void> {
     await this.queue.resume()
+    await this.queue.resume(true)
   }
 
   async clearQueue(): Promise<void> {
@@ -212,15 +213,20 @@ export class BullQueueService {
     console.log('🛑 [QUEUE] Stopping queue - pausing and clearing all jobs...')
     await this.queue.pause()
 
-    // Clear all job types to ensure complete stop
-    await this.clearQueue()
+    // A global pause prevents new jobs but leaves the current worker running.
+    // Wait for that worker before clearing: Bull cannot remove a locked job,
+    // and an unfinished transition could otherwise enqueue work after STOPPED.
+    await this.queue.pause(true)
 
-    // Also clean active jobs to prevent them from completing and retriggering
+    // No worker should remain after the local pause has drained it. Do not
+    // delete active jobs: a lock means their outcome is still unconfirmed.
     const activeJobs = await this.queue.getActive()
-    console.log(`🛑 [QUEUE] Cancelling ${activeJobs.length} active jobs...`)
-    for (const job of activeJobs) {
-      await job.remove()
+    if (activeJobs.length > 0) {
+      throw new Error('Cannot stop queue while an active job remains')
     }
+
+    // Clear follow-up transitions only after the current job has finished.
+    await this.clearQueue()
 
     // Clean delayed jobs too
     const delayedJobs = await this.queue.getDelayed()
