@@ -16,14 +16,16 @@ const session=()=>({user:{id:'demo-account',email:demoAccount.email,role:'authen
 type Handler=(payload:{new:any})=>void;
 const channels=new Set<DemoChannel>();
 function nextReading(p:any){
- const {reading,event}=nextDemoSample(p,Date.now());
+ const sample=nextDemoSample(p,Date.now());
+ if(!sample)return null;
+ const {reading,event}=sample;
  if(event){fixture.valveEvents.push(event);for(const channel of channels)for(const h of channel.handlers)if(h.table==='valve_events')h.handler({new:event});}
  return reading;
 }
 class DemoChannel{handlers:{table:string,handler:Handler}[]=[];timer:ReturnType<typeof setInterval>|null=null;
  on(_type:string,filter:any,handler:Handler){this.handlers.push({table:filter?.table,handler});return this;}
  subscribe(){channels.add(this);if(!this.timer&&this.handlers.some(h=>h.table==='sensor_readings'))this.timer=setInterval(()=>this.tick(),30000);return this;}
- tick(){for(const p of fixture.data.pairings){if(!sampleReadingAvailable(p,Date.now()))continue;const row=nextReading(p);storedReadings.push(row);fixture.data.readings.push(row);for(const h of this.handlers)if(h.table==='sensor_readings')h.handler({new:row});}fixture.data.latestLiveReading=fixture.data.readings.at(-1);}
+ tick(){for(const p of fixture.data.pairings){if(!sampleReadingAvailable(p,Date.now()))continue;const row=nextReading(p);if(!row)continue;storedReadings.push(row);fixture.data.readings.push(row);for(const h of this.handlers)if(h.table==='sensor_readings')h.handler({new:row});}fixture.data.latestLiveReading=fixture.data.readings.at(-1);}
  close(){channels.delete(this);if(this.timer)clearInterval(this.timer);this.timer=null;this.handlers=[];}
 }
 const success=(data:unknown)=>Promise.resolve({data,error:null});
