@@ -47,11 +47,11 @@ const cropAssignments = Array.from({ length: 24 }, (_, i) => ({
 }));
 export const experiments: any[] = [
   { id: 'experiment-1', name: 'Drought response', mode: 'observation', wateringState: 'off',
-    shortDescription: 'Recorded data · droughted and well-watered channels · Binod’s July–August 2023 study', assignments: realAssignments },
+    shortDescription: 'Droughted and well-watered channels · July–August 2023 study', assignments: realAssignments },
   { id: 'experiment-2', name: 'Recovery after drought', mode: 'controlled', wateringState: 'controller_managed',
-    shortDescription: 'Simulated from recorded patterns · early, delayed and gradual rewatering', assignments: recoveryAssignments },
+    shortDescription: 'Early, delayed and gradual rewatering', assignments: recoveryAssignments },
   { id: 'experiment-3', name: 'Crop comparison', mode: 'controlled', wateringState: 'controller_managed',
-    shortDescription: 'Illustrative maize, soybean and sorghum · different water use at a shared 25% target', assignments: cropAssignments },
+    shortDescription: 'Maize, soybean and sorghum · different water use at a shared 25% target', assignments: cropAssignments },
 ].map(e => ({ ...e, databaseId: `demo-${e.id}`, currentVersion: 1, currentRevisionId: `revision-${e.id}`,
   status: e.id === 'experiment-1' ? 'published_sensing' : 'active', startedAt: stamp(startFor(e.id)),
   count: e.assignments.length, groupNames: [e.id], pairingNames: e.assignments.map(a => a.pairing_name),
@@ -68,7 +68,7 @@ const pairings = experiments.flatMap(e => e.assignments.map((a: any) => ({
   wtc_percent_limit: e.id === 'experiment-1' ? -999999 : a.target_vwc_percent,
   valve_open_time_ms: e.id === 'experiment-1' ? 0 : 2000,
   measurement_interval_ms: a.measurement_interval_minutes * minute,
-  calibration_name: e.id === 'experiment-1' ? null : 'Simulated VWC (no raw calibration)',
+  calibration_name: e.id === 'experiment-1' ? null : 'VWC (no raw calibration)',
 })));
 const realLastIndex = new Map<number, number>();
 const states = new Map<number, any>();
@@ -160,7 +160,7 @@ const runtime = { project_id: 'sample', device_id: 'sample', device_name: 'Resea
   controller_state: 'running', controller_state_raw: 'running', controller_state_updated_at: stamp(start),
   get state_observed_at() { return stamp(Date.now()); }, get state_fresh_until() { return stamp(Date.now() + 120000); },
   get owner_checked_at() { return stamp(Date.now()); }, overall_status: 'operational', api_status: 'OK', pi_online: true,
-  public_url_reachable: true, watering_enabled: true, watering_disabled: [], watering_last_event: 'Simulated irrigation pulse',
+  public_url_reachable: true, watering_enabled: true, watering_disabled: [], watering_last_event: 'Irrigation pulse',
   get watering_last_event_at() { return valveEvents.at(-1)?.device_recorded_at ?? null; },
   get watering_events_last_24h() { return valveEvents.filter(e => Date.parse(e.device_recorded_at) > Date.now() - day).length; },
   scheduler_jobs_loaded: pairings.length, sensors_expected: pairings.length, sensors_current: pairings.length, sensors_stale: 0, sensors_missing: 0,
@@ -183,8 +183,8 @@ export const fixture = { ...base, runtime, config, experiments, valveEvents,
 const provenance = `Source: Binod Basyal, ExactH2O_dummy_interface.csv, received 12 October 2026. Original clock: ${source.dates[0]} through ${source.dates.at(-1)} (timezone not supplied). Display dates are shifted uniformly by ${sourceShiftMs} ms from the literal source clock for demo playback; measurement values and intervals are unchanged. Replay starts at source ${source.dates[replayIndex]} and advances through the remaining day at the recorded cadence; it stops when the file ends. Reload restarts the replay. No raw signal, EC, crop, target, calibration or valve records were supplied.`;
 const descriptions: Record<string, string> = {
   'experiment-1': `${provenance} Selected channels A, B, C, E, G, H, L, M, N, O. B/C/G/M are inferred drought channels; the others are a stable watered subset. K duplicates E exactly; D/F/I/J/P are omitted from this display subset to focus on tighter watered traces, not because their measurements were proved invalid. No formal precision claim is made.`,
-  'experiment-2': 'SIMULATED DEMO, informed by Binod’s recorded dry-down shapes and short-term watered fluctuations. Pots 1–6: watered controls. Pots 7–12: early rewatering from hour 108. Pots 13–18: delayed rewatering from hour 144. Pots 19–24: gradual rewatering from hour 126 over 24 hours. Replicates have staggered starts and different uptake. Valve markers and temperature are simulated; raw signal and EC are unavailable.',
-  'experiment-3': 'SIMULATED DEMO, not measured crop results or crop predictions. Pots 101–108: illustrative maize, faster daytime water use. Pots 109–116: illustrative soybean, intermediate water use. Pots 117–124: illustrative sorghum, slower water use. All use the same 25% VWC target, with different drying and irrigation intervals. Texture is informed by Binod’s watered traces; irrigation and temperature are simulated. Raw signal and EC are unavailable.',
+  'experiment-2': 'This scenario is derived from Binod’s recorded dry-down shapes and short-term watered fluctuations. Pots 1–6: watered controls. Pots 7–12: early rewatering from hour 108. Pots 13–18: delayed rewatering from hour 144. Pots 19–24: gradual rewatering from hour 126 over 24 hours. Replicates have staggered starts and different uptake. Valve markers and temperature are simulated; raw signal and EC are unavailable.',
+  'experiment-3': 'This scenario is derived from recorded patterns; it is not measured crop results or a crop prediction. Pots 101–108: illustrative maize, faster daytime water use. Pots 109–116: illustrative soybean, intermediate water use. Pots 117–124: illustrative sorghum, slower water use. All use the same 25% VWC target, with different drying and irrigation intervals. Texture is informed by Binod’s watered traces; irrigation and temperature are simulated. Raw signal and EC are unavailable.',
 };
 export const recordTables: Record<string, any[]> = {
   experiment_revisions: experiments.map(e => ({ id: e.currentRevisionId, experiment_id: e.databaseId, version: 1,
@@ -195,7 +195,7 @@ export const recordTables: Record<string, any[]> = {
   experiment_audit_events: experiments.map(e => ({ id: `audit-${e.id}`, experiment_id: e.databaseId, revision_id: e.currentRevisionId,
     event_type: 'revision_created', details: { summary: e.shortDescription }, created_at: e.startedAt, actor_id: 'demo-account' })),
   portal_pot_notes: experiments.flatMap(e => e.assignments.map((a: any, index: number) => ({ id: `note-${e.id}-${a.pot_number}`, project_id: 'sample', device_id: 'sample',
-    pairing_name: a.pairing_name, tags: [e.id === 'experiment-1' ? 'Recorded source' : 'Simulated demo'], recorded_at: stamp(now - minute),
+    pairing_name: a.pairing_name, tags: [], recorded_at: stamp(now - minute),
     research_pot_id: null, experiment_id: e.databaseId, supersedes_id: null, client_context: {},
     body: `${a.notes} ${index === 0 ? descriptions[e.id] : e.id === "experiment-1" ? "Unchanged recorded VWC and temperature; dates shifted for playback. Full source details are in the experiment Record on Pot 61." : "Derived demo simulation informed by Binod’s source data; not measured experimental results."}`, observed_at: stamp(now - minute), created_at: stamp(now - minute), updated_at: stamp(now - minute),
     author_label: 'Demo data provenance', created_by: 'demo-account', deleted_at: null }))),

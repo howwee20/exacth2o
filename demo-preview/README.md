@@ -1,19 +1,12 @@
 # Demo portal (`/demo`)
 
-The immediate sample workspace for prospective customers. Same production App and CSS as the portal, built separately with sample data and no network access; the page's CSP allows no connections.
+The public demo uses the production App and CSS with an offline, read-only dataset. The page CSP prevents controller connections.
 
-- The public demo opens immediately in an isolated sample session. Legacy sign-in: `demo@exacth2o.com` / `exacth2o-demo`. The real sign-in page at `/portal` hands this one email over to `/demo` without contacting Supabase (see `signIn` in `research-portal/src/App.tsx`). Any other email on `/demo` fails like a wrong password.
-- Tiles: Experiment 1 (drought study, 20 pots), Experiment 2 (recovery study, 24 pots), Experiment 3 (crop comparison, 24 pots) and System Health. Every experiment opens the production VWC, watering, and overlay views. Fictional moisture histories (14 days for Experiment 1, 7 days for Experiment 2, and 3 days for Experiment 3) and irrigation events come from the same model; all three tiles connect to their shared System Health tile.
-- Live feel: the live-readings subscription is kept and `offline.ts` feeds it a new reading per pot every 30 seconds; levels drift and managed pots receive irrigation pulses at their target. Every write action answers "The demo account can monitor only."
+- Drought response: ten recorded channels from Binod’s July–August 2023 CSV, with exact moisture and temperature values and a uniform date shift for replay. No invented raw readings, calibration or valve events.
+- Recovery after drought: 24 pots over seven days, with control, early, delayed and gradual recovery groups derived from the source patterns.
+- Crop comparison: 24 pots over ten days, with distinct assumed maize, soybean and sorghum water use at a shared target. These are derived scenarios, not measured species results.
+- Recorded readings replay at their original cadence and stop at the source endpoint. Derived scenarios continue their deterministic state models. All write actions are denied.
 
-Build from the repository root. Commit the generated files; publishing serves them directly. The manual verification workflow can check that they match source:
+See [data/README.md](data/README.md) for source provenance, channel selection and transformation details. The Applications embed uses this same dataset. Source details are available in the existing Record notes; headings focus on experiment names.
 
-```sh
-node demo-preview/build.mjs
-```
-
-The script builds `demo-app/` and stamps the asset URLs in `demo.html` with the bundle hash, so a deploy is never served stale from browser or CDN caches. Commit both.
-
-Verify locally with `python3 -m http.server` from the repository root and open `/demo.html`.
-
-The three studies use distinct dry-down, recovery, and crop-dependent irrigation regimes. Each pot has independent uptake, substrate response, lag, and sensor noise. The live feed continues the historical model. All command RPCs, function invocations, and table writes are denied by the offline adapter; `connect-src 'none'` is a second network barrier.
+Build all public surfaces from the repository root with `node scripts/build-product-release.mjs`, then commit the generated assets and wrappers. Run `npm run check --prefix research-portal` before publishing.

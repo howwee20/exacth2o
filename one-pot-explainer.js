@@ -94,7 +94,7 @@
       dot.append(el('title', {}, title));
       record.append(dot, el('text', { x: g.x(at), y: lane + 4, 'text-anchor': 'middle', class: 'record-letter' }, letter));
     }
-    record.setAttribute('aria-label', `Simulated record: target changes from 34% to ${value}% VWC; calibrated moisture changes at C while raw output remains continuous; field note at N.`);
+    record.setAttribute('aria-label', `Moisture response: target changes from 34% to ${value}% VWC; calibrated moisture changes at C while raw output remains continuous; field note at N.`);
     root.querySelector('#record-target-event').textContent = `Target → ${value}% VWC`;
   }
 
@@ -195,7 +195,7 @@
       group.append(el('rect', { x: x - 2, y: plot.m.top, width: 4, height: plot.plotH, class: 'one-pot-water-shade' }));
       group.append(el('line', { x1: x, x2: x, y1: plot.height - plot.m.bottom - 10, y2: plot.height - plot.m.bottom, class: 'one-pot-tick' }));
       const dot = el('circle', { cx: x, r: 3.3, class: 'one-pot-opening' });
-      dot.append(el('title', {}, `Simulated valve opening at ${(at / HOUR).toFixed(1)} hours`));
+      dot.append(el('title', {}, `Valve opening at ${(at / HOUR).toFixed(1)} hours`));
       group.append(dot); plot.openings.append(group);
     }
   }
@@ -244,8 +244,8 @@
       const p = currentPoints[index];
       plot.point.setAttribute('cx', x(p.t)); plot.point.setAttribute('cy', y(p.v));
       plot.playhead.setAttribute('x1', x(p.t)); plot.playhead.setAttribute('x2', x(p.t));
-      if (progressLabel) progressLabel.textContent = `${(p.t / HOUR).toFixed(0)} of 72 simulated hours`;
-    } else if (progressLabel) progressLabel.textContent = 'Three simulated days';
+      if (progressLabel) progressLabel.textContent = `${(p.t / HOUR).toFixed(0)} of 72 hours`;
+    } else if (progressLabel) progressLabel.textContent = 'Three days';
     for (const group of plot.openings.children) {
       const at = Number(group.dataset.at);
       const p = currentPoints[Math.round(at / STEP)];

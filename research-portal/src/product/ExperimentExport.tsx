@@ -79,7 +79,7 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
     })();
     return () => { active = false; cancel.abort(); };
   }, [deviceId,endMs,experiment.databaseId,experiment.pairingNames,experiment.assignments,experiment,pairings,projectId,queryStartMs]);
-  const input: ExperimentReportInput = useMemo(() => ({experiment:exportExperiment,currentExperiment:experiment,pairings,readings:exportReadings,events,problems,startMs,endMs,generatedAt:anchor,preserveRecordedLabels:true,source:document.documentElement.dataset.portalMode === "demo" ? "sample measurements" : "stored measurements"}),[anchor,endMs,events,experiment,exportExperiment,pairings,problems,exportReadings,startMs]);
+  const input: ExperimentReportInput = useMemo(() => ({experiment:exportExperiment,currentExperiment:experiment,pairings,readings:exportReadings,events,problems,startMs,endMs,generatedAt:anchor,preserveRecordedLabels:true,source:document.documentElement.dataset.portalMode === "demo" ? "demo measurements" : "stored measurements"}),[anchor,endMs,events,experiment,exportExperiment,pairings,problems,exportReadings,startMs]);
   const html = useMemo(() => experimentBriefHtml(input),[input]);
   const filename = `exacth2o-${experiment.id.replace(/[^a-z0-9_-]/gi,"-")}-${new Date(anchor).toISOString().slice(0,10)}`;
   const count = reportReadings(input).length;

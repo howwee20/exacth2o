@@ -68,7 +68,7 @@ export function ProductHeader({
           <kbd aria-hidden="true">/</kbd>
         </button>
         {extra}
-        {demo ? <span className="px-demo-label">Sample workspace</span> : <details className="px-menu px-header-menu" onKeyDown={(event) => {
+        {demo ? null : <details className="px-menu px-header-menu" onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.currentTarget.open = false;
             event.currentTarget.querySelector("summary")?.focus();
