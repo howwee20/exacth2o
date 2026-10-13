@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  ExperimentRequestError,
   draftExperiment,
   launchExperiment,
   preflightExperiment,
@@ -40,6 +41,7 @@ import {
   validateExperimentDraft,
 } from "./experimentValidation";
 import type { PairingRow } from "./types";
+import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
 
 type BuilderStep = "prompt" | "review" | "complete";
 const noPortalExperiments: readonly PortalExperiment[] = [];
@@ -105,26 +107,6 @@ export function ExperimentBuilder(props: ExperimentBuilderProps) {
   );
 }
 
-function assignmentForPairing(pairing: PairingRow): ExperimentDraftAssignment {
-  return {
-    pairing_name: pairing.name,
-    crop: null,
-    treatment: null,
-    block: null,
-    substrate: null,
-    watering_enabled: pairing.wtc_percent_limit > -1_000,
-    target_vwc_percent: pairing.wtc_percent_limit > -1_000
-      ? pairing.wtc_percent_limit
-      : null,
-    valve_open_seconds: Math.max(1, pairing.valve_open_time_ms / 1_000),
-    measurement_interval_minutes: Math.max(
-      0.5,
-      pairing.measurement_interval_ms / 60_000,
-    ),
-    notes: null,
-  };
-}
-
 function optionalValue(value: string) {
   return value.trim() || null;
 }
@@ -166,13 +148,32 @@ function ExperimentBuilderContent({
   const [controlPlan, setControlPlan] = useState<ExperimentControlPlan | null>(null);
   const [reviewedConfigHash, setReviewedConfigHash] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
-  const [launchStatus, setLaunchStatus] = useState<"active" | "activating" | null>(null);
+  const [launchStatus, setLaunchStatus] = useState<"active" | "activating" | "activation_failed" | null>(null);
   const [createdOperationId, setCreatedOperationId] = useState<string | null>(null);
   const [createdCommandCount, setCreatedCommandCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const autoGenerateStarted = useRef(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  const reviewRef = useRef<HTMLDivElement>(null);
+  const [potSearch, setPotSearch] = useState("");
+  const [showOccupied, setShowOccupied] = useState(false);
+  const [attemptedReview, setAttemptedReview] = useState(false);
+
+  useEffect(() => {
+    if (presentation !== "modal") return;
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.querySelector<HTMLInputElement>("input, textarea")?.focus();
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = oldOverflow; previous?.focus(); };
+  }, [presentation]);
+
+  useEffect(() => {
+    reviewRef.current?.scrollTo({ top: 0 });
+    if (controlPlan) reviewRef.current?.focus();
+  }, [controlPlan]);
 
   const sortedPairings = useMemo(
     () => pairings.slice().sort((left, right) =>
@@ -199,6 +200,11 @@ function ExperimentBuilderContent({
     () => sortedPairings.filter((pairing) => !occupiedByName.has(pairing.name)).length,
     [occupiedByName, sortedPairings],
   );
+  const visiblePairings = sortedPairings.filter((pairing) =>
+    (showOccupied || !occupiedByName.has(pairing.name))
+    && `pot ${pairing.pot_number} zone ${pairing.zone} ${pairing.group_name ?? ""}`.toLowerCase().includes(potSearch.trim().toLowerCase())
+  );
+  const zones = [...new Set(visiblePairings.map((pairing) => pairing.zone))];
   const stepIndex = step === "complete"
     ? 2
     : direct && !controlPlan
@@ -310,7 +316,7 @@ function ExperimentBuilderContent({
           ? current.assignments.filter(
             (assignment) => assignment.pairing_name !== pairing.name,
           )
-          : [...current.assignments, templateAssignments.length ? { ...templateAssignments[current.assignments.length % templateAssignments.length], pairing_name: pairing.name } : assignmentForPairing(pairing)],
+          : [...current.assignments, assignmentForMode(pairing, current.mode, templateAssignments.length ? templateAssignments[current.assignments.length % templateAssignments.length] : undefined)],
       };
     });
   };
@@ -333,14 +339,31 @@ function ExperimentBuilderContent({
     }));
   };
 
+  const selectZone = (zone: number) => {
+    const eligible = visiblePairings.filter((pairing) => pairing.zone === zone && !occupiedByName.has(pairing.name));
+    const remove = eligible.every((pairing) => selectedNames.has(pairing.name));
+    const names = new Set(eligible.map((pairing) => pairing.name));
+    const assignments = remove
+      ? draft.assignments.filter((assignment) => !names.has(assignment.pairing_name))
+      : [...draft.assignments, ...eligible.filter((pairing) => !selectedNames.has(pairing.name)).map((pairing, index) =>
+        assignmentForMode(pairing, draft.mode, templateAssignments.length ? templateAssignments[(draft.assignments.length + index) % templateAssignments.length] : undefined))];
+    updateDraft("assignments", assignments);
+  };
+
+  const updateAll = (key: keyof ExperimentDraftAssignment, value: string | number | boolean | null) => {
+    updateDraft("assignments", draft.assignments.map((assignment) => ({ ...assignment, [key]: value })));
+  };
+
   const reviewExperiment = async () => {
+    if (busy) return;
+    setAttemptedReview(true);
     const normalized = normalizeExperimentDraft(draft);
     const issues = validateExperimentDraft(normalized, pairings);
     if (issues.length) {
       setError(issues.map((issue) => issue.message).join(" "));
       return;
     }
-    if (!draftInventoryUpdatedAt) {
+    if (!inventoryUpdatedAt) {
       setError("Current pot inventory is unavailable.");
       return;
     }
@@ -351,7 +374,7 @@ function ExperimentBuilderContent({
       const result = await preflightExperiment({
         projectId,
         draft: normalized,
-        inventoryUpdatedAt: draftInventoryUpdatedAt,
+        inventoryUpdatedAt,
         experimentId: experiment?.databaseId,
         expectedRevisionId: experiment?.currentRevisionId,
       });
@@ -368,6 +391,7 @@ function ExperimentBuilderContent({
   };
 
   const startExperiment = async () => {
+    if (busy) return;
     if (!controlPlan || !reviewedConfigHash || !draftInventoryUpdatedAt || !confirmed) {
       setError("Review and confirm the experiment first.");
       return;
@@ -392,6 +416,11 @@ function ExperimentBuilderContent({
       setCreatedCommandCount(result.command_ids.length);
       setStep("complete");
     } catch (nextError) {
+      if (nextError instanceof ExperimentRequestError && nextError.savedExperimentSlug) {
+        setCreatedSlug(nextError.savedExperimentSlug);
+        setLaunchStatus("activation_failed");
+        setStep("complete");
+      }
       setError(
         nextError instanceof Error
           ? nextError.message
@@ -416,30 +445,40 @@ function ExperimentBuilderContent({
         role={presentation === "inline" ? "region" : "dialog"}
         aria-modal={presentation === "modal" ? "true" : undefined}
         aria-labelledby="experiment-builder-title"
+        ref={dialogRef}
+        onKeyDown={(event) => {
+          if (presentation !== "modal") return;
+          if (event.key === "Escape" && !busy) { event.stopPropagation(); onClose(); }
+          if (event.key !== "Tab") return;
+          const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]'
+          ) ?? []).filter((element) => element.getClientRects().length > 0);
+          const first = focusable[0]; const last = focusable[focusable.length - 1];
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === reviewRef.current)) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}
       >
         <header className="experiment-builder-header">
           <div>
-            <p>Experiment workspace</p>
             <h2 id="experiment-builder-title">
-              {editing ? `Edit ${experiment?.name ?? "experiment"}` : template ? "Duplicate as draft" : "Create an experiment"}
+              {editing ? `Edit ${experiment?.name ?? "experiment"}` : template ? "Duplicate experiment" : "New experiment"}
             </h2>
           </div>
           <ol className="experiment-builder-steps" aria-label="Experiment workflow">
             {(direct
-              ? ["Configure", "Review", editing ? "Save" : "Create"]
+              ? ["Set up", "Review", "Done"]
               : ["Describe", "Review", "Create"]).map((label, index) => (
-              <li className={index <= stepIndex ? "is-current" : ""} key={label}>
+              <li className={index <= stepIndex ? "is-current" : ""} aria-current={index === stepIndex ? "step" : undefined} key={label}>
                 <span>{index + 1}</span>
                 {label}
               </li>
             ))}
           </ol>
-          <button type="button" onClick={onClose} aria-label="Close">
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close">
             <X size={18} />
           </button>
         </header>
 
-        {template ? <p className="settings-muted">Based on {template.name}. Choose available pots. Treatments and targets are copied in order from the original plan; review each assignment before applying the new experiment.</p> : null}
 
         {step === "prompt" ? (
           <div className="experiment-builder-prompt">
@@ -499,36 +538,35 @@ function ExperimentBuilderContent({
                   ExactH2O validates every setting against the live pot inventory.
                 </p>
               </aside> : null}
-              <div className="experiment-builder-review">
+              <div className="experiment-builder-review" ref={reviewRef} tabIndex={-1}>
+              <fieldset className="experiment-builder-editable" disabled={busy}>
+              {!controlPlan ? <>
+              {template ? <p className="settings-muted">Copied from {template.name}. Choose new pots and check their settings.</p> : null}
               <div className="experiment-builder-fields">
                 <label>
-                  Name
+                  Experiment name
                   <input
+                    autoFocus={direct}
+                    placeholder="e.g. Maize drought trial"
+                    aria-required="true"
                     value={draft.name}
                     maxLength={120}
                     onChange={(event) => updateDraft("name", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Description
-                  <input
-                    value={draft.description}
-                    maxLength={300}
-                    onChange={(event) => updateDraft("description", event.target.value)}
                   />
                 </label>
                 <fieldset className="experiment-builder-mode-field">
                   <legend>Experiment type</legend>
                   <div className="experiment-builder-mode-options">
                     {([
-                      ["controlled", "Controlled", "Sense and water to target"],
-                      ["observation", "Observation", "Sense only; watering stays off"],
-                      ["calibration", "Calibration", "Tune a measured response"],
+                      ["controlled", "Controlled", "Measure and water to a target"],
+                      ["observation", "Observation", "Measure with watering off"],
+                      ["calibration", "Calibration", "Measure a calibration trial"],
                     ] as const).map(([mode, label, description]) => (
                       <button
                         type="button"
                         className={draft.mode === mode ? `is-selected is-${mode}` : `is-${mode}`}
                         key={mode}
+                        aria-pressed={draft.mode === mode}
                         onClick={() => updateMode(mode)}
                       >
                         <strong>{label}</strong>
@@ -537,26 +575,46 @@ function ExperimentBuilderContent({
                     ))}
                   </div>
                 </fieldset>
+              </div>
+              <details className="experiment-builder-details"><summary>Description and start date</summary><div className="experiment-builder-fields">
                 <label>
-                  Record start date
+                  Description (optional)
+                  <input
+                    value={draft.description}
+                    maxLength={300}
+                    onChange={(event) => updateDraft("description", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Record start date (optional)
                   <input
                     type="date"
                     value={draft.start_date?.slice(0, 10) ?? ""}
                     onChange={(event) => updateDraft("start_date", event.target.value || null)}
                   />
-                  <small>Confirmed changes apply immediately.</small>
+                  <small>Leave blank to start today. This date does not schedule controller changes.</small>
                 </label>
-              </div>
+              </div></details>
 
               <div className="experiment-builder-pot-section">
                 <div className="experiment-builder-section-heading">
                   <h3>Pots</h3>
-                  <span>
-                    {draft.assignments.length} selected · {availablePairingCount} available of {sortedPairings.length}
-                  </span>
+                  <span aria-live="polite">{draft.assignments.length} selected · {availablePairingCount} available</span>
                 </div>
+                <div className="experiment-builder-pot-tools">
+                  <input type="search" aria-label="Find pots" placeholder="Find a pot or zone" value={potSearch} onChange={(event) => setPotSearch(event.target.value)} />
+                  {draft.assignments.length ? <button type="button" onClick={() => updateDraft("assignments", [])}>Clear selection</button> : null}
+                  {occupiedByName.size ? <label><input type="checkbox" checked={showOccupied} onChange={(event) => setShowOccupied(event.target.checked)} />Show pots in use ({occupiedByName.size})</label> : null}
+                </div>
+                {!visiblePairings.length ? <p className="settings-muted">{availablePairingCount ? "No matching pots." : "All pots are in use. Show pots in use to see their experiments."}</p> : null}
+                {zones.map((zone) => <div className="experiment-builder-zone" key={zone}>
+                  <div className="experiment-builder-section-heading"><h4>Zone {zone}</h4>
+                    <button type="button" disabled={!visiblePairings.some((pairing) => pairing.zone === zone && !occupiedByName.has(pairing.name))} onClick={() => selectZone(zone)}>
+                      {visiblePairings.filter((pairing) => pairing.zone === zone && !occupiedByName.has(pairing.name)).every((pairing) => selectedNames.has(pairing.name)) ? "Clear zone" : "Select zone"}
+                    </button>
+                  </div>
                 <div className="experiment-builder-pot-grid">
-                  {sortedPairings.map((pairing) => {
+                  {visiblePairings.filter((pairing) => pairing.zone === zone).map((pairing) => {
                     const selected = selectedNames.has(pairing.name);
                     const occupancy = occupiedByName.get(pairing.name) ?? [];
                     const occupied = occupancy.length > 0;
@@ -573,6 +631,7 @@ function ExperimentBuilderContent({
                         key={pairing.name}
                         onClick={() => togglePairing(pairing)}
                         disabled={occupied}
+                        aria-pressed={selected}
                         aria-label={occupied
                           ? `Pot ${pairing.pot_number}, used by ${
                             occupancy.map((item) => item.experimentName).join(", ")
@@ -591,18 +650,22 @@ function ExperimentBuilderContent({
                     );
                   })}
                 </div>
-                {occupiedByName.size ? (
-                  <p className="experiment-builder-inventory-note">
-                    Pots in another active experiment stay visible but cannot be selected.
-                  </p>
-                ) : null}
+                </div>)}
               </div>
 
               {draft.assignments.length ? (
                 <div className="experiment-builder-assignment-list">
-                  <div className="experiment-builder-section-heading">
-                    <h3>Labels</h3>
+                  <div className="experiment-builder-section-heading"><h3>Settings</h3><span>For all selected pots</span></div>
+                  <div className="experiment-builder-bulk">
+                    {([ ["crop", "Crop"], ["treatment", "Treatment"] ] as const).map(([key, label]) => <label key={key}>{label}<input value={commonAssignmentValue(draft.assignments, key) ?? ""} placeholder="Optional / mixed" onChange={(event) => updateAll(key, optionalValue(event.target.value))} /></label>)}
+                    <label>Watering<select aria-label="Watering for all selected pots" disabled={draft.mode === "observation"} value={String(commonAssignmentValue(draft.assignments, "watering_enabled"))} onChange={(event) => updateAll("watering_enabled", event.target.value === "true")}><option value="" disabled>Mixed</option><option value="false">Off</option><option value="true">On</option></select></label>
+                    {([
+                      ["target_vwc_percent", "Target (% VWC)", 0, 80, 0.1],
+                      ["valve_open_seconds", "Pulse (seconds)", 1, 120, 0.5],
+                      ["measurement_interval_minutes", "Measure every (min)", 0.5, 60, 0.5],
+                    ] as const).map(([key, label, min, max, increment]) => <label key={key}>{label}<input type="number" min={min} max={max} step={increment} disabled={key !== "measurement_interval_minutes" && !draft.assignments.some((assignment) => assignment.watering_enabled)} value={commonAssignmentValue(draft.assignments, key) ?? ""} placeholder="Mixed" onChange={(event) => updateAll(key, event.target.value === "" ? null : Number(event.target.value))} /></label>)}
                   </div>
+                  <details className="experiment-builder-details"><summary>Adjust individual pots ({draft.assignments.length})</summary>
                   {draft.assignments.map((assignment) => (
                     <div className="experiment-builder-assignment" key={assignment.pairing_name}>
                       <strong>{assignment.pairing_name.replace(/^Zone(\d+)-Pot/i, "Z$1 · Pot ")}</strong>
@@ -705,8 +768,10 @@ function ExperimentBuilderContent({
                       </label>
                     </div>
                   ))}
+                  </details>
                 </div>
               ) : null}
+              </> : null}
 
               {draft.questions.length ? (
                 <div className="experiment-builder-questions">
@@ -715,6 +780,9 @@ function ExperimentBuilderContent({
               ) : null}
               {controlPlan ? (
                 <section className="experiment-builder-preflight">
+                  <h3>{draft.name}</h3>
+                  <p>{draft.assignments.length} {draft.assignments.length === 1 ? "pot" : "pots"} · {draft.mode === "observation" ? "Observation" : draft.mode === "calibration" ? "Calibration" : "Controlled"}{draft.start_date ? ` · Record starts ${draft.start_date.slice(0, 10)}` : " · Starts today"}</p>
+                  <div className="experiment-builder-plan-table"><table><thead><tr><th>Pot</th><th>Crop / treatment</th><th>Watering</th><th>Pulse</th><th>Measure every</th></tr></thead><tbody>{draft.assignments.map((assignment) => <tr key={assignment.pairing_name}><th>{assignment.pairing_name.replace(/^Zone(\d+)-Pot/i, "Z$1 · Pot ")}</th><td>{[assignment.crop, assignment.treatment].filter(Boolean).join(" · ") || "—"}</td><td>{assignment.watering_enabled ? `${assignment.target_vwc_percent}% VWC` : "Off"}</td><td>{assignment.watering_enabled ? `${assignment.valve_open_seconds} s` : "—"}</td><td>{assignment.measurement_interval_minutes} min</td></tr>)}</tbody></table></div>
                   <div>
                     <h3>{editing ? "Ready to save" : "Ready to start"}</h3>
                     <span>
@@ -756,20 +824,17 @@ function ExperimentBuilderContent({
                       checked={confirmed}
                       onChange={(event) => setConfirmed(event.target.checked)}
                     />
-                    I reviewed the pots and controller changes.
+                    Apply these settings now.
                   </label>
                 </section>
-              ) : (
-                <p className="experiment-builder-safety">
-                  Review shows every controller change before anything is sent.
-                </p>
-              )}
+              ) : null}
               {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
-              {!error && validationIssues.length ? (
+              {attemptedReview && !error && validationIssues.length ? (
                 <p className="experiment-builder-error" role="alert">
                   {validationIssues.map((issue) => issue.message).join(" ")}
                 </p>
               ) : null}
+              </fieldset>
               </div>
             </div>
 
@@ -777,14 +842,16 @@ function ExperimentBuilderContent({
               <button
                 type="button"
                 className="is-secondary"
+                disabled={busy}
                 onClick={() => {
                   setError(null);
-                  if (direct) onClose();
+                  if (controlPlan) { setControlPlan(null); setReviewedConfigHash(null); setConfirmed(false); }
+                  else if (direct) onClose();
                   else setStep("prompt");
                 }}
               >
                 <ArrowLeft size={16} />
-                {direct ? "Cancel" : "Back"}
+                {controlPlan ? "Edit setup" : direct ? "Cancel" : "Back"}
               </button>
               {controlPlan ? (
                 <button
@@ -803,10 +870,10 @@ function ExperimentBuilderContent({
                   type="button"
                   className="is-primary"
                   onClick={() => void reviewExperiment()}
-                  disabled={busy || validationIssues.length > 0}
+                  disabled={busy || !draft.name.trim() || !draft.assignments.length}
                 >
                   {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
-                  Review changes
+                  Review experiment
                 </button>
               )}
             </footer>
@@ -815,18 +882,19 @@ function ExperimentBuilderContent({
 
         {step === "complete" ? (
           <div className="experiment-builder-complete">
-            <span><Check size={22} /></span>
+            <span>{launchStatus === "activation_failed" ? <AlertTriangle size={22} /> : <Check size={22} />}</span>
             <h3>
-              {launchStatus === "activating"
+              {launchStatus === "activation_failed" ? "Experiment saved; changes paused" : launchStatus === "activating"
                 ? editing ? "Changes are applying" : "Experiment starting"
                 : editing ? "Experiment updated" : "Experiment created"}
             </h3>
             <p>
-              {launchStatus === "activating"
+              {launchStatus === "activation_failed" ? "Open the saved experiment to review its status before retrying." : launchStatus === "activating"
                 ? "The reviewed controller steps are running in order. The tile shows the current status."
-                : editing ? "The new revision is saved and the tile is up to date." : "The tile and graph are ready."}
+                : editing ? "Your changes are saved." : `${draft.name} is ready.`}
             </p>
-            <div className="experiment-builder-proof" aria-label="Creation receipt">
+            {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
+            {launchStatus !== "activation_failed" ? <details className="experiment-builder-details"><summary>Creation receipt</summary><div className="experiment-builder-proof" aria-label="Creation receipt">
               <article>
                 <span>Experiment</span>
                 <strong>{editing ? "Updated" : "Created"}</strong>
@@ -843,7 +911,7 @@ function ExperimentBuilderContent({
                     : "None"}
                 </strong>
               </article>
-            </div>
+            </div></details> : null}
             <button
               type="button"
               className="is-primary"

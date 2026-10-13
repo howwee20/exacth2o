@@ -875,7 +875,7 @@ export function PortalSettingsPanel({
               <p className="settings-muted">Targets and automatic watering settings are live. A bounded manual pulse unlocks only after the physical valve-close check.</p>
             </section>
             <section className="settings-card">
-              <h3>Pulse and safety limits</h3>
+              <h3>Allowed setting ranges</h3>
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>Pulse length</span>
@@ -894,7 +894,7 @@ export function PortalSettingsPanel({
                   <strong><StatusChip tone="unknown">Locked</StatusChip></strong>
                 </div>
               </div>
-              <p className="settings-muted">The controller waters in short pulses, then waits and measures again before deciding whether to pulse again. Per-pot pulse length and check interval are set under Pairings.</p>
+              <p className="settings-muted">The controller waters in short pulses, then waits and measures again before deciding whether to pulse again. See Pots for the applied pulse length and measurement interval.</p>
             </section>
             <section className="settings-card">
               <h3>Controller state</h3>

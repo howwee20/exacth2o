@@ -47,8 +47,8 @@ export const measures: Record<Measure, MeasureInfo> = {
   temperature: {
     id: "temperature",
     label: "Temperature",
-    unit: "as reported by the sensor",
-    shortUnit: "",
+    unit: "sensor units",
+    shortUnit: "sensor units",
     digits: 1,
     hasTargets: false,
     definition: "The sensor's temperature channel (temperature), as reported.",
@@ -56,8 +56,8 @@ export const measures: Record<Measure, MeasureInfo> = {
   ec: {
     id: "ec",
     label: "Electrical conductivity",
-    unit: "as reported by the sensor",
-    shortUnit: "",
+    unit: "sensor units",
+    shortUnit: "sensor units",
     digits: 2,
     hasTargets: false,
     definition: "The sensor's electrical conductivity channel (electrical_conductivity), as reported.",

@@ -39,7 +39,7 @@ export function appliedGroupTarget(group: PotGroup, pairings: readonly PairingRo
   const groupPairings = pairings.filter((pairing) => names.has(pairing.name));
   const active = groupPairings.filter((pairing) => !pairingWateringDisabled(pairing));
   if (!groupPairings.length) return { line: null, text: null, planMismatch: false };
-  if (!active.length) return { line: null, text: "Watering disabled", planMismatch: false };
+  if (!active.length) return { line: null, text: `Watering off${group.plannedTargets.length ? ` · plan ${group.plannedTargets.map((target) => `${target}%`).join(" / ")}` : ""}`, planMismatch: false };
   const applied = Array.from(new Set(active.map((pairing) => Number(pairing.wtc_percent_limit.toFixed(2)))));
   const planMismatch = group.plannedTargets.length > 0 && applied.some((value) => !group.plannedTargets.some((plan) => Math.abs(plan - value) < 0.001));
   const disabled = groupPairings.length - active.length;

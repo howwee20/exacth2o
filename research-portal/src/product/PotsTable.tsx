@@ -1,3 +1,4 @@
+import { experimentSidebarGroups } from "../experimentPresentation";
 import { useMemo } from "react";
 import { defaultGrouping, experimentFactors, levelLabel, potGroups } from "../experimentFactors";
 import { experimentIsCompleted } from "../experimentMeasurement";
@@ -29,6 +30,7 @@ export function PotsTable({
   const groups = useMemo(() => potGroups(experiment, grouping), [experiment, grouping]);
   const traces = useMemo(() => potTraces(readings, pairings, "vwc"), [pairings, readings]);
   const byName = useMemo(() => new Map(pairings.map((pairing) => [pairing.name, pairing])), [pairings]);
+  const orderedNames = [...experimentSidebarGroups(pairings.filter((pairing) => experiment.pairingNames.includes(pairing.name)), experiment).flatMap((group) => group.pairings.map((pairing) => pairing.name)), ...experiment.pairingNames.filter((name) => !byName.has(name))];
   const sensing = isObservationOnlyExperiment(experiment);
   const completed = experimentIsCompleted(experiment, nowMs);
   return (
@@ -51,7 +53,8 @@ export function PotsTable({
             </tr>
           </thead>
           <tbody>
-            {groups.flatMap((group) => group.pairingNames.map((name) => {
+            {orderedNames.map((name) => {
+              const group = groups.find((item) => item.pairingNames.includes(name))!;
               const pairing = byName.get(name);
               const trace = traces.get(name);
               const last = trace?.points.length ? trace.points[trace.points.length - 1] : null;
@@ -61,15 +64,15 @@ export function PotsTable({
               const target = !pairing
                 ? "Not on the controller"
                 : pairingWateringDisabled(pairing)
-                  ? "Watering disabled"
+                  ? `Off${plan != null ? ` (plan ${plan}%)` : ""}`
                   : `${pairing.wtc_percent_limit}%${plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` (plan ${plan}%)` : ""}`;
               return (
                 <tr key={name}>
                   <td>
                     <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: name }}>
-                      <b className="px-mono">{pairing?.pot_number ?? trace?.potNumber ?? name}</b>
+                      <b className="px-mono">Pot {pairing?.pot_number ?? trace?.potNumber ?? name}</b>
                     </PortalLink>
-                    <span className="px-muted px-small"> {name}</span>
+
                   </td>
                   <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><GroupGlyph group={group} />{group.label === "All pots" ? (assignment?.crop ? levelLabel(assignment.crop) : "—") : group.label}</span></td>
                   <td className="px-num">{last ? `${last.value.toFixed(1)}%` : "—"}{vwcQuality(last?.value) ? <span className="px-quality-note">Review calibration</span> : null}</td>
@@ -80,7 +83,7 @@ export function PotsTable({
                   <td>{pairing?.calibration_name || "Not recorded"}</td>
                 </tr>
               );
-            }))}
+            })}
           </tbody>
         </table>
       </div>

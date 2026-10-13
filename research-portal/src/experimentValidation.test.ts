@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
 import { manualExperimentDraft } from "./experimentSpec";
 import {
   experimentSlug,
@@ -107,5 +108,30 @@ describe("experiment validation", () => {
     expect(validateExperimentDraft(draft, inventory).map((issue) => issue.message)).toContain(
       "Future execution is not available yet. Create the experiment when it is ready to start.",
     );
+  });
+});
+
+
+describe("experiment setup", () => {
+  it("keeps newly selected and duplicated observation pots off", () => {
+    const enabled = assignmentForMode(inventory[0], "controlled");
+    expect(enabled.watering_enabled).toBe(true);
+    const observation = assignmentForMode(inventory[1], "observation", enabled);
+    expect(observation.pairing_name).toBe(inventory[1].name);
+    expect(observation.watering_enabled).toBe(false);
+    expect(observation.target_vwc_percent).toBeNull();
+    expect(observation.valve_open_seconds).toBeNull();
+    expect(enabled.watering_enabled).toBe(true);
+  });
+  it("preserves half-minute inventory cadence when duplicating a setup", () => {
+    const pot = { ...inventory[0], measurement_interval_ms: 30_000 };
+    expect(manualExperimentDraft([pot], [pot.name]).assignments[0].measurement_interval_minutes).toBe(0.5);
+    expect(assignmentForMode(pot, "controlled").measurement_interval_minutes).toBe(0.5);
+  });
+  it("does not present mixed targets as a shared setting", () => {
+    const first = assignmentForMode(inventory[0], "controlled");
+    const second = { ...assignmentForMode(inventory[1], "controlled"), target_vwc_percent: 20 };
+    expect(commonAssignmentValue([first, second], "target_vwc_percent")).toBe("");
+    expect(commonAssignmentValue([first, second], "measurement_interval_minutes")).toBe(10);
   });
 });

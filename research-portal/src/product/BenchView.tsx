@@ -6,7 +6,7 @@ import { experimentIsCompleted } from "../experimentMeasurement";
 import type { PortalExperiment } from "../experimentRegistry";
 import { silentExperimentPots } from "../homeExceptions";
 import { formatMeasurementTime } from "../measurementFreshness";
-import { navigatePortal } from "../portalRoute";
+import { navigatePortal, setPortalQuery, usePortalQueryValue } from "../portalRoute";
 import type { PairingRow, SensorReading } from "../types";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
@@ -159,9 +159,12 @@ export function BenchView({
   canRecord: boolean;
   onRecord: (document: BenchLayoutDocument, note: string | null) => Promise<void>;
 }) {
-  const [filter, setFilter] = useState<string>("all");
-  const [showBoards, setShowBoards] = useState(false);
-  const [onlySilent, setOnlySilent] = useState(false);
+  const filter = usePortalQueryValue("benchExperiment") ?? "all";
+  const setFilter = (value: string) => setPortalQuery({ benchExperiment: value === "all" ? null : value });
+  const showBoards = usePortalQueryValue("boards") === "1";
+  const setShowBoards = (value: boolean) => setPortalQuery({ boards: value ? "1" : null });
+  const onlySilent = usePortalQueryValue("silent") === "1";
+  const setOnlySilent = (value: boolean) => setPortalQuery({ silent: value ? "1" : null });
   const [lookup, setLookup] = useState("");
   const [recording, setRecording] = useState(false);
   const model: BenchModel = useMemo(() => (layout ? recordedLayout(layout.layout, pairings) : schematicLayout(pairings)), [layout, pairings]);
@@ -214,11 +217,12 @@ export function BenchView({
         <h1 className="px-title">Bench</h1>
         {model.basis === "recorded" || confirmed ? <p className="px-subtitle">
           {model.basis === "recorded" && layout ? (
-            <span>Recorded layout, version {layout.version}{layoutVersions > 1 ? ` of ${layoutVersions}` : ""} · {layout.author_label} · {formatMeasurementTime(layout.created_at)}{layout.note ? ` · “${layout.note}”` : ""}</span>
+            <span>Recorded layout, version {layout.version}{layoutVersions > 1 ? ` of ${layoutVersions}` : ""} · {layout.author_label} · {formatMeasurementTime(layout.created_at)}</span>
           ) : null}
           {confirmed ? <span>{confirmed} of {bindings.length} pots physically confirmed</span> : null}
         </p> : null}
       </div>
+      {layout?.note ? <details className="px-details"><summary>Layout note</summary><p>{layout.note}</p></details> : null}
       {layoutError ? <p className="px-notice" role="status">The recorded layout could not be loaded ({layoutError}); showing the schematic layout.</p> : null}
 
       <div className="px-toolbar">
@@ -226,7 +230,7 @@ export function BenchView({
           event.preventDefault();
           if (lookupMatch) navigatePortal({ view: "bench", pot: lookupMatch.name });
         }}>
-          <label htmlFor="bench-lookup">Find pot</label>
+          <label htmlFor="bench-lookup">Pot number</label>
           <input id="bench-lookup" inputMode="numeric" value={lookup} onChange={(event) => setLookup(event.target.value)} placeholder="17" style={{ width: 80 }} />
           <button type="submit" className="px-button is-small" disabled={!lookupMatch}>Open</button>
           {lookup.trim() && !lookupMatch ? <span className="px-muted">No pot {lookup.trim()} on this controller</span> : null}
@@ -239,7 +243,7 @@ export function BenchView({
           </select>
         </label>
         <label className="px-select"><input type="checkbox" checked={showBoards} onChange={(event) => setShowBoards(event.target.checked)} /> Show sensor boards</label>
-        <label className="px-select"><input type="checkbox" checked={onlySilent} disabled={!silentNames.size && !onlySilent} onChange={(event) => setOnlySilent(event.target.checked)} /> Only pots without readings</label>
+        <label className="px-select" title={!silentNames.size ? "All pots have recent readings" : undefined}><input type="checkbox" checked={onlySilent} disabled={!silentNames.size && !onlySilent} onChange={(event) => setOnlySilent(event.target.checked)} /> Only pots without readings</label>
         <span className="px-spacer" />
         {canRecord ? <button type="button" className="px-button is-small" onClick={() => setRecording((value) => !value)}>{recording ? "Close recorder" : "Record layout…"}</button> : null}
       </div>
@@ -285,6 +289,7 @@ export function BenchView({
                       to={{ view: "bench", pot: cell.pairingName }}
                       className={`px-bench-cell ${silent ? "is-silent" : ""} ${dim ? "is-dim" : ""} ${isLookup ? "is-match" : ""}`}
                       style={{ gridRow: cell.row, gridColumn: cell.column }}
+                      title={latest.has(cell.pairingName) ? `Last measured ${formatMeasurementTime(latest.get(cell.pairingName)!)}` : "No reading loaded"}
                       aria-label={`Pot ${cell.potNumber}${experiment ? `, ${experiment.name}` : ", no visible running experiment"}${group && group.label !== "All pots" ? `, ${group.label}` : ""}${silent ? ", no current reading" : ""}`}
                     >
                       <Glyph group={experiment ? group : null} />

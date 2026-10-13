@@ -9,6 +9,7 @@ import { potTraces } from "./waterline";
 
 export type ExperimentReportInput = {
   experiment: PortalExperiment;
+  currentExperiment?: PortalExperiment;
   pairings: readonly PairingRow[];
   readings: readonly SensorReading[];
   events: readonly RecordItem[];
@@ -32,10 +33,12 @@ const cell = (value: unknown) => csvEscape(typeof value === "string" && /^[=+\-@
 /** Metadata is explicitly a plan snapshot, not an assertion about historical calibration. */
 export function experimentReadingsCsv(input: ExperimentReportInput) {
   const assignments = new Map(input.experiment.assignments?.map((item) => [item.pairing_name, item]));
-  const headers = ["experiment", "plan_snapshot_revision", "pairing_name", "crop_in_plan", "treatment_in_plan", "block_in_plan", "target_vwc_in_plan", "sensor_key", "device_recorded_at_utc", "server_received_at_utc", "calibrated_vwc_percent", "raw_sensor_output", "temperature_sensor_units", "electrical_conductivity_sensor_units", "quality_note", "event_id", "recorded_pairing_name"];
+  const headers = ["experiment", "plan_snapshot_revision", "pairing_name", "crop_in_plan", "treatment_in_plan", "block_in_plan", "target_vwc_in_plan", "watering_enabled_in_plan", "watering_enabled_on_controller_now", "controller_target_vwc_now", "sensor_key", "device_recorded_at_utc", "server_received_at_utc", "calibrated_vwc_percent", "raw_sensor_output", "temperature_sensor_units", "electrical_conductivity_sensor_units", "quality_note", "event_id", "recorded_pairing_name"];
   const rows = reportReadings(input).map((reading) => {
     const plan = assignments.get(reading.pairing_name);
-    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name].map(cell).join(",");
+    const controller = input.pairings.find((pairing) => pairing.name === reading.pairing_name);
+    const controllerWatering = controller ? controller.wtc_percent_limit > -1000 : null;
+    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, input.experiment.currentSpec?.assignments.find((assignment) => assignment.pairing_name === reading.pairing_name)?.watering_enabled, controllerWatering, controllerWatering ? controller?.wtc_percent_limit : null, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name].map(cell).join(",");
   });
   return [headers.join(","), ...rows].join("\r\n");
 }
@@ -58,26 +61,33 @@ function chart(input: ExperimentReportInput, readings: SensorReading[]) {
 }
 
 export function experimentBriefHtml(input: ExperimentReportInput) {
-  const { experiment } = input;
+  const experiment = input.currentExperiment ?? input.experiment;
+  const historicalNames = input.experiment.pairingNames.filter((name) => !experiment.pairingNames.includes(name));
   const readings = reportReadings(input);
   const pairs = new Map(input.pairings.map((pairing) => [pairing.name, pairing]));
   const traces = potTraces(readings, input.pairings, "vwc");
-  const qualityCount = readings.filter((reading) => vwcQuality(reading.calibrated_value)).length;
+  const qualityReadings = readings.filter((reading) => vwcQuality(reading.calibrated_value));
+  const qualityCount = qualityReadings.length;
+  const qualityPots = [...new Set(qualityReadings.map((reading) => reading.pairing_name))].map((name) => pairs.get(name)?.pot_number ?? name).join(", ");
+  const showBlock = experiment.assignments?.some((assignment) => assignment.block);
+  const showCrop = experiment.assignments?.some((assignment) => assignment.crop);
+  const showTreatment = experiment.assignments?.some((assignment) => assignment.treatment);
   const rows = experiment.pairingNames.map((name) => {
     const assignment = experiment.assignments?.find((item) => item.pairing_name === name);
     const points = traces.get(name)?.points ?? [];
     const last = points.at(-1);
-    return `<tr><td>${html(pairs.get(name)?.pot_number ?? name)}</td><td>${html(levelLabel(assignment?.crop ?? ""))}</td><td>${html(levelLabel(assignment?.treatment ?? ""))}</td><td>${html(assignment?.block ?? "—")}</td><td>${assignment?.target_vwc_percent == null ? "—" : html(assignment.target_vwc_percent)+"%"}</td><td>${last ? last.value.toFixed(1)+"%" : "No reading"}${vwcQuality(last?.value) ? '<br><span class="quality">Review calibration</span>' : ""}</td><td>${points.length}</td></tr>`;
+    return `<tr><td>${html(pairs.get(name)?.pot_number ?? name)}</td>${showCrop ? `<td>${html(levelLabel(assignment?.crop ?? ""))}</td>` : ""}${showTreatment ? `<td>${html(levelLabel(assignment?.treatment ?? ""))}</td>` : ""}${showBlock ? `<td>${html(assignment?.block ?? "—")}</td>` : ""}<td>${assignment?.target_vwc_percent == null ? "—" : html(assignment.target_vwc_percent)+"%"}${experiment.currentSpec?.assignments.find((item) => item.pairing_name === name)?.watering_enabled === false ? "<br><small>Plan watering off</small>" : ""}</td><td>${pairs.has(name) ? (pairs.get(name)!.wtc_percent_limit <= -1000 ? "Off" : `${html(pairs.get(name)!.wtc_percent_limit)}% VWC`) : "Not available"}</td><td>${last ? last.value.toFixed(1)+"%" : "No reading"}${vwcQuality(last?.value) ? '<br><span class="quality">Review calibration</span>' : ""}</td><td>${points.length}</td></tr>`;
   }).join("");
   const events = input.events.filter((event) => event.happenedAt >= input.startMs && event.happenedAt <= input.endMs).slice().sort((a,b) => a.happenedAt-b.happenedAt);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(experiment.name)} · Experiment brief</title><style>
   *{box-sizing:border-box}body{margin:0;background:#f7f9f8;color:#172a23;font:15px/1.55 system-ui,sans-serif}main{max-width:980px;margin:40px auto;padding:36px;background:white}header{border-bottom:2px solid #176449;padding-bottom:22px}h1{font-size:32px;line-height:1.15;letter-spacing:-.03em}h2{margin-top:32px;font-size:19px}h3{font-size:15px;margin-bottom:3px}p{margin:8px 0}.brand{font-weight:700;color:#176449}.muted,small{color:#53665d}.meta{display:flex;gap:24px;flex-wrap:wrap}table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:9px 6px;text-align:left;border-bottom:1px solid #dbe3df;vertical-align:top}th{font-weight:600}.notice{padding:12px;background:#f8f3e8;border-left:3px solid #996324}.quality{color:#805414}svg{width:100%;font:11px system-ui}.legend{display:flex;gap:16px;flex-wrap:wrap}.legend i{display:inline-block;width:16px;height:3px;margin-right:6px}li{margin:10px 0}.events{padding-left:20px}footer{border-top:1px solid #dbe3df;margin-top:30px;padding-top:16px;font-size:12px} @media(max-width:640px){main{margin:0;padding:20px}table{font-size:11px}td,th{padding:6px 3px}h1{font-size:26px}}@media print{body{background:white}main{margin:0;padding:0;max-width:none}h2,h3{break-after:avoid}tr,li{break-inside:avoid}a{color:inherit}}
-  </style></head><body><main><header><div class="brand">ExactH2O / Experiment brief</div><h1>${html(experiment.name)}</h1><p>${html(experiment.shortDescription)}</p><div class="meta"><span>${experiment.pairingNames.length} pots</span><span>${html(levelLabel(experiment.mode))}</span><span>${html(experiment.status?.replace(/_/g," ") ?? "State not recorded")}</span><span>Plan revision ${html(experiment.currentVersion ?? "not recorded")}</span></div></header>
+  </style></head><body><main><header><div class="brand">ExactH2O / Experiment brief</div><h1>${html(experiment.name)}</h1><p>${html(experiment.shortDescription)}</p><div class="meta"><span>${experiment.pairingNames.length} current pots</span><span>${html(levelLabel(experiment.mode))}</span><span>${html(experiment.status?.replace(/_/g," ") ?? "State not recorded")}</span><span>Plan revision ${html(experiment.currentVersion ?? "not recorded")}</span></div></header>
   <h2>Reporting window</h2><p>${html(utc(input.startMs))} to ${html(utc(input.endMs))}</p><p class="muted">${readings.length.toLocaleString()} loaded readings · ${html(input.source)}. This brief covers the selected window, not necessarily the complete experiment.</p>
-  ${input.problems.map((problem) => `<p class="notice">${html(problem)}</p>`).join("")}${qualityCount ? `<p class="notice">${qualityCount} recorded VWC values need review. Raw and calibrated readings are retained in the CSV.</p>` : ""}
+  ${input.problems.map((problem) => `<p class="notice">${html(problem)}</p>`).join("")}${qualityCount ? `<p class="notice">${qualityCount} VWC readings need review on pots ${html(qualityPots)} during this window. Values outside 0–100% are flagged; check the CSV quality_note column for each reading. Raw and calibrated values are retained.</p>` : ""}
   <h2>Moisture history</h2>${chart(input,readings)}
-  <h2>Plan snapshot and latest readings</h2><p class="muted">Assignments and targets are from plan revision ${html(experiment.currentVersion ?? "not recorded")}. They do not establish the controller target or calibration at every historical reading.</p><table><thead><tr><th>Pot</th><th>Crop</th><th>Treatment</th><th>Block</th><th>Plan target</th><th>Last VWC</th><th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
-  <h2>Experiment record</h2>${events.length ? `<ol class="events">${events.map((event) => `<li><small>${html(utc(event.happenedAt))} · ${html(event.kind)} · ${html(event.basis)}</small><h3>${html(event.title)}</h3>${event.detail ? `<p>${html(event.detail)}</p>` : ""}</li>`).join("")}</ol>` : '<p>No record entries were available for this window.</p>'}
+  <h2>Plan snapshot and latest readings</h2><p class="muted">Assignments and targets are from plan revision ${html(experiment.currentVersion ?? "not recorded")}. Controller values are the current inventory snapshot, not historical settings at each reading.</p><table><thead><tr><th>Pot</th>${showCrop ? "<th>Crop</th>" : ""}${showTreatment ? "<th>Treatment</th>" : ""}${showBlock ? "<th>Block</th>" : ""}<th>Plan target</th><th>Controller now</th><th>Last VWC</th><th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
+  ${historicalNames.length ? `<h2>Previous pot assignments</h2><p class="muted">${historicalNames.length} historical labels remain in the CSV and history: ${html(historicalNames.join(", "))}. They are not part of the current pot count.</p>` : ""}
+  <h2>Experiment record</h2>${events.length ? `<ol class="events">${events.map((event) => `<li><small>${html(event.kind === "watering" ? `Daily total · ${new Date(event.happenedAt).toISOString().slice(0, 10)} UTC` : utc(event.happenedAt))} · ${html(event.kind)} · ${html(event.basis)}</small><h3>${html(event.title)}</h3>${event.detail ? `<p>${html(event.detail)}</p>` : ""}</li>`).join("")}</ol>` : '<p>No record entries were available for this window.</p>'}
   <footer><p>Generated ${html(utc(input.generatedAt))}. All timestamps use UTC. VWC is volumetric water content. The accompanying CSV retains measurement and receipt times, raw values, and event identifiers.</p><p>Valve openings are controller records, not measurements of delivered water. Calibration changes, missing sources, and reading gaps should be considered when interpreting the experiment.</p></footer></main></body></html>`;
 }
 

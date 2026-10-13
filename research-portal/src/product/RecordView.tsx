@@ -180,9 +180,9 @@ export function RecordView({
       ))}
 
       {sources ? (
-        <p className="px-muted px-small">
+        <details className="px-details"><summary>Data sources</summary><p className="px-muted px-small">
           {sources.stats.requests} requests, {sources.stats.rows.toLocaleString()} rows ({Math.round(sources.stats.bytes / 1024)} kB) for {spanDays} days. Gaps and valve openings are derived from readings and controller events; everything else is a recorded row.
-        </p>
+        </p></details>
       ) : null}
     </section>
   );
@@ -253,8 +253,9 @@ function RecordEntry({ item, isNew, projectId, deviceId, focusPot }: { item: Rec
           {item.actor ? <span>{item.actor}</span> : null}
           {item.kind === "gap" ? <span>{item.ongoing ? "ongoing" : `until ${formatMeasurementTime(item.endAt ?? null)}`}</span> : null}
           {item.recordedAt != null ? <span>{item.kind === "note" ? "written" : "happened"} {formatMeasurementTime(item.happenedAt)} · {item.kind === "note" ? "received" : "requested"} {formatMeasurementTime(item.recordedAt)}</span> : null}
-          <span>{item.basis === "derived" ? "derived" : "recorded"} · {item.source}</span>
+          <span>{item.basis === "derived" ? "Derived" : "Recorded"}</span>
         </p>
+        <details className="px-record-source"><summary>Source</summary><span>{item.source}</span></details>
         {item.calibration && item.calibration.pairingNames.length ? (
           <>
             <button type="button" className="px-link-button" aria-expanded={explain} onClick={() => setExplain((value) => !value)}>

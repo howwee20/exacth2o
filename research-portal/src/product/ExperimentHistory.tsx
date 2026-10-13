@@ -71,7 +71,7 @@ export function ExperimentHistory({experiment, pairings, projectId, deviceId, no
   const pad=Math.max(1,(high-low)*.1);
   const units={vwc:"VWC %",raw:"Raw sensor output",temperature:"Temperature · sensor units",ec:"EC · sensor units"};
   return <details className="px-card px-history-range" open={open} onToggle={(event)=>{const next=event.currentTarget.open;setOpen(next);if(next&&!window)apply(experiment.startedAt?Date.parse(experiment.startedAt):end-14*day,end);}}>
-    <summary>Explore experiment history</summary>
+    <summary>Earlier dates and export history</summary>
     {open ? <>
       <form className="px-history-toolbar" onSubmit={(event)=>{event.preventDefault();apply(Date.parse(startText),Date.parse(endText));}}>
         <label>Start (local time)<input type="datetime-local" required value={startText} onChange={(e)=>setStartText(e.target.value)}/></label>

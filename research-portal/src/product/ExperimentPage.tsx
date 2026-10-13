@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { experimentProgressText } from "../experimentMeasurement";
 import type { PortalExperiment } from "../experimentRegistry";
 import type { HomeException } from "../homeExceptions";
@@ -31,6 +31,7 @@ export function ExperimentPage({
   exceptions,
   tabs,
   actions,
+  secondaryActions,
   children,
 }: {
   experiment: PortalExperiment;
@@ -39,9 +40,11 @@ export function ExperimentPage({
   exceptions: readonly HomeException[];
   tabs: ExperimentTab[];
   actions?: ReactNode;
+  secondaryActions?: ReactNode;
   children: ReactNode;
 }) {
   const { copied, copy } = useCopyRoute();
+  useEffect(() => { const previous = document.title; document.title = `${experiment.name} · ExactH2O`; return () => { document.title = previous; }; }, [experiment.name]);
   const count = experiment.pairingNames.length;
   const mode = experimentModeLine(experiment, nowMs);
   const progress = experimentProgressText(experiment, nowMs);
@@ -55,7 +58,12 @@ export function ExperimentPage({
           <h1 className="px-title">{experiment.name}</h1>
           <div className="px-toolbar">
             {actions}
-            <button type="button" className="px-button is-small" onClick={() => void copy({ view: "experiment", experiment: experiment.id, tab, pot: null })}>{copied ?? "Copy link"}</button>
+            <details className="px-menu px-more-actions" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+              <summary>More</summary><div className="px-menu-panel" onClick={(event) => { if ((event.target as HTMLElement).closest("button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>
+              {secondaryActions}
+              <button type="button" onClick={() => void copy({ view: "experiment", experiment: experiment.id, tab, pot: null })}>{copied ?? "Copy link"}</button>
+              </div>
+            </details>
           </div>
         </div>
         <p className="px-subtitle">

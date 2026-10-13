@@ -169,10 +169,10 @@ export function ResearchWateringActivity({
   return (
     <section className="research-watering-activity" aria-label="Watering activity">
       <div className="health-mini-grid research-watering-summary">
-        <HealthMiniFact label="24h fires" value={formatHealthInteger(visibleEvents24h.length)} />
-        <HealthMiniFact label="Latest fire" value={latestWateringTime} />
+        <HealthMiniFact label="Openings · 24 h" value={formatHealthInteger(visibleEvents24h.length)} />
+        <HealthMiniFact label="Latest opening" value={latestWateringTime} />
         <HealthMiniFact label="Visible pots" value={String(pairings.length)} />
-        <HealthMiniFact label="Event rows" value={String(visibleEvents.length)} />
+        <HealthMiniFact label="Loaded events" value={String(visibleEvents.length)} />
       </div>
       <HealthWateringChart
         events={visibleEvents}

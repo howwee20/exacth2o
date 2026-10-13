@@ -24,7 +24,7 @@
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
@@ -111,7 +111,7 @@
   footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 
-  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
   .reveal.visible { opacity: 1; transform: none; }
 
 
@@ -171,7 +171,7 @@ footer .footer-logo { flex: none; width: 126px; }
 <link rel="stylesheet" href="/site-brand-footer.css?v=7338f8de044a">
 <script src="/site-brand-footer.js?v=fb624af4c20d" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=20261012-1">
+<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/about">
 <meta property="og:type" content="website">
@@ -190,8 +190,8 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/applications">Applications</a></li>
     <li><a href="/about" class="active">About Us</a></li>
     <li><a href="/support">Support</a></li>
-    <li><a href="/quote">Get Quote</a></li>
-    <li><a href="/portal" class="nav-cta">Portal</a></li>
+    <li><a href="/quote">Request a quote</a></li>
+    <li><a href="/portal" class="nav-cta">Sign in</a></li>
   </ul>
   <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
@@ -201,8 +201,8 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
   <a href="/support" onclick="toggleMenu()">Support</a>
-  <a href="/quote" onclick="toggleMenu()">Get Quote</a>
-  <a href="/portal" onclick="toggleMenu()">Portal</a>
+  <a href="/quote" onclick="toggleMenu()">Request a quote</a>
+  <a href="/portal" onclick="toggleMenu()">Sign in</a>
 </div>
 <main id="main-content">
 
@@ -213,7 +213,7 @@ footer .footer-logo { flex: none; width: 126px; }
       <div>
         <div class="section-label">Leadership</div>
         <h1 class="section-title">Built by scientists,<br>for scientists</h1>
-        <p class="team-intro-desc">exactH2O was founded by a team with deep expertise spanning plant physiology, environmental sensing, and instrument engineering. Every design decision reflects years of firsthand frustration with imprecise irrigation in research settings — and the conviction that it could be done better.</p>
+        <p class="team-intro-desc">ExactH2O combines plant physiology, environmental sensing, and instrument engineering to support controlled irrigation research.</p>
       </div>
     </div>
     <div class="founders-grid reveal">
@@ -227,7 +227,7 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="founder-num">01 —</div>
           <h3 class="founder-name">Binod Basyal</h3>
           <div class="founder-title">Co-Founder and Chief Executive Officer</div>
-          <p class="founder-bio">Binod is a plant biologist with over a decade of experience studying plant–water relationships under drought stress. He holds a PhD in Biology, and his research focuses on soil moisture dynamics, plant physiology, and resilient lignocellulosic biofuel systems. Co-inventor of the exactH2O programmable drought and irrigation control system, he bridges science and practical application.</p>
+          <p class="founder-bio">Binod studies plant–water relationships and drought stress. He holds a PhD in Biology and co-invented the ExactH2O irrigation control system.</p>
           <div class="founder-links">
             <a href="mailto:binod@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>binod@exacth2o.com</a>
           </div>
@@ -243,7 +243,7 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="founder-num">02 —</div>
           <h3 class="founder-name">Berkley Walker</h3>
           <div class="founder-title">Co-Founder and Chief Technology Officer</div>
-          <p class="founder-bio">Berkley leads technical strategy and engineering decisions at exactH2O. He teaches plant physiology and researches photosynthesis. His prior work as a product manager gave him hands-on expertise in environmental sensing and product development. He brings biological insight and engineering rigor to controlled irrigation systems.</p>
+          <p class="founder-bio">Berkley leads technical strategy at ExactH2O. He teaches plant physiology, researches photosynthesis, and brings experience in environmental sensing and product development.</p>
           <div class="founder-links">
             <a href="mailto:berkley@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>berkley@exacth2o.com</a>
           </div>
@@ -259,7 +259,7 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="founder-num">03 —</div>
           <h3 class="founder-name">Jacob Hicks</h3>
           <div class="founder-title">Co-Founder and Chief Operating Officer</div>
-          <p class="founder-bio">Jacob brings more than 15 years of experience troubleshooting, repairing, and optimizing complex scientific instruments. He played an instrumental role in the design and physical development of the exactH2O system — translating conceptual ideas into a functional, robust setup from the ground up. His hands-on problem-solving and technical depth are critical to the system's reliability.</p>
+          <p class="founder-bio">Jacob has more than 15 years of experience repairing and developing scientific instruments. He helped design and build the ExactH2O system.</p>
           <div class="founder-links">
             <a href="mailto:jake@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>jake@exacth2o.com</a>
           </div>
@@ -275,7 +275,7 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="founder-num">04 —</div>
           <h3 class="founder-name">EJ Howe</h3>
           <div class="founder-title">Co-Founder and Chief Product Officer</div>
-          <p class="founder-bio">EJ leads product strategy and development across exactH2O's software and connected hardware. He designed and built the company's web-based control platform, and his work spans embedded systems, networking, sensing, and field instrumentation. His focus is building reliable software for networked physical systems, turning complex hardware into products that are easier to deploy, operate, and scale.</p>
+          <p class="founder-bio">EJ leads software and connected hardware development. He built the web control platform and works across embedded systems, networking, sensing, and field instrumentation.</p>
           <div class="founder-links">
             <a href="mailto:ej@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>ej@exacth2o.com</a>
           </div>

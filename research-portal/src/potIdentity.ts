@@ -71,6 +71,7 @@ export function searchPots(query: string, pairings: readonly PairingRow[], exper
     else if (pairing.name.toLowerCase() === q) score = 95;
     else if (number != null && String(pairing.pot_number).startsWith(q)) score = 50 - String(pairing.pot_number).length;
     else if (pairing.name.toLowerCase().includes(q)) score = 40;
+    else if (experiment?.assignments?.some((assignment) => assignment.pairing_name === pairing.name && [assignment.crop, assignment.treatment, assignment.block].some((value) => value?.toLowerCase().includes(q)))) score = 30;
     else if (experiment && experiment.name.toLowerCase().includes(q)) score = 20;
     if (score > 0) results.push({ pairing, experiment, score });
   }

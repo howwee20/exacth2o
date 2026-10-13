@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { levelLabel } from "../experimentFactors";
 import { experimentIsCompleted } from "../experimentMeasurement";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
@@ -77,7 +77,7 @@ export function PotPage({
   const targetText = experiment && sensing
     ? "Sensing only"
     : disabled
-      ? "Watering disabled on the controller"
+      ? `Watering off${plan != null ? ` · plan target ${plan}% VWC` : ""}`
       : `${experiment ? "Target" : "Controller target"} ${pairing.wtc_percent_limit}% VWC${plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
   const opens = valveEvents
     .filter((event) => event.action === "open")
@@ -99,6 +99,7 @@ export function PotPage({
   const levels = assignment
     ? (["treatment", "crop", "substrate", "block"] as const).filter((key) => assignment[key]).map((key) => `${key.charAt(0).toUpperCase()}${key.slice(1)}: ${levelLabel(assignment[key] as string)}`)
     : [];
+  useEffect(() => { const previous = document.title; document.title = `Pot ${pairing.pot_number}${experiment ? ` · ${experiment.name}` : ""} · ExactH2O`; return () => { document.title = previous; }; }, [pairing.pot_number, experiment]);
   const potRoute = experiment
     ? { view: "experiment" as const, experiment: experiment.id, tab: "pots" as const, pot: pairing.name }
     : { view: "pot" as const, pot: pairing.name };

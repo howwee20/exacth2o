@@ -196,7 +196,7 @@ export function manualExperimentDraft(
         ? pairing.wtc_percent_limit
         : null,
       valve_open_seconds: Math.max(1, pairing.valve_open_time_ms / 1_000),
-      measurement_interval_minutes: Math.round(pairing.measurement_interval_ms / 60_000),
+      measurement_interval_minutes: Math.max(0.5, pairing.measurement_interval_ms / 60_000),
       notes: null,
     }));
 

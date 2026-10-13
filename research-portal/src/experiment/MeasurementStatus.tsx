@@ -58,7 +58,7 @@ export function MeasurementStatusBar({
       <span className="measurement-status-main">
         <strong><LatestReadingText freshness={freshness} /></strong>
       </span>
-      {totalPots ? <span className="measurement-status-meta">{reportingPots} of {totalPots} pots reporting</span> : null}
+      {totalPots && !freshness.label.includes("reporting") ? <span className="measurement-status-meta">{reportingPots} of {totalPots} pots reporting</span> : null}
       <details className="measurement-status-details">
         <summary>Data details</summary>
         <div>

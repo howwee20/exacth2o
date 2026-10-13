@@ -123,7 +123,7 @@ export function CalibrationStudio({
   const [observations, setObservations] = useState<CalibrationObservation[]>([]);
   const [candidates, setCandidates] = useState<CalibrationCandidate[]>([]);
   const [activeStudyId, setActiveStudyId] = useState<string>("");
-  const [studyName, setStudyName] = useState(`${experiment.name} calibration`);
+  const [studyName, setStudyName] = useState(experiment.id === "unavailable" ? "New calibration study" : `${experiment.name} calibration`);
   const [pairingName, setPairingName] = useState(pairings[0]?.name ?? "");
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [referenceRecordedAt, setReferenceRecordedAt] = useState(localDateTimeInputValue());
@@ -186,7 +186,7 @@ export function CalibrationStudio({
   }, [experiment.id, projectId]);
 
   useEffect(() => {
-    setStudyName(`${experiment.name} calibration`);
+    setStudyName(experiment.id === "unavailable" ? "New calibration study" : `${experiment.name} calibration`);
     setPairingName(pairings[0]?.name ?? "");
     void loadStudio();
   }, [experiment.id, experiment.name, loadStudio, pairings]);
@@ -394,7 +394,7 @@ export function CalibrationStudio({
     <div className="calibration-studio">
       <section className="calibration-hero">
         <div>
-          <h3>{experiment.name} calibration</h3>
+          <h3>{experiment.id === "unavailable" ? "Sensor calibration" : `${experiment.name} calibration`}</h3>
           <p>Match external VWC readings to ExactH2O data, then create an equation.</p>
         </div>
       </section>

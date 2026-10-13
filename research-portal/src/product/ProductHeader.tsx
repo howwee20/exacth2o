@@ -57,8 +57,9 @@ export function ProductHeader({
         <img src={exactH2OLogo} alt="ExactH2O" />
       </a>
       <nav className="px-nav" aria-label="Portal">
-        <PortalLink to={{ view: "home" }} aria-current={section === "experiments" ? "page" : undefined}>Experiments</PortalLink>
+        <PortalLink to={{ view: "home" }} aria-current={section === "experiments" && route.view !== "trends" ? "page" : undefined}>Experiments</PortalLink>
         {sections.bench ? <PortalLink to={{ view: "bench", pot: null }} aria-current={section === "bench" ? "page" : undefined}>Bench</PortalLink> : null}
+        <PortalLink to={{ view: "trends" }} aria-current={route.view === "trends" ? "page" : undefined}>Trends</PortalLink>
       </nav>
       <div className="px-header-actions">
         <button type="button" className="px-header-button" onClick={onFindPot} aria-keyshortcuts="/" aria-label="Find pot">

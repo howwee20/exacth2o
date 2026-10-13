@@ -718,7 +718,8 @@ select {
 
 .portal-login-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
+  padding: clamp(24px, 4vw, 36px);
 }
 
 .portal-login-card h2 {
@@ -1038,7 +1039,9 @@ select {
 }
 
 .portal-submit-btn:disabled {
-  background: rgba(37, 99, 235, 0.44);
+  opacity: 1;
+  color: #526158;
+  background: #dce5df;
   cursor: not-allowed;
 }
 
@@ -8657,3 +8660,57 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
 }
 .portal-launch-card.is-experiment .portal-launch-copy { gap: 5px; }
 .experiment-view-description { color: #64748b; margin: 0 0 16px; }
+
+/* Experiment setup: a compact selection step and a separate, explicit review. */
+.experiment-builder.is-direct { width: min(1000px, 100%); }
+.experiment-builder-editable { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 20px; }
+.experiment-builder-review { align-content: start; }
+.experiment-builder-fields > label:first-child { grid-column: 1 / -1; }
+.experiment-builder-details { min-width: 0; color: #41584b; font-size: .78rem; }
+.experiment-builder-details > summary { cursor: pointer; padding: 8px 0; font-weight: 650; }
+.experiment-builder-details > .experiment-builder-fields { padding-top: 10px; }
+.experiment-builder-pot-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.experiment-builder-pot-tools > input { flex: 1 1 180px; width: auto; }
+.experiment-builder-pot-tools label { display: flex; align-items: center; gap: 6px; font-size: .72rem; }
+.experiment-builder-pot-tools input[type=checkbox] { width: 16px; min-height: 16px; accent-color: var(--portal-water); }
+.experiment-builder-pot-tools button, .experiment-builder-zone .experiment-builder-section-heading button { border: 0; background: transparent; color: #176449; font: inherit; font-size: .73rem; cursor: pointer; padding: 8px; text-decoration: underline; text-underline-offset: 3px; }
+.experiment-builder-zone + .experiment-builder-zone { margin-top: 14px; }
+.experiment-builder-zone h4 { margin: 0; font-size: .78rem; color: #52675c; }
+.experiment-builder-zone .experiment-builder-section-heading { margin-bottom: 4px; }
+.experiment-builder-bulk { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 16px; border: 1px solid #dbe6df; border-radius: 12px; background: #f8fbf9; }
+.experiment-builder-bulk label { display: grid; gap: 6px; font-size: .72rem; color: #41584b; font-weight: 650; }
+.experiment-builder-assignment { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 8px; padding: 12px; }
+.experiment-builder-assignment > strong { grid-column: 1 / -1; }
+.experiment-builder-plan-table { overflow-x: auto; }
+.experiment-builder-plan-table table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+.experiment-builder-plan-table th, .experiment-builder-plan-table td { padding: 10px 8px; border-bottom: 1px solid #dbe6df; text-align: left; }
+.experiment-builder-plan-table thead { color: #52675c; }
+.experiment-builder-preflight h3 { margin: 0; font-size: 1.2rem; }
+.experiment-builder-preflight { background: #fff; padding: 0; border: 0; gap: 14px; }
+.experiment-builder-confirm { padding: 14px; border-radius: 10px; background: #edf7f1; }
+.experiment-builder button:focus-visible, .experiment-builder summary:focus-visible { outline: 2px solid #176449; outline-offset: 3px; }
+.experiment-builder input:disabled, .experiment-builder select:disabled { background: #f0f3f1; color: #6a7b71; }
+.experiment-builder-complete { text-align: center; }
+.experiment-builder-complete .experiment-builder-details { width: min(560px, 100%); }
+@media (max-width: 700px) {
+  .experiment-builder-backdrop { padding: 10px; }
+  .experiment-builder { max-height: calc(100dvh - 20px); }
+  .experiment-builder-header { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 14px 16px; }
+  .experiment-builder-header h2 { font-size: 1.08rem; }
+  .experiment-builder-steps { grid-row: 2; grid-column: 1 / -1; justify-content: flex-start; }
+  .experiment-builder-header > button { grid-row: 1; grid-column: 2; }
+  .experiment-builder.is-direct .experiment-builder-review { padding: 18px 16px; }
+  .experiment-builder-mode-options { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .experiment-builder-mode-options button { padding: 10px 8px; min-height: 80px; }
+  .experiment-builder-mode-options button span { font-size: .66rem; }
+  .experiment-builder-pot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .experiment-builder-bulk, .experiment-builder-assignment { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .experiment-builder-pot-tools { gap: 6px; }
+  .experiment-builder-pot-tools label { flex-basis: 100%; }
+  .experiment-builder-actions { padding: 12px 16px; }
+  .experiment-builder-actions button { min-height: 44px; }
+  .experiment-builder-steps li { font-size: .65rem; }
+}
+
+.px-export-preview { min-height: 0; flex: 1; display: grid; }
+.px-export-preview iframe { width: 100%; height: 100%; min-height: 420px; border: 0; }
