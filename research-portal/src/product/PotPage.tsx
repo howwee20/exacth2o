@@ -176,7 +176,7 @@ export function PotPage({
                 return { title: formatMeasurementTime(best.timestampMs) ?? "", rows: [{ label: info.label, value: `${formatMeasureValue(best.value, measure)}${measure === "vwc" ? " VWC" : ""}` }] };
               }}
             />
-            {!sensing && measure === "vwc" ? <p className="px-muted px-small">Ticks along the bottom are valve openings recorded by the controller, not measured water.</p> : null}
+            {!sensing && measure === "vwc" ? <p className="px-muted px-small">Ticks show recorded valve openings, not water volume.</p> : null}
           </div>
           <ReadingEvidence pairing={pairing} reading={latestReading} assignment={assignment} valveEvents={valveEvents} />
           {children}

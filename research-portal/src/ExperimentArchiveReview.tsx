@@ -66,7 +66,7 @@ export function ExperimentArchiveReview({
       await onArchived();
     } catch (nextError) {
       setError(
-        nextError instanceof Error ? nextError.message : "Could not remove the experiment.",
+        nextError instanceof Error ? nextError.message : "Could not archive the experiment.",
       );
     } finally {
       setArchiving(false);
@@ -76,8 +76,8 @@ export function ExperimentArchiveReview({
   return (
     <section className="portal-inline-settings experiment-archive-review">
       <header>
-        <h2>Remove experiment</h2>
-        <button type="button" onClick={onClose} aria-label="Close removal review">
+        <h2>Archive experiment</h2>
+        <button type="button" onClick={onClose} aria-label="Close archive review">
           <X size={17} />
         </button>
       </header>
@@ -91,7 +91,7 @@ export function ExperimentArchiveReview({
           <div className="experiment-archive-complete">
             <span><Check size={18} /></span>
             <div>
-              <strong>{review.experiment_name} removed</strong>
+              <strong>{review.experiment_name} archived</strong>
               <p>Its readings and history remain saved.</p>
             </div>
             <button type="button" className="settings-secondary-button" onClick={onClose}>
@@ -120,7 +120,7 @@ export function ExperimentArchiveReview({
                     checked={confirmed}
                     onChange={(event) => setConfirmed(event.target.checked)}
                   />
-                  Remove this tile and preserve its history.
+                  Archive this experiment. Keep its readings and history.
                 </label>
                 <button
                   type="button"
@@ -131,7 +131,7 @@ export function ExperimentArchiveReview({
                   {archiving
                     ? <Loader2 className="chart-loading-spinner" size={15} />
                     : <Archive size={15} />}
-                  Remove
+                  Archive
                 </button>
               </>
             )}

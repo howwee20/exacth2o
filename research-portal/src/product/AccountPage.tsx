@@ -27,7 +27,7 @@ export function AccountPage({access}: {access: NonNullable<PortalAccess>}) {
       {error ? <p className="px-notice" role="alert">{error} <button className="px-button is-small" onClick={() => setRevision((current)=>current+1)}>Reload</button></p> : null}
       <label className="px-check"><input type="checkbox" disabled={loading||busy||Boolean(error)} checked={value("portal").enabled} onChange={(event)=>change("portal",event.target.checked)}/> In the portal</label>
       <label className="px-check"><input type="checkbox" disabled={loading||busy||Boolean(error)||!access.email} checked={value("email").enabled} onChange={(event)=>change("email",event.target.checked)}/> Email to {value("email").destination ?? access.email}</label>
-      <p className="px-muted px-small">Email delivery depends on the installation's notification service. Delivery status appears below; a saved preference does not confirm delivery.</p>
+      <p className="px-muted px-small">Check Recent notifications below for delivery status.</p>
       <button className="px-button" disabled={loading||busy||Boolean(error)} onClick={()=>void save()}>{busy?"Saving…":"Save preferences"}</button>{saved?<span role="status"> Preferences saved</span>:null}
       <h3>Recent notifications</h3>{loading?<p>Loading…</p>:notifications.length?<ul className="px-notification-list">{notifications.map((item)=><li key={item.id}><strong>{item.subject}</strong><span className="px-muted px-small">{new Date(item.created_at).toLocaleString()} · {item.channel} · {item.status}</span><p>{item.body}</p></li>)}</ul>:<p className="px-muted">No notifications available.</p>}
     </section>

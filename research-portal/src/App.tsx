@@ -59,6 +59,7 @@ import { loadLatestBenchLayout, loadPotBindings, recordBenchLayout, type BenchLa
 // reach researchers' browsers unless opened.
 const loadSettingsPanel = () => import("./settings/PortalSettingsPanel").then((module) => ({ default: module.PortalSettingsPanel }));
 const PortalSettingsPanel = lazyFeature(loadSettingsPanel);
+const ArchiveExperimentDialog = lazyFeature(() => import("./product/ArchiveExperimentDialog").then((module) => ({ default: module.ArchiveExperimentDialog })));
 const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
 const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
 const SalesSupportView = lazyFeature(() => import("./support/SalesSupportView").then((module) => ({ default: module.SalesSupportView })));
@@ -243,6 +244,7 @@ export default function App() {
   const [uiExperimentId, setUiExperimentId] = useState<ExperimentId>(selectedExperimentId);
   const [experimentCatalog, setExperimentCatalog] = useState<PortalExperiment[]>([]);
   const [experimentBuilderOpen, setExperimentBuilderOpen] = useState(false);
+  const [archivingExperiment, setArchivingExperiment] = useState<PortalExperiment | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [duplicateExperiment, setDuplicateExperiment] = useState<PortalExperiment | null>(null);
   const [editingExperiment, setEditingExperiment] = useState<PortalExperiment | null>(null);
@@ -3125,6 +3127,11 @@ export default function App() {
       {productHeader}
       {content}
       {experimentBuilder}
+      {archivingExperiment && canCreateExperiment ? <FeatureBoundary name="Archive experiment"><ArchiveExperimentDialog
+        projectId={activeProjectId} experiment={archivingExperiment.id}
+        onClose={() => setArchivingExperiment(null)}
+        onArchived={loadExperimentCatalog}
+      /></FeatureBoundary> : null}
       {settingsPanel}
       {exportOpen && routeExperiment ? <FeatureBoundary name="Experiment export"><ExperimentExport
         experiment={routeExperiment} pairings={sortedPairings} readings={experimentReadings}
@@ -3155,7 +3162,7 @@ export default function App() {
       </dl>
       {isAdmin ? <PortalLink className="px-button" to={{view:"health"}}>System health and diagnostics →</PortalLink> : null}
       <h2 className="px-section-title">Experiments on this controller</h2>
-      <ul className="px-notification-list">{availableExperiments.map((experiment) => <li key={experiment.id}><PortalLink to={{view:"experiment",experiment:experiment.id,tab:"pots",pot:null}}>{experiment.name}</PortalLink><span className="px-muted">{experiment.pairingNames.length} pots</span></li>)}</ul>
+      <ul className="px-notification-list">{availableExperiments.map((experiment) => <li key={experiment.id}><PortalLink to={{view:"experiment",experiment:experiment.id,tab:"pots",pot:null}}>{experiment.name}</PortalLink><span className="px-muted">{experiment.pairingNames.length} {experiment.pairingNames.length === 1 ? "pot" : "pots"}</span></li>)}</ul>
     </section>);
   }
 
@@ -3446,6 +3453,7 @@ export default function App() {
         setEditingExperiment(experiment);
         setExperimentBuilderOpen(true);
       }}
+      onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
         {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }}>Installation settings</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}

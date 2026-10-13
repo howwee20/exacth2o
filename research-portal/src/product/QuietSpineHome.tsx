@@ -33,11 +33,13 @@ function ExperimentOptions({
   experiment,
   canEdit,
   onEdit,
+  onArchive,
   recordAvailable,
 }: {
   experiment: PortalExperiment;
   canEdit: boolean;
   onEdit?: (experiment: PortalExperiment) => void;
+  onArchive?: (experiment: PortalExperiment) => void;
   recordAvailable: boolean;
 }) {
   const { copied, copy } = useCopyRoute();
@@ -74,6 +76,10 @@ function ExperimentOptions({
                 close(event.currentTarget);
                 onEdit(experiment);
               }}>Edit experiment</button>
+            {onArchive && experiment.mode === "observation" ? <button type="button" role="menuitem" disabled={experiment.status === "activating"} onClick={(event) => {
+              close(event.currentTarget);
+              onArchive(experiment);
+            }}>Archive experiment</button> : null}
           </>
         ) : null}
       </div>
@@ -87,6 +93,7 @@ function ExperimentCard({
   nowMs,
   canEdit,
   onEdit,
+  onArchive,
   recordAvailable,
 }: {
   experiment: PortalExperiment;
@@ -94,6 +101,7 @@ function ExperimentCard({
   nowMs: number;
   canEdit: boolean;
   onEdit?: (experiment: PortalExperiment) => void;
+  onArchive?: (experiment: PortalExperiment) => void;
   recordAvailable: boolean;
 }) {
   const count = experiment.pairingNames.length;
@@ -108,7 +116,7 @@ function ExperimentCard({
         <span className="px-exp-count">{count} {count === 1 ? "pot" : "pots"}</span>
         {mode ? <span className="px-exp-mode">{mode}</span> : null}
       </PortalLink>
-      <ExperimentOptions experiment={experiment} canEdit={canEdit} onEdit={onEdit} recordAvailable={recordAvailable} />
+      <ExperimentOptions experiment={experiment} canEdit={canEdit} onEdit={onEdit} onArchive={onArchive} recordAvailable={recordAvailable} />
       {issue ? (
         <p className={`px-exp-exception ${issue.primary.kind === "activation-failed" ? "is-bad" : ""}`}>
           <span aria-hidden="true">!</span>
@@ -159,6 +167,7 @@ export function QuietSpineHome({
   canCreate,
   onNewExperiment,
   onEditExperiment,
+  onArchiveExperiment,
   healthLink,
   machines,
   tools,
@@ -174,6 +183,7 @@ export function QuietSpineHome({
   canCreate: boolean;
   onNewExperiment: () => void;
   onEditExperiment: (experiment: PortalExperiment) => void;
+  onArchiveExperiment?: (experiment: PortalExperiment) => void;
   healthLink?: ReactNode;
   machines?: ReactNode;
   tools?: ReactNode;
@@ -218,6 +228,7 @@ export function QuietSpineHome({
                     nowMs={nowMs}
                     canEdit={canCreate}
                     onEdit={onEditExperiment}
+                    onArchive={onArchiveExperiment}
                     recordAvailable={recordAvailable}
                   />
                 </li>
@@ -243,6 +254,7 @@ export function QuietSpineHome({
                       nowMs={nowMs}
                       canEdit={canCreate}
                       onEdit={onEditExperiment}
+                      onArchive={onArchiveExperiment}
                       recordAvailable={recordAvailable}
                     />
                   </li>

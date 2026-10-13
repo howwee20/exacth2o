@@ -55,8 +55,7 @@ export function CopyableId({ value, label, maxLength = 22 }: { value?: string | 
   );
 }
 
-// Shown beside actions, never as a page banner: a request made while the
-// controller is away is only queued, and must not read as if it took effect.
+// Keep connection guidance beside the actions it affects.
 export function QueuedChangeNote({ presence }: { presence: ControllerPresence }) {
   if (presence.status === "online") return null;
   return (
@@ -64,8 +63,8 @@ export function QueuedChangeNote({ presence }: { presence: ControllerPresence })
       <WifiOff size={15} aria-hidden="true" />
       <span>
         {presence.status === "never"
-          ? "The controller has not connected yet. A change you request here is only queued; nothing changes until the controller connects and confirms it."
-          : "The controller is offline. A change you request here is only queued; nothing changes until the controller reconnects and confirms it."}
+          ? "Waiting for the controller to connect before settings can change."
+          : "Controller offline. Reconnect before changing settings."}
       </span>
     </p>
   );
