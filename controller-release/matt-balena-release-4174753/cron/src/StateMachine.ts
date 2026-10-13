@@ -213,6 +213,12 @@ class StateMachine {
       source: 'StateMachine'
     })
     this.valveService.closeAllValves()
+    // STOPPED cancels the queued close transition. Retire its active marker
+    // only after close-all succeeds; retain the per-pot pulse history/limits.
+    const activePulse = this.wateringPulseLedger.activePulse()
+    if (activePulse) {
+      await this.wateringPulseLedger.completeActive(activePulse.pairId)
+    }
     this.openValvePairId = null
     this.lastValveClosedAt = Date.now()
     console.log('All valves closed.')

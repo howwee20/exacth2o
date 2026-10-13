@@ -7,6 +7,24 @@ import { ValveService } from '../services/ValveService'
 import { MachineState } from '../types'
 
 describe('controller fail-safe transitions', () => {
+  it('retires the active pulse after stop closes the valves, retaining its history', async () => {
+    const machine = Object.create(StateMachine.prototype) as any
+    machine.state = MachineState.RUNNING
+    machine.apiService = { postData: jest.fn().mockResolvedValue(undefined) }
+    machine.eventQueueService = { stop: jest.fn().mockResolvedValue(undefined) }
+    const order: string[] = []
+    machine.valveService = { closeAllValves: jest.fn(() => order.push('closed')) }
+    machine.wateringPulseLedger = {
+      activePulse: () => ({ pairId: '712-1625' }),
+      completeActive: jest.fn(async () => { order.push('retired') }),
+    }
+    await machine.stopEventLoop()
+    expect(order).toEqual(['closed', 'retired'])
+    expect(machine.wateringPulseLedger.completeActive).toHaveBeenCalledWith('712-1625')
+    expect(machine.getState()).toBe(MachineState.STOPPED)
+    expect(machine.openValvePairId).toBeNull()
+  })
+
   it('does not report STOPPED when close-all cannot be confirmed', async () => {
     const machine = Object.create(StateMachine.prototype) as any
     machine.state = MachineState.RUNNING
@@ -18,10 +36,12 @@ describe('controller fail-safe transitions', () => {
       }),
     }
     machine.openValvePairId = '712-1625'
+    machine.wateringPulseLedger = { completeActive: jest.fn() }
 
     await expect(machine.stopEventLoop()).rejects.toThrow('relay close failed')
     expect(machine.getState()).toBe(MachineState.RUNNING)
     expect(machine.openValvePairId).toBe('712-1625')
+    expect(machine.wateringPulseLedger.completeActive).not.toHaveBeenCalled()
   })
 
   it('keeps a pairing in VALVE_OPEN when automatic closure is unconfirmed', async () => {
