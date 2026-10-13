@@ -7896,6 +7896,8 @@ select {
 }
 
 .experiment-builder-mode-options button {
+  min-width: 0;
+  white-space: normal;
   min-height: 72px;
   display: grid;
   align-content: center;
