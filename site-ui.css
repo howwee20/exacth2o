@@ -203,3 +203,19 @@ p { text-wrap: pretty; }
 @media (max-width: 520px) { .one-pot-stats dt { min-height: 3em; } }
 
 .one-pot-stats > div { display: grid; grid-template-rows: 1fr auto; }
+
+/* Public content remains readable without script-driven reveal effects. */
+.reveal { opacity: 1; transform: none; }
+body > nav { min-height: 73px; box-sizing: border-box; }
+.site-policy-links a { display: inline-flex; align-items: center; min-height: 44px; }
+@media (max-width: 700px) {
+  .cinema-actions { align-items: flex-start; }
+  .cinema-text-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .quote-section { padding-top: 112px; }
+  .q-sidebar { margin-bottom: 12px; }
+  .quote-inner { gap: 24px; }
+}
+
+.nav-links { margin: 0; padding: 0; list-style: none; }
+.q-direct { padding: 0; border: 0; box-shadow: none; background: transparent; }
+.q-direct-label { display: none; }

@@ -24,7 +24,7 @@
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #f4f1eb;
@@ -371,7 +371,7 @@ footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
 footer a:hover { color: var(--accent); }
 
 /* ── REVEAL ── */
-.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
 .reveal.visible { opacity: 1; transform: none; }
 
 /* ── ONE POT, YOUR TARGET (synthetic explainer; runs in the page, never connects to a controller) ── */
@@ -511,7 +511,7 @@ footer .footer-logo { flex: none; width: 126px; }
 <link rel="stylesheet" href="/site-brand-footer.css?v=7338f8de044a">
 <script src="/site-brand-footer.js?v=fb624af4c20d" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=20261012-dynamic-1">
+<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/">
 <meta property="og:type" content="website">
@@ -533,8 +533,8 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/applications">Applications</a></li>
     <li><a href="/about">About Us</a></li>
     <li><a href="/support">Support</a></li>
-    <li><a href="/quote">Get Quote</a></li>
-    <li><a href="/portal" class="nav-cta">Portal</a></li>
+    <li><a href="/quote">Request a quote</a></li>
+    <li><a href="/portal" class="nav-cta">Sign in</a></li>
   </ul>
   <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
@@ -546,8 +546,8 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
   <a href="/support" onclick="toggleMenu()">Support</a>
-  <a href="/quote" onclick="toggleMenu()">Get Quote</a>
-  <a href="/portal" onclick="toggleMenu()">Portal</a>
+  <a href="/quote" onclick="toggleMenu()">Request a quote</a>
+  <a href="/portal" onclick="toggleMenu()">Sign in</a>
 </div>
 <main id="main-content">
 
@@ -590,10 +590,10 @@ footer .footer-logo { flex: none; width: 126px; }
   </div>
   <div class="cinema-content">
     <h1 class="cinema-title" id="cinema-title">Exactly the <em>Water</em><br>Your Plants Need</h1>
-    <p class="cinema-copy">Sensor-based irrigation control with real-time web monitoring and control. Built for plant researchers, greenhouse operators, and teams who can't afford guesswork.</p>
+    <p class="cinema-copy">Sensor-based irrigation for plant research and greenhouses. Monitor moisture, set targets, and review each pot’s history.</p>
     <div class="cinema-actions">
       <a class="cinema-button" href="#system">Explore the system</a>
-      <a class="cinema-text-link" href="/quote">Discuss your setup</a>
+      <a class="cinema-text-link" href="/quote">Request a quote</a>
     </div>
     <p class="cinema-caption">Designed for controlled plant research.</p>
   </div>
@@ -609,8 +609,8 @@ footer .footer-logo { flex: none; width: 126px; }
       </div>
 
       <div class="strip-summary">
-        <p>See every pot clearly. Connect moisture readings, irrigation history, and experiment records in one research workspace.</p>
-        <a class="feature-link" href="/demo">Explore the portal <span aria-hidden="true">→</span></a>
+        <p>Moisture readings, irrigation history, and experiment records in one workspace.</p>
+        <a class="feature-link" href="/demo">Open sample workspace <span aria-hidden="true">→</span></a>
       </div>
     </div>
 
@@ -656,8 +656,8 @@ footer .footer-logo { flex: none; width: 126px; }
         <h2 class="section-title" id="software-tour-title">Follow every pot.<br>Understand every reading.</h2>
       </div>
       <div class="software-tour-intro">
-        <p>Choose individual pots, watch the traces change, and inspect the readings behind the chart. Then return to your comparison.</p>
-        <a class="feature-link" href="/demo">Try the sample workspace <span aria-hidden="true">→</span></a>
+        <p>Compare pots, inspect readings, and review recorded valve openings.</p>
+        <a class="feature-link" href="/demo">Open sample workspace <span aria-hidden="true">→</span></a>
       </div>
     </div>
     <figure class="software-tour-figure">
@@ -676,7 +676,7 @@ footer .footer-logo { flex: none; width: 126px; }
       <figcaption id="software-tour-caption"><span>Working demo interactions. Sample data.</span><span>43 seconds · Silent, with on-screen captions</span></figcaption>
       <details class="software-tour-transcript">
         <summary>Read the tour</summary>
-        <p>Open Experiment 1 in the sample workspace. Hide all traces, then select Pots 62 and 64 to compare their moisture histories. Add drought Pot 72 and remove Pot 64 to simplify the view. Open Pot 62, inspect a timestamp, and expand “Explain this reading” for its raw signal, calibration, and recorded valve events. Return to the preserved comparison, and restore all moisture traces.</p>
+        <p>Open Drought response in the sample workspace. Hide all traces, then select Pots 62 and 64 to compare their moisture histories. Add drought Pot 72 and remove Pot 64 to simplify the view. Open Pot 62, inspect a timestamp, and expand “Explain this reading” for its raw signal, calibration, and recorded valve events. Return to the preserved comparison, and restore all moisture traces.</p>
       </details>
       <p class="software-tour-error" id="softwareTourError" role="status" hidden>The video could not load. <a href="/media/software-tour-20261012-final.mp4">Open the video directly</a> or <a href="/demo">explore the demo</a>.</p>
     </figure>

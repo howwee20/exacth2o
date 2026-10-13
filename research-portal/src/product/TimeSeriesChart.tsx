@@ -149,6 +149,7 @@ export function TimeSeriesChart({
       onBlur={() => setCursor(null)}
     >
       {description ? <p id={descId} className="px-sr-only">{description}</p> : null}
+      {!compact && targets.length ? <div className="px-chart-target-legend">{targets.map((target) => <span key={target.label} style={{ color: target.color }}>{target.label}</span>)}</div> : null}
       {width > 0 ? (
         <svg width={width} height={height} aria-hidden="true">
           {yTicks.map((value) => (
@@ -210,11 +211,6 @@ export function TimeSeriesChart({
             <line key={`t${target.label}`} x1={margin.left} x2={margin.left + plotWidth} y1={y(target.value)} y2={y(target.value)} stroke={target.color} strokeWidth={1} strokeDasharray={target.dash ?? "1 0"} />
           ))}
           </g>
-          {!compact ? targets.map((target, index) => (
-            <text key={`tl${target.label}`} x={margin.left + plotWidth - 4} y={y(target.value) - 4 - (index % 2) * 0} textAnchor="end" className="px-chart-target" fill={target.color}>
-              {target.label}
-            </text>
-          )) : null}
           {ticks.map((tick, index) => {
             const tx = x(tick.timestampMs);
             if (tx < margin.left || tx > margin.left + plotWidth) return null;

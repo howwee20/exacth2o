@@ -26,7 +26,7 @@
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
@@ -130,7 +130,7 @@
   footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 
-  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
   .reveal.visible { opacity: 1; transform: none; }
 
   @media (max-width: 900px) {
@@ -209,7 +209,7 @@ footer .footer-logo { flex: none; width: 126px; }
 </style>
 <script src="/site-navigation.js" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=20261012-1">
+<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/quote">
 <meta property="og:type" content="website">
@@ -228,8 +228,8 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/applications">Applications</a></li>
     <li><a href="/about">About Us</a></li>
     <li><a href="/support">Support</a></li>
-    <li><a href="/quote" class="active">Get Quote</a></li>
-    <li><a href="/portal" class="nav-cta">Portal</a></li>
+    <li><a href="/quote" class="active">Request a quote</a></li>
+    <li><a href="/portal" class="nav-cta">Sign in</a></li>
   </ul>
   <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
@@ -239,8 +239,8 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
   <a href="/support" onclick="toggleMenu()">Support</a>
-  <a href="/quote" onclick="toggleMenu()">Get Quote</a>
-  <a href="/portal" onclick="toggleMenu()">Portal</a>
+  <a href="/quote" onclick="toggleMenu()">Request a quote</a>
+  <a href="/portal" onclick="toggleMenu()">Sign in</a>
 </div>
 <main id="main-content">
 
@@ -248,14 +248,8 @@ footer .footer-logo { flex: none; width: 126px; }
   <div class="quote-inner reveal">
 
     <div class="q-sidebar">
-      <div class="section-label">System planning</div>
       <h1 class="section-title">Request a quote</h1>
-      <p class="q-intro">Tell us what you grow and how your facility is set up. We’ll help size a system around your needs and budget.</p>
-      <div class="q-points">
-        <div class="q-point"><span class="q-point-icon">01</span><div><div class="q-point-title">Quick Response</div><div class="q-point-desc">Our team responds during business hours.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">02</span><div><div class="q-point-title">Tailored Solutions</div><div class="q-point-desc">Sized for your benches, pots, and irrigation zones.</div></div></div>
-        <div class="q-point"><span class="q-point-icon">03</span><div><div class="q-point-title">No Obligation</div><div class="q-point-desc">Free consultation and quote. No commitment required.</div></div></div>
-      </div>
+      <p class="q-intro">Tell us about your facility and research goals. We’ll follow up by email.</p>
       <div class="q-direct">
         <div class="q-direct-label">Direct Contact</div>
         <p>Prefer email?<br><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></p>
@@ -268,7 +262,7 @@ footer .footer-logo { flex: none; width: 126px; }
 
 
         <h2 class="form-title">Your project</h2>
-        <p class="form-subtitle">We’ll review your requirements and follow up by email.</p>
+
 
         <form id="quoteForm" novalidate>
           <!-- Honeypot anti-spam trap — bots fill this, humans don't see it -->
@@ -326,15 +320,15 @@ footer .footer-logo { flex: none; width: 126px; }
             <label for="potCount">Approximate pot count <span class="form-hint">(optional)</span></label><input id="potCount" name="potCount" type="text" inputmode="numeric" maxlength="30" placeholder="For example, 48 or 100–200">
           </div><div class="form-group">
             <label for="message">Project Details <span class="req">*</span></label>
-            <p class="form-hint" id="projectHint">Include your approximate pot count, growing media, irrigation zones, and research goals. Estimates are fine.</p>
+            <p class="form-hint" id="projectHint">Include growing media, irrigation zones, and research goals. Estimates are fine.</p>
             <textarea id="message" name="message" required aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="2900"></textarea>
               <p class="field-error" id="messageError" hidden></p>
           </div>
           <p class="validation-summary" id="validationSummary" role="alert" aria-atomic="true"></p>
           <div class="form-msg success" id="successMsg" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
           <div class="form-msg error" id="errorMsg" role="alert" aria-atomic="true" tabindex="-1"></div>
-          <button type="submit" class="submit-btn" id="submitBtn">Submit Quote Request</button>
-          <p class="form-hint">We review your setup, follow up by email to clarify requirements, and prepare a configuration and quote. <a href="/privacy">How we use your information</a>.</p>
+          <button type="submit" class="submit-btn" id="submitBtn">Request a quote</button>
+          <p class="form-hint"><a href="/privacy">How we use your information</a>.</p>
         </form>
       </div>
     </div>
@@ -498,7 +492,7 @@ footer .footer-logo { flex: none; width: 126px; }
       announce('exacth2o:quote-submit-failed', { submissionId, attempt, status: responseStatus });
       submitted = false; // allow retry on error
       btn.disabled = false;
-      btn.textContent = 'Submit Quote Request';
+      btn.textContent = 'Request a quote';
       errorMsg.textContent = 'Could not save request. Please email us directly at support@exacth2o.com.';
       errorMsg.style.display = 'block';
       focusNotice(errorMsg);

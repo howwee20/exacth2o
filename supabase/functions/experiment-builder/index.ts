@@ -113,7 +113,7 @@ Deno.serve(async (request) => {
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
   const model = Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
   const reasoningEffort = Deno.env.get("OPENAI_REASONING_EFFORT") || "none";
-  if (!supabaseUrl || !anonKey || !serviceKey || !openAiKey) {
+  if (!supabaseUrl || !anonKey || !serviceKey) {
     return response({ error: "Experiment builder is not configured." }, 503, origin);
   }
 
@@ -159,6 +159,11 @@ Deno.serve(async (request) => {
   const projectId = clean(body.project_id, 80);
   if (!action || !isUuid(projectId)) {
     return response({ error: "A valid action and project are required." }, 400, origin);
+  }
+
+  const usesLanguageModel = ["draft", "revise", "route", "assistant_chat", "settings_draft", "settings_revise", "schedule_draft", "monitor_draft"].includes(action);
+  if (usesLanguageModel && !openAiKey) {
+    return response({ error: "The assistant is unavailable. You can still create and edit experiments manually." }, 503, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceKey, {

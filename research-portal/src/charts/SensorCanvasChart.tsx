@@ -323,26 +323,6 @@ function SensorCanvasChartComponent({
         context.globalAlpha = 1;
       }
 
-      let previousLabelY = -Infinity;
-      for (const line of sortedTargets) {
-        const y = crispLine(yScale(line.value));
-        const color = targetColors[line.tone];
-        context.save();
-        context.font = compact ? "600 10px Instrument Sans, Arial, sans-serif" : "600 11px Instrument Sans, Arial, sans-serif";
-        const text = line.label;
-        const textWidth = context.measureText(text).width;
-        let labelY = y - (compact ? 8 : 9);
-        if (labelY - previousLabelY < (compact ? 13 : 15)) labelY = previousLabelY + (compact ? 13 : 15);
-        previousLabelY = labelY;
-        const labelX = margin.left + plotWidth - textWidth - 8;
-        context.fillStyle = "rgba(255, 255, 255, 0.94)";
-        context.fillRect(labelX - 4, labelY - 7, textWidth + 8, compact ? 13 : 15);
-        context.fillStyle = color;
-        context.textAlign = "left";
-        context.textBaseline = "middle";
-        context.fillText(text, labelX, labelY);
-        context.restore();
-      }
 
       context.restore();
     };
@@ -577,8 +557,9 @@ function SensorCanvasChartComponent({
         aria-label={compact ? chartLabel : undefined}
         aria-hidden={compact ? undefined : true}
       />
-      {!compact && (hasTreatments || hasGaps) ? (
+      {!compact && (hasTreatments || hasGaps || targetLines.length > 0) ? (
         <div className="chart-key" aria-hidden="true">
+          {targetLines.map((line) => <span key={`${line.label}-${line.value}`} style={{ color: targetColors[line.tone] }}><i className="is-dashed" />{line.label}</span>)}
           {hasTreatments ? <span><i className="is-solid" />Control</span> : null}
           {hasTreatments ? <span><i className="is-dashed" />Drought</span> : null}
           {hasGaps ? <span><i className="is-break" />Line break = no readings</span> : null}

@@ -162,7 +162,13 @@ export function potGroups(
       plannedTargets: [],
     });
   }
-  return Array.from(groups.values()).map((group, index) => ({ ...group, pattern: groupPattern(index) }));
+  return Array.from(groups.values()).map((group, index) => {
+    const pattern = groupPattern(index);
+    const treatment = group.levels.treatment?.toLowerCase();
+    if (treatment === "control") pattern.dash = null;
+    if (treatment === "drought") pattern.dash = "6 4";
+    return { ...group, pattern };
+  });
 }
 
 /** Pot number from a controller pairing name such as "Zone2-Pot17". */

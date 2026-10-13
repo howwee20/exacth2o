@@ -52,9 +52,17 @@ describe("experiment exports",()=>{
   const csv=experimentReadingsCsv({...input,experiment:{...experiment,name:"=SUM(1,1)"}});
   expect(csv).toContain("'=SUM(1,1)");expect(csv).toContain(",-1.2,");
  });
+ it("counts current pots separately while retaining historical measurements",()=>{
+  const scope={...experiment,pairingNames:["Pot1","Retired pot"]};
+  const report={...input,experiment:scope,currentExperiment:experiment,readings:[reading(end-10),reading(end-5,"Retired pot")],preserveRecordedLabels:true};
+  const brief=experimentBriefHtml(report);
+  expect(brief).toContain("1 current pots");
+  expect(brief).toContain("1 historical labels");
+  expect(experimentReadingsCsv(report)).toContain("Retired pot");
+ });
  it("states unavailable sources, reporting scope and historical plan boundaries",()=>{
   const brief=experimentBriefHtml({...input,problems:["Notes unavailable"]});
-  expect(brief).toContain("Notes unavailable");expect(brief).toContain("UTC");expect(brief).toContain("not necessarily the complete experiment");expect(brief).toContain("do not establish the controller target or calibration");
+  expect(brief).toContain("Notes unavailable");expect(brief).toContain("UTC");expect(brief).toContain("not necessarily the complete experiment");expect(brief).toContain("not historical settings at each reading");
  });
 });
 describe("measurement quality",()=>{

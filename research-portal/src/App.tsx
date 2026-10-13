@@ -217,7 +217,7 @@ export default function App() {
   const [controlError, setControlError] = useState<string | null>(null);
   const [data, setData] = useState<LoadState>(initialLoadState);
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
-  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessLoading, setAccessLoading] = useState(true);
   // The URL is the source of truth for what is on screen: Back, Forward, refresh and copied links work.
   const route = usePortalRoute();
   const portalView: PortalView = route.view === "experiment" || route.view === "pot"
@@ -1901,6 +1901,7 @@ export default function App() {
       if (!active) return;
       if (event === "PASSWORD_RECOVERY") { setAuthMode("set-password"); setSessionReady(false); return; }
       if (authMode === "set-password" || authMode === "accept-invite" || authMode === "recover") return;
+      if (session) setAccessLoading(true);
       setSessionReady(Boolean(session));
       if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
         setSessionRevision((current) => current + 1);
@@ -1909,6 +1910,7 @@ export default function App() {
 
     void supabase.auth.getSession().then(({ data: sessionData }) => {
       if (!active || authMode === "set-password" || authMode === "accept-invite") return;
+      if (sessionData.session) setAccessLoading(true);
       setSessionReady(Boolean(sessionData.session));
     });
 
@@ -2442,12 +2444,12 @@ export default function App() {
     const isRecovery = authMode === "recover";
     const showTermsAgreement = isInviteAccept;
     const termsRequired = isInviteAccept;
-    const authTitle = isRecovery ? "Reset your password" : isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign In";
+    const authTitle = isRecovery ? "Reset your password" : isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign in";
     const authNote = isRecovery ? "Enter your account email. We’ll send a secure reset link." : isPasswordSetup
       ? "Choose a password for this exactH2O account."
       : isInviteAccept
         ? "Use the invited email and choose a password."
-        : "Use your exactH2O account.";
+        : "Use your ExactH2O account.";
     const authSubmitText = isRecovery ? (loading ? "Sending…" : "Send reset link") : loading
       ? isPasswordSetup
         ? "Saving..."
@@ -2504,7 +2506,7 @@ export default function App() {
                 />
               </div> : null}
               <div className="portal-form-row">
-                {!isPasswordSetup ? (
+                {!isPasswordSetup && !isRecovery ? (
                   <label className="portal-check">
                     <input
                       type="checkbox"
@@ -2512,7 +2514,7 @@ export default function App() {
                       checked={rememberDevice}
                       onChange={(event) => setRememberDevice(event.target.checked)}
                     />
-                    <span>Remember</span>
+                    <span>Remember email</span>
                   </label>
                 ) : (
                   <span />
@@ -2626,7 +2628,7 @@ export default function App() {
       ? { status: "offline", lastSeenAt: presenceLastSeenMs }
       : presence.status === "never"
         ? { status: "unknown" }
-        : { status: "online" };
+        : { status: "online", lastSeenAt: presenceLastSeenMs };
   const portalExceptions = homeExceptions({
     experiments: availableExperiments,
     pairings: visiblePairings,
@@ -3345,12 +3347,13 @@ export default function App() {
         nowMs={clockNowMs}
         exceptions={portalExceptions}
         tabs={experimentTabs}
+        secondaryActions={canUseExperimentSettings ? <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate experiment</button> : null}
         actions={<>
           <button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button>
           {canUseExperimentSettings ? <>
             <button className="px-button is-small" onClick={() => { setEditingExperiment(routeExperiment);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Edit experiment</button>
             <button className="px-button is-small" onClick={() => { setSettingsSection("overview");prefetchSettings();setSettingsOpen(true); }}>Settings</button>
-            <button className="px-button is-small" onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate as draft</button>
+
           </> : null}
         </>}
       >
@@ -3378,7 +3381,7 @@ export default function App() {
         ) : (
           <div className="px-pots-tab">
             <ExperimentHistory key={routeExperiment.id} experiment={routeExperiment} pairings={sortedPairings} projectId={activeProjectId} deviceId={activeDeviceId} nowMs={clockNowMs}/>
-            <p className="px-muted px-small">Recent traces: {timeBounds ? `${formatMeasurementTime(timeBounds.startMs)} to ${formatMeasurementTime(timeBounds.endMs)}` : "No loaded readings"}. The recent view covers up to 72 hours and 50,000 readings. Explore history above for earlier dates.</p>
+            <p className="px-loaded-range">Loaded: {timeBounds ? `${formatMeasurementTime(timeBounds.startMs)}–${formatMeasurementTime(timeBounds.endMs)}` : "No readings"}</p>
             <div className="px-pot-chart" aria-label="Individual pot traces">{potsTabContent}</div>
             <details className="px-details px-pot-readings"><summary>Pot readings</summary><FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
               experiment={routeExperiment}
@@ -3433,7 +3436,7 @@ export default function App() {
       checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
       catalogError={experimentCatalogError}
       installation={installationState}
-      canCreate={canCreateExperiment}
+      canCreate={canCreateExperiment && catalogReady && Boolean(configState?.updated_at)}
       onNewExperiment={() => {
         setEditingExperiment(null);
         setDuplicateExperiment(null);

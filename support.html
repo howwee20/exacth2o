@@ -24,7 +24,7 @@
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
@@ -119,7 +119,7 @@
   footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
   footer a:hover { color: var(--accent); }
 
-  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
   .reveal.visible { opacity: 1; transform: none; }
 
   @media (max-width: 900px) {
@@ -169,7 +169,7 @@ footer .footer-logo { flex: none; width: 126px; }
 </style>
 <script src="/site-navigation.js" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=20261012-1">
+<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/support">
 <meta property="og:type" content="website">
@@ -188,8 +188,8 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/applications">Applications</a></li>
     <li><a href="/about">About Us</a></li>
     <li><a href="/support" class="active">Support</a></li>
-    <li><a href="/quote">Get Quote</a></li>
-    <li><a href="/portal" class="nav-cta">Portal</a></li>
+    <li><a href="/quote">Request a quote</a></li>
+    <li><a href="/portal" class="nav-cta">Sign in</a></li>
   </ul>
   <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
@@ -199,8 +199,8 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/applications" onclick="toggleMenu()">Applications</a>
   <a href="/about" onclick="toggleMenu()">About Us</a>
   <a href="/support" onclick="toggleMenu()">Support</a>
-  <a href="/quote" onclick="toggleMenu()">Get Quote</a>
-  <a href="/portal" onclick="toggleMenu()">Portal</a>
+  <a href="/quote" onclick="toggleMenu()">Request a quote</a>
+  <a href="/portal" onclick="toggleMenu()">Sign in</a>
 </div>
 
 <main class="support-shell">

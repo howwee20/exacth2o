@@ -8,7 +8,7 @@ import { PortalLink, useCopyRoute } from "./PortalLink";
 import "./product.css";
 
 export type InstallationState =
-  | { status: "online" }
+  | { status: "online"; lastSeenAt?: number | null }
   | { status: "offline"; lastSeenAt: number | null }
   | { status: "unknown" }
   | { status: "hidden" };
@@ -138,7 +138,7 @@ function InstallationNode({ state, checking, healthLink }: { state: Installation
         <span className="px-node-detail">Controller status unavailable</span>
       ) : checking ? (
         <span className="px-node-detail">Checking readings…</span>
-      ) : null}
+      ) : <span className="px-node-detail">Online{state.lastSeenAt ? ` · seen ${formatMeasurementTime(state.lastSeenAt)}` : ""}</span>}
       {healthLink}
     </div>
   );
@@ -187,9 +187,7 @@ export function QuietSpineHome({
   return (
     <section className="px-home" aria-label="Experiments">
       <div className="px-home-top">
-        <div className="px-home-heading"><h1 className="px-title">Experiments</h1><div className="px-home-links">
-          <PortalLink className="px-button is-small" to={{ view: "trends" }}>Trends</PortalLink>
-        </div></div>
+        <div className="px-home-heading"><h1 className="px-title">Experiments</h1></div>
         {canCreate ? (
           <button type="button" className="px-button is-primary" onClick={onNewExperiment}>
             <Plus size={16} aria-hidden="true" />

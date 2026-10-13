@@ -37,7 +37,7 @@ export type RecordItem = {
   title: string;
   detail?: string;
   pots: string[];
-  status?: "succeeded" | "failed" | "pending" | "rejected" | "approved" | "applied" | "requested" | null;
+  status?: "succeeded" | "failed" | "canceled" | "expired" | "unknown" | "pending" | "rejected" | "approved" | "applied" | "requested" | null;
   actor?: string | null;
   /** Who did it, when known; your own actions are not "new" to you. */
   actorId?: string | null;
@@ -182,7 +182,8 @@ function settingText(payload: Record<string, unknown> | null) {
 }
 
 const statusOf = (status: string): RecordItem["status"] =>
-  status === "succeeded" ? "succeeded" : status === "failed" || status === "expired" || status === "canceled" ? "failed" : "pending";
+  ["succeeded", "failed", "expired", "canceled", "unknown"].includes(status)
+    ? status as RecordItem["status"] : "pending";
 
 /** Commands that touch the experiment's pots (or the whole controller). */
 export function settingsItems(commands: readonly CommandRow[], experimentPots: readonly string[], experimentDatabaseId: string | null): RecordItem[] {
@@ -198,7 +199,7 @@ export function settingsItems(commands: readonly CommandRow[], experimentPots: r
     const calibrationName = typeof command.payload?.calibration_name === "string" ? command.payload.calibration_name : null;
     const label = controlCommandLabel(command.command_type) ?? command.command_type;
     const what = isCalibration
-      ? `Calibration ${calibrationName ?? ""} applied${touched.length ? ` to ${potsText(touched)}` : ""}`.replace(/\s+/g, " ")
+      ? `Calibration ${calibrationName ?? ""}${command.status === "succeeded" ? " applied" : " requested"}${touched.length ? ` to ${potsText(touched)}` : ""}`.replace(/\s+/g, " ")
       : command.command_type === "manual_water"
         ? `Manual watering requested for ${potsText(touched)}`
         : `${label}${touched.length ? ` for ${potsText(touched)}` : ""}`;
@@ -209,7 +210,11 @@ export function settingsItems(commands: readonly CommandRow[], experimentPots: r
       kind: isCalibration ? "calibration" : "settings",
       happenedAt: happened,
       recordedAt: Math.abs(happened - requested) > minute ? requested : null,
-      title: status === "failed" ? `${what} — did not complete` : status === "pending" ? `${what} — not yet confirmed by the controller` : what,
+      title: status === "failed" ? `${what} — failed`
+        : status === "canceled" ? `${what} — canceled`
+        : status === "expired" ? `${what} — expired before completion`
+        : status === "unknown" ? `${what} — outcome unknown`
+        : status === "pending" ? `${what} — awaiting controller confirmation` : what,
       detail: [settings, command.error ? `Controller reported: ${command.error}` : null, command.command_type === "manual_water" ? "A controller command, not measured water." : null].filter(Boolean).join(". ") || undefined,
       pots: touched,
       status,

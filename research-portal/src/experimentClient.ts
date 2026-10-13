@@ -155,6 +155,10 @@ export type ExperimentArchiveResponse = {
   history_preserved: true;
 };
 
+export class ExperimentRequestError extends Error {
+  constructor(message: string, readonly savedExperimentSlug?: string) { super(message); this.name = "ExperimentRequestError"; }
+}
+
 async function invokeExperimentBuilder<T>(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke<T>("experiment-builder", { body });
   if (error) {
@@ -163,11 +167,12 @@ async function invokeExperimentBuilder<T>(body: Record<string, unknown>) {
       const payload = await context.clone().json().catch(() => null) as {
         error?: string;
         validation_messages?: string[];
+        experiment_slug?: string;
       } | null;
       if (payload?.validation_messages?.length) {
         throw new Error(payload.validation_messages.join(" "));
       }
-      if (payload?.error) throw new Error(payload.error);
+      if (payload?.error) throw new ExperimentRequestError(payload.error, payload.experiment_slug);
     }
     throw error;
   }

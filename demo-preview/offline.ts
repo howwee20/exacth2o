@@ -1,7 +1,7 @@
 import { offlineQuery } from "../applications-preview/offlineQuery";
 // Demo portal backend: in-memory sample data, one shared read-only account, readings that keep arriving.
 // Nothing here reaches Supabase or a controller; the page's CSP allows no network connections.
-import {fixture,storedReadings,recordTables,walkerSnapshot,mixer,nextDemoSample} from './fixtures';
+import {fixture,storedReadings,recordTables,walkerSnapshot,mixer,nextDemoSample,sampleReadingAvailable} from './fixtures';
 import {demoAggregate} from './demoAggregates';
 export const demoAccount={email:'demo@exacth2o.com',password:'exacth2o-demo'};
 const sessionKey='exacth2o.portal.demoSession',handoffKey='exacth2o.portal.demoHandoff';
@@ -23,7 +23,7 @@ function nextReading(p:any){
 class DemoChannel{handlers:{table:string,handler:Handler}[]=[];timer:ReturnType<typeof setInterval>|null=null;
  on(_type:string,filter:any,handler:Handler){this.handlers.push({table:filter?.table,handler});return this;}
  subscribe(){channels.add(this);if(!this.timer&&this.handlers.some(h=>h.table==='sensor_readings'))this.timer=setInterval(()=>this.tick(),30000);return this;}
- tick(){for(const p of fixture.data.pairings){const row=nextReading(p);storedReadings.push(row);fixture.data.readings.push(row);for(const h of this.handlers)if(h.table==='sensor_readings')h.handler({new:row});}fixture.data.latestLiveReading=fixture.data.readings.at(-1);}
+ tick(){for(const p of fixture.data.pairings){if(!sampleReadingAvailable(p,Date.now()))continue;const row=nextReading(p);storedReadings.push(row);fixture.data.readings.push(row);for(const h of this.handlers)if(h.table==='sensor_readings')h.handler({new:row});}fixture.data.latestLiveReading=fixture.data.readings.at(-1);}
  close(){channels.delete(this);if(this.timer)clearInterval(this.timer);this.timer=null;this.handlers=[];}
 }
 const success=(data:unknown)=>Promise.resolve({data,error:null});
