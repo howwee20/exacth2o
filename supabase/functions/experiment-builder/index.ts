@@ -1006,11 +1006,10 @@ Deno.serve(async (request) => {
       }, 409, origin);
     }
 
-    const expectedInventory = clean(body.inventory_updated_at, 80);
-    if (!expectedInventory || expectedInventory !== configState.updated_at) {
-      return response({ error: "The pot inventory changed. Review the experiment again." }, 409, origin);
-    }
-
+    // updated_at advances on ordinary controller refreshes even when inventory
+    // is unchanged. Review the current inventory here; commit is bound to the
+    // reviewed configuration hash below, plus current occupancy/revision checks.
+    const expectedInventory = configState.updated_at;
     if (action === "preflight" || action === "edit_preflight") {
       return response({
         draft,
@@ -1048,7 +1047,6 @@ Deno.serve(async (request) => {
       const launchFingerprint = await sha256(JSON.stringify({
         draft,
         reviewedConfigHash,
-        expectedInventory,
         experimentId: existingExperiment?.id ?? null,
         expectedRevisionId: existingExperiment?.current_revision_id ?? null,
       }));

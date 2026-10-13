@@ -187,9 +187,16 @@ export function CalibrationStudio({
 
   useEffect(() => {
     setStudyName(experiment.id === "unavailable" ? "New calibration study" : `${experiment.name} calibration`);
-    setPairingName(pairings[0]?.name ?? "");
+  }, [experiment.id, experiment.name]);
+
+  useEffect(() => {
+    setPairingName((current) => pairings.some((pairing) => pairing.name === current)
+      ? current : pairings[0]?.name ?? "");
+  }, [pairings]);
+
+  useEffect(() => {
     void loadStudio();
-  }, [experiment.id, experiment.name, loadStudio, pairings]);
+  }, [loadStudio]);
 
   async function createStudy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -290,7 +297,7 @@ export function CalibrationStudio({
     setNotice(null);
     try {
       const measurements = parseCsv(await file.text());
-      if (measurements.length > 250) throw new Error("V1 accepts up to 250 rows per CSV upload.");
+      if (measurements.length > 250) throw new Error("Upload up to 250 rows at a time.");
       const matched = await insertMeasurements(measurements);
       setNotice(`${measurements.length} rows uploaded; ${matched} matched to ExactH2O readings.`);
       await loadStudio();
@@ -472,7 +479,7 @@ export function CalibrationStudio({
               <section className="calibration-pairs-card">
                 <div className="calibration-section-heading">
                   <div><h3>Matched readings</h3></div>
-                  <b>{studyObservations.length} rows</b>
+                  <b>{studyObservations.length} {studyObservations.length === 1 ? "row" : "rows"}</b>
                 </div>
                 {studyObservations.length ? (
                   <div className="calibration-table-wrap">

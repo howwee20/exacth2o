@@ -7,7 +7,7 @@ import type { useNoteOutbox } from "./useNoteOutbox";
 import "./product.css";
 
 const statusText: Record<string, string> = {
-  software_only: "Matched in software only — not physically confirmed",
+  software_only: "Physical pairing not yet checked",
   researcher_confirmed: "Confirmed at the bench by a researcher",
   delivery_verified: "Watering delivery verified",
   retired: "Retired",

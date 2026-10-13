@@ -28,6 +28,6 @@ export function ReadingEvidence({ pairing, reading, assignment, valveEvents }: {
     <p className="px-muted px-small">The reading stores its raw and calibrated values. The calibration and target above describe the current setup; consult the experiment Record for changes at an earlier time.</p>
     <h3 className="px-section-label">Valve records before this reading</h3>
     {recent.length ? <ul>{recent.map((event) => <li key={event.event_id}>{formatMeasurementTime(Date.parse(event.device_recorded_at))}{event.duration_ms != null ? ` · ${(event.duration_ms / 1000).toFixed(1)} seconds` : ""}</li>)}</ul> : <p className="px-muted">No earlier opening in the loaded window.</p>}
-    <p className="px-muted px-small">Valve records describe controller actions, not measured water delivery. Field notes appear below.</p>
+    <p className="px-muted px-small">Valve records show controller actions, not measured water volume.</p>
   </details>;
 }
