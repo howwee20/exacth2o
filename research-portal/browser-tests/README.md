@@ -1,6 +1,6 @@
 # Responsive acceptance
 
-The production Pages workflow runs these checks in Chromium, Firefox and WebKit before deploying. Six viewport sizes cover 320 to 3440 pixels, including a short laptop and phone viewport. Each engine checks 14 routes at each size, dialog fit, text enlargement, the pause control, deferred measurement loading, saved comparison restoration, the compact export header, provenance and video playback.
+The production Pages workflow runs these checks in Chromium, Firefox and WebKit before deploying. Six viewport sizes cover 320 to 3440 pixels, including a short laptop and phone viewport. Each engine checks 14 routes at each size, dialog fit, text enlargement, the pause control, deferred measurement loading, saved comparison restoration, the compact export header, provenance, video playback and the mobile Applications embed.
 
 Twenty-seven versioned screenshots cover Home, Traces and Sign in at phone, laptop and ultrawide sizes in all three engines. Time, locale and motion are fixed for reproducibility. View failed image differences and interaction traces in the `responsive-review` Actions artifact.
 

@@ -83,3 +83,18 @@ test('product showcase plays with the current poster and captions', async ({page
   expect(await video.evaluate((v: HTMLVideoElement) => ({duration:v.duration,width:v.videoWidth,height:v.videoHeight,error:v.error?.message ?? null}))).toEqual({duration:24,width:1920,height:1200,error:null});
   await expect(page.locator('track')).toHaveAttribute('src','/media/software-tour-20261013.vtt');
 });
+
+test('mobile Applications embed loads the current release and closes', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/applications');
+  const frameElement=page.locator('iframe.portal-demo-frame');
+  await expect(frameElement).toHaveAttribute('src',/index\.html\?v=[a-f0-9]+/);
+  await frameElement.scrollIntoViewIfNeeded();
+  const frame=page.frameLocator('iframe.portal-demo-frame');
+  await frame.getByRole('link',{name:'Crop comparison 24 pots',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeVisible();
+  await frame.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Crop water use'});
+  await expect(frame.locator('.px-trace-heading')).toContainText('3 of 24');
+  await page.getByRole('button',{name:'Close experiment',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeHidden();
+});

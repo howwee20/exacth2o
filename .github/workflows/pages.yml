@@ -25,7 +25,7 @@ jobs:
       - run: node scripts/build-product-release.mjs
       - name: Check committed release outputs
         run: |
-          git diff --exit-code -- portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
+          git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
           test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
       - name: Controller dashboard authentication checks
         run: python3 -m unittest discover -s controller-release/matt-balena-release-4174753/health -p 'test_*.py'
@@ -77,7 +77,7 @@ jobs:
           cp smart-scheduling-20260821.jpg sensor.jpg web-dashboard-20260804.jpg web-dashboard-20260831.webp easy-scaling-20260804.jpg data-visualization-20260804.jpg site-dist/
           cp product1.avif product2.avif product3.avif site-dist/
           cp sensor.avif site-dist/
-          cp portal-preview-20261013.jpg independent-irrigation-20261009-v2.jpg site-dist/
+          cp portal-preview-20261012.jpg portal-preview-20261013.jpg independent-irrigation-20261009-v2.jpg site-dist/
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
 
           cp -R applications-demo-app site-dist/
