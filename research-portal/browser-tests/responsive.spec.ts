@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 test.beforeEach(async ({page}) => { await page.clock.setFixedTime(new Date('2026-10-13T20:00:00Z')); });
 const sizes = [{width:320,height:568},{width:390,height:844},{width:768,height:1024},{width:1366,height:768},{width:1920,height:1080},{width:3440,height:1440}];
@@ -99,7 +99,18 @@ test('mobile Applications embed loads the current release and closes', async ({p
   await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeHidden();
 });
 
-test('footer water ignores stationary overscroll', async ({page}) => {
+// WebKitGTK in CI delivers mouse.wheel events without moving the document.
+// Supply that movement explicitly for its motion integration checks. Chromium
+// and Firefox use native wheel scrolling; macOS Safari is also checked natively.
+async function footerWheel(page:Page, browserName:string, deltaY:number) {
+  if(browserName!=='webkit') {await page.mouse.wheel(0,deltaY);return;}
+  await page.evaluate(delta => {
+    window.dispatchEvent(new WheelEvent('wheel',{deltaY:delta}));
+    window.scrollBy({top:delta,behavior:'instant'});
+  },deltaY);
+}
+
+test('footer water ignores stationary overscroll', async ({page,browserName}) => {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
   const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
@@ -108,22 +119,22 @@ test('footer water ignores stationary overscroll', async ({page}) => {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight-innerHeight-scrollY)).toBeLessThanOrEqual(3);
   await expect(level).toHaveAttribute('d',empty);
   // Real browser wheel input at rest cannot lift the water.
-  await page.mouse.move(400,400);await page.mouse.wheel(0,800);await page.waitForTimeout(150);
+  await page.mouse.move(400,400);await footerWheel(page,browserName,800);await page.waitForTimeout(150);
   await expect(level).toHaveAttribute('d',empty);
 });
 
-test('footer water stays quiet on a gentle arrival', async ({page}) => {
+test('footer water stays quiet on a gentle arrival', async ({page,browserName}) => {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
   const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
   await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-24,behavior:'instant'}));
   await page.waitForTimeout(200);await page.mouse.move(900,500);
-  for(let i=0;i<8;i++){await page.mouse.wheel(0,3);await page.waitForTimeout(70);}
+  for(let i=0;i<8;i++){await footerWheel(page,browserName,3);await page.waitForTimeout(70);}
   await expect(level).toHaveAttribute('d',empty);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight-innerHeight-scrollY)).toBeLessThanOrEqual(3);
 });
 
-test('footer water rises on a fast arrival and drains once', async ({page}, info) => {
+test('footer water rises on a fast arrival and drains once', async ({page,browserName}, info) => {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
   const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
@@ -138,7 +149,7 @@ test('footer water rises on a fast arrival and drains once', async ({page}, info
     },{passive:true});
   });
   await page.mouse.move(900,500);
-  await page.mouse.wheel(0,900);
+  await footerWheel(page,browserName,900);
   try {
     await expect.poll(() => level.getAttribute('d'),{intervals:[20,40,60]}).not.toBe(empty);
   } finally {
@@ -148,6 +159,6 @@ test('footer water rises on a fast arrival and drains once', async ({page}, info
   await page.waitForTimeout(180);
   await info.attach('footer-fast-arrival',{body:await page.screenshot(),contentType:'image/png'});
   await expect(level).toHaveAttribute('d',empty,{timeout:2500});
-  await page.mouse.wheel(0,900);await page.waitForTimeout(150);
+  await footerWheel(page,browserName,900);await page.waitForTimeout(150);
   await expect(level).toHaveAttribute('d',empty);
 });
