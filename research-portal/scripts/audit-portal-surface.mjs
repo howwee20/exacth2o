@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -73,7 +74,6 @@ const forbiddenApplicationsCopy = [
   ">72 hr</text>",
 ];
 const requiredApplicationsCopy = [
-  'src="/applications-demo-app/index.html"',
   'title="ExactH2O experiment portal"',
   "/applications-plant-stress-20260804.jpg",
   "/applications-plant-phenotyping-20260804.jpg",
@@ -120,6 +120,10 @@ if (missingApplicationsCopy.length) {
 
 // The public demo must stay a separate, network-disabled build.
 const demoFrame = applications.match(/<iframe\b[^>]*class="portal-demo-frame"[^>]*>/)?.[0];
+const expectedDemoVersion = createHash("sha256").update(demoPage).digest("hex").slice(0, 12);
+if (!demoFrame?.includes(`src="/applications-demo-app/index.html?v=${expectedDemoVersion}"`)) {
+  throw new Error("Applications demo URL must match its committed release version.");
+}
 const sandbox = demoFrame?.match(/sandbox="([^"]*)"/)?.[1].split(/\s+/) || [];
 // The demo is below the fold; it must not compete with the page's first render.
 if (!/\bloading="lazy"/.test(demoFrame || "")) {
