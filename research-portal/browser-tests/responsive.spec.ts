@@ -73,3 +73,13 @@ test('photo pause, deferred data and saved comparisons', async ({page}) => {
   await expect(page.getByRole('heading',{name:'Data source',exact:true})).toBeVisible();
   await expect(page.locator('.px-source-note')).toContainText('measurement values and intervals are unchanged');
 });
+
+test('product showcase plays with the current poster and captions', async ({page}) => {
+  await page.goto('/#software-tour');
+  const video=page.locator('#softwareTourVideo');
+  await expect(video).toHaveAttribute('poster','/media/software-tour-poster-20261013.jpg');
+  await page.getByRole('button',{name:'Watch the tour 0:24',exact:true}).click();
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(.1);
+  expect(await video.evaluate((v: HTMLVideoElement) => ({duration:v.duration,width:v.videoWidth,height:v.videoHeight,error:v.error?.message ?? null}))).toEqual({duration:24,width:1920,height:1200,error:null});
+  await expect(page.locator('track')).toHaveAttribute('src','/media/software-tour-20261013.vtt');
+});
