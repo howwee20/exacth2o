@@ -18,13 +18,16 @@ export function SavedTraceViews({ scope, experiment, names, visible, bounds, win
     ...(treatments.has('control') && treatments.has('drought') ? [{ id: 'preset-control', name: 'Control vs drought', pairingNames: experiment.assignments!.filter(a => a.treatment === 'control' || a.treatment === 'drought').map(a => a.pairing_name), range: null }] : []),
     ...(experiment.comparisonPresets ?? []).map((p, i) => ({ ...p, id: `preset-${i}`, range: null })),
   ];
+  const selectedView = [...presets, ...saved].find(v => v.id === selected);
+  const restoredSelection = selectedView ? restoreTraceView(selectedView, names, bounds) : null;
+  const selectionMatches = Boolean(restoredSelection?.names && restoredSelection.window && restoredSelection.names.length === visible.length && restoredSelection.names.every(n => visible.includes(n)) && Math.abs(restoredSelection.window.start - window.start) < .001 && Math.abs(restoredSelection.window.end - window.end) < .001);
   function persist(next: TraceView[]) {
     try { localStorage.setItem(key, JSON.stringify(next)); setSaved(next); return true; }
     catch { setNotice('This browser could not save the view.'); return false; }
   }
   return <div className="px-saved-views">
     <div className="px-saved-view-row">
-      <select aria-label="Comparison view" value={selected} onChange={event => {
+      <select aria-label="Comparison view" value={selectionMatches ? selected : ''} onChange={event => {
         const id = event.target.value; const view = [...presets, ...saved].find(v => v.id === id);
         setSelected(id); setNotice(''); if (!view) return;
         const restored = restoreTraceView(view, names, bounds);

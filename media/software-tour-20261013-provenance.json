@@ -1,0 +1,42 @@
+{
+  "created": "2026-10-13",
+  "durationSeconds": 24.0,
+  "dimensions": [
+    1920,
+    1200
+  ],
+  "method": "Edited showcase from real browser captures of the release. Subtle camera movement and short dissolves; no invented product screens.",
+  "scenes": [
+    {
+      "capture": "01-clean.png",
+      "title": "See the whole experiment.",
+      "context": "RECORDED DROUGHT DATA",
+      "sha256": "6d9326268c52526081944c786308ea11581a88df0140f7afb61bcc458be05076"
+    },
+    {
+      "capture": "02-recovery.png",
+      "title": "Compare the response.",
+      "context": "DERIVED RECOVERY SCENARIO",
+      "sha256": "b67de74576645e579fb4029806b378e8018aa66c91b9effd7d6834eb13d6c3aa"
+    },
+    {
+      "capture": "04-overlay.png",
+      "title": "Put irrigation in context.",
+      "context": "DERIVED RECOVERY SCENARIO",
+      "sha256": "04e9a49b177dc3b5a7dcb7694c7c97304f1c9e0caa5450d28f211e10bcf0906f"
+    },
+    {
+      "capture": "03-saved.png",
+      "title": "Pick up where you left off.",
+      "context": "SAVED COMPARISONS",
+      "sha256": "8f398ced05c1019d1c00fd20c81b8ecc2b0e4b95aa2b51e7f6ac9f18537ef9e8"
+    },
+    {
+      "capture": "05-export.png",
+      "title": "Take the full record with you.",
+      "context": "RECORDED MEASUREMENTS",
+      "sha256": "4bd142d72c0948b7ddcde3e5d9cb6cfe29b0705e486ba2a6f5b30f28e2a34350"
+    }
+  ],
+  "recordedData": "Binod CSV, unchanged measurement values, dates shifted for demo playback. Recovery and irrigation shots are derived demo scenarios."
+}

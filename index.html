@@ -521,7 +521,7 @@ footer .footer-logo { flex: none; width: 126px; }
 <meta property="og:title" content="exactH2O — Precision Irrigation System">
 <meta property="og:description" content="ExactH2O provides sensor-based irrigation control and web monitoring for plant research and greenhouse operations.">
 <meta property="og:url" content="https://exacth2o.com/">
-<meta property="og:image" content="https://exacth2o.com/portal-preview-20261012.jpg">
+<meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/software-tour.css?v=20261012-1">
 <script src="/software-tour.js?v=20261012-final-1" defer></script>
@@ -628,7 +628,7 @@ footer .footer-logo { flex: none; width: 126px; }
       </article>
       <article class="feat-card">
         <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Enlarge the research portal preview">
-          <img src="portal-preview-20261012.jpg" alt="ExactH2O research portal showing experiments and sensor readings" width="1728" height="940" loading="lazy" decoding="async">
+          <img src="portal-preview-20261013.jpg" alt="ExactH2O research portal showing experiments and sensor readings" width="1728" height="940" loading="lazy" decoding="async">
         </div>
         <h3>A complete experiment record</h3>
         <p>Compare readings, review irrigation history, and export data from the portal.</p>
@@ -666,23 +666,23 @@ footer .footer-logo { flex: none; width: 126px; }
     </div>
     <figure class="software-tour-figure">
       <div class="software-tour-player">
-        <video id="softwareTourVideo" controls playsinline preload="none" width="2560" height="1600" poster="/media/software-tour-poster-20261012-final.jpg" aria-label="43-second tour of the ExactH2O research portal" aria-describedby="software-tour-caption">
-          <source src="/media/software-tour-20261012-final.mp4" type="video/mp4">
-          <source src="/media/software-tour-20261012-final.webm" type='video/webm; codecs="vp9"'>
-          <track kind="captions" src="/media/software-tour-20261012-final.vtt" srclang="en" label="English">
-          <a href="/media/software-tour-20261012-final.mp4">Watch the software tour</a>
+        <video id="softwareTourVideo" controls playsinline preload="none" width="2560" height="1600" poster="/media/software-tour-poster-20261013.jpg" aria-label="24-second tour of the ExactH2O research portal" aria-describedby="software-tour-caption">
+          <source src="/media/software-tour-20261013.mp4" type="video/mp4">
+          <source src="/media/software-tour-20261013.webm" type='video/webm; codecs="vp9"'>
+          <track kind="captions" src="/media/software-tour-20261013.vtt" srclang="en" label="English">
+          <a href="/media/software-tour-20261013.mp4">Watch the software tour</a>
         </video>
         <button class="software-tour-play" id="softwareTourPlay" type="button" aria-controls="softwareTourVideo" hidden>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l14-8z"/></svg>
-          <span>Watch the tour</span><span class="software-tour-duration">0:43</span>
+          <span>Watch the tour</span><span class="software-tour-duration">0:24</span>
         </button>
       </div>
-      <figcaption id="software-tour-caption"><span>Explore experiment histories and readings.</span><span>43 seconds · Silent, with on-screen captions</span></figcaption>
+      <figcaption id="software-tour-caption"><span>Recorded drought data and a recovery comparison.</span><span>24 seconds · Silent, with on-screen titles</span></figcaption>
       <details class="software-tour-transcript">
         <summary>Read the tour</summary>
-        <p>The tour shows a pot comparison, a recorded reading with its calibration, and irrigation history.</p>
+        <p>See the complete recorded drought history from ten channels. Compare early and delayed recovery in a derived demo scenario, then view its irrigation markers alongside moisture. Save a comparison for later and export the original recorded measurements. Demo dates shift for playback; the source values are unchanged. Recovery and irrigation scenes are illustrative scenarios.</p>
       </details>
-      <p class="software-tour-error" id="softwareTourError" role="status" hidden>The video could not load. <a href="/media/software-tour-20261012-final.mp4">Open the video directly</a> or <a href="/demo">explore the demo</a>.</p>
+      <p class="software-tour-error" id="softwareTourError" role="status" hidden>The video could not load. <a href="/media/software-tour-20261013.mp4">Open the video directly</a> or <a href="/demo">explore the demo</a>.</p>
     </figure>
   </div>
 </section>
@@ -844,7 +844,9 @@ footer .footer-logo { flex: none; width: 126px; }
   function syncRotation() {
     clearInterval(rotationTimer);
     const contentFocused = cinema.contains(document.activeElement) && document.activeElement !== pauseButton;
-    pauseButton.textContent = paused ? 'Play photos' : 'Pause photos';
+    const label = paused ? 'Play photos' : 'Pause photos';
+    // Preserve the focused text node: WebKit cancels a click if focusin replaces it.
+    if (pauseButton.textContent !== label) pauseButton.textContent = label;
     pauseButton.setAttribute('aria-pressed', String(paused));
     if (!paused && cinemaVisible && !document.hidden && !contentFocused) {
       rotationTimer = setInterval(advance, 7000);
