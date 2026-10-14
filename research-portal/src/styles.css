@@ -8716,3 +8716,24 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
 
 .px-export-preview { min-height: 0; flex: 1; display: grid; }
 .px-export-preview iframe { width: 100%; height: 100%; min-height: 420px; border: 0; }
+
+/* Sign-in uses the same controls as the portal; keep clear of the fixed header. */
+.portal-login-card h2 { margin-bottom: 1.5rem; font-weight: 600; letter-spacing: -.025em; }
+.portal-login-card:has(.portal-login-note) h2 { margin-bottom: .55rem; }
+.portal-form-group label, .portal-check, .portal-top-links a {
+  font-family: var(--portal-sans); font-size: 13px; letter-spacing: 0; text-transform: none;
+}
+.portal-form-group label { font-weight: 600; }
+.portal-form-group input { border-radius: 6px; border-color: #aebfb4; }
+.portal-form-row { flex-wrap: wrap; gap: 10px 16px; }
+.portal-form-row button, .portal-top-links a { min-height: 40px; }
+.portal-top-links a { display: inline-flex; align-items: center; }
+.portal-submit-btn { font-family: var(--portal-sans); font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none; border-radius: 6px; background: #2456d6; }
+@media (max-width: 900px) { .portal-login-panel { padding: 112px 24px 40px; } }
+@media (max-width: 560px) {
+  .portal-topbar { flex-direction: row; align-items: center; gap: 16px; padding: 12px 20px; }
+  .portal-top-links { width: auto; }
+  .portal-logo { width: 138px; }
+  .portal-login-panel { padding: 96px 16px 32px; }
+  .portal-login-card { padding: 24px 20px; }
+}

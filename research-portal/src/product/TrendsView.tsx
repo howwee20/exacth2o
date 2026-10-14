@@ -43,7 +43,7 @@ export function TrendsView({
     <section className="px-page is-wide" aria-label="Trends">
       <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
       <h1 className="px-title">Trends</h1>
-      <p className="px-lede">Calibrated VWC for every running experiment over the last {Math.round(loadedWindowMs / 3_600_000)} hours. Lines are group medians of pots; bands are the lowest to highest pot. Open an experiment for its targets, pots and record.</p>
+      <p className="px-lede">Last {Math.round(loadedWindowMs / 3_600_000)} hours · calibrated VWC. Lines show group medians; bands show the range across pots.</p>
       {blocks.length ? blocks.map(({ experiment, grouping, lines }) => {
         const domain = waterlineDomain(lines);
         const chartLines: ChartLine[] = lines.map((line) => ({

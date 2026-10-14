@@ -1,81 +1,89 @@
-// Downward input at the page bottom lifts the water, then it drains.
+// A scroll-driven scanline rise, brief hold, and broken-line retreat.
 (() => {
   const logo = document.querySelector('.brand-finale');
   const surface = logo?.querySelector('.brand-water-level');
-  const water = logo?.querySelector('[clip-path="url(#brand-water-fill)"]');
-  if (!surface || !water) return;
+  if (!surface) return;
   const empty = 'M600 250H1040V260H600Z';
-  let height = 0, velocity = 0, frame = 0, previous = 0, started = 0;
-  let inputFrame = 0, pending = 0, inputAt = -Infinity;
-  let touchY = null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let frame = 0, inputFrame = 0, pending = 0, touchY = null;
+  let previousScroll = window.scrollY, previousTime = performance.now();
   function atBottom() {
-    const rect = logo.getBoundingClientRect();
     const page = document.scrollingElement || document.documentElement;
+    const rect = logo.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0 &&
       page.scrollHeight - window.innerHeight - window.scrollY <= 3;
   }
   function settle() {
-    cancelAnimationFrame(frame);
-    frame = 0; height = 0; velocity = 0;
-    water.style.opacity = '';
+    cancelAnimationFrame(frame); cancelAnimationFrame(inputFrame);
+    frame = inputFrame = pending = 0;
     surface.setAttribute('d', empty);
   }
-  function draw(now) {
-    if (document.hidden || !atBottom()) { settle(); return; }
-    const dt = Math.min((now - previous) / 1000, .025);
-    previous = now;
-    velocity -= 3.4 * dt;
-    height += velocity * dt;
-    if (height >= 1) { height = 1; velocity = Math.min(velocity, 0); }
-    if (height <= 0) { settle(); return; }
-    const y = 218 - height * 205;
-    const ripple = Math.sin((now - started) / 110) * 10 * Math.sin(Math.PI * height);
-    surface.setAttribute('d', `M600 ${y} Q660 ${y-8-ripple} 710 ${y} T820 ${y} T930 ${y} T1040 ${y} V260 H600Z`);
-    frame = requestAnimationFrame(draw);
-  }
-  function flushInput(now) {
-    inputFrame = 0;
-    // Coalesce the input without depending on browser or operating-system overscroll.
-    if (now - inputAt > 200) { pending = 0; return; }
-    if (!pending || !atBottom()) return;
-    const strength = Math.sqrt(Math.min(1, pending));
-    pending = 0;
-    if (frame) return;
-    velocity = .95 + 1.85 * strength;
-    previous = started = now;
+  function play(strength) {
+    if (frame || reducedMotion.matches || document.hidden || !atBottom()) return;
+    const rise = 100 + 400 * strength, hold = rise * .4, fall = rise * .9;
+    const rows = Math.max(1, Math.round(24 * strength));
+    let start;
+    function draw(now) {
+      if (reducedMotion.matches || document.hidden || !atBottom()) { settle(); return; }
+      start ??= now;
+      const elapsed = now - start;
+      if (elapsed >= rise + hold + fall) { settle(); return; }
+      const retreat = Math.max(0, (elapsed - rise - hold) / fall);
+      const fill = elapsed < rise ? 1 - (1 - elapsed / rise) ** 3 : 1 - retreat ** 2;
+      const count = Math.ceil(rows * fill);
+      const pulse = Math.sin(retreat * Math.PI);
+      let path = '';
+      for (let row = 0; row < count; row++) {
+        // Narrow gaps travel through the upper stripes as the fill recedes.
+        const position = row / Math.max(count, 1);
+        const spacing = .08 + pulse * .12;
+        const phase = (position % spacing) / spacing;
+        const gap = (.02 + pulse * .04) * (1 - position * .5) / spacing;
+        if (retreat > 0 && position ** 1.5 * pulse > .5 && phase > .3 && phase < .3 + gap) continue;
+        const y = 208 - row * 8;
+        path += `M600 ${y}h440v8H600Z`;
+      }
+      surface.setAttribute('d', path || empty);
+      frame = requestAnimationFrame(draw);
+    }
     frame = requestAnimationFrame(draw);
   }
   function input(strength) {
-    const now = performance.now();
-    if (reducedMotion.matches || !atBottom()) return;
-    if (now - inputAt > 200) pending = 0;
-    pending = Math.max(pending, Math.min(1, strength));
-    inputAt = now;
-    if (!inputFrame) inputFrame = requestAnimationFrame(flushInput);
+    if (frame || reducedMotion.matches || document.hidden || !atBottom()) return;
+    pending = Math.max(pending, Math.min(1, Math.max(0, strength)));
+    if (!inputFrame) inputFrame = requestAnimationFrame(() => {
+      inputFrame = 0;
+      const strength = pending; pending = 0;
+      if (strength) play(strength);
+    });
   }
+  window.addEventListener('scroll', () => {
+    const now = performance.now(), delta = window.scrollY - previousScroll;
+    const elapsed = Math.max(16, now - previousTime);
+    previousScroll = window.scrollY; previousTime = now;
+    if (delta > 0) input(delta / elapsed / 2);
+    else if (!atBottom()) settle();
+  }, { passive: true });
   window.addEventListener('wheel', event => {
     if (event.ctrlKey || event.deltaY <= 0) return;
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
     input(event.deltaY * unit / 300);
   }, { passive: true });
-  window.addEventListener('touchstart', event => {
-    touchY = event.touches[0]?.clientY ?? null;
-  }, { passive: true });
+  window.addEventListener('touchstart', event => { touchY = event.touches[0]?.clientY ?? null; }, { passive: true });
   window.addEventListener('touchmove', event => {
     const y = event.touches[0]?.clientY;
     if (touchY !== null && y !== undefined && touchY > y) input((touchY - y) / 100);
     touchY = y ?? null;
   }, { passive: true });
-  for (const type of ['touchend', 'touchcancel']) {
-    window.addEventListener(type, () => { touchY = null; }, { passive: true });
-  }
+  for (const type of ['touchend', 'touchcancel']) window.addEventListener(type, () => { touchY = null; }, { passive: true });
   window.addEventListener('keydown', event => {
     const target = event.target;
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
-        (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+        (target instanceof Element && target.closest('input, textarea, select, button, a, summary, [contenteditable="true"]'))) return;
     if (event.key === 'ArrowDown') input(.2);
     else if (event.key === 'PageDown' || event.key === 'End' || (event.key === ' ' && !event.shiftKey)) input(.8);
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) settle(); });
+  reducedMotion.addEventListener('change', settle);
+  window.addEventListener('pagehide', settle);
 })();

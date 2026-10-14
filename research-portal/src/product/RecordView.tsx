@@ -122,7 +122,7 @@ export function RecordView({
   }, [shown]);
 
   if (!experiment.databaseId) {
-    return <p className="px-empty">This experiment has no saved history yet (plan versions, controller commands, notes), so the Record is empty.</p>;
+    return <p className="px-empty">No experiment history yet.</p>;
   }
 
   return (
@@ -158,7 +158,7 @@ export function RecordView({
       </div>
 
       {lastSeenMs != null && fresh.size ? (
-        <p className="px-notice is-info" role="status"><b>{fresh.size} new</b> since you last looked ({formatMeasurementTime(lastSeenMs)}). They are marked below.</p>
+        <p className="px-notice is-info" role="status"><b>{fresh.size} new</b> since {formatMeasurementTime(lastSeenMs)}.</p>
       ) : null}
       {error ? <p className="px-notice is-bad" role="alert">{error}</p> : null}
       {sources?.problems.map((problem) => <p key={problem} className="px-notice is-bad" role="alert">{problem} The rest of the record is shown.</p>)}
@@ -166,7 +166,7 @@ export function RecordView({
       {sources ? <RecordLane items={shown} startMs={anchorMs - spanDays * day} endMs={anchorMs} kinds={kinds} /> : null}
 
       {loading && !sources ? <p className="px-empty">Loading the record…</p> : null}
-      {sources && !shown.length ? <p className="px-empty">Nothing of the selected kinds in the last {spanDays} days{pot ? ` for ${potsText([pot])}` : ""}.</p> : null}
+      {sources && !shown.length ? <p className="px-empty">No matching entries in the last {spanDays} days{pot ? ` for ${potsText([pot])}` : ""}.</p> : null}
 
       {byDay.map(([dayMs, list]) => (
         <section key={dayMs} className="px-record-day" aria-label={dayHeading.format(dayMs)}>

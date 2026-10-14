@@ -6,16 +6,16 @@ footer {
   flex-direction: row;
   justify-content: flex-end;
   align-items: flex-end;
-  min-height: clamp(190px, 17vw, 340px);
+  min-height: clamp(220px, 18vw, 360px);
   padding: 2rem clamp(1.5rem, 3.7vw, 4rem);
   overflow: hidden;
   isolation: isolate;
 }
 .brand-finale {
   position: absolute;
-  left: -.8vw;
+  left: 1.5vw;
   bottom: 0;
-  width: min(76vw, calc(100% - 300px));
+  width: min(71vw, calc(100% - 330px));
   transform: none;
   pointer-events: none;
   z-index: -1;
@@ -27,7 +27,11 @@ footer .footer-support { color: #d3d9d4; }
 footer .footer-copyright { color: #a5b1aa; }
 footer .made-in-america { margin-top: .15rem; }
 @media (max-width: 768px) {
-  footer { min-height: 230px; padding: 1.5rem; align-items: flex-start; }
-  .brand-finale { left: -1vw; right: auto; width: 100%; bottom: 0; transform: none; }
+  footer { min-height: calc(20vw + 190px); padding: 1.5rem; align-items: flex-start; }
+  .brand-finale { left: 20px; right: 20px; width: calc(100% - 40px); bottom: 12px; transform: none; }
   footer .footer-details { align-items: flex-end; text-align: right; }
 }
+
+footer .site-policy-links { font-family: var(--sans); letter-spacing: 0; gap: 16px; }
+footer .footer-details { max-width: 100%; }
+footer .footer-support { overflow-wrap: anywhere; }

@@ -2451,7 +2451,7 @@ export default function App() {
       ? "Choose a password for this exactH2O account."
       : isInviteAccept
         ? "Use the invited email and choose a password."
-        : "Use your ExactH2O account.";
+        : null;
     const authSubmitText = isRecovery ? (loading ? "Sending…" : "Send reset link") : loading
       ? isPasswordSetup
         ? "Saving..."
@@ -2478,7 +2478,7 @@ export default function App() {
         <section className="portal-login-panel" aria-label="Portal sign in">
           <div className="portal-login-card">
             <h2>{authTitle}</h2>
-            <p className="portal-login-note">{authNote}</p>
+            {authNote ? <p className="portal-login-note">{authNote}</p> : null}
 
             <form onSubmit={isRecovery ? requestPasswordReset : isPasswordSetup ? setAccountPassword : isInviteAccept ? acceptInvite : signIn}>
               {!isPasswordSetup ? (
@@ -2956,7 +2956,6 @@ export default function App() {
           >
           <section className="px-trace-controls">
             <div className="px-trace-heading"><h2>Visible traces</h2><span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span></div>
-            <p>Toggle a pot to compare. Open its details with the arrow.</p>
             <div className="px-trace-actions">
               <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
               <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>

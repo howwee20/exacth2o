@@ -114,7 +114,7 @@ export function FindPotDialog({
             <p className="px-muted" role="status">No pot on this controller matches “{query.trim()}”.</p>
           )
         ) : (
-          <p className="px-muted px-small">Type a pot number, e.g. 17. Pots are the controller's pairings for this project.</p>
+          <p className="px-muted px-small">Search by pot number or name.</p>
         )}
       </div>
     </div>

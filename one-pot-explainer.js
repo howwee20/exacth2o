@@ -210,8 +210,8 @@
     root.querySelector('#one-pot-openings').textContent = count;
     root.querySelector('#one-pot-mean').textContent = `${mean(selected).toFixed(1)}%`;
     root.querySelector('#one-pot-interval').textContent = `${longestInterval(selected).toFixed(1)} h`;
-    const direction = selectedValue <= 20 ? 'A longer dry-down, with fewer simulated openings.' : selectedValue <= 30 ? 'Drying stretches alternate with simulated watering.' : 'More frequent simulated watering holds moisture higher.';
-    result.textContent = `${count} simulated valve ${count === 1 ? 'opening' : 'openings'} over 3 days. ${direction}`;
+    const direction = selectedValue <= 20 ? 'Longer intervals between watering.' : selectedValue <= 30 ? '' : 'More frequent watering.';
+    result.textContent = `${count} valve ${count === 1 ? 'opening' : 'openings'} · 3 days. ${direction}`.trim();
     chart.setAttribute('aria-label', `Illustrative moisture simulation: ${selectedValue}% target over three days, with ${count} simulated valve ${count === 1 ? "opening" : "openings"}. Mean ${mean(selected).toFixed(1)}% VWC. Dashed gray is the same pot without irrigation.${comparing ? ' Compare the 18%, 26%, and 36% target lines.' : ''}${previousTarget != null ? ` The dotted line is your previous ${previousTarget}% target.` : ''}`);
     for (const button of presets) {
       const value = Number(button.dataset.onePotTarget);

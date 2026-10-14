@@ -1402,3 +1402,16 @@
 .px-archive-dialog { width:min(540px,calc(100% - 32px)); max-height:calc(100dvh - 48px); padding:0; border:1px solid var(--px-rule); border-radius:12px; background:var(--px-white); color:var(--px-ink); }
 .px-archive-dialog::backdrop { background:rgba(14,26,20,.36); }
 .px-archive-dialog .experiment-archive-review { margin:0; border:0; }
+
+/* Keep compact controls usable with text zoom and narrow browser windows. */
+.px-toolbar > *, .px-exp-head-row > *, .px-dialog-heading > * { min-width: 0; }
+.px-toolbar input, .px-toolbar select { max-width: 100%; }
+.px-dialog-heading h2, .px-export-dialog h2 { overflow-wrap: anywhere; }
+.px-export-dialog > header { gap: 12px; }
+.px-export-dialog > header > div { min-width: 0; }
+.px-export-dialog > header > button { flex-shrink: 0; }
+.px-trace-controls .px-trace-actions { margin-top: 12px; }
+@media (max-width: 480px) {
+  .px-export-dialog .px-toolbar > label { width: 100%; }
+  .px-export-dialog .px-toolbar select { width: 100%; }
+}

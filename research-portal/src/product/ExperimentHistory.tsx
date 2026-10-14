@@ -71,7 +71,7 @@ export function ExperimentHistory({experiment, pairings, projectId, deviceId, no
   const pad=Math.max(1,(high-low)*.1);
   const units={vwc:"VWC %",raw:"Raw sensor output",temperature:"Temperature · sensor units",ec:"EC · sensor units"};
   return <details className="px-card px-history-range" open={open} onToggle={(event)=>{const next=event.currentTarget.open;setOpen(next);if(next&&!window)apply(experiment.startedAt?Date.parse(experiment.startedAt):end-14*day,end);}}>
-    <summary>Earlier dates and export history</summary>
+    <summary>History</summary>
     {open ? <>
       <form className="px-history-toolbar" onSubmit={(event)=>{event.preventDefault();apply(Date.parse(startText),Date.parse(endText));}}>
         <label>Start (local time)<input type="datetime-local" required value={startText} onChange={(e)=>setStartText(e.target.value)}/></label>
@@ -81,7 +81,7 @@ export function ExperimentHistory({experiment, pairings, projectId, deviceId, no
         <button className="px-button" type="button" disabled={loading} onClick={()=>apply(Math.max(end-14*day,experiment.startedAt?Date.parse(experiment.startedAt):-Infinity),end)}>Last 14 days</button>
         <label>Measure<select value={measure} onChange={(e)=>setMeasure(e.target.value as Measure)}>{Object.entries(units).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
       </form>
-      {loading ? <p role="status">Loading stored history… Recent traces remain available below.</p> : error ? <p className="px-notice is-bad" role="alert">{error} <button className="px-button is-small" onClick={()=>setRevision(r=>r+1)}>Retry</button></p> : <>
+      {loading ? <p role="status">Loading history…</p> : error ? <p className="px-notice is-bad" role="alert">{error} <button className="px-button is-small" onClick={()=>setRevision(r=>r+1)}>Retry</button></p> : <>
         <p className="px-muted px-small">{buckets.reduce((n,b)=>n+b.readings,0).toLocaleString()} stored readings · {Math.round(bucketMs/60000)}-minute averages · gaps are preserved. Use Export for full-resolution measurements.</p>
         <div className="px-history-layout">
           <div>{!values.length ? <p className="px-empty" role="status">{hidden.size===pairings.length ? "Select a pot to show its history." : "No readings in this range."}</p> : window ? <TimeSeriesChart lines={lines} domain={window} yDomain={[low-pad,high+pad]} height={420} responsive ariaLabel={`Experiment history, ${units[measure]}`} description="Stored readings averaged within the stated time buckets. Arrow keys inspect bucket means. Exports retain original readings." readout={(at)=>({title:new Date(at).toLocaleString(),rows:lines.flatMap((line)=>{const points=line.segments.flat();const point=points.find((p)=>p.timestampMs<=at&&at<p.timestampMs+bucketMs);return point?[{label:line.label,value:`${point.value.toFixed(2)} mean`}]:[]}).slice(0,10)})}/> : null}</div>

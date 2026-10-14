@@ -246,7 +246,7 @@ export function WorkbenchView({
   const exportReady = Boolean(result && !loading && stats.failed === 0 && !eventsError && eventKey === loadedEventKey);
 
   if (!experiments.length) {
-    return <section className="px-page"><h1 className="px-title">Workbench</h1><p className="px-empty">No experiment is visible to this account, so there is nothing to compare.</p></section>;
+    return <section className="px-page"><h1 className="px-title">Workbench</h1><p className="px-empty">No experiments available.</p></section>;
   }
 
   const owner = Boolean(current && userId && current.created_by === userId);
@@ -408,7 +408,7 @@ export function WorkbenchView({
                 {!questionOk && editable ? <span className="px-muted px-small">Enter a name to save this comparison.</span> : null}
                 {current ? <button type="button" className="px-button is-small is-quiet" onClick={() => void copy({ view: "workbench", comparison: current.id, experiment: null })}>{copied ?? "Copy link"}</button> : null}
               </div>
-              {current && !owner ? <p className="px-muted px-small">Saved by {current.author_label} and shared with the project. You can explore and export it; only they can change it or its exclusions.</p> : null}
+              {current && !owner ? <p className="px-muted px-small">Shared by {current.author_label}. Only the author can edit this comparison.</p> : null}
 
               <div className="px-toolbar px-wb-controls">
                 <label className="px-select">
@@ -497,7 +497,7 @@ export function WorkbenchView({
               <p className="px-muted px-small" role="status" aria-live="polite">
                 {loading ? "Loading…" : `${formatTime(new Date(range.queryStartMs).toISOString())} – ${formatTime(new Date(range.endMs).toISOString())} · ${range.bucketMs >= 3_600_000 ? `${range.bucketMs / 3_600_000}-hour` : `${range.bucketMs / 60_000}-minute`} buckets`}
               </p>
-              {range.clipped ? <p className="px-notice" role="status">The range was cut to the most recent 120 days, the longest one comparison covers.</p> : null}
+              {range.clipped ? <p className="px-notice" role="status">Showing the latest 120 days.</p> : null}
               {stats.failed ? <p className="px-notice is-bad" role="alert">{stats.failed} of {stats.requests} data requests failed, so the figure, statistics and exports are incomplete. <button type="button" className="px-link-button" onClick={() => setAnchorMs(Date.now())}>Try again</button></p> : null}
 
               {chart ? (
@@ -569,7 +569,7 @@ export function WorkbenchView({
                   </table>
                 </div>
               ) : null}
-              {definition.hiddenGroups.length ? <p className="px-muted px-small">Hiding a group only changes the figure. Its statistics stay above and its data stays in every export.</p> : null}
+              {definition.hiddenGroups.length ? <p className="px-muted px-small">Hidden groups remain in statistics and exports.</p> : null}
 
               <details className="px-definition">
                 <summary>How these numbers are made</summary>
