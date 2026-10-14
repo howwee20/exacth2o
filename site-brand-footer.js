@@ -6,7 +6,7 @@
   const empty = 'M600 250H1040V260H600Z';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let frame = 0, touchY = null;
-  let gestureAt = -Infinity, samples = [];
+  let gestureAt = -Infinity, travel = 0, peakSpeed = 0;
   let previousScroll = window.scrollY, previousTime = performance.now();
   let wasAtBottom = atBottom();
   function atBottom() {
@@ -55,19 +55,21 @@
     const delta = y - previousScroll, elapsed = now - previousTime;
     const bottom = atBottom(), arriving = bottom && !wasAtBottom;
     previousScroll = y; previousTime = now; wasAtBottom = bottom;
-    if (delta <= 0 || elapsed > 160) samples = [];
-    if (delta > 0) samples.push({ at: now, distance: delta, speed: delta / Math.max(16, Math.min(elapsed, 100)) });
-    samples = samples.filter(sample => now - sample.at <= 120);
+    if (delta <= 0 || elapsed > 160) { travel = 0; peakSpeed = 0; }
+    if (delta > 0) {
+      travel += delta;
+      peakSpeed = Math.max(peakSpeed, delta / Math.max(16, Math.min(elapsed, 100)));
+    }
     // Preserve the gesture through continuous touch/trackpad momentum.
     if (delta > 0 && now - gestureAt <= 180) gestureAt = now;
     if (!bottom) { if (frame) settle(); return; }
     // Use actual page travel, not wheel deltas: overscrolling an already stationary
     // footer must never trigger a new fill. A slow arrival stays quiet as well.
     if (!arriving || now - gestureAt > 180) return;
-    const travel = samples.reduce((sum, sample) => sum + sample.distance, 0);
-    const speed = Math.max(0, ...samples.map(sample => sample.speed));
-    samples = [];
-    if (travel >= 90 && speed >= 1.2) play(Math.min(1, speed / 3));
+    // Native smooth scrolling slows the last few pixels even after a fast swipe.
+    // Retain the speed of this uninterrupted downward gesture until it lands.
+    if (travel >= 90 && peakSpeed >= 1.2) play(Math.min(1, peakSpeed / 3));
+    travel = 0; peakSpeed = 0;
   }, { passive: true });
   // Passive input may arrive after the compositor has moved the page. Use the
   // last processed scroll position so that the final wheel still counts.
@@ -84,7 +86,7 @@
   window.addEventListener('keydown', () => { gestureAt = -Infinity; });
   window.addEventListener('resize', () => {
     previousScroll = window.scrollY; previousTime = performance.now();
-    wasAtBottom = atBottom(); samples = []; gestureAt = -Infinity;
+    wasAtBottom = atBottom(); travel = 0; peakSpeed = 0; gestureAt = -Infinity;
     settle();
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) settle(); });

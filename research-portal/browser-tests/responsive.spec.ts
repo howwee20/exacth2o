@@ -111,14 +111,28 @@ test('footer water requires a fast arrival and ignores stationary overscroll', a
   await page.mouse.move(400,400);await page.mouse.wheel(0,800);await page.waitForTimeout(150);
   await expect(level).toHaveAttribute('d',empty);
   // Approach slowly over the final few pixels.
-  await page.evaluate(() => window.scrollTo(0,document.documentElement.scrollHeight-innerHeight-24));
+  await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-24,behavior:'instant'}));
   await page.waitForTimeout(200);
   for(let i=0;i<8;i++){await page.mouse.wheel(0,3);await page.waitForTimeout(70);}
   await expect(level).toHaveAttribute('d',empty);
   // A fast downward gesture that actually travels into the bottom triggers once.
-  await page.evaluate(() => window.scrollTo(0,document.documentElement.scrollHeight-innerHeight-450));
-  await page.waitForTimeout(200);await page.mouse.wheel(0,900);
-  await expect.poll(() => level.getAttribute('d'),{intervals:[20,40,60]}).not.toBe(empty);
+  await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-450,behavior:'instant'}));
+  await expect.poll(() => page.evaluate(() => Math.abs(document.documentElement.scrollHeight-innerHeight-scrollY-450))).toBeLessThanOrEqual(1);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const events: {type:string,at:number,y:number,remaining:number}[]=[];
+    Object.assign(window,{footerMotionProbe:events});
+    for(const type of ['wheel','scroll'])window.addEventListener(type,() => {
+      if(events.length<120)events.push({type,at:performance.now(),y:scrollY,remaining:document.documentElement.scrollHeight-innerHeight-scrollY});
+    },{passive:true});
+  });
+  await page.mouse.wheel(0,900);
+  try {
+    await expect.poll(() => level.getAttribute('d'),{intervals:[20,40,60]}).not.toBe(empty);
+  } finally {
+    const events=await page.evaluate(() => (window as unknown as {footerMotionProbe:unknown[]}).footerMotionProbe);
+    await info.attach('footer-scroll-timing',{body:JSON.stringify(events),contentType:'application/json'});
+  }
   await page.waitForTimeout(180);
   await info.attach('footer-fast-arrival',{body:await page.screenshot(),contentType:'image/png'});
   await expect(level).toHaveAttribute('d',empty,{timeout:2500});

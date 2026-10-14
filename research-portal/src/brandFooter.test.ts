@@ -54,6 +54,11 @@ describe('footer arrival animation', () => {
     for(let y=100;y<=1000;y+=100)h.scroll(y,60);
     h.tick();h.tick(200);expect(h.path()).toContain('h440');
   });
+  it('keeps a fast arrival through native smooth-scroll deceleration', () => {
+    const h=harness(550);h.events.wheel({deltaY:900});
+    for(const y of [750,870,930,960,980,990,995,998,1000])h.scroll(y,30);
+    h.tick();h.tick(200);expect(h.path()).toContain('h440');
+  });
   it('does not animate for programmatic, keyboard or zoom navigation', () => {
     for(const reason of ['programmatic','keyboard','zoom']) {
       const h=harness();
