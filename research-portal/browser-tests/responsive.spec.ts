@@ -99,7 +99,7 @@ test('mobile Applications embed loads the current release and closes', async ({p
   await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeHidden();
 });
 
-test('footer water requires a fast arrival and ignores stationary overscroll', async ({page}, info) => {
+test('footer water ignores stationary overscroll', async ({page}) => {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
   const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
@@ -110,12 +110,23 @@ test('footer water requires a fast arrival and ignores stationary overscroll', a
   // Real browser wheel input at rest cannot lift the water.
   await page.mouse.move(400,400);await page.mouse.wheel(0,800);await page.waitForTimeout(150);
   await expect(level).toHaveAttribute('d',empty);
-  // Approach slowly over the final few pixels.
+});
+
+test('footer water stays quiet on a gentle arrival', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.goto('/');
+  const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
   await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-24,behavior:'instant'}));
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(200);await page.mouse.move(900,500);
   for(let i=0;i<8;i++){await page.mouse.wheel(0,3);await page.waitForTimeout(70);}
   await expect(level).toHaveAttribute('d',empty);
-  // A fast downward gesture that actually travels into the bottom triggers once.
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight-innerHeight-scrollY)).toBeLessThanOrEqual(3);
+});
+
+test('footer water rises on a fast arrival and drains once', async ({page}, info) => {
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.goto('/');
+  const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
   await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-450,behavior:'instant'}));
   await expect.poll(() => page.evaluate(() => Math.abs(document.documentElement.scrollHeight-innerHeight-scrollY-450))).toBeLessThanOrEqual(1);
   await page.waitForTimeout(200);
@@ -126,6 +137,7 @@ test('footer water requires a fast arrival and ignores stationary overscroll', a
       if(events.length<120)events.push({type,at:performance.now(),y:scrollY,remaining:document.documentElement.scrollHeight-innerHeight-scrollY});
     },{passive:true});
   });
+  await page.mouse.move(900,500);
   await page.mouse.wheel(0,900);
   try {
     await expect.poll(() => level.getAttribute('d'),{intervals:[20,40,60]}).not.toBe(empty);
