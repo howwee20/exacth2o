@@ -77,11 +77,11 @@ test('photo pause, deferred data and saved comparisons', async ({page}) => {
 test('product showcase plays with the current poster and captions', async ({page}) => {
   await page.goto('/#software-tour');
   const video=page.locator('#softwareTourVideo');
-  await expect(video).toHaveAttribute('poster','/media/software-tour-poster-20261013.jpg');
+  await expect(video).toHaveAttribute('poster','/media/software-tour-poster-cursor-20261013.jpg');
   await page.getByRole('button',{name:'Watch the tour 0:24',exact:true}).click();
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(.1);
   expect(await video.evaluate((v: HTMLVideoElement) => ({duration:v.duration,width:v.videoWidth,height:v.videoHeight,error:v.error?.message ?? null}))).toEqual({duration:24,width:1920,height:1200,error:null});
-  await expect(page.locator('track')).toHaveAttribute('src','/media/software-tour-20261013.vtt');
+  await expect(page.locator('track')).toHaveAttribute('src','/media/software-tour-cursor-20261013.vtt');
 });
 
 test('mobile Applications embed loads the current release and closes', async ({page}) => {
@@ -97,4 +97,31 @@ test('mobile Applications embed loads the current release and closes', async ({p
   await expect(frame.locator('.px-trace-heading')).toContainText('3 of 24');
   await page.getByRole('button',{name:'Close experiment',exact:true}).click();
   await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeHidden();
+});
+
+test('footer water requires a fast arrival and ignores stationary overscroll', async ({page}, info) => {
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.goto('/');
+  const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
+  await expect(page.locator('#brand-water-lines rect')).toHaveAttribute('fill','#91e4d2');
+  await page.keyboard.press('End');
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight-innerHeight-scrollY)).toBeLessThanOrEqual(3);
+  await expect(level).toHaveAttribute('d',empty);
+  // Real browser wheel input at rest cannot lift the water.
+  await page.mouse.move(400,400);await page.mouse.wheel(0,800);await page.waitForTimeout(150);
+  await expect(level).toHaveAttribute('d',empty);
+  // Approach slowly over the final few pixels.
+  await page.evaluate(() => window.scrollTo(0,document.documentElement.scrollHeight-innerHeight-24));
+  await page.waitForTimeout(200);
+  for(let i=0;i<8;i++){await page.mouse.wheel(0,3);await page.waitForTimeout(70);}
+  await expect(level).toHaveAttribute('d',empty);
+  // A fast downward gesture that actually travels into the bottom triggers once.
+  await page.evaluate(() => window.scrollTo(0,document.documentElement.scrollHeight-innerHeight-450));
+  await page.waitForTimeout(200);await page.mouse.wheel(0,900);
+  await expect.poll(() => level.getAttribute('d'),{intervals:[20,40,60]}).not.toBe(empty);
+  await page.waitForTimeout(180);
+  await info.attach('footer-fast-arrival',{body:await page.screenshot(),contentType:'image/png'});
+  await expect(level).toHaveAttribute('d',empty,{timeout:2500});
+  await page.mouse.wheel(0,900);await page.waitForTimeout(150);
+  await expect(level).toHaveAttribute('d',empty);
 });

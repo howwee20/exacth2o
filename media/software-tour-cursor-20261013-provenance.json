@@ -1,0 +1,116 @@
+{
+  "created": "2026-10-13",
+  "durationSeconds": 24,
+  "fps": 60,
+  "dimensions": [
+    1920,
+    1200
+  ],
+  "method": "Real browser UI states from the published ExactH2O demo, edited into a continuous cursor-led walkthrough. Editorial pointer, click halos, camera motion and short transitions; screen content is unchanged.",
+  "clicks": [
+    {
+      "at": 1.05,
+      "position": [
+        98,
+        322
+      ]
+    },
+    {
+      "at": 4.94,
+      "position": [
+        1525,
+        139
+      ]
+    },
+    {
+      "at": 8.34,
+      "position": [
+        1474,
+        616
+      ]
+    },
+    {
+      "at": 10.24,
+      "position": [
+        1479,
+        58
+      ]
+    },
+    {
+      "at": 13.44,
+      "position": [
+        1512,
+        152
+      ]
+    },
+    {
+      "at": 15.84,
+      "position": [
+        1112,
+        243
+      ]
+    },
+    {
+      "at": 20.34,
+      "position": [
+        1544,
+        58
+      ]
+    }
+  ],
+  "captures": [
+    {
+      "file": "01-drought.png",
+      "sha256": "cc4a30bf1826a66a0c2a81fd61805b88bb1293e58fc10f85134a3afe6b821535"
+    },
+    {
+      "file": "02-history.png",
+      "sha256": "e70b1776b76fcd873c0736d39615914ae8fb3e193c9e49ec66f9723678225f2c"
+    },
+    {
+      "file": "03-export.png",
+      "sha256": "e17956cc0abf0582e3918d5ba5bb888f1b858103d9f18b22c6164325ff4b9144"
+    },
+    {
+      "file": "05-recovery-all.png",
+      "sha256": "6ee9ffacb9d4cb000e6d7e2d9a1069ef1f7b11cf8e7be951c198d290999f2f49"
+    },
+    {
+      "file": "07-recovery.png",
+      "sha256": "57b76183a067105c0f75149d99d02791029979116f4a8e097b0c288715050fc8"
+    },
+    {
+      "file": "08-overlay.png",
+      "sha256": "30729d7e8d8a503f9981ad5a4b08861314662d8112c90f9c1c7b47712715114a"
+    },
+    {
+      "file": "09-save-empty.png",
+      "sha256": "6dd1c18dd98823b923b4b5d4d7eb58bcecbeddda6b9439175bc7ade46adbcad7"
+    },
+    {
+      "file": "10-type-0.png",
+      "sha256": "ef347f291ae59e002ce9fb89bf6d5d6ef3871f6c3bfc60942ec5f1eb794f8810"
+    },
+    {
+      "file": "10-type-1.png",
+      "sha256": "c223fa7938938b4657f1337a68a927c3ad50e89e9b533b7ef69331eecfd61679"
+    },
+    {
+      "file": "10-type-2.png",
+      "sha256": "a5128b8e7f7b8f6b797449acbbc682fbf1de845be554ab84c6a1b56e7d389771"
+    },
+    {
+      "file": "10-type-3.png",
+      "sha256": "19d882fff80989c24f0ca0cd193899ec8949f174835acb79ca2173c2966734a5"
+    },
+    {
+      "file": "11-saved.png",
+      "sha256": "b489c73e7fb44f70dc4fc9248844dd1fd5b607767b034cf0238d7d319974e2ec"
+    },
+    {
+      "file": "12-return.png",
+      "sha256": "a220a77f744598088aea68c152c1b17da45afa360833bc3f75c740a33766f652"
+    }
+  ],
+  "recordedData": "Binod CSV, original values preserved. Display dates shifted for replay. Export shot covers the selected last-three-days window. Recovery and irrigation shots are derived scenarios."
+}
