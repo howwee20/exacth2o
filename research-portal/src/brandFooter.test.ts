@@ -16,13 +16,16 @@ function harness(start=700) {
   function tick(ms=16) {now+=ms;const pending=[...callbacks.values()];callbacks.clear();pending.forEach(fn=>fn(now));}
   function scroll(y:number,ms=16) {tick(ms);window.scrollY=y;events.scroll();}
   function slam() {events.wheel({deltaY:300});scroll(850);scroll(1000);tick();tick(250);}
-  return {events,motion,document,tick,scroll,slam,active: () => callbacks.size,path: () => path};
+  return {events,motion,document,tick,scroll,slam,compositorArrival: () => {window.scrollY=1000;events.wheel({deltaY:900});events.scroll();tick();tick(200);},active: () => callbacks.size,path: () => path};
 }
 describe('footer arrival animation', () => {
   it('fills on a fast arrival, then drains and releases every frame', () => {
     const h=harness();h.slam();expect(h.path()).toContain('h440');
     for(let i=0;i<100;i++)h.tick();
     expect(h.path()).toBe(empty);expect(h.active()).toBe(0);
+  });
+  it('accepts a final passive wheel after the compositor reaches the bottom', () => {
+    const h=harness();h.compositorArrival();expect(h.path()).toContain('h440');
   });
   it('ignores repeated wheel and touch swipes while already at the bottom', () => {
     const h=harness(1000);

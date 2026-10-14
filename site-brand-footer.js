@@ -69,13 +69,15 @@
     samples = [];
     if (travel >= 90 && speed >= 1.2) play(Math.min(1, speed / 3));
   }, { passive: true });
+  // Passive input may arrive after the compositor has moved the page. Use the
+  // last processed scroll position so that the final wheel still counts.
   window.addEventListener('wheel', event => {
-    if (!event.ctrlKey && event.deltaY > 0 && !atBottom()) gestureAt = performance.now();
+    if (!event.ctrlKey && event.deltaY > 0 && !wasAtBottom) gestureAt = performance.now();
   }, { passive: true });
   window.addEventListener('touchstart', event => { touchY = event.touches[0]?.clientY ?? null; }, { passive: true });
   window.addEventListener('touchmove', event => {
     const y = event.touches[0]?.clientY;
-    if (touchY !== null && y !== undefined && touchY > y && !atBottom()) gestureAt = performance.now();
+    if (touchY !== null && y !== undefined && touchY > y && !wasAtBottom) gestureAt = performance.now();
     touchY = y ?? null;
   }, { passive: true });
   for (const type of ['touchend', 'touchcancel']) window.addEventListener(type, () => { touchY = null; }, { passive: true });
