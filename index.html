@@ -108,6 +108,9 @@ nav {
 }
 
 /* Cinematic homepage: real equipment, full-bleed photography, restrained type. */
+.cinema-pause { position:absolute; z-index:4; left:20px; bottom:20px; border:1px solid #ffffff80; border-radius:6px; padding:9px 13px; background:#101f1acc; color:#fff; font:inherit; font-size:13px; font-weight:500; cursor:pointer; }
+.cinema-pause:focus-visible { outline:2px solid white; outline-offset:4px; }
+@media(max-width:900px){.cinema-pause{top:16px;bottom:auto;left:16px}}
 .cinema-hero { position: relative; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); min-height: max(780px, calc(100svh - var(--header-height, 90px))); height: auto; isolation: isolate; background: var(--bg-dark); color: #fff; overflow: hidden; }
 .cinema-photos { position: relative; grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; }
 .cinema-photo { position: absolute; inset: 0; }
@@ -588,6 +591,7 @@ footer .footer-logo { flex: none; width: 126px; }
       <img data-src="hero-greenhouse-3602-20260913.webp" data-srcset="hero-greenhouse-3602-1280w-20260913.webp 1280w, hero-greenhouse-3602-20260913.webp 2200w" sizes="(max-width: 900px) 100vw, 50vw" alt="Potted grasses with moisture sensors, white irrigation rings, and color-coded tubing" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 45%; --mobile-position: 65% 45%;">
     </div>
   </div>
+  <button class="cinema-pause" type="button" aria-controls="cinema-photos" aria-pressed="false">Pause photos</button>
   <div class="cinema-content">
     <h1 class="cinema-title" id="cinema-title">Exactly the <em>Water</em><br>Your Plants Need</h1>
     <p class="cinema-copy">Sensor-based irrigation for plant research and greenhouses. Monitor moisture, set targets, and review each pot’s history.</p>
@@ -789,6 +793,9 @@ footer .footer-logo { flex: none; width: 126px; }
   const cinema = document.querySelector('.cinema-hero');
   const photos = [...document.querySelectorAll('.cinema-photo')];
   let photoIndex = photos.findIndex(photo => photo.classList.contains('is-active')), rotationTimer = null, cinemaVisible = true;
+  const pauseButton = cinema.querySelector('.cinema-pause');
+  const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let paused = motionPreference.matches;
   const ready = new Map();
   function prepare(index) {
     const photo = photos[(index + photos.length) % photos.length];
@@ -829,17 +836,22 @@ footer .footer-logo { flex: none; width: 126px; }
     const next = photoIndex + 1;
     prepare(next).then(ok => {
       advancing = false;
+      if (paused || document.hidden || !cinemaVisible) return;
       if (ok) showPhotograph(next);
       else { photoIndex = (next + photos.length) % photos.length; void prepare(photoIndex + 1); }
     });
   }
   function syncRotation() {
     clearInterval(rotationTimer);
-    const contentFocused = cinema.contains(document.activeElement);
-    if (cinemaVisible && !document.hidden && !contentFocused) {
+    const contentFocused = cinema.contains(document.activeElement) && document.activeElement !== pauseButton;
+    pauseButton.textContent = paused ? 'Play photos' : 'Pause photos';
+    pauseButton.setAttribute('aria-pressed', String(paused));
+    if (!paused && cinemaVisible && !document.hidden && !contentFocused) {
       rotationTimer = setInterval(advance, 7000);
     }
   }
+  pauseButton.addEventListener('click', () => { paused = !paused; syncRotation(); });
+  motionPreference.addEventListener('change', event => { paused = event.matches; syncRotation(); });
   cinema.addEventListener('focusin', syncRotation);
   cinema.addEventListener('focusout', () => setTimeout(syncRotation, 0));
   document.addEventListener('visibilitychange', syncRotation);

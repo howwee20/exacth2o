@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { experimentProgressText } from "../experimentMeasurement";
 import type { PortalExperiment } from "../experimentRegistry";
 import type { HomeException } from "../homeExceptions";
@@ -28,6 +28,8 @@ export function ExperimentPage({
   experiment,
   tab,
   nowMs,
+  readingStatus,
+  onExport,
   exceptions,
   tabs,
   actions,
@@ -37,6 +39,8 @@ export function ExperimentPage({
   experiment: PortalExperiment;
   tab: ExperimentTab;
   nowMs: number;
+  readingStatus?: string;
+  onExport?: () => void;
   exceptions: readonly HomeException[];
   tabs: ExperimentTab[];
   actions?: ReactNode;
@@ -45,6 +49,20 @@ export function ExperimentPage({
 }) {
   const { copied, copy } = useCopyRoute();
   useEffect(() => { const previous = document.title; document.title = `${experiment.name} · ExactH2O`; return () => { document.title = previous; }; }, [experiment.name]);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(64);
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>('.px-header');
+    let frame = 0;
+    const update = () => { frame = 0; const height = header?.getBoundingClientRect().height ?? 0; setHeaderHeight(height); setCompact((headerRef.current?.getBoundingClientRect().bottom ?? Infinity) < height); };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    const resize = new ResizeObserver(schedule);
+    if (header) resize.observe(header);
+    if (headerRef.current) resize.observe(headerRef.current);
+    window.addEventListener('scroll', schedule, { passive: true }); window.addEventListener('resize', schedule); update();
+    return () => { window.removeEventListener('scroll', schedule); window.removeEventListener('resize', schedule); resize.disconnect(); cancelAnimationFrame(frame); };
+  }, [experiment.id]);
   const count = experiment.pairingNames.length;
   const mode = experimentModeLine(experiment, nowMs);
   const progress = experimentProgressText(experiment, nowMs);
@@ -53,7 +71,11 @@ export function ExperimentPage({
   return (
     <section className={`px-page is-wide px-experiment-page ${tab === "pots" ? "is-traces" : ""}`} aria-label={experiment.name}>
       <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
-      <div className="px-exp-head">
+      {compact ? <div className="px-compact-experiment" style={{ top: headerHeight }} aria-label="Current experiment">
+        <div><strong>{experiment.name}</strong>{readingStatus ? <span>{readingStatus}</span> : null}</div>
+        {onExport ? <button className="px-button is-small" onClick={onExport}>Export</button> : null}
+      </div> : null}
+      <div className="px-exp-head" ref={headerRef}>
         <div className="px-exp-head-row">
           <h1 className="px-title">{experiment.name}</h1>
           <div className="px-toolbar">
@@ -72,7 +94,7 @@ export function ExperimentPage({
           {progress ? <span>{progress}</span> : null}
 
         </p>
-        {experiment.shortDescription || experiment.currentVersion ? <details className="px-details"><summary>Experiment details</summary>{experiment.shortDescription ? <p>{experiment.shortDescription}</p> : null}{experiment.currentVersion ? <p className="px-muted">Revision {experiment.currentVersion}</p> : null}</details> : null}
+        {experiment.shortDescription || experiment.currentVersion ? <details className="px-details"><summary>Experiment details</summary>{experiment.shortDescription ? <p>{experiment.shortDescription}</p> : null}{experiment.sourceNote ? <div className="px-source-note"><h2>Data source</h2><p>{experiment.sourceNote}</p></div> : null}{experiment.currentVersion ? <p className="px-muted">Revision {experiment.currentVersion}</p> : null}</details> : null}
       </div>
       {own.map((item, index) => (
         <p key={`${item.kind}-${index}`} className={`px-notice ${item.kind === "controller-offline" || item.kind === "activation-failed" ? "is-bad" : ""}`} role="status">

@@ -31,6 +31,14 @@ const atHour = (name: string, hour: number) => {
 };
 
 describe('recorded and derived demo datasets', () => {
+  it('keeps source details at experiment level without repeated pot notes', () => {
+    expect(data.recordTables.portal_pot_notes).toEqual([]);
+    expect(data.experiments[0].sourceNote).toContain('measurement values and intervals are unchanged');
+    expect(data.experiments[1].sourceNote).toContain('simulated');
+    expect(data.experiments[2].sourceNote).toContain('not measured crop results');
+    expect(data.recordTables.experiment_audit_events[0].details.summary).toContain('Binod');
+  });
+
   it('losslessly packages every selected source measurement and retains source clocks/IDs', () => {
     expect(source.sha256).toBe(createHash('sha256').update(csv).digest('hex'));
     expect(lines).toHaveLength(12753);

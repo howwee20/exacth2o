@@ -1415,3 +1415,21 @@
   .px-export-dialog .px-toolbar > label { width: 100%; }
   .px-export-dialog .px-toolbar select { width: 100%; }
 }
+
+/* Small, browser-local comparison controls beside the existing trace filters. */
+.px-saved-views { display:grid; gap:8px; min-width:0; }
+.px-saved-view-row { display:flex; gap:6px; min-width:0; }
+.px-saved-view-row select { min-width:0; flex:1; width:100%; border:1px solid var(--px-line); border-radius:6px; background:white; color:var(--px-ink); padding:7px; font:inherit; font-size:12px; }
+.px-saved-view-row .px-button { flex-shrink:0; padding:6px 8px; }
+.px-save-view-form { display:flex; gap:6px; flex-wrap:wrap; }
+.px-save-view-form input { width:100%; min-width:0; border:1px solid var(--px-line); border-radius:6px; padding:8px; font:inherit; }
+.px-remove-view { justify-self:start; padding:0; border:0; color:var(--px-muted); background:none; text-decoration:underline; font:inherit; font-size:12px; cursor:pointer; }
+.px-saved-views p { font-size:12px; margin:0; }
+.px-compact-experiment { position:fixed; z-index:29; left:0; right:0; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px clamp(16px,3vw,40px); background:var(--px-paper,#f6f8f7); border-bottom:1px solid var(--px-line); }
+.px-compact-experiment > div { min-width:0; display:grid; gap:3px; }
+.px-compact-experiment strong { font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.px-compact-experiment span { font-size:11px; color:var(--px-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.px-compact-experiment .px-button { flex-shrink:0; }
+.px-source-note { max-width:85ch; font-size:13px; line-height:1.65; }
+.px-source-note h2 { font-size:13px; margin:12px 0 4px; }
+@media print { .px-compact-experiment, .px-saved-views { display:none; } }

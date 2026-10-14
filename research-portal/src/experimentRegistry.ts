@@ -29,6 +29,8 @@ export type PortalExperiment = {
   currentSpec?: ExperimentDraft;
   name: string;
   shortDescription: string;
+  sourceNote?: string;
+  comparisonPresets?: { name: string; pairingNames: string[] }[];
   mode: ExperimentMode;
   status?:
     | "published_sensing"

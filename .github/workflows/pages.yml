@@ -37,8 +37,10 @@ jobs:
         with:
           version: 2.65.5
       - run: ./scripts/verify-database-baseline.sh
+  verify-responsive:
+    uses: ./.github/workflows/responsive.yml
   deploy:
-    needs: [verify, verify-database]
+    needs: [verify, verify-database, verify-responsive]
     permissions:
       contents: read
       pages: write

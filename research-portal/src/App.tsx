@@ -1,3 +1,4 @@
+import { SavedTraceViews } from "./product/SavedTraceViews";
 import { ExperimentHistory } from "./product/ExperimentHistory";
 import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -163,7 +164,7 @@ function initialAuthMode(): AuthMode {
 }
 
 
-export default function App() {
+export default function App({ initialFindPot = false }: { initialFindPot?: boolean } = {}) {
   const [email, setEmail] = useState(() => initialEmail());
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<AuthMode>(() => initialAuthMode());
@@ -229,7 +230,7 @@ export default function App() {
   const setPortalView = useCallback((view: PortalView) => {
     navigatePortal(view === "home" || view === "experiment" ? { view: "home" } : { view } as PortalRoute);
   }, []);
-  const [findPotOpen, setFindPotOpen] = useState(false);
+  const [findPotOpen, setFindPotOpen] = useState(initialFindPot);
   // "At the bench" is a remembered choice on this device; the full portal stays one tap away.
   const [atBench, setAtBench] = useState(() => atBenchRemembered());
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
@@ -2956,6 +2957,10 @@ export default function App() {
           >
           <section className="px-trace-controls">
             <div className="px-trace-heading"><h2>Visible traces</h2><span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span></div>
+            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
+              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
+              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
+              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setPotPreset("custom"); setSelectedSeriesName(null); }} />
             <div className="px-trace-actions">
               <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
               <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
@@ -3350,6 +3355,8 @@ export default function App() {
       <ExperimentPage
         experiment={routeExperiment}
         tab={tab}
+        readingStatus={experimentStatusFreshness.detail}
+        onExport={() => setExportOpen(true)}
         nowMs={clockNowMs}
         exceptions={portalExceptions}
         tabs={experimentTabs}

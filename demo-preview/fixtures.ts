@@ -186,6 +186,9 @@ const descriptions: Record<string, string> = {
   'experiment-2': 'This scenario is derived from Binod’s recorded dry-down shapes and short-term watered fluctuations. Pots 1–6: watered controls. Pots 7–12: early rewatering from hour 108. Pots 13–18: delayed rewatering from hour 144. Pots 19–24: gradual rewatering from hour 126 over 24 hours. Replicates have staggered starts and different uptake. Valve markers and temperature are simulated; raw signal and EC are unavailable.',
   'experiment-3': 'This scenario is derived from recorded patterns; it is not measured crop results or a crop prediction. Pots 101–108: illustrative maize, faster daytime water use. Pots 109–116: illustrative soybean, intermediate water use. Pots 117–124: illustrative sorghum, slower water use. All use the same 25% VWC target, with different drying and irrigation intervals. Texture is informed by Binod’s watered traces; irrigation and temperature are simulated. Raw signal and EC are unavailable.',
 };
+for (const e of experiments) e.sourceNote = descriptions[e.id];
+experiments[1].comparisonPresets = [{ name: 'Early vs delayed recovery', pairingNames: recoveryAssignments.filter(a => a.pot_number >= 7 && a.pot_number <= 18).map(a => a.pairing_name) }];
+experiments[2].comparisonPresets = [{ name: 'Crop water use', pairingNames: ['Pot 101', 'Pot 109', 'Pot 117'] }];
 export const recordTables: Record<string, any[]> = {
   experiment_revisions: experiments.map(e => ({ id: e.currentRevisionId, experiment_id: e.databaseId, version: 1,
     source: e.id === 'experiment-1' ? 'recorded source replay' : 'derived demo simulation', created_at: e.startedAt, created_by: 'demo-account' })),
@@ -193,10 +196,8 @@ export const recordTables: Record<string, any[]> = {
   experiment_assignments: experiments.flatMap(e => e.assignments.map((a: any) => ({ ...a, experiment_id: e.databaseId,
     revision_id: e.currentRevisionId, calibration_name_snapshot: null }))),
   experiment_audit_events: experiments.map(e => ({ id: `audit-${e.id}`, experiment_id: e.databaseId, revision_id: e.currentRevisionId,
-    event_type: 'revision_created', details: { summary: e.shortDescription }, created_at: e.startedAt, actor_id: 'demo-account' })),
-  portal_pot_notes: experiments.flatMap(e => e.assignments.map((a: any, index: number) => ({ id: `note-${e.id}-${a.pot_number}`, project_id: 'sample', device_id: 'sample',
-    pairing_name: a.pairing_name, tags: [], recorded_at: stamp(now - minute),
-    research_pot_id: null, experiment_id: e.databaseId, supersedes_id: null, client_context: {},
-    body: `${a.notes} ${index === 0 ? descriptions[e.id] : e.id === "experiment-1" ? "Unchanged recorded VWC and temperature; dates shifted for playback. Full source details are in the experiment Record on Pot 61." : "Derived demo simulation informed by Binod’s source data; not measured experimental results."}`, observed_at: stamp(now - minute), created_at: stamp(now - minute), updated_at: stamp(now - minute),
-    author_label: 'Demo data provenance', created_by: 'demo-account', deleted_at: null }))),
+    event_type: 'revision_created', details: { summary: descriptions[e.id] }, created_at: e.startedAt, actor_id: 'demo-account' })),
+  // Ordinary assignments already carry channel/treatment metadata. Source information is
+  // shown once in Experiment details and kept in the revision record for export.
+  portal_pot_notes: [],
 };

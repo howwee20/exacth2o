@@ -1,12 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from '../research-portal/src/App';
+import { DemoEntry } from '../demo-preview/DemoEntry';
 import '../research-portal/src/styles.css';
 import './demo.css';
 import '../research-portal/src/settingsChrome.css';
 
 document.documentElement.dataset.portalMode = "demo";
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><DemoEntry/></React.StrictMode>);
 
 // "DEMO" sits directly under the ExactH2O logo on every screen. The logo link is a clipped fixed-size
 // box, so the mark is a positioned sibling in the header rather than a child of the link. Headers

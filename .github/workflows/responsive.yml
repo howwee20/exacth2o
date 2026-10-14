@@ -1,0 +1,32 @@
+name: Responsive and visual regression
+on:
+  workflow_call:
+  push:
+    branches: [demo-binod-oct13]
+permissions:
+  contents: read
+jobs:
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: research-portal/package-lock.json
+      - run: npm ci --prefix research-portal
+      - run: npx --prefix research-portal playwright install --with-deps chromium firefox webkit
+      - name: Browser acceptance and screenshots
+        working-directory: research-portal
+        run: npx playwright test ${{ github.ref == 'refs/heads/demo-binod-oct13' && '--update-snapshots' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: responsive-review
+          path: |
+            research-portal/playwright-report
+            research-portal/test-results
+            research-portal/browser-tests/*-snapshots
+          retention-days: 14
