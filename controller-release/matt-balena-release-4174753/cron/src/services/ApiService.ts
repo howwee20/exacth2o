@@ -26,16 +26,16 @@ export class ApiService {
       .catch(error => console.error('Error posting data:', error))
   }
 
-  async fetchData(endpoint: string) {
+  async fetchData(endpoint: string, options?: {timeoutMs: number, retries: number}) {
     const url = `${this.apiURL}${endpoint}`
-    const retries = parsePositiveInt(process.env.API_FETCH_RETRIES, 1)
+    const retries = options?.retries ?? parsePositiveInt(process.env.API_FETCH_RETRIES, 1)
     const retryDelayMs = parsePositiveInt(process.env.API_FETCH_RETRY_DELAY_MS, 2000)
     let lastError: unknown
 
     for (let attempt = 1; attempt <= retries; attempt += 1) {
       try {
         console.log(`Fetching data: ${url} (attempt ${attempt}/${retries})`)
-        const response = await fetch(url)
+        const response = await fetch(url, options ? {signal: AbortSignal.timeout(options.timeoutMs)} : undefined)
         if (!response.ok) {
           throw new Error(`GET ${url} failed with ${response.status} ${response.statusText}`)
         }

@@ -90,3 +90,20 @@ describe('controller fail-safe transitions', () => {
     expect(service.operateValve.mock.calls.every((call: any[]) => call[3] === 'CLOSE')).toBe(true)
   })
 })
+
+
+describe('manual hold route validation', () => {
+  it('checks the versioned pairing endpoint with a bounded lookup', async () => {
+    process.env.EXACTH2O_MANUAL_HOLD_ENABLED = '1'
+    const machine = Object.create(StateMachine.prototype) as any
+    machine.apiService = {fetchData: jest.fn().mockResolvedValue({Valve:{address:'18',relayAddress:'0x24'}})}
+    machine.valveService = {getBoardConfigs: () => [{address:36}]}
+    machine.manualHoldManager = {request: jest.fn().mockResolvedValue({status:'closed'})}
+    const request = {sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:Date.now()+2000,sensorId:640,valveId:1602,address:18,relayAddress:36}
+    await machine.holdManualValve('start',request)
+    expect(machine.apiService.fetchData).toHaveBeenCalledWith('/v1/pairings/640/1602',{timeoutMs:750,retries:1})
+    await expect(machine.holdManualValve('start',{...request,expiresAt:Date.now()-1000})).rejects.toThrow('expired')
+    expect(machine.apiService.fetchData).toHaveBeenCalledTimes(1)
+    delete process.env.EXACTH2O_MANUAL_HOLD_ENABLED
+  })
+})

@@ -783,7 +783,8 @@ class StateMachine {
   async holdManualValve(action: 'start'|'renew'|'stop'|'status', request: HoldRequest & {sensorId: number, valveId: number}) {
     if (process.env.EXACTH2O_MANUAL_HOLD_ENABLED !== '1' && action !== 'stop' && action !== 'status') throw new Error('Hold-to-water is not commissioned on this controller')
     if (action === 'start' || action === 'renew') {
-      const pairing = await this.apiService.fetchData(`/pairings/${request.sensorId}/${request.valveId}`)
+      if (!Number.isFinite(request.expiresAt) || request.expiresAt <= Date.now()) throw new Error('Hold signal expired')
+      const pairing = await this.apiService.fetchData(`${API_ENDPOINTS.PAIRINGS}/${request.sensorId}/${request.valveId}`, {timeoutMs: 750, retries: 1})
       if (!pairing || Number(pairing.Valve?.address) !== request.address || Number(pairing.Valve?.relayAddress) !== request.relayAddress) throw new Error('Pot valve mapping changed; refresh Find pot')
       if (!this.valveService.getBoardConfigs().some(board => board.address === request.relayAddress)) throw new Error('Valve board unavailable')
     }
