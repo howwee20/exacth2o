@@ -4,7 +4,7 @@ import {test,expect,type Page} from '@playwright/test';
 test.beforeEach(async({page})=>{
   await page.route('**/*.supabase.co/**',route=>route.abort());
 });
-type Reply=(body:{action:string;sequence:number;potNumber:number})=>Promise<Record<string,unknown>>|Record<string,unknown>;
+type Reply=(body:{action:string;sequence:number;potNumber:number;testCandidate?:boolean})=>Promise<Record<string,unknown>>|Record<string,unknown>;
 async function controller(page:Page,reply:Reply=({action})=>({status:['start','renew'].includes(action)?'open':'closed',available:true,ready:true})){
   const actions:string[]=[];
   await page.route('**/functions/v1/manual-hold',async route=>{
@@ -62,14 +62,15 @@ test('a controller that ends the hold is reported, and the button can be pressed
   await page.mouse.up();await expect(page.getByRole('button',{name:/Hold to water/})).toBeEnabled();
 });
 
-test('Find pot covers pots 1-100 by physical route, and only ready pots can be held',async({page})=>{
+test('Find pot permits recorded candidate testing without confirming the mapping',async({page})=>{
   const route=(pot:number)=>pot===16?{pot,status:'ready',relayAddress:36,channel:16,source:'field_record_2026-06-15',evidence:'Zone 1 field passes.',pairing:{name:'Zone3-Pot66',sensorKey:'D30GQN2D:P',namedPot:66}}
     :pot===100?{pot,status:'ready',relayAddress:32,channel:43,source:'field_record_2026-06-16',evidence:'Re-piped.',pairing:{name:'Zone4-Pot100',sensorKey:'D30GQN2E:2',namedPot:100}}
     :pot===77?{pot,status:'needs_confirmation',candidate:{relayAddress:32,channel:30},source:'field_record_2026-06-15',evidence:'Not re-tested.'}
     :pot===86?{pot,status:'no_water_line',source:'field_record_2026-06-16',evidence:'Line moved to 96-100.'}
     :{pot,status:'unmapped',reason:'No recorded valve route'};
   const pots=Array.from({length:100},(_,index)=>route(index+1));
-  const actions=await controller(page,({action})=>action==='routes'?{pots,boards:[32,36,38],canConfirm:true}:{status:'closed',available:true,ready:true});
+  const requests:Array<{action:string;testCandidate?:boolean;potNumber:number}>=[];
+  const actions=await controller(page,(body)=>{ requests.push(body); return body.action==='routes'?{pots,boards:[32,36,38],canConfirm:true}:{status:['start','renew'].includes(body.action)?'open':'closed',available:true,ready:true}; });
   await page.goto(`${harness}?find`);
   const search=page.getByRole('combobox');
   for(const [query,expected,badge] of [['1','Pot 1','No route'],['100','Pot 100','Ready'],['77','Pot 77','Needs check'],['86','Pot 86','No water line']] as const){
@@ -84,14 +85,21 @@ test('Find pot covers pots 1-100 by physical route, and only ready pots can be h
   await page.getByRole('button',{name:'← All pots'}).click();
   await search.fill('77');await search.press('Enter');
   await expect(page.getByRole('heading',{name:'Needs a physical check'})).toBeVisible();
-  await expect(page.getByRole('button',{name:/Hold to water/})).toHaveCount(0);
+  const candidateButton=page.getByRole('button',{name:/Hold to water/});
+  await expect(candidateButton).toBeEnabled();
+  await candidateButton.focus(); await page.keyboard.down('Space');
+  await expect(page.getByRole('button',{name:/Watering/})).toBeVisible();
+  await page.keyboard.up('Space');
+  await expect(page.getByRole('status')).toHaveText('Stopped · controller confirmed');
+  expect(requests.find(x=>x.action==='start')).toMatchObject({potNumber:77,testCandidate:true});
+  expect(actions).not.toContain('confirm_route');
   await expect(page.getByRole('combobox',{name:'Channel'})).toHaveValue('30');
   await expect(page.getByRole('button',{name:'Confirm route'})).toBeDisabled();
   await page.getByRole('button',{name:'← All pots'}).click();
   await search.fill('86');await search.press('Enter');
   await expect(page.getByRole('heading',{name:'No water line'})).toBeVisible();
   await expect(page.getByRole('button',{name:/Hold to water/})).toHaveCount(0);
-  expect(actions.filter(x=>['start','renew'].includes(x))).toEqual([]);
+  expect(requests.filter(x=>['start','renew'].includes(x.action)).every(x=>x.potNumber===77&&x.testCandidate===true)).toBe(true);
 });
 
 
