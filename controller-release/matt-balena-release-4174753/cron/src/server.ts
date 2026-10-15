@@ -183,6 +183,19 @@ export function createServer(stateMachine: StateMachine, options: { environment:
     }
   })
 
+  server.post(`/${pathPrefix}/valves/hold`, async (request: FastifyRequest<{Body: any}>, reply: FastifyReply) => {
+    const expected = process.env.EXACTH2O_MANUAL_HOLD_SECRET || ''
+    const supplied = String(request.headers['x-exacth2o-hold-secret'] || '')
+    if (!expected || supplied.length !== expected.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return reply.code(401).send({error:'Hold authentication required'})
+    const body: any = request.body || {}
+    if (!['start','renew','stop','status'].includes(body.action)) return reply.code(400).send({error:'Invalid hold action'})
+    if (!Number.isInteger(body.address) || body.address < 1 || body.address > 48 || !Number.isInteger(body.relayAddress) || body.relayAddress < 3 || body.relayAddress > 127) return reply.code(400).send({error:'Invalid valve route'})
+    if (!Number.isInteger(body.sensorId) || !Number.isInteger(body.valveId)) return reply.code(400).send({error:'Invalid pot identity'})
+    try {
+      return await stateMachine.holdManualValve(body.action, body)
+    } catch(error: any) { return reply.code(409).send({error:error.message || 'Hold rejected'}) }
+  })
+
   server.get(`/${pathPrefix}/state`, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const state = stateMachine.getState()

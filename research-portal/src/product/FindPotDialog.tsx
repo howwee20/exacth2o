@@ -1,3 +1,4 @@
+import { HoldWaterControl } from '../HoldWaterControl';
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PortalExperiment } from "../experimentRegistry";
 import { navigatePortal, portalRouteHref, type PortalRoute } from "../portalRoute";
@@ -11,13 +12,16 @@ export function FindPotDialog({
   pairings,
   experiments,
   routeFor,
+  manualControl,
 }: {
+  manualControl?: {projectId: string; deviceId: string; controllerName: string};
   open: boolean;
   onClose: () => void;
   pairings: readonly PairingRow[];
   experiments: readonly PortalExperiment[];
   routeFor: (pairingName: string) => PortalRoute;
 }) {
+  const [selected, setSelected] = useState<PairingRow | null>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -27,6 +31,7 @@ export function FindPotDialog({
 
   useEffect(() => {
     if (!open) return undefined;
+    setSelected(null);
     setQuery("");
     setActive(0);
     const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -40,6 +45,8 @@ export function FindPotDialog({
   if (!open) return null;
 
   const go = (pairingName: string) => {
+    const pairing = pairings.find(p => p.name === pairingName);
+    if (manualControl && pairing) { setSelected(pairing); return; }
     onClose();
     navigatePortal(routeFor(pairingName));
   };
@@ -59,6 +66,14 @@ export function FindPotDialog({
         }
       }}>
         <div className="px-dialog-heading"><h2 id={titleId}>Find a pot</h2><button type="button" className="px-button is-small" onClick={onClose}>Close</button></div>
+        {selected && manualControl ? <div>
+          <button className="px-button is-small" onClick={() => setSelected(null)}>← Find another pot</button>
+          <h2>Pot {selected.pot_number}</h2>
+          <p>{experiments.find(e => e.pairingNames.includes(selected.name))?.name || selected.name}</p>
+          <p className="px-muted">{manualControl.controllerName}</p>
+          <a href={portalRouteHref(routeFor(selected.name))} onClick={onClose}>Open pot record →</a>
+          <HoldWaterControl key={`${manualControl.deviceId}:${selected.name}`} projectId={manualControl.projectId} deviceId={manualControl.deviceId} pairing={selected} />
+        </div> : <>
         <input
           ref={inputRef}
           value={query}
@@ -116,6 +131,7 @@ export function FindPotDialog({
         ) : (
           <p className="px-muted px-small">Search by pot number or name.</p>
         )}
+        </>}
       </div>
     </div>
   );

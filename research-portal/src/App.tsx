@@ -3118,6 +3118,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
   const findPotDialog = (
     <FindPotDialog
+      manualControl={canUseExperimentSettings && activeProjectId && activeDeviceId ? {projectId: activeProjectId, deviceId: activeDeviceId, controllerName: "Controller"} : undefined}
       open={findPotOpen}
       onClose={() => setFindPotOpen(false)}
       pairings={visiblePairings}
@@ -3461,7 +3462,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }}
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }}>Installation settings</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
       </div> : undefined}
       machines={!isDemo ? <>

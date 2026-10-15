@@ -1,3 +1,4 @@
+import { ManualHoldManager, HoldRequest } from './services/ManualHoldManager'
 import { IPairing, MachineState, PairingState, PairingStateType } from './types'
 import { ApiService } from './services/ApiService'
 import { PairingService } from './services/PairingService'
@@ -38,6 +39,7 @@ class StateMachine {
   private eventQueueService: BullQueueService
   private openValvePairId: string | null = null
   private lastValveClosedAt: number | null = null
+  private manualHoldManager: ManualHoldManager
   private manualPulseManager: ManualPulseManager
   private wateringPulseLedger: WateringPulseLedger
 
@@ -58,6 +60,24 @@ class StateMachine {
       () => this.valveService.closeAllValves(),
       Number(process.env.MANUAL_PULSE_MAX_MILLISECONDS || 60_000),
       Number(process.env.MANUAL_PULSE_MAX_COMMAND_VALVE_MILLISECONDS || 120_000),
+    )
+    this.manualHoldManager = new ManualHoldManager(
+      process.env.MANUAL_HOLD_STATE_FILE || '/app/config/manual-holds.json',
+      async (request) => {
+        if (![MachineState.RUNNING, MachineState.STOPPED].includes(this.state)) throw new Error('Controller is not ready')
+        if (this.openValvePairId) throw new Error('Another valve is active; release and try again')
+        this.openValvePairId = `hold:${request.sessionId}`
+        this.operateManualPulseValve({...request, pulseId: request.sessionId, commandId: request.sessionId, durationMilliseconds: 2500}, 'OPEN')
+      },
+      async (request) => {
+        // A rejected start must never close a different session's valve.
+        if (this.openValvePairId && this.openValvePairId !== `hold:${request.sessionId}`) return
+        const pulse = {...request, pulseId: request.sessionId, commandId: request.sessionId, durationMilliseconds: 2500}
+        try { this.operateManualPulseValve(pulse, 'CLOSE') }
+        catch { this.valveService.closeAllValves() }
+        this.openValvePairId = null
+        this.lastValveClosedAt = Date.now()
+      },
     )
     this.wateringPulseLedger = new WateringPulseLedger(
       process.env.AUTOMATIC_PULSE_LEDGER_PATH || '/app/config/automatic-pulses.json'
@@ -84,6 +104,7 @@ class StateMachine {
     // A previous process may have died while a manual pulse was active. Close
     // that valve before loading pairings or entering RUNNING state.
     await this.manualPulseManager.recover()
+    await this.manualHoldManager.recover()
     // Give the shared supply the same recovery time after startup close-all as
     // it receives between normal automatic pulses.
     this.lastValveClosedAt = Date.now()
@@ -191,6 +212,7 @@ class StateMachine {
   }
 
   async stopEventLoop(): Promise<void> {
+    await this.manualHoldManager.stopAll()
     console.log('Stopping StateMachine event queue...')
     await this.apiService.postData(API_ENDPOINTS.LOGS, {
       level: 'info',
@@ -756,6 +778,17 @@ class StateMachine {
 
   async setBoardConfigs(boardConfigs: BoardConfig[], updateAPI: boolean = false): Promise<boolean> {
     return await this.valveService.setBoardConfigs(boardConfigs, updateAPI)
+  }
+
+  async holdManualValve(action: 'start'|'renew'|'stop'|'status', request: HoldRequest & {sensorId: number, valveId: number}) {
+    if (process.env.EXACTH2O_MANUAL_HOLD_ENABLED !== '1' && action !== 'stop' && action !== 'status') throw new Error('Hold-to-water is not commissioned on this controller')
+    if (action === 'start' || action === 'renew') {
+      const pairing = await this.apiService.fetchData(`/pairings/${request.sensorId}/${request.valveId}`)
+      if (!pairing || Number(pairing.Valve?.address) !== request.address || Number(pairing.Valve?.relayAddress) !== request.relayAddress) throw new Error('Pot valve mapping changed; refresh Find pot')
+      if (!this.valveService.getBoardConfigs().some(board => board.address === request.relayAddress)) throw new Error('Valve board unavailable')
+    }
+    const result = await this.manualHoldManager.request(action, request)
+    return {...result, available: process.env.EXACTH2O_MANUAL_HOLD_ENABLED === '1', leaseMilliseconds: 2500}
   }
 
   async pulseManualValve(request: ManualPulseRequest): Promise<ManualPulseResult> {

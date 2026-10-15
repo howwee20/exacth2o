@@ -3067,6 +3067,25 @@ class Handler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length") or "0")
         body = self.rfile.read(min(content_length, 64 * 1024)).decode("utf-8", errors="replace")
 
+        if path == "/api/manual-hold":
+            expected = os.environ.get("EXACTH2O_MANUAL_HOLD_SECRET", "")
+            supplied = self.headers.get("X-ExactH2O-Hold-Secret", "")
+            if not expected or not hmac.compare_digest(supplied, expected):
+                return self.send_json({"error": "Hold authentication required"}, status=401)
+            try:
+                payload = json.loads(body)
+                if payload.get("action") not in ("start", "renew", "stop", "status"):
+                    return self.send_json({"error": "Invalid hold action"}, status=400)
+                req = urllib.request.Request(
+                    "http://cron_svc:3000/v1/valves/hold", data=json.dumps(payload).encode(),
+                    headers={"Content-Type": "application/json", "X-ExactH2O-Hold-Secret": expected}, method="POST")
+                with urllib.request.urlopen(req, timeout=3) as result:
+                    return self.send_json(json.load(result))
+            except urllib.error.HTTPError as error:
+                return self.send_json(json.loads(error.read()), status=error.code)
+            except Exception:
+                return self.send_json({"error": "Controller connection lost; hold will expire locally"}, status=503)
+
         if path == "/login":
             form = urllib.parse.parse_qs(body)
             username = (form.get("username") or [""])[0]

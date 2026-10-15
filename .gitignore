@@ -1,0 +1,4 @@
+**/node_modules/
+controller-release/**/dist/
+controller-before-device.json
+controller-before-release.json

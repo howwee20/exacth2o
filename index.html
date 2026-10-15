@@ -30,7 +30,7 @@
 /* Opening: real equipment beside restrained type. */
 .cinema-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: min(740px, calc(100svh - 72px)); background: var(--bg-dark); color: #fff; overflow: hidden; }
 /* Left padding lines the copy up with the page column: 100% here is half the page. */
-.cinema-content { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 4rem clamp(1.5rem, 4vw, 4.5rem) 4rem max(var(--gutter), calc(100% - var(--content) / 2)); --ambient-color: 142 211 184; --ambient-opacity: .11; }
+.cinema-content { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 4rem clamp(1.5rem, 4vw, 4.5rem) 4rem max(var(--gutter), calc(100% - var(--content) / 2)); --ambient-color: 142 211 184; --ambient-opacity: .32; }
 .cinema-title { max-width: 10em; font-size: clamp(2.75rem, 4.5vw, 4.5rem); font-weight: 600; line-height: 1.06; letter-spacing: -.045em; }
 .cinema-title em { color: var(--mint); }
 .cinema-copy { max-width: 32rem; margin-top: 1.5rem; font-size: 1.1rem; line-height: 1.65; color: #c6d2cc; }
@@ -151,7 +151,7 @@
 .research-brief .text-link { flex: none; font-size: .9rem; }
 
 /* Closing request */
-.cta-strip { padding: clamp(3.5rem, 6vw, 4.5rem) 1.5rem; text-align: center; background: #edf3ef; border-top: 1px solid var(--rule); --ambient-color: 23 100 73; --ambient-opacity: .07; }
+.cta-strip { overflow: hidden; padding: clamp(3.5rem, 6vw, 4.5rem) 1.5rem; text-align: center; background: #eef6fa; border-top: 1px solid #d9e8ef; --ambient-color: 38 125 184; --ambient-opacity: .28; }
 .cta-strip h2 { margin-bottom: .75rem; font-size: 2rem; font-weight: 600; letter-spacing: -.03em; }
 .cta-strip p { margin-bottom: 2rem; font-size: 1rem; color: var(--muted); }
 
@@ -185,7 +185,7 @@
 </style>
 <script src="/site-navigation.js" defer></script>
 <script src="/one-pot-explainer.js?v=20261014" defer></script>
-<script src="/site-ambient.js?v=20261014" defer></script>
+<script src="/site-ambient.js?v=20261015" defer></script>
 <script src="/site-brand-footer.js?v=20261014" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -269,7 +269,6 @@
         <div><dt>Longest without watering</dt><dd id="one-pot-interval">—</dd></div>
       </dl>
       <p id="one-pot-result" class="one-pot-result" aria-live="polite">7 valve openings · 3 days</p>
-      <p class="one-pot-fine">Illustrative simulation, not live readings or a crop prediction. Actual response depends on the plant, substrate, and system.</p>
     </div>
     <div class="one-pot-record">
       <h3>Experiment record</h3>
@@ -338,7 +337,7 @@
   </section>
 </div>
 
-<section class="cta-strip" data-ambient aria-labelledby="cta-title">
+<section class="cta-strip" data-ambient="water" aria-labelledby="cta-title">
   <h2 id="cta-title">Request a quote</h2>
   <p>Plan a system for your facility.</p>
   <a href="/quote" class="btn-primary">Request a quote</a>

@@ -9,6 +9,7 @@ import { MachineState } from '../types'
 describe('controller fail-safe transitions', () => {
   it('retires the active pulse after stop closes the valves, retaining its history', async () => {
     const machine = Object.create(StateMachine.prototype) as any
+    machine.manualHoldManager = { stopAll: jest.fn().mockResolvedValue(undefined) }
     machine.state = MachineState.RUNNING
     machine.apiService = { postData: jest.fn().mockResolvedValue(undefined) }
     machine.eventQueueService = { stop: jest.fn().mockResolvedValue(undefined) }
@@ -27,6 +28,7 @@ describe('controller fail-safe transitions', () => {
 
   it('does not report STOPPED when close-all cannot be confirmed', async () => {
     const machine = Object.create(StateMachine.prototype) as any
+    machine.manualHoldManager = { stopAll: jest.fn().mockResolvedValue(undefined) }
     machine.state = MachineState.RUNNING
     machine.apiService = { postData: jest.fn().mockResolvedValue(undefined) }
     machine.eventQueueService = { stop: jest.fn().mockResolvedValue(undefined) }
