@@ -62,28 +62,34 @@ test('a controller that ends the hold is reported, and the button can be pressed
   await page.mouse.up();await expect(page.getByRole('button',{name:/Hold to water/})).toBeEnabled();
 });
 
-test('Find pot lists every pot 1-100 and only waters pots with a confirmed route',async({page})=>{
-  const pots=Array.from({length:100},(_,index)=>index+1===18
-    ?{pot:18,status:'ready',kind:'pairing',relayAddress:36,channel:18,pairingName:'Zone3-Pot18'}
-    :{pot:index+1,status:'unmapped',reason:'No confirmed valve route'});
+test('Find pot covers pots 1-100 by physical route, and only ready pots can be held',async({page})=>{
+  const route=(pot:number)=>pot===16?{pot,status:'ready',relayAddress:36,channel:16,source:'field_record_2026-06-15',evidence:'Zone 1 field passes.',pairing:{name:'Zone3-Pot66',sensorKey:'D30GQN2D:P',namedPot:66}}
+    :pot===100?{pot,status:'ready',relayAddress:32,channel:43,source:'field_record_2026-06-16',evidence:'Re-piped.',pairing:{name:'Zone4-Pot100',sensorKey:'D30GQN2E:2',namedPot:100}}
+    :pot===77?{pot,status:'needs_confirmation',candidate:{relayAddress:32,channel:30},source:'field_record_2026-06-15',evidence:'Not re-tested.'}
+    :pot===86?{pot,status:'no_water_line',source:'field_record_2026-06-16',evidence:'Line moved to 96-100.'}
+    :{pot,status:'unmapped',reason:'No recorded valve route'};
+  const pots=Array.from({length:100},(_,index)=>route(index+1));
   const actions=await controller(page,({action})=>action==='routes'?{pots,boards:[32,36,38],canConfirm:true}:{status:'closed',available:true,ready:true});
   await page.goto(`${harness}?find`);
   const search=page.getByRole('combobox');
-  for(const [query,expected] of [['1','Pot 1'],['100','Pot 100'],['37','Pot 37']] as const){
-    await search.fill(query);await expect(page.getByRole('option').first()).toContainText(expected);
+  for(const [query,expected,badge] of [['1','Pot 1','No route'],['100','Pot 100','Ready'],['77','Pot 77','Needs check'],['86','Pot 86','No water line']] as const){
+    await search.fill(query);const first=page.getByRole('option').first();await expect(first).toContainText(expected);await expect(first).toContainText(badge);
   }
-  await expect(page.getByRole('option').first()).toContainText('No route');
-  await search.press('Enter');
-  await expect(page.getByRole('heading',{name:'Pot 37'})).toBeVisible();
-  await expect(page.getByText('No confirmed valve route')).toBeVisible();
-  await expect(page.getByRole('button',{name:/Hold to water/})).toHaveCount(0);
-  const confirm=page.getByRole('button',{name:'Confirm route'});await expect(confirm).toBeDisabled();
-  await expect(page.getByRole('combobox',{name:'Channel'}).locator('option',{hasText:'18 · pot 18'})).toHaveCount(0);
-  await page.getByRole('combobox',{name:'Relay board'}).selectOption('36');
-  await expect(page.getByRole('combobox',{name:'Channel'}).locator('option',{hasText:'18 · pot 18'})).toHaveAttribute('disabled','');
-  await page.getByRole('button',{name:'← All pots'}).click();
-  await search.fill('18');await search.press('Enter');
-  await expect(page.getByText('0x24 · channel 18')).toBeVisible();
+  // Pot 16 is watered by valve 0x24:16, whose sensor pairing carries another pot's name.
+  await search.fill('16');await search.press('Enter');
+  await expect(page.getByRole('heading',{name:'Pot 16'})).toBeVisible();
+  await expect(page.getByText('0x24 · channel 16')).toBeVisible();
+  await expect(page.getByText(/sensor pairing is named Zone3-Pot66/)).toBeVisible();
   await expect(page.getByRole('button',{name:/Hold to water/})).toBeEnabled();
+  await page.getByRole('button',{name:'← All pots'}).click();
+  await search.fill('77');await search.press('Enter');
+  await expect(page.getByRole('heading',{name:'Needs a physical check'})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Hold to water/})).toHaveCount(0);
+  await expect(page.getByRole('combobox',{name:'Channel'})).toHaveValue('30');
+  await expect(page.getByRole('button',{name:'Confirm route'})).toBeDisabled();
+  await page.getByRole('button',{name:'← All pots'}).click();
+  await search.fill('86');await search.press('Enter');
+  await expect(page.getByRole('heading',{name:'No water line'})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Hold to water/})).toHaveCount(0);
   expect(actions.filter(x=>['start','renew'].includes(x))).toEqual([]);
 });

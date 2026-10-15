@@ -1,25 +1,27 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { boardAddresses, holdExpiry, pairingPot, POT_COUNT, resolvePots, routeLabel } from "./hold-policy.mjs";
+import { boardAddresses, holdExpiry, POT_COUNT, potForPairing, resolvePots, routeLabel } from "./hold-policy.mjs";
 
-// Hold-to-water for physical pots 1-100. The server owns the destination controller and every
-// valve route; the browser names only a pot number. Nothing here edits pairings or settings.
+// Hold-to-water for physical pots 1-100. The server owns the destination controller and each
+// pot's recorded valve route; the browser names only a pot number. Sensor pairings never
+// decide which valve opens. Nothing here edits pairings, targets, schedules or settings.
 const origins = new Set(["https://exacth2o.com", "https://www.exacth2o.com", "http://127.0.0.1:4899"]);
 const holdActions = ["start", "renew", "stop", "status"];
 const routeActions = ["routes", "confirm_route", "remove_route"];
-type ManualRoute = { pot_number: number; relay_address: number; channel: number; note: string; confirmed_at: string };
-type PotRoute = { pot: number; status: "ready" | "unmapped" | "conflict"; kind?: "pairing" | "manual"; relayAddress?: number; channel?: number;
-  pairingName?: string; sensorId?: number; valveId?: number; reason?: string };
+type PotRoute = { pot: number; status: "ready" | "needs_confirmation" | "no_water_line" | "unmapped" | "conflict"; relayAddress?: number; channel?: number;
+  pairing?: { name: string; sensorKey: string | null; namedPot: number | null; sensorId?: number; valveId?: number } | null; reason?: string };
+type PairingRecord = { name?: string; Valve?: { relayAddress?: string | number; address?: string | number } };
 
 async function loadRoutes(admin: SupabaseClient, projectId: string, deviceId: string) {
-  const [config, manual] = await Promise.all([
+  const [config, routes] = await Promise.all([
     admin.from("device_config_state").select("pairings, board_config").eq("project_id", projectId).eq("device_id", deviceId).maybeSingle(),
-    admin.from("manual_valve_routes").select("pot_number, relay_address, channel, note, confirmed_at").eq("project_id", projectId).eq("device_id", deviceId),
+    admin.from("manual_valve_routes").select("pot_number, status, relay_address, channel, source, evidence, updated_at").eq("project_id", projectId).eq("device_id", deviceId),
   ]);
-  if (config.error || !config.data || manual.error) throw new Error("Pot routes are unavailable");
+  if (config.error || !config.data || routes.error) throw new Error("Pot routes are unavailable");
   const boards = boardAddresses(config.data.board_config);
-  const pots = resolvePots(Array.isArray(config.data.pairings) ? config.data.pairings : [], (manual.data ?? []) as ManualRoute[], boards) as PotRoute[];
-  return { boards, pots };
+  const pairings = (Array.isArray(config.data.pairings) ? config.data.pairings : []) as PairingRecord[];
+  const pots = resolvePots(routes.data ?? [], boards, pairings) as PotRoute[];
+  return { boards, pots, pairings };
 }
 
 async function controlGateClosed(admin: SupabaseClient, projectId: string, deviceId: string) {
@@ -63,7 +65,7 @@ serve(async (request) => {
       if (role !== "admin") return reply({ error: "Project admin access is required" }, 403);
       const rpc = action === "confirm_route"
         ? admin.rpc("confirm_manual_valve_route", { route_project_id: projectId, route_device_id: deviceId, actor: user.id, route_pot_number: body.potNumber,
-            route_relay_address: body.relayAddress, route_channel: body.channel, route_note: String(body.note ?? "").slice(0, 280) })
+            route_relay_address: body.relayAddress, route_channel: body.channel, route_note: String(body.note ?? "").slice(0, 600) })
         : admin.rpc("remove_manual_valve_route", { route_project_id: projectId, route_device_id: deviceId, actor: user.id, route_pot_number: body.potNumber });
       const { error } = await rpc;
       if (error) return reply({ error: error.message }, 409);
@@ -71,15 +73,14 @@ serve(async (request) => {
       return reply({ pots, boards, canConfirm: true });
     }
 
-    // Portal builds published before pot numbers name the pot by its pairing.
-    if (body.potNumber == null && typeof body.pairingName === "string") body.potNumber = pairingPot(body.pairingName);
-    if (!Number.isInteger(body.sequence) || body.sequence < 0 || !/^[-a-f0-9]{36}$/i.test(body.sessionId || "") || !Number.isInteger(body.potNumber) || body.potNumber < 1 || body.potNumber > POT_COUNT) {
-      return reply({ error: "Invalid hold request" }, 400);
-    }
-    const [{ pots }, gate] = await Promise.all([
+    if (!Number.isInteger(body.sequence) || body.sequence < 0 || !/^[-a-f0-9]{36}$/i.test(body.sessionId || "")) return reply({ error: "Invalid hold request" }, 400);
+    const [{ pots, pairings }, gate] = await Promise.all([
       loadRoutes(admin, projectId, deviceId),
       action === "start" || action === "renew" ? controlGateClosed(admin, projectId, deviceId) : Promise.resolve(null),
     ]);
+    // Portal builds published before pot numbers name a pairing; use the pot its valve waters.
+    if (body.potNumber == null && typeof body.pairingName === "string") body.potNumber = potForPairing(pots, pairings, body.pairingName);
+    if (!Number.isInteger(body.potNumber) || body.potNumber < 1 || body.potNumber > POT_COUNT) return reply({ error: "Pot route unavailable; refresh Find pot" }, 409);
     const pot = pots.find((entry) => entry.pot === body.potNumber)!;
     // Stop and status always reach the controller; only new water is refused here.
     if (gate) return reply({ error: gate }, 409);
@@ -92,9 +93,12 @@ serve(async (request) => {
     if ((action === "start" || action === "renew") && expiresAt == null) {
       return reply({ error: "Hold signal arrived too late", code: "late" }, 409);
     }
+    // With a single pairing on this valve the controller re-checks that pairing's live route;
+    // otherwise it checks the board. Stop and status act on the session, not the route.
+    const ready = pot.status === "ready";
     const payload = { action, sessionId: body.sessionId, ownerId: user.id, sequence: body.sequence, expiresAt: expiresAt ?? 0,
-      routeKind: pot.kind ?? "manual", relayAddress: pot.relayAddress ?? 0, address: pot.channel ?? 0, sensorId: pot.sensorId, valveId: pot.valveId };
-    if (pot.status !== "ready") { payload.relayAddress = 32; payload.address = 1; payload.routeKind = "manual"; } // stop/status ignore the route
+      routeKind: ready && pot.pairing ? "pairing" : "manual", relayAddress: ready ? pot.relayAddress : 32, address: ready ? pot.channel : 1,
+      sensorId: ready ? pot.pairing?.sensorId : undefined, valveId: ready ? pot.pairing?.valveId : undefined };
     const base = Deno.env.get("OWNER_HEALTH_BASE_URL") || `https://${deviceId}.balena-devices.com/owner-health`;
     const started = Date.now();
     const result = await fetch(`${base.replace(/\/$/, "")}/api/manual-hold`, { method: "POST",
@@ -105,14 +109,14 @@ serve(async (request) => {
         action: action === "start" ? "manual_hold_start" : "manual_hold_stop",
         status: result.ok ? String(data.status ?? "unknown") : "rejected",
         details: { session_id: body.sessionId, pot_number: body.potNumber, route: pot.relayAddress ? routeLabel(pot.relayAddress, pot.channel!) : null,
-          route_kind: pot.kind ?? null, controller_ms: Date.now() - started, error: result.ok ? null : data.error ?? null } });
+          route_kind: payload.routeKind, controller_ms: Date.now() - started, error: result.ok ? null : data.error ?? null } });
       // Auditing never delays or blocks the hold itself.
       const runtime = (globalThis as { EdgeRuntime?: { waitUntil(promise: Promise<unknown>): void } }).EdgeRuntime;
       if (runtime) runtime.waitUntil(Promise.resolve(audit)); else await audit;
     }
     // The controller also refuses a signal whose lease expired in transit; that is lateness, not a refusal.
     const code = result.status === 409 && /expired/i.test(String(data.error ?? "")) ? "late" : undefined;
-    return reply({ ...data, code, controllerMs: Date.now() - started, pot: { pot: pot.pot, status: pot.status, kind: pot.kind } }, result.status);
+    return reply({ ...data, code, controllerMs: Date.now() - started, pot: { pot: pot.pot, status: pot.status } }, result.status);
   } catch {
     return reply({ error: "Controller response unavailable. Release the button; the controller ends the hold on its own." }, 503);
   }

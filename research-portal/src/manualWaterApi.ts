@@ -1,15 +1,18 @@
 import { supabase } from './supabase';
 
-/** One physical pot and the valve route the server will use for it. */
+/** One physical pot and the recorded valve route the server will use for it. */
 export type PotRoute = {
   pot: number;
-  status: 'ready' | 'unmapped' | 'conflict';
-  kind?: 'pairing' | 'manual';
+  status: 'ready' | 'needs_confirmation' | 'no_water_line' | 'unmapped' | 'conflict';
   relayAddress?: number;
   channel?: number;
-  pairingName?: string;
-  note?: string;
-  confirmedAt?: string;
+  /** Route recorded for a pot that still needs a physical check. */
+  candidate?: { relayAddress: number; channel: number } | null;
+  /** The sensor pairing on this valve, if any. Its name may not match the physical pot. */
+  pairing?: { name: string; sensorKey: string | null; namedPot: number | null } | null;
+  source?: string;
+  evidence?: string;
+  updatedAt?: string;
   reason?: string;
 };
 export type RouteBook = { pots: PotRoute[]; boards: number[]; canConfirm: boolean };

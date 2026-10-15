@@ -10,7 +10,7 @@ export const RECEIPT_LEASE_MS = 2000;
 
 export const routeLabel = (relay, channel) => `0x${relay.toString(16)}:${channel}`;
 
-/** Pot number of a pairing named like "Zone3-Pot18"; null for any other name. */
+/** Pot number in a pairing name like "Zone3-Pot18". Research labels only: not physical identity. */
 export function pairingPot(name = "") {
   const match = /^Zone\d+-Pot(\d{1,3})$/i.exec(name);
   return match ? Number(match[1]) : null;
@@ -26,54 +26,58 @@ export function boardAddresses(boardConfig) {
 }
 
 /**
- * Resolve every physical pot 1-100 to exactly one valve route, refusing anything ambiguous.
- * Paired pots use their live controller pairing; unpaired pots use an admin-confirmed route.
- * A route shared by two pots, a pot claimed twice, or an unconfigured board is a conflict.
+ * Resolve every physical pot 1-100 from its recorded valve route. Only a confirmed route on a
+ * configured board, not shared with another pot, is ready. Sensor pairings never define a
+ * pot's valve; a pairing on the same valve is reported for context and for the controller's
+ * own route check.
  */
-export function resolvePots(pairings, manualRoutes, boards) {
-  const pots = new Map();
-  for (let pot = 1; pot <= POT_COUNT; pot++) pots.set(pot, { pot, status: "unmapped", reason: "No confirmed valve route" });
-  const owners = new Map();
-  const claim = (relay, channel, owner) => {
-    const key = routeLabel(relay, channel);
-    owners.set(key, [...(owners.get(key) ?? []), owner]);
-  };
-  const conflict = (pot, reason) => Object.assign(pots.get(pot), { status: "conflict", reason });
-
-  const paired = new Map();
+export function resolvePots(routes, boards, pairings) {
+  const onValve = new Map();
   for (const pairing of pairings ?? []) {
-    const relay = toInt(pairing?.Valve?.relayAddress), channel = toInt(pairing?.Valve?.address), pot = pairingPot(pairing?.name);
-    if (relay != null && channel != null) claim(relay, channel, pot != null && pot >= 1 && pot <= POT_COUNT ? `pot ${pot}` : pairing?.name ?? "another pairing");
-    if (pot != null && pot >= 1 && pot <= POT_COUNT) paired.set(pot, [...(paired.get(pot) ?? []), pairing]);
+    const relay = toInt(pairing?.Valve?.relayAddress), channel = toInt(pairing?.Valve?.address);
+    if (relay == null || channel == null) continue;
+    const key = routeLabel(relay, channel);
+    onValve.set(key, [...(onValve.get(key) ?? []), pairing]);
   }
-  for (const [pot, claims] of paired) {
-    if (claims.length > 1) { conflict(pot, `Pot ${pot} is claimed by ${claims.map((item) => item.name).join(" and ")}`); continue; }
-    const [pairing] = claims, relay = toInt(pairing.Valve?.relayAddress), channel = toInt(pairing.Valve?.address);
-    if (relay == null || channel == null) { conflict(pot, `${pairing.name} has no valve route`); continue; }
-    Object.assign(pots.get(pot), { status: "ready", kind: "pairing", relayAddress: relay, channel, pairingName: pairing.name,
-      sensorId: pairing.sensorId, valveId: pairing.valveId, reason: undefined });
+  const confirmedOwners = new Map();
+  for (const row of routes ?? []) {
+    if (row.status !== "confirmed" || row.relay_address == null) continue;
+    const key = routeLabel(row.relay_address, row.channel);
+    confirmedOwners.set(key, [...(confirmedOwners.get(key) ?? []), row.pot_number]);
   }
-  for (const route of manualRoutes ?? []) {
-    const entry = pots.get(route.pot_number);
-    if (!entry || entry.status === "conflict") continue;
-    if (entry.kind === "pairing") {
-      if (entry.relayAddress !== route.relay_address || entry.channel !== route.channel) {
-        conflict(route.pot_number, `Confirmed route ${routeLabel(route.relay_address, route.channel)} differs from ${entry.pairingName}`);
-      }
+  const byPot = new Map((routes ?? []).map((row) => [row.pot_number, row]));
+  const pots = [];
+  for (let pot = 1; pot <= POT_COUNT; pot++) {
+    const row = byPot.get(pot);
+    if (!row) { pots.push({ pot, status: "unmapped", reason: "No recorded valve route" }); continue; }
+    const base = { pot, source: row.source, evidence: row.evidence, updatedAt: row.updated_at };
+    if (row.status === "no_water_line") { pots.push({ ...base, status: "no_water_line", reason: "No water line to this pot" }); continue; }
+    if (row.status === "needs_confirmation") {
+      pots.push({ ...base, status: "needs_confirmation", reason: "Recorded route needs a physical check",
+        candidate: row.relay_address != null ? { relayAddress: row.relay_address, channel: row.channel } : null });
       continue;
     }
-    claim(route.relay_address, route.channel, `pot ${route.pot_number}`);
-    Object.assign(entry, { status: "ready", kind: "manual", relayAddress: route.relay_address, channel: route.channel,
-      note: route.note, confirmedAt: route.confirmed_at, reason: undefined });
+    const label = routeLabel(row.relay_address, row.channel);
+    const sharing = (confirmedOwners.get(label) ?? []).filter((owner) => owner !== pot);
+    const valvePairings = onValve.get(label) ?? [];
+    const pairing = valvePairings.length === 1 ? valvePairings[0] : null;
+    const entry = { ...base, relayAddress: row.relay_address, channel: row.channel,
+      pairing: pairing ? { name: pairing.name, sensorKey: pairing.Sensor ? `${pairing.Sensor.boardSerialId}:${pairing.Sensor.address}` : null,
+        namedPot: pairingPot(pairing.name), sensorId: pairing.sensorId, valveId: pairing.valveId } : null,
+      sharedPairings: valvePairings.length > 1 ? valvePairings.map((item) => item.name) : undefined };
+    if (sharing.length) pots.push({ ...entry, status: "conflict", reason: `Valve ${label} is also confirmed for pot ${sharing.join(", ")}` });
+    else if (!boards.includes(row.relay_address)) pots.push({ ...entry, status: "conflict", reason: `Relay board 0x${row.relay_address.toString(16)} is not configured` });
+    else pots.push({ ...entry, status: "ready" });
   }
-  for (const entry of pots.values()) {
-    if (entry.status !== "ready") continue;
-    const label = routeLabel(entry.relayAddress, entry.channel);
-    const sharing = (owners.get(label) ?? []).filter((owner) => owner !== `pot ${entry.pot}`);
-    if (sharing.length) conflict(entry.pot, `Valve ${label} is also assigned to ${sharing.join(", ")}`);
-    else if (!boards.includes(entry.relayAddress)) conflict(entry.pot, `Relay board 0x${entry.relayAddress.toString(16)} is not configured`);
-  }
-  return [...pots.values()];
+  return pots;
+}
+
+/** The pot whose ready route is a pairing's valve (for portal builds that name a pairing). */
+export function potForPairing(pots, pairings, name) {
+  const pairing = (pairings ?? []).find((item) => item?.name === name);
+  if (!pairing) return null;
+  const relay = toInt(pairing.Valve?.relayAddress), channel = toInt(pairing.Valve?.address);
+  return pots.find((entry) => entry.status === "ready" && entry.relayAddress === relay && entry.channel === channel)?.pot ?? null;
 }
 
 /** Controller expiry for a start/renew, or null when the press is too old or from the future. */

@@ -1,31 +1,31 @@
--- Valve routes for physical pots 1-100 that have no sensor pairing, confirmed by a project
--- admin. Paired pots keep using their live controller pairing. Nothing here changes a pairing,
--- a moisture target, a schedule or any other controller setting.
+-- Physical valve routes for pots 1-100, used only by manual hold-to-water. A route records which
+-- valve output waters a physical pot, with its evidence. Sensor pairings are research records and
+-- do not define physical pot identity: some pairing names differ from the pot their valve waters.
+-- Nothing here changes a pairing, a moisture target, a schedule or any other controller setting.
 create table public.manual_valve_routes (
   project_id uuid not null,
   device_id text not null,
   pot_number integer not null check (pot_number between 1 and 100),
-  relay_address integer not null check (relay_address between 3 and 127),
-  channel integer not null check (channel between 1 and 48),
-  note text not null default '' check (char_length(note) <= 280),
+  status text not null check (status in ('confirmed', 'needs_confirmation', 'no_water_line')),
+  relay_address integer check (relay_address between 3 and 127),
+  channel integer check (channel between 1 and 48),
+  source text not null check (char_length(source) between 1 and 80),
+  evidence text not null default '' check (char_length(evidence) <= 600),
   confirmed_by uuid references auth.users(id) on delete set null,
-  confirmed_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   primary key (project_id, device_id, pot_number),
-  unique (project_id, device_id, relay_address, channel)
+  check ((relay_address is null) = (channel is null)),
+  check (status <> 'confirmed' or relay_address is not null),
+  check (status <> 'no_water_line' or relay_address is null)
 );
+-- One confirmed pot per valve output.
+create unique index manual_valve_routes_confirmed_valve
+  on public.manual_valve_routes(project_id, device_id, relay_address, channel) where status = 'confirmed';
 alter table public.manual_valve_routes enable row level security;
 revoke all on table public.manual_valve_routes from public, anon, authenticated;
 grant select on table public.manual_valve_routes to service_role;
 comment on table public.manual_valve_routes is
-  'Admin-confirmed valve routes for unpaired physical pots. Written only through confirm_/remove_manual_valve_route.';
-
--- Pot number of a controller pairing named like Zone3-Pot18; null for any other name.
-create function public.pairing_pot_number(pairing_name text)
-returns integer language sql immutable set search_path=public as $$
-  select (regexp_match(pairing_name, '^Zone[0-9]+-Pot([0-9]{1,3})$', 'i'))[1]::integer
-$$;
-revoke all on function public.pairing_pot_number(text) from public, anon, authenticated;
-grant execute on function public.pairing_pot_number(text) to service_role;
+  'Physical pot to valve routes for manual watering, with evidence. Written by migrations and confirm_/remove_manual_valve_route only.';
 
 create function public.confirm_manual_valve_route(
   route_project_id uuid, route_device_id text, actor uuid,
@@ -34,7 +34,7 @@ create function public.confirm_manual_valve_route(
 language plpgsql security definer set search_path=public as $$
 declare
   config public.device_config_state%rowtype;
-  claimant text;
+  claimant integer;
   saved public.manual_valve_routes%rowtype;
 begin
   if not exists (select 1 from public.portal_access where project_id=route_project_id and user_id=actor
@@ -51,34 +51,23 @@ begin
   if not found then raise exception 'Controller configuration is unavailable' using errcode='P0002'; end if;
   if not exists (select 1 from jsonb_array_elements(coalesce(config.board_config,'[]'::jsonb)) board
                  where (board->>'address')::integer=route_relay_address) then
-    raise exception 'Relay board % is not configured on this controller', route_relay_address using errcode='22023';
+    raise exception 'Relay board 0x% is not configured on this controller', to_hex(route_relay_address) using errcode='22023';
   end if;
-  -- A paired pot is watered through its pairing; a pairing's valve belongs to that pairing.
-  select pairing->>'name' into claimant from jsonb_array_elements(coalesce(config.pairings,'[]'::jsonb)) pairing
-    where public.pairing_pot_number(pairing->>'name')=route_pot_number limit 1;
+  select pot_number into claimant from public.manual_valve_routes
+    where project_id=route_project_id and device_id=route_device_id and status='confirmed'
+      and relay_address=route_relay_address and channel=route_channel and pot_number<>route_pot_number;
   if claimant is not null then
-    raise exception 'Pot % is paired as %; it uses that pairing''s valve', route_pot_number, claimant using errcode='23505';
+    raise exception 'That valve is already confirmed for pot %', claimant using errcode='23505';
   end if;
-  select pairing->>'name' into claimant from jsonb_array_elements(coalesce(config.pairings,'[]'::jsonb)) pairing
-    where lower(pairing->'Valve'->>'relayAddress') in (lower(format('0x%s',to_hex(route_relay_address))), route_relay_address::text)
-      and (pairing->'Valve'->>'address')::integer=route_channel limit 1;
-  if claimant is not null then
-    raise exception 'That valve is already used by %', claimant using errcode='23505';
-  end if;
-  select format('pot %s', pot_number) into claimant from public.manual_valve_routes
-    where project_id=route_project_id and device_id=route_device_id and relay_address=route_relay_address
-      and channel=route_channel and pot_number<>route_pot_number;
-  if claimant is not null then
-    raise exception 'That valve is already confirmed for %', claimant using errcode='23505';
-  end if;
-  insert into public.manual_valve_routes(project_id,device_id,pot_number,relay_address,channel,note,confirmed_by,confirmed_at)
-    values (route_project_id,route_device_id,route_pot_number,route_relay_address,route_channel,coalesce(left(route_note,280),''),actor,now())
-    on conflict (project_id,device_id,pot_number) do update set relay_address=excluded.relay_address, channel=excluded.channel,
-      note=excluded.note, confirmed_by=excluded.confirmed_by, confirmed_at=excluded.confirmed_at
+  insert into public.manual_valve_routes(project_id,device_id,pot_number,status,relay_address,channel,source,evidence,confirmed_by,updated_at)
+    values (route_project_id,route_device_id,route_pot_number,'confirmed',route_relay_address,route_channel,'admin',
+            coalesce(left(route_note,600),''),actor,now())
+    on conflict (project_id,device_id,pot_number) do update set status='confirmed', relay_address=excluded.relay_address,
+      channel=excluded.channel, source='admin', evidence=excluded.evidence, confirmed_by=excluded.confirmed_by, updated_at=now()
     returning * into saved;
   insert into public.project_control_audit(project_id,device_id,action,actor_id,status,details)
     values (route_project_id,route_device_id,'manual_route_confirm',actor,'confirmed',
-            jsonb_build_object('pot_number',route_pot_number,'relay_address',route_relay_address,'channel',route_channel,'note',saved.note));
+            jsonb_build_object('pot_number',route_pot_number,'relay_address',route_relay_address,'channel',route_channel,'note',saved.evidence));
   return saved;
 end; $$;
 revoke all on function public.confirm_manual_valve_route(uuid,text,uuid,integer,integer,integer,text) from public, anon, authenticated;
@@ -97,7 +86,8 @@ begin
   if not found then return false; end if;
   insert into public.project_control_audit(project_id,device_id,action,actor_id,status,details)
     values (route_project_id,route_device_id,'manual_route_remove',actor,'removed',
-            jsonb_build_object('pot_number',route_pot_number,'relay_address',removed.relay_address,'channel',removed.channel));
+            jsonb_build_object('pot_number',route_pot_number,'status',removed.status,'relay_address',removed.relay_address,
+                               'channel',removed.channel,'source',removed.source));
   return true;
 end; $$;
 revoke all on function public.remove_manual_valve_route(uuid,text,uuid,integer) from public, anon, authenticated;
