@@ -58,6 +58,7 @@ jobs:
           node scripts/audit-walker-observation.mjs
           node scripts/audit-walker-live-boundary.mjs
           node --test supabase/functions/create-control-command/command-policy.test.mjs
+          node --test supabase/functions/manual-hold/hold-policy.test.mjs
           node --test supabase/functions/accept-invite/invite-role-policy.test.mjs
           node --test supabase/functions/_shared/abuse-prevention.test.mjs
           node --test supabase/functions/_shared/installation-config.test.mjs

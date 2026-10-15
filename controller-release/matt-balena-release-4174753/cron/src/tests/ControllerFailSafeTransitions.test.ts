@@ -106,4 +106,53 @@ describe('manual hold route validation', () => {
     expect(machine.apiService.fetchData).toHaveBeenCalledTimes(1)
     delete process.env.EXACTH2O_MANUAL_HOLD_ENABLED
   })
+
+  it('uses the server-confirmed route for pots without a sensor pairing, but still requires a configured board', async () => {
+    process.env.EXACTH2O_MANUAL_HOLD_ENABLED = '1'
+    const machine = Object.create(StateMachine.prototype) as any
+    machine.apiService = {fetchData: jest.fn()}
+    machine.valveService = {getBoardConfigs: () => [{address:32}]}
+    machine.manualHoldManager = {request: jest.fn().mockResolvedValue({status:'open'})}
+    const request = {routeKind:'manual',sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:Date.now()+2000,address:5,relayAddress:32}
+    await machine.holdManualValve('start',request)
+    expect(machine.apiService.fetchData).not.toHaveBeenCalled()
+    await expect(machine.holdManualValve('start',{...request,relayAddress:38})).rejects.toThrow('board unavailable')
+    expect(machine.manualHoldManager.request).toHaveBeenCalledTimes(1)
+    delete process.env.EXACTH2O_MANUAL_HOLD_ENABLED
+  })
+
+  it('ends an active hold before start() resets the shared valve lock', async () => {
+    const machine = Object.create(StateMachine.prototype) as any
+    const order: string[] = []
+    machine.openValvePairId = 'hold:test-hold-session'
+    machine.manualHoldManager = {stopAll: jest.fn(async () => { order.push(`stop:${machine.openValvePairId}`) })}
+    machine.eventQueueService = {setLoadingPairings: jest.fn(() => { order.push(`load:${machine.openValvePairId}`); throw new Error('halt after reset') })}
+    await expect(machine.start()).rejects.toThrow('halt after reset')
+    expect(order).toEqual(['stop:hold:test-hold-session', 'load:null'])
+  })
+
+  it('retries a hold close, then closes every output, and keeps the lock if both fail', async () => {
+    const machine = Object.create(StateMachine.prototype) as any
+    const operate = jest.fn((): void => { throw new Error('relay busy') })
+    const closeAll = jest.fn(() => { throw new Error('bus down') })
+    machine.valveService = {calculateColumnAndPin: () => ({column:0,pin:0}), operateValve: operate, closeAllValves: closeAll}
+    machine.openValvePairId = 'hold:test-hold-session'
+    const request = {sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:Date.now()+2000,address:5,relayAddress:32}
+    await expect(machine.closeManualHold(request)).rejects.toThrow('bus down')
+    expect(operate).toHaveBeenCalledTimes(3)
+    expect(closeAll).toHaveBeenCalledTimes(1)
+    expect(machine.openValvePairId).toBe('hold:test-hold-session')
+    operate.mockImplementationOnce(() => undefined)
+    await machine.closeManualHold(request)
+    expect(machine.openValvePairId).toBeNull()
+  })
+
+  it('never closes a valve that belongs to automatic watering', async () => {
+    const machine = Object.create(StateMachine.prototype) as any
+    machine.valveService = {calculateColumnAndPin: jest.fn(), operateValve: jest.fn(), closeAllValves: jest.fn()}
+    machine.openValvePairId = '712-1625'
+    await machine.closeManualHold({sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:0,address:5,relayAddress:32})
+    expect(machine.valveService.operateValve).not.toHaveBeenCalled()
+    expect(machine.openValvePairId).toBe('712-1625')
+  })
 })

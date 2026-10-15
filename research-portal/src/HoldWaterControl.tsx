@@ -1,89 +1,111 @@
-import { useEffect, useRef, useState } from 'react';
-import { supabase } from './supabase';
-import type { PairingRow } from './types';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { HOLD_LIMIT_MS, HoldSession, type HoldView } from './holdSession';
+import type { ManualWaterClient, PotRoute } from './manualWaterApi';
 
-type Phase = 'checking'|'ready'|'starting'|'watering'|'stopping'|'stopped'|'unavailable'|'unknown';
-type Session = {id:string; token:string; sequence:number; released:boolean; timer?:number};
-export function HoldWaterControl({projectId,deviceId,pairing}:{projectId:string;deviceId:string;pairing:PairingRow}) {
-  const [phase,setPhase]=useState<Phase>('checking');
-  const [message,setMessage]=useState('Checking controller…');
-  const [elapsed,setElapsed]=useState(0);
-  const current=useRef<Session|null>(null);
-  const mounted=useRef(true);
-  const busy=useRef(false);
-  const stopRef=useRef<()=>void>(()=>{});
-  async function call(action:string,session:Session) {
-    const response=await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manual-hold`,{
-      method:'POST',headers:{'Content-Type':'application/json',apikey:import.meta.env.VITE_SUPABASE_ANON_KEY,Authorization:`Bearer ${session.token}`},
-      body:JSON.stringify({action,sessionId:session.id,sequence:session.sequence++,sentAt:Date.now(),projectId,deviceId,pairingName:pairing.name}),
-      signal:AbortSignal.timeout(4500),keepalive:action==='stop',
+type Availability = { state: 'checking' | 'ready' | 'busy' | 'unavailable'; message: string };
+const toneFor = (phase: string) => ({ ready: 'ready', watering: 'active', opening: 'active', stopping: 'pending', checking: 'pending', busy: 'pending' } as Record<string, string>)[phase] ?? (['refused', 'unconfirmed', 'unavailable'].includes(phase) ? 'alert' : 'idle');
+
+/** Press and hold to water one pot. The controller owns the valve and ends every hold itself. */
+export function HoldWaterControl({ client, pot }: { client: ManualWaterClient; pot: PotRoute }) {
+  const [availability, setAvailability] = useState<Availability>({ state: 'checking', message: 'Checking controller…' });
+  const [view, setView] = useState<HoldView | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const session = useRef<HoldSession | null>(null);
+  const statusId = useId();
+
+  const check = useCallback(async () => {
+    setAvailability({ state: 'checking', message: 'Checking controller…' });
+    const result = await client.hold('status', pot.pot, crypto.randomUUID(), 0);
+    if (!result) return;
+    if (!result.ok) { setAvailability({ state: 'unavailable', message: result.error }); return; }
+    const reply = result.data;
+    if (reply.available === false) setAvailability({ state: 'unavailable', message: 'Hold-to-water is not commissioned on this controller.' });
+    else if (reply.ready === false) setAvailability({ state: 'unavailable', message: 'The controller is recovering from a valve fault. Manual watering is paused until it restarts.' });
+    else if (reply.busy) setAvailability({ state: 'busy', message: 'Another hold is running on this controller.' });
+    else setAvailability({ state: 'ready', message: 'Ready' });
+  }, [client, pot.pot]);
+
+  const release = useCallback(() => { session.current?.release(); }, []);
+
+  useEffect(() => {
+    void check();
+    const hidden = () => { if (document.hidden) release(); };
+    window.addEventListener('blur', release);
+    window.addEventListener('pagehide', release);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      release();
+      window.removeEventListener('blur', release);
+      window.removeEventListener('pagehide', release);
+      document.removeEventListener('visibilitychange', hidden);
+    };
+  }, [check, release]);
+
+  useEffect(() => {
+    if (view?.phase !== 'watering' || view.openedAt == null) return undefined;
+    const openedAt = view.openedAt;
+    const timer = window.setInterval(() => setElapsed(Math.min(HOLD_LIMIT_MS, Date.now() - openedAt) / 1000), 100);
+    return () => window.clearInterval(timer);
+  }, [view?.phase, view?.openedAt]);
+
+  const holding = view != null && ['opening', 'watering'].includes(view.phase);
+  const canPress = availability.state === 'ready' && !holding && view?.phase !== 'stopping';
+  const press = () => {
+    if (!canPress) return;
+    setElapsed(0);
+    const sessionId = crypto.randomUUID();
+    const next = new HoldSession((action, sequence, options) => client.hold(action, pot.pot, sessionId, sequence, options), (state) => {
+      if (session.current === next) setView(state);
     });
-    const data=await response.json();if(!response.ok)throw new Error(data.error||'Controller unavailable');return data;
-  }
-  const show=(next:Phase,text:string)=>{if(mounted.current){setPhase(next);setMessage(text);}};
-  async function stop(session=current.current) {
-    if(!session)return;
-    session.released=true;window.clearTimeout(session.timer);
-    if(current.current===session)show('stopping','Stopping…');
-    try { const data=await call('stop',session);if(data.status!=='closed')throw new Error('Stop not confirmed');if(current.current===session)show('stopped','Stopped · controller confirmed'); }
-    catch {if(current.current===session)show('unknown','Stop confirmation unavailable. The controller expires the hold locally; check the outlet before continuing.');}
-    finally {if(current.current===session){current.current=null;busy.current=false;}}
-  }
-  stopRef.current=()=>{void stop();};
-  useEffect(()=>{
-    mounted.current=true;let cancelled=false;
-    void (async()=>{
-      try {
-        const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Sign in to water manually');
-        const result=await call('status',{id:crypto.randomUUID(),token:session.access_token,sequence:0,released:true});
-        if(!cancelled)show(result.available?'ready':'unavailable',result.available?'Hold to water. Release to stop.':'Hold-to-water is awaiting controller commissioning.');
-      }catch(error){if(!cancelled)show('unavailable',error instanceof Error?error.message:'Controller unavailable');}
-    })();
-    const blur=()=>stopRef.current();
-    const hidden=()=>{if(document.hidden)blur();};
-    window.addEventListener('blur',blur);window.addEventListener('pagehide',blur);document.addEventListener('visibilitychange',hidden);
-    return ()=>{cancelled=true;mounted.current=false;stopRef.current();window.removeEventListener('blur',blur);window.removeEventListener('pagehide',blur);document.removeEventListener('visibilitychange',hidden);};
-    // The component is keyed by controller and pairing; each mount has a fixed destination.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
-  async function start() {
-    if(busy.current||!['ready','stopped'].includes(phase))return;
-    busy.current=true;
-    // Register the press before awaiting credentials so release can cancel it.
-    const session:Session={id:crypto.randomUUID(),token:'',sequence:0,released:false};current.current=session;
-    show('starting','Starting…');setElapsed(0);
-    try {
-      const {data:{session:auth}}=await supabase.auth.getSession();if(!auth)throw new Error('Sign in to water manually');
-      session.token=auth.access_token;
-      if(session.released)return;
-      const tick=async(action:'start'|'renew')=>{
-        if(session.released)return;
-        try {
-          const result=await call(action,session);
-          if(session.released){await stop(session);return;}
-          if(result.status!=='open'){session.released=true;current.current=null;busy.current=false;show('stopped','Stopped · release, then hold again');return;}
-          setElapsed(Math.max(0,(Date.now()-result.startedAt)/1000));show('watering','Watering · controller confirmed');
-          session.timer=window.setTimeout(()=>void tick('renew'),600);
-        }catch(error){session.released=true;await stop(session);if(mounted.current)setMessage(error instanceof Error?error.message:'Controller connection lost');}
-      };
-      await tick('start');
-    }catch(error){busy.current=false;current.current=null;show('unavailable',error instanceof Error?error.message:'Controller unavailable');}
-    finally{if(session.released&&!session.token){busy.current=false;}}
-  }
-  function release(){const s=current.current;if(s&&!s.token){s.released=true;current.current=null;busy.current=false;show('stopped','Stopped');}else void stop(s);}
-  const enabled=['ready','stopped','starting','watering'].includes(phase);
-  return <section className="px-manual-water" aria-label={`Manual water pot ${pairing.pot_number}`}>
-    <h3>Manual water</h3>
-    <p className="px-small px-muted">Overrides moisture targets, schedules and watering pauses for this hold. Maximum 15 seconds.</p>
-    <p className="px-small">Valve <strong>{pairing.valve_key}</strong> · Sensor {pairing.sensor_key}</p>
-    <button type="button" className={`px-button px-hold-water ${phase==='watering'?'is-watering':''}`} disabled={!enabled}
-      onPointerDown={event=>{if(event.button!==0)return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);void start();}}
-      onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onBlur={release}
-      onKeyDown={event=>{if((event.key===' '||event.key==='Enter')&&!event.repeat){event.preventDefault();void start();}if(event.key==='Escape')release();}}
-      onKeyUp={event=>{if(event.key===' '||event.key==='Enter'){event.preventDefault();release();}}}
-      onContextMenu={event=>event.preventDefault()}>
-      {phase==='watering'?`Watering · ${elapsed.toFixed(1)} s`:'Hold to water'}
-    </button>
-    <p role="status" aria-live="polite" className="px-small">{message}</p>
-  </section>;
+    session.current = next;
+    next.begin();
+  };
+  const phase = view?.phase ?? availability.state;
+  const message = view ? view.message : availability.message;
+  const recheck = availability.state === 'unavailable' || availability.state === 'busy' || view?.phase === 'unconfirmed';
+
+  return (
+    <section className="px-water" aria-label={`Manual water, pot ${pot.pot}`}>
+      <div className="px-water-head">
+        <h3>Manual water</h3>
+        <span className="px-water-state" data-tone={toneFor(phase)}>{
+          { checking: 'Checking', ready: 'Ready', busy: 'In use', unavailable: 'Unavailable', opening: 'Opening', watering: 'Watering',
+            stopping: 'Stopping', stopped: 'Stopped', ended: 'Ended', refused: 'Not started', unconfirmed: 'Unconfirmed' }[phase]
+        }</span>
+      </div>
+      <button
+        type="button"
+        className={`px-hold${holding ? ' is-holding' : ''}${view?.phase === 'watering' ? ' is-watering' : ''}`}
+        disabled={!canPress && !holding}
+        aria-describedby={statusId}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          press();
+        }}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onLostPointerCapture={release}
+        onBlur={release}
+        onKeyDown={(event) => {
+          if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); press(); }
+          if (event.key === 'Escape') release();
+        }}
+        onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); release(); } }}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        <span className="px-hold-label">{view?.phase === 'watering' ? 'Watering' : view?.phase === 'opening' ? 'Opening…' : 'Hold to water'}</span>
+        <span className="px-hold-sub">{view?.phase === 'watering' ? <span className="px-mono">{elapsed.toFixed(1)} s</span> : 'Release to stop'}</span>
+        <span className="px-hold-meter" aria-hidden="true" />
+      </button>
+      <div className="px-water-status">
+        <p id={statusId} role="status" aria-live="polite" data-slow={view?.slow ? 'true' : undefined}>
+          {view?.slow && holding ? 'Waiting for the controller. Water stops on its own if the connection drops.' : message}
+        </p>
+        {recheck ? <button type="button" className="px-button is-small" onClick={() => { setView(null); void check(); }}>Check again</button> : null}
+      </div>
+      <p className="px-water-note">Overrides moisture targets, schedules and watering pauses for this hold only. Saved settings are unchanged. 15-second limit.</p>
+    </section>
+  );
 }

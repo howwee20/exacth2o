@@ -1,92 +1,254 @@
-// Decorative sensor readings and flowing water. No live telemetry is implied.
+// Decorative textures behind page openings: faint drifting sensor readings, or a few fine
+// water currents (data-ambient="water"). Hidden from assistive technology, steered around the
+// host's content, paused when offscreen, and still under reduced motion. No live data is shown.
 (() => {
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
-  document.querySelectorAll('[data-ambient]').forEach((host, index) => {
-    const canvas = document.createElement('canvas');
-    canvas.className = 'ambient-field'; canvas.setAttribute('aria-hidden', 'true');
-    host.append(canvas);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const water = host.dataset.ambient === 'water';
+  const hosts = [...document.querySelectorAll('[data-ambient]')];
+  if (!hosts.length || !window.HTMLCanvasElement) return;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const FRAME_MS = 90;
+
+  // Seeded so a still frame is identical between visits and screenshot runs.
+  function random(seed) {
+    let state = seed >>> 0;
+    return () => {
+      state = (Math.imul(state ^ (state >>> 15), 2246822507) + 0x9e3779b9) >>> 0;
+      state = Math.imul(state ^ (state >>> 13), 3266489909) >>> 0;
+      return ((state ^ (state >>> 16)) >>> 0) / 4294967296;
+    };
+  }
+  const smooth = t => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+
+  // Words, controls and images in the host, measured by what they draw rather than by
+  // their full-width boxes, so textures can thin out around them.
+  function contentBoxes(host, canvas, rect) {
+    const range = document.createRange();
+    return [...host.children].filter(child => child !== canvas && !child.hasAttribute('data-ambient-ignore'))
+      .map(child => {
+        const own = child.getBoundingClientRect();
+        if (/^(IMG|SVG|PICTURE|VIDEO|CANVAS|IFRAME)$/i.test(child.tagName)) return own;
+        range.selectNodeContents(child);
+        const drawn = range.getBoundingClientRect();
+        return drawn.width && drawn.height ? drawn : own;
+      })
+      .filter(box => box.width && box.height)
+      .map(box => ({ l: box.left - rect.left, t: box.top - rect.top, r: box.right - rect.left, b: box.bottom - rect.top }));
+  }
+  function distanceTo(boxes, x, y) {
+    let distance = Infinity;
+    for (const box of boxes) distance = Math.min(distance, Math.hypot(Math.max(box.l - x, 0, x - box.r), Math.max(box.t - y, 0, y - box.b)));
+    return distance;
+  }
+
+  function reading(next) {
+    const kind = next();
+    if (kind < 0.45) return (12 + next() * 30).toFixed(1);      // moisture, % VWC
+    if (kind < 0.7) return (0.1 + next() * 0.4).toFixed(3);     // volumetric fraction
+    if (kind < 0.88) return (18 + next() * 9).toFixed(1);       // temperature, °C
+    return String(Math.floor(next() * 96) + 1).padStart(2, '0'); // pot index
+  }
+
+  function field(host, index) {
     const style = getComputedStyle(host);
-    const color = style.getPropertyValue('--ambient-color').trim() || '142 211 184';
-    const peak = parseFloat(style.getPropertyValue('--ambient-opacity')) || .2;
-    let w = 1, h = 1, quiet = [], points = [], time = 0, last = 0, frame = 0, visible = true;
+    const color = style.getPropertyValue('--ambient-color').trim() || '23 100 73';
+    const peak = parseFloat(style.getPropertyValue('--ambient-opacity')) || 0.1;
+    const size = parseFloat(style.getPropertyValue('--ambient-size')) || 12;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ambient-field';
+    canvas.setAttribute('aria-hidden', 'true');
+    host.append(canvas);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const next = random(0x51ed + index * 7919);
+    const blobs = Array.from({ length: 4 }, () => ({
+      x: next() * Math.PI * 2, y: next() * Math.PI * 2,
+      sx: 0.000016 + next() * 0.00001, sy: 0.000013 + next() * 0.00001,
+      r: 0.22 + next() * 0.16,
+    }));
+    let cols = 0, rows = 0, width = 0, height = 0, cellW = 0, cellH = 0;
+    let glyphs = [], grain = [], tails = [], quiet = [];
+    let clock = 0, last = 0, frame = 0, visible = true;
+
     function layout() {
-      const box = host.getBoundingClientRect(); w = box.width; h = box.height;
-      const ratio = Math.min(devicePixelRatio || 1, 2);
-      canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio);
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      const range = document.createRange();
-      quiet = [...host.children].filter(c => c !== canvas && !c.hasAttribute('data-ambient-ignore')).map(c => {
-        range.selectNodeContents(c); const r = range.getBoundingClientRect();
-        return {l:r.left-box.left-24,r:r.right-box.left+24,t:r.top-box.top-24,b:r.bottom-box.top+24};
-      });
-      points = [];
-      for (let y = 30, row = 0; y < h; y += 54, row++) {
-        for (let x = 24 + (row % 2) * 36; x < w; x += 104) {
-          const seed = (row * 17 + x * 13 + index * 29) % 97;
-          if (seed % 3 === 0) continue;
-          points.push({x,y,phase:seed/97*Math.PI*2,value:18+seed*.23});
+      const rect = host.getBoundingClientRect();
+      width = Math.max(1, Math.round(rect.width));
+      height = Math.max(1, Math.round(rect.height));
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = width * ratio; canvas.height = height * ratio;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      cellW = size * 0.62; cellH = size * 1.6;
+      cols = Math.ceil(width / cellW); rows = Math.ceil(height / cellH);
+      glyphs = []; grain = []; tails = [];
+      const fill = random(0xa11 + index * 131);
+      for (let row = 0; row < rows; row++) {
+        let line = '';
+        while (line.length < cols) {
+          const value = reading(fill);
+          // The last digit of each reading is the one that ticks.
+          if (line.length + value.length <= cols) tails.push(row * cols + line.length + value.length - 1);
+          line += value + ' '.repeat(1 + Math.floor(fill() * 3));
+        }
+        for (let col = 0; col < cols; col++) { glyphs.push(line[col]); grain.push(fill()); }
+      }
+      const boxes = contentBoxes(host, canvas, rect);
+      quiet = new Float32Array(cols * rows);
+      for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+        const x = (col + 0.5) * cellW, y = (row + 0.5) * cellH;
+        const distance = distanceTo(boxes, x, y)
+        const edge = smooth(Math.min(x, width - x, y, height - y) / 40);
+        quiet[row * cols + col] = edge * (boxes.length ? 0.06 + 0.94 * smooth((distance - 16) / 64) : 1);
+      }
+    }
+
+    function draw() {
+      context.clearRect(0, 0, width, height);
+      context.font = `400 ${size}px 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
+      context.textBaseline = 'top';
+      context.fillStyle = `rgb(${color})`;
+      // Patches keep a readable size on ultrawide screens instead of filling the panel.
+      const span = Math.min(Math.max(width, height), 900);
+      const centers = blobs.map(blob => ({
+        x: width * (0.5 + 0.48 * Math.sin(blob.x + clock * blob.sx)),
+        y: height * (0.5 + 0.46 * Math.sin(blob.y + clock * blob.sy)),
+        r: blob.r * span,
+      }));
+      for (let row = 0; row < rows; row++) {
+        const y = row * cellH + (cellH - size) / 2;
+        for (let col = 0; col < cols; col++) {
+          const cell = row * cols + col, glyph = glyphs[cell];
+          if (glyph === ' ') continue;
+          const x = col * cellW;
+          let strength = 0;
+          for (const center of centers) {
+            const d = Math.hypot(x - center.x, y - center.y) / center.r;
+            if (d < 1) strength = Math.max(strength, 1 - d * d);
+          }
+          strength *= quiet[cell];
+          if (strength < grain[cell] * 0.85) continue;
+          const alpha = peak * strength * (0.45 + 0.55 * grain[cell]);
+          if (alpha < 0.008) continue;
+          context.globalAlpha = alpha;
+          context.fillText(glyph, x, y);
         }
       }
-      draw();
+      context.globalAlpha = 1;
+    }
+
+    // A few readings settle by one step each frame, the way live values drift.
+    function refresh() {
+      const changes = Math.max(1, Math.round(tails.length * 0.03));
+      for (let i = 0; i < changes; i++) {
+        const cell = tails[Math.floor(Math.random() * tails.length)];
+        const digit = Number(glyphs[cell]);
+        glyphs[cell] = String((digit + (Math.random() < 0.5 ? 9 : 1)) % 10);
+      }
+    }
+
+    function loop(now) {
+      frame = 0;
+      if (!running()) return;
+      if (now - last >= FRAME_MS) {
+        clock += last ? Math.min(now - last, 250) : 0;
+        last = now;
+        refresh(); draw();
+      }
+      frame = requestAnimationFrame(loop);
+    }
+    const running = () => visible && !document.hidden && !reducedMotion.matches;
+    function sync() {
+      if (running()) { if (!frame) { last = 0; frame = requestAnimationFrame(loop); } }
+      else { cancelAnimationFrame(frame); frame = 0; draw(); }
+    }
+
+    layout(); draw(); sync();
+    let resizeFrame = 0;
+    const relayout = () => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => { layout(); draw(); });
+    };
+    if ('ResizeObserver' in window) new ResizeObserver(relayout).observe(host);
+    else window.addEventListener('resize', relayout);
+    document.fonts?.ready.then(relayout);
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync(); }).observe(host);
+    }
+    document.addEventListener('visibilitychange', sync);
+    reducedMotion.addEventListener('change', sync);
+  }
+
+  // A few hairline currents drift across the host like water moving under light. Each line
+  // is the sum of a long swell and a short ripple; lines fade at the edges and near content.
+  function water(host) {
+    const style = getComputedStyle(host);
+    const color = style.getPropertyValue('--ambient-color').trim() || '38 125 184';
+    const peak = parseFloat(style.getPropertyValue('--ambient-opacity')) || 0.2;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ambient-field';
+    canvas.setAttribute('aria-hidden', 'true');
+    host.append(canvas);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    // Two wisps of near-parallel hairlines, moving against each other like currents.
+    const strands = [0, 1].flatMap((wisp) => Array.from({ length: 4 }, (_, i) => ({
+      base: wisp ? 0.7 : 0.3, offset: (i - 1.5) * 6, swell: wisp ? 0.13 : 0.11, ripple: 0.016,
+      phase: wisp * 2.6 + i * 0.14, drift: wisp ? -0.00009 : 0.00011, width: i === 1 ? 1.25 : 0.9,
+      weight: [0.55, 1, 0.8, 0.45][i],
+    })));
+    let width = 0, height = 0, boxes = [], clock = 0, last = 0, frame = 0, visible = true;
+    function layout() {
+      const rect = host.getBoundingClientRect();
+      width = Math.max(1, Math.round(rect.width)); height = Math.max(1, Math.round(rect.height));
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = width * ratio; canvas.height = height * ratio;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      boxes = contentBoxes(host, canvas, rect);
     }
     function draw() {
-      ctx.clearRect(0,0,w,h);
-      if (water) {
-        // Fine strands travel in coherent ribbons, with broad translucent depth.
-        for (let ribbon=0;ribbon<3;ribbon++) {
-          for (let strand=0;strand<12;strand++) {
-            ctx.beginPath();
-            for(let x=-20;x<=w+20;x+=8) {
-              const u=x/Math.max(w,1), phase=time*.00018+ribbon*1.8;
-              const y=h*(.24+ribbon*.28)+Math.sin(u*6.3+phase)*h*.16+
-                Math.sin(u*11-phase*.7)*h*.045+(strand-6)*3.2;
-              if(x===-20)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      context.clearRect(0, 0, width, height);
+      context.lineCap = 'butt';
+      context.strokeStyle = `rgb(${color})`;
+      const step = 6, swellK = (Math.PI * 2) / Math.max(width * 0.95, 1), rippleK = (Math.PI * 2) / 170;
+      for (const strand of strands) {
+        context.lineWidth = strand.width;
+        let px = null, py = null;
+        for (let x = -step; x <= width + step; x += step) {
+          const t = clock * strand.drift;
+          const y = height * strand.base + strand.offset + Math.sin(x * swellK + strand.phase + t) * height * strand.swell
+            + Math.sin(x * rippleK - t * 2.3 + strand.phase * 1.7) * height * strand.ripple;
+          if (px != null) {
+            const mx = (x + px) / 2, my = (y + py) / 2;
+            const edge = smooth(Math.min(mx, width - mx) / (width * 0.18)) * smooth(Math.min(my, height - my) / 18);
+            const alpha = peak * strand.weight * edge * smooth((distanceTo(boxes, mx, my) - 10) / 70);
+            if (alpha > 0.004) {
+              context.globalAlpha = alpha;
+              context.beginPath(); context.moveTo(px, py); context.lineTo(x, y); context.stroke();
             }
-            const gradient=ctx.createLinearGradient(0,0,w,0);
-            gradient.addColorStop(0,'rgba(31,126,192,0)');
-            gradient.addColorStop(.18,`rgba(31,126,192,${.055+strand*.004})`);
-            gradient.addColorStop(.5,'rgba(65,172,212,.035)');
-            gradient.addColorStop(.82,`rgba(27,134,196,${.06+strand*.004})`);
-            gradient.addColorStop(1,'rgba(31,126,192,0)');
-            ctx.strokeStyle=gradient;ctx.lineWidth=strand===5?8:1;ctx.stroke();
           }
+          px = x; py = y;
         }
-      } else {
-        ctx.font="400 12px 'DM Mono', ui-monospace, monospace";
-        ctx.textBaseline='middle';ctx.fillStyle=`rgb(${color})`;
-        for(const p of points) {
-          const x=p.x+Math.sin(time*.00018+p.phase)*9;
-          const y=p.y+Math.cos(time*.00014+p.phase)*7;
-          let distance=Infinity;
-          for(const q of quiet) distance=Math.min(distance,Math.hypot(Math.max(q.l-x,0,x-q.r),Math.max(q.t-y,0,y-q.b)));
-          const edge=smooth(Math.min(x,w-x,y,h-y)/35);
-          const fade=.42+.58*(.5+.5*Math.sin(time*.0006+p.phase));
-          ctx.globalAlpha=peak*edge*smooth(distance/45)*fade;
-          const value=p.value+Math.sin(time*.0003+p.phase)*.4;
-          ctx.fillText(value.toFixed(1),x,y);
-        }
-        ctx.globalAlpha=1;
       }
+      context.globalAlpha = 1;
     }
+    const running = () => visible && !document.hidden && !reducedMotion.matches;
     function loop(now) {
-      frame=0;
-      if(!visible||document.hidden||reduced.matches)return;
-      if(!last||now-last>=32){time+=last?Math.min(now-last,100):0;last=now;draw();}
-      frame=requestAnimationFrame(loop);
+      frame = 0;
+      if (!running()) return;
+      if (now - last >= 33) { clock += last ? Math.min(now - last, 100) : 0; last = now; draw(); }
+      frame = requestAnimationFrame(loop);
     }
-    function sync(){
-      cancelAnimationFrame(frame);frame=0;last=0;
-      if(reduced.matches){time=0;draw();}
-      else if(visible&&!document.hidden)frame=requestAnimationFrame(loop);
+    function sync() {
+      if (running()) { if (!frame) { last = 0; frame = requestAnimationFrame(loop); } }
+      else { cancelAnimationFrame(frame); frame = 0; draw(); }
     }
-    layout();sync();
-    new ResizeObserver(layout).observe(host);
-    new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;sync();}).observe(host);
-    document.fonts?.ready.then(layout);
-    document.addEventListener('visibilitychange',sync);reduced.addEventListener('change',sync);
-  });
+    layout(); draw(); sync();
+    const relayout = () => requestAnimationFrame(() => { layout(); draw(); });
+    if ('ResizeObserver' in window) new ResizeObserver(relayout).observe(host);
+    else window.addEventListener('resize', relayout);
+    document.fonts?.ready.then(relayout);
+    if ('IntersectionObserver' in window) new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync(); }).observe(host);
+    document.addEventListener('visibilitychange', sync);
+    reducedMotion.addEventListener('change', sync);
+  }
+
+  hosts.forEach((host, index) => (host.dataset.ambient === 'water' ? water(host) : field(host, index)));
 })();

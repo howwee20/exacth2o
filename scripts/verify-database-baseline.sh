@@ -671,6 +671,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/portal_product_a
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/product_read_views.sql" >/dev/null
 
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/control_authorization.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/manual_valve_routes.sql" >/dev/null
 
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/sales_support_access.sql" >/dev/null
 

@@ -190,7 +190,8 @@ export function createServer(stateMachine: StateMachine, options: { environment:
     const body: any = request.body || {}
     if (!['start','renew','stop','status'].includes(body.action)) return reply.code(400).send({error:'Invalid hold action'})
     if (!Number.isInteger(body.address) || body.address < 1 || body.address > 48 || !Number.isInteger(body.relayAddress) || body.relayAddress < 3 || body.relayAddress > 127) return reply.code(400).send({error:'Invalid valve route'})
-    if (!Number.isInteger(body.sensorId) || !Number.isInteger(body.valveId)) return reply.code(400).send({error:'Invalid pot identity'})
+    if (body.routeKind !== undefined && !['pairing','manual'].includes(body.routeKind)) return reply.code(400).send({error:'Invalid route kind'})
+    if (body.routeKind !== 'manual' && (!Number.isInteger(body.sensorId) || !Number.isInteger(body.valveId))) return reply.code(400).send({error:'Invalid pot identity'})
     try {
       return await stateMachine.holdManualValve(body.action, body)
     } catch(error: any) { return reply.code(409).send({error:error.message || 'Hold rejected'}) }
