@@ -37,15 +37,16 @@ for (const size of [sizes[1], sizes[3], sizes[5]]) test(`visual baseline ${size.
     await expect(page).toHaveScreenshot(`${name}-${size.width}.png`, {animations:'disabled',maxDiffPixelRatio:0.015});
   }
 });
-test('photo pause, deferred data and saved comparisons', async ({page}) => {
+test('home opens on the overhead photograph with the simulator below', async ({page}) => {
   await page.goto('/');
-  await expect(page.getByRole('button',{name:'Play photos',exact:true})).toHaveAttribute('aria-pressed','true');
-  await page.getByRole('button',{name:'Play photos',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Pause photos',exact:true})).toHaveAttribute('aria-pressed','false');
-  await page.getByRole('button',{name:'Pause photos',exact:true}).click();
-  const active = await page.locator('.cinema-photo.is-active').getAttribute('aria-label');
-  await page.waitForTimeout(7200);
-  await expect(page.locator('.cinema-photo.is-active')).toHaveAttribute('aria-label',active!);
+  await expect(page.locator('.cinema-photo img')).toHaveAttribute('alt',/^Overhead view of research pots/);
+  await expect(page.locator('video')).toHaveCount(0);
+  await expect(page.locator('main > section').nth(1)).toHaveId('one-pot');
+  await expect(page.getByRole('slider',{name:/Moisture target/})).toBeVisible();
+  await expect(page.locator('#system').getByRole('link',{name:/Open demo/})).toHaveAttribute('href','/demo');
+});
+
+test('deferred data and saved comparisons', async ({page}) => {
   const loaded: string[]=[]; page.on('request',request => loaded.push(request.url()));
   await page.goto('/demo');
   await expect(page.getByRole('heading',{name:'Experiments',exact:true})).toBeVisible();
@@ -72,16 +73,6 @@ test('photo pause, deferred data and saved comparisons', async ({page}) => {
   await page.getByText('Experiment details',{exact:true}).click();
   await expect(page.getByRole('heading',{name:'Data source',exact:true})).toBeVisible();
   await expect(page.locator('.px-source-note')).toContainText('measurement values and intervals are unchanged');
-});
-
-test('product showcase plays with the current poster and captions', async ({page}) => {
-  await page.goto('/#software-tour');
-  const video=page.locator('#softwareTourVideo');
-  await expect(video).toHaveAttribute('poster','/media/software-tour-poster-cursor-20261013.jpg');
-  await page.getByRole('button',{name:'Watch the tour 0:24',exact:true}).click();
-  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(.1);
-  expect(await video.evaluate((v: HTMLVideoElement) => ({duration:v.duration,width:v.videoWidth,height:v.videoHeight,error:v.error?.message ?? null}))).toEqual({duration:24,width:1920,height:1200,error:null});
-  await expect(page.locator('track')).toHaveAttribute('src','/media/software-tour-cursor-20261013.vtt');
 });
 
 test('mobile Applications embed loads the current release and closes', async ({page}) => {

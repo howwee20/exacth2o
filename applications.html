@@ -25,782 +25,66 @@
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css?v=20261014">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
 <style>
-  :root {
-    --bg: #f4f1eb;
-    --bg-dark: #0e1a14;
-    --ink: #0e1a14;
-    --water: #1a6b4a;
-    --water-light: #2e9e6e;
-    --water-pale: #d4ede3;
-    --accent: #7cbf9e;
-    --amber: #c8853a;
-    --mist: #e8e3d8;
-    --rule: rgba(14,26,20,0.15);
-    --card-bg: #ffffff;
-    --serif: 'DM Serif Display', Georgia, serif;
-    --mono: 'DM Mono', 'Courier New', monospace;
-    --sans: 'Instrument Sans', 'Instrument Sans Fallback', sans-serif;
-  }
+.applications { box-sizing: content-box; max-width: var(--content); margin: 0 auto; padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(2.5rem, 5vw, 4rem); scroll-margin-top: 6rem; }
+.app-intro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: end; margin-bottom: clamp(2.5rem, 5vw, 3.5rem); padding: 1rem 0; --ambient-opacity: .08; }
+.app-intro-copy { justify-self: end; max-width: 46ch; font-size: 1.05rem; line-height: 1.7; color: var(--muted); }
+.app-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; }
+.app-card { display: flex; flex-direction: column; min-width: 0; scroll-margin-top: 6rem; }
+.app-card-image { order: -1; width: 100%; aspect-ratio: 4 / 3; margin-bottom: 1.25rem; overflow: hidden; border: 1px solid var(--rule); border-radius: 10px; background: var(--mist); }
+.app-card-image img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .7s var(--ease); }
+.app-card:hover .app-card-image img { transform: scale(1.025); }
+.app-card-image.is-photo-phenotyping img { object-position: 48% center; }
+.app-card-image.is-photo-greenhouse img { object-position: center 55%; }
+.app-card-title { margin-bottom: .5rem; font-size: 1.25rem; font-weight: 600; line-height: 1.3; letter-spacing: -.02em; }
+.app-card-desc { max-width: 48ch; font-size: .95rem; line-height: 1.6; color: var(--muted); }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Public, isolated portal demonstration. */
+.portal-opening { padding: 1.5rem clamp(16px, 3vw, 48px) 3rem; }
+.portal-demo-frame { display: block; width: 100%; max-width: 900px; height: min(710px, calc(100svh - var(--applications-header-height, 72px) - 48px)); margin: 0 auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg); box-shadow: 0 1px 2px rgba(14, 26, 20, .04), 0 16px 48px rgba(14, 26, 20, .06); scroll-margin-top: 7rem; }
+.portal-demo-stage { position: relative; inset: auto; width: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: var(--ink); }
+.demo-focus-bar { display: none; }
+.portal-demo-stage:modal { position: fixed; inset: 0; display: flex; flex-direction: column; width: min(1480px, calc(100vw - 48px)); height: min(960px, calc(100svh - 48px)); margin: auto; overflow: hidden; border: 1px solid var(--rule); border-radius: 14px; background: var(--bg); box-shadow: 0 24px 100px #071a2440; animation: experiment-focus-in .28s var(--ease); }
+.portal-demo-stage::backdrop { background: #0e1a1452; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.portal-demo-stage:modal .demo-focus-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1.25rem; border-bottom: 1px solid var(--rule); background: #fff; }
+.demo-focus-bar h2 { margin: 0; font: 600 .95rem var(--sans); letter-spacing: -.015em; }
+.demo-focus-bar button { padding: .5rem .75rem; border: 1px solid var(--rule); border-radius: 6px; background: #fff; color: var(--ink); font: 500 .85rem var(--sans); cursor: pointer; transition: background .2s var(--ease); }
+.demo-focus-bar button:hover { background: var(--mist); }
+.portal-demo-stage:modal .portal-demo-frame { flex: 1; min-height: 0; width: 100%; max-width: none; height: 100% !important; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+body:has(.portal-demo-stage:modal) { overflow: hidden; }
+@keyframes experiment-focus-in { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: none; } }
 
-  html { scroll-behavior: smooth; }
+/* Capabilities */
+.why-section { padding: clamp(2.5rem, 5vw, 4rem) var(--gutter) clamp(4rem, 8vw, 6rem); }
+.why-inner { max-width: var(--content); margin: 0 auto; }
+.why-bullets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 4rem; list-style: none; }
+.why-bullet { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr); gap: 1rem; align-items: start; padding: 1.4rem 0; border-bottom: 1px solid var(--rule); }
+.why-bullet-icon { width: 1.125rem; height: 1.125rem; margin-top: .2rem; color: var(--water); }
+.why-bullet-title { margin-bottom: .25rem; font-size: 1rem; font-weight: 600; }
+.why-bullet-desc { font-size: .9rem; line-height: 1.6; color: var(--muted); }
 
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: 16px;
-    line-height: 1.6;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  /* ── NAV ── */
-  nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.2rem 4rem;
-    background: rgba(14,26,20,0.96);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(124,191,158,0.15);
-  }
-  .nav-logo {
-    position: relative;
-    display: block;
-    flex: 0 0 auto;
-    width: 168px;
-    aspect-ratio: 4.8 / 1;
-    overflow: hidden;
-    text-decoration: none;
-  }
-  .nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
-  .nav-links {
-    display: flex;
-    gap: 2.5rem;
-    list-style: none;
-  }
-  .nav-links a {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    font-weight: 400;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgba(244,241,235,0.55);
-    text-decoration: none;
-    opacity: 1;
-    transition: opacity 0.2s;
-  }
-  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
-  .nav-cta { background: var(--water); color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: var(--water-light) !important; }
-  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; border: 0; padding: 0; background: transparent; }
-  .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
-  .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
-  .hamburger.active span:nth-child(2) { opacity: 0; }
-  .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(6px,-6px); }
-  .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 250; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-  .mobile-menu.active { display: flex; }
-  .mobile-menu a { font-family: var(--serif); font-size: 2.2rem; color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
-  .mobile-menu a:hover { opacity: 0.7; }
-  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.72); cursor: pointer; letter-spacing: 0.1em; border: 0; background: transparent; }
-
-  a:focus-visible,
-  button:focus-visible,
-  .experiment-chart:focus-visible {
-    outline: 3px solid var(--water-light);
-    outline-offset: 4px;
-  }
-
-  /* ── HERO ── */
-  .hero {
-    min-height: 100svh;
-    display: grid;
-    grid-template-columns: minmax(340px, 0.8fr) minmax(520px, 1.2fr);
-    gap: clamp(2rem, 4vw, 5.5rem);
-    align-items: center;
-    padding: 6rem 4rem 2rem;
-    position: relative;
-    overflow: hidden;
-    z-index: 2;
-  }
-
-  .hero-left {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    position: relative;
-    z-index: 2;
-    max-width: 560px;
-  }
-
-  .hero-eyebrow {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--water);
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-  }
-  .hero-eyebrow::before {
-    content: '';
-    display: block;
-    width: 2rem;
-    height: 1px;
-    background: var(--water);
-  }
-
-  .hero-title {
-    font-family: var(--serif);
-    font-size: clamp(3.2rem, 4.6vw, 5.2rem);
-    line-height: 0.98;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    margin-bottom: 1.5rem;
-  }
-  .hero-title em {
-    font-style: italic;
-    color: var(--water);
-  }
-
-  .hero-intro {
-    font-size: 1rem;
-    line-height: 1.68;
-    color: var(--ink);
-    opacity: 0.76;
-    max-width: 44ch;
-    margin-bottom: 1.75rem;
-    border-left: 2px solid var(--water-light);
-    padding-left: 1.25rem;
-  }
-
-  .hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 1.5rem;
-  }
-  .btn-secondary {
-    color: var(--ink);
-    padding: 0.78rem 1.25rem;
-    border: 1px solid rgba(14,26,20,0.25);
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-decoration: none;
-    border-radius: 2px;
-    transition: border-color 0.2s, background 0.2s;
-  }
-  .btn-secondary:hover {
-    border-color: var(--water);
-    background: rgba(212,237,227,0.42);
-  }
-  .hero-right {
-    position: relative;
-    min-width: 0;
-  }
-  .hero-right-inner {
-    width: 100%;
-  }
-  .experiment-shell {
-    width: min(100%, 780px);
-    max-width: min(780px, calc((100svh - 8.5rem) * 0.96));
-    margin-left: auto;
-    background: rgba(255,255,255,0.84);
-    border: 1px solid rgba(14,26,20,0.13);
-    border-radius: 16px;
-    box-shadow: 0 24px 70px rgba(14,26,20,0.1);
-    overflow: hidden;
-  }
-  .experiment-legend {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-    padding: 0.85rem 1.5rem 0;
-    font-family: var(--mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.04em;
-    color: rgba(14,26,20,0.7);
-  }
-  .legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-  .legend-line {
-    width: 1.8rem;
-    height: 2px;
-    background: var(--water);
-  }
-  .legend-line.is-dashed {
-    background: repeating-linear-gradient(90deg, var(--water) 0 6px, transparent 6px 10px);
-  }
-  .experiment-visual {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 760 / 560;
-    height: auto;
-    min-height: 0;
-    color: #172033;
-    padding: 0 0.65rem;
-  }
-  .experiment-visual::before {
-    display: none;
-  }
-  .experiment-chart {
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-    cursor: crosshair;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .experiment-grid-line {
-    stroke: #e7edf5;
-    stroke-width: 1;
-  }
-  .experiment-grid-line.is-vertical {
-    stroke: #edf2f7;
-    stroke-dasharray: 3 6;
-  }
-  .experiment-axis {
-    fill: none;
-    stroke: #a8b3c3;
-    stroke-width: 1.2;
-  }
-  .experiment-axis-label,
-  .experiment-tick-label {
-    fill: #64748b;
-    font-family: var(--sans);
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .experiment-caption {
-    fill: #172033;
-    font-family: var(--sans);
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-  }
-  .experiment-meta {
-    fill: #64748b;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .experiment-trace {
-    fill: none;
-    stroke-width: 2.2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    cursor: pointer;
-    pointer-events: stroke;
-    transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
-  }
-  .experiment-trace.is-dashed {
-    stroke-dasharray: 7 5;
-  }
-  .experiment-trace.is-muted {
-    opacity: 0.82;
-  }
-  .experiment-trace.is-hovered {
-    opacity: 1;
-    stroke-width: 3;
-    filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.18));
-  }
-  .experiment-trace.is-active {
-    opacity: 1;
-    stroke-width: 3.4;
-    filter: drop-shadow(0 3px 5px rgba(15, 23, 42, 0.22));
-  }
-  .experiment-chart.has-active .experiment-trace:not(.is-active) {
-    opacity: 0.18;
-  }
-  .experiment-trace:focus-visible {
-    outline: none;
-    opacity: 1;
-    stroke-width: 3.4;
-    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.2));
-  }
-  .trace-end {
-    opacity: 1;
-  }
-  .trace-end circle {
-    cursor: pointer;
-    pointer-events: all;
-    stroke: #fff;
-    stroke-width: 1.5;
-    transition: opacity 0.18s ease, stroke-width 0.18s ease, filter 0.18s ease;
-  }
-  .trace-end circle.is-hovered,
-  .trace-end circle.is-active {
-    stroke-width: 2.5;
-    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.18));
-  }
-  .experiment-chart.has-active .trace-end circle:not(.is-active) {
-    opacity: 0.2;
-  }
-  .experiment-visual.has-motion .trace-end {
-    opacity: 0;
-    transition: opacity 0.35s ease 2.25s;
-  }
-  .experiment-visual.has-motion.visible .trace-end {
-    opacity: 1;
-  }
-  .experiment-readout {
-    filter: drop-shadow(0 12px 22px rgba(15, 23, 42, 0.12));
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.16s ease;
-  }
-  .experiment-readout.is-visible {
-    opacity: 1;
-  }
-  .experiment-crosshair {
-    opacity: 0;
-    pointer-events: none;
-    stroke: #94a3b8;
-    stroke-width: 1;
-    stroke-dasharray: 4 6;
-    transition: opacity 0.16s ease;
-  }
-  .experiment-crosshair.is-visible {
-    opacity: 0.72;
-  }
-  .tooltip-accent {
-    fill: #22c55e;
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  /* ── SECTION BASE ── */
-  section { padding: 6rem 4rem; }
-
-  .section-label {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--water);
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-  }
-  .section-label::before {
-    content: '';
-    width: 1.5rem;
-    height: 1px;
-    background: var(--water);
-    display: block;
-  }
-
-  .section-title {
-    font-family: var(--serif);
-    font-size: clamp(2.2rem, 3.5vw, 3.4rem);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    margin-bottom: 2rem;
-  }
-
-  /* ── APPLICATION CARDS ── */
-  .applications {
-    background: transparent;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 6rem 4rem;
-    position: relative;
-    z-index: 2;
-    scroll-margin-top: 6rem;
-  }
-
-  .app-intro-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-    align-items: start;
-    margin-bottom: 5rem;
-    padding-bottom: 4rem;
-    border-bottom: 0;
-    background: var(--bg);
-    position: relative;
-    z-index: 2;
-  }
-
-  .app-cards {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
-    align-items: stretch;
-  }
-
-  .app-card {
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid var(--rule);
-    border-radius: 14px;
-    margin: 0;
-    padding: 1.5rem;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 18px 48px rgba(14, 26, 20, 0.07);
-    cursor: default;
-    scroll-margin-top: 6rem;
-  }
-  .app-card:nth-child(3) {
-    grid-column: auto;
-    width: auto;
-  }
-  .app-card > * {
-    position: relative;
-    z-index: 2;
-  }
-  .app-card-num {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-    color: var(--water);
-    opacity: 0.72;
-    margin-bottom: 1.5rem;
-  }
-  .app-card-icon {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 1.5rem;
-    color: var(--water);
-    opacity: 0.8;
-  }
-  .app-card-title {
-    font-family: var(--serif);
-    font-size: 1.5rem;
-    line-height: 1.2;
-    color: var(--ink);
-    margin-bottom: 1rem;
-  }
-  .app-card-desc {
-    font-size: 0.9rem;
-    line-height: 1.7;
-    color: var(--ink);
-    opacity: 0.72;
-    flex: 1;
-  }
-  .app-card-image {
-    order: -1;
-    margin: 0 0 1.75rem;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1;
-    padding: 0.8rem;
-    background: linear-gradient(145deg, #edf2ef, #e5ebe7);
-    border: 1px solid var(--rule);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    position: relative;
-  }
-  .app-card-image img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(14, 26, 20, 0.12);
-  }
-  .app-card-image.is-photo {
-    padding: 0.4rem;
-  }
-  .app-card-image.is-photo img {
-    object-fit: cover;
-    box-shadow: none;
-  }
-  .app-card-image.is-photo-phenotyping img {
-    object-position: 48% center;
-  }
-  .app-card-image.is-photo-greenhouse img {
-    object-position: center 55%;
-  }
-  .app-card-image.is-placeholder {
-    background: linear-gradient(145deg, #edf2ef, #e5ebe7);
-  }
-
-  /* ── WHY EXACTH2O ── */
-  .why-section {
-    background: var(--bg);
-    color: var(--ink);
-    padding: 6rem 4rem;
-    position: relative;
-    z-index: 2;
-  }
-  .why-inner {
-    max-width: 1400px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6rem;
-    align-items: start;
-  }
-  .why-section .section-label { color: var(--water); }
-  .why-section .section-label::before { background: var(--water); }
-  .why-section .section-title { color: var(--ink); }
-
-  .why-bullets {
-    list-style: none;
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 4rem;
-  }
-  @media (max-width: 900px) {
-    .why-bullets { grid-template-columns: 1fr; }
-  }
-  .why-bullet {
-    padding: 1.4rem 0;
-    border-bottom: 1px solid var(--rule);
-    display: grid;
-    grid-template-columns: 2rem 1fr;
-    gap: 1.2rem;
-    align-items: start;
-    opacity: 0;
-    animation: fadeSlide 0.5s forwards;
-  }
-  .why-bullet:nth-child(1) { animation-delay: 0.1s; }
-  .why-bullet:nth-child(2) { animation-delay: 0.2s; }
-  .why-bullet:nth-child(3) { animation-delay: 0.3s; }
-  .why-bullet:nth-child(4) { animation-delay: 0.4s; }
-  .why-bullet:nth-child(5) { animation-delay: 0.5s; }
-  .why-bullet:nth-child(6) { animation-delay: 0.6s; }
-
-  @keyframes fadeSlide {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
-  }
-
-  .why-bullet-icon {
-    width: 1.2rem;
-    height: 1.2rem;
-    color: var(--water);
-    margin-top: 0.15rem;
-    flex-shrink: 0;
-  }
-  .why-bullet-title {
-    font-family: var(--sans);
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 0.25rem;
-  }
-  .why-bullet-desc {
-    font-size: 0.85rem;
-    color: #536157;
-    line-height: 1.6;
-  }
-
-  /* ── CTA STRIP ── */
-  .btn-primary {
-    background: var(--water); color: #fff; padding: 0.85rem 2rem;
-    font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em;
-    text-transform: uppercase; text-decoration: none; border-radius: 2px;
-    transition: background 0.2s;
-  }
-  .btn-primary:hover { background: var(--water-light); }
-  .cta-strip {
-    background: var(--bg-dark); padding: 5rem 4rem; text-align: center;
-    position: relative; overflow: hidden;
-    border-top: 1px solid rgba(244,241,235,0.08);
-  }
-  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary { background: #f4f1eb; color: var(--ink); font-size: 0.8rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary:hover { background: var(--accent); color: #07130e; }
-
-  /* ── FOOTER ── */
-  footer {
-    background: var(--bg-dark);
-    color: rgba(244,241,235,0.35);
-    padding: 2.5rem 4rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.05em;
-    border-top: 0;
-    position: relative;
-    z-index: 2;
-  }
-  .footer-logo {
-    position: relative;
-    display: block;
-    width: 126px;
-    aspect-ratio: 4.8 / 1;
-    overflow: hidden;
-  }
-  .footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
-  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-
-  /* ── ANIMATIONS ── */
-  .reveal {
-    opacity: 1; transform: none;
-    transition: opacity 0.7s ease, transform 0.7s ease;
-  }
-  .reveal.visible {
-    opacity: 1;
-    transform: none;
-  }
-
-  /* ── RESPONSIVE ── */
-  @media (max-width: 1160px) {
-    .hero {
-      grid-template-columns: minmax(310px, 0.75fr) minmax(460px, 1.25fr);
-      gap: 2rem;
-      padding-left: 2.5rem;
-      padding-right: 2.5rem;
-    }
-    .hero-title { font-size: clamp(3rem, 4.6vw, 4.4rem); }
-  }
-
-  @media (max-height: 780px) and (min-width: 901px) {
-    .experiment-legend { padding: 0.65rem 1.2rem 0; }
-  }
-
-  @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; }
-    .nav-links { display: none; }
-    .hamburger { display: flex; }
-    .hero {
-      grid-template-columns: 1fr;
-      min-height: auto;
-      gap: 2.5rem;
-      padding: 7.5rem 2rem 4rem;
-      overflow: visible;
-    }
-    .hero-left { max-width: 650px; }
-    .hero-right { display: block; }
-    .experiment-shell { margin: 0; max-width: 100%; }
-    section, .applications, .why-section { padding: 4rem 2rem; }
-    .cta-strip { padding: 4rem 1.5rem; }
-    .app-intro-grid { grid-template-columns: 1fr; gap: 2rem; }
-    .app-cards { grid-template-columns: 1fr; }
-    .app-card:nth-child(3) { width: auto; }
-    .why-inner { grid-template-columns: 1fr; gap: 3rem; }
-    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
-  }
-
-  @media (max-width: 540px) {
-    .nav-logo { width: 146px; }
-    .hero { padding: 6.5rem 1rem 3rem; gap: 2rem; }
-    .hero-title { font-size: clamp(2.8rem, 14vw, 4rem); }
-    .hero-intro { font-size: 0.94rem; margin-bottom: 1.35rem; }
-    .hero-actions { align-items: stretch; }
-    .hero-actions a { flex: 1 1 100%; text-align: center; }
-    .experiment-shell { border-radius: 12px; }
-    .experiment-legend { padding: 0.7rem 1rem 0; gap: 0.55rem 0.85rem; }
-    .experiment-visual { padding: 0 0.2rem; }
-    section, .applications, .why-section { padding: 3.5rem 1rem; }
-    .app-intro-grid { margin-bottom: 2.5rem; padding-bottom: 2.5rem; }
-    .app-card { padding: 1rem; }
-    .app-card-image { margin-bottom: 1.25rem; }
-  }
-  /* Public, isolated portal demonstration. */
-  .applications { padding-top: calc(var(--applications-header-height, 90px) + 48px); }
-  .portal-opening { padding: 24px clamp(16px,3vw,48px) 48px; }
-  .portal-demo-frame { display: block; width: 100%; max-width: 900px; height: min(710px, calc(100svh - var(--applications-header-height, 90px) - 48px)); margin: 0 auto; border: 3px solid #78998a; border-radius: 12px; background: #f4f1eb; scroll-margin-top: 7rem; }
-  .portal-demo-stage { position: relative; inset: auto; width: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: var(--ink); }
-  .demo-focus-bar { display: none; }
-  .portal-demo-stage:modal { position: fixed; inset: 0; width: min(1480px, calc(100vw - 48px)); height: min(960px, calc(100svh - 48px)); margin: auto; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dbe3df; border-radius: 14px; background: #f7f9f8; box-shadow: 0 24px 100px #071a2440; animation: experiment-focus-in .28s cubic-bezier(.2,.8,.2,1); }
-  .portal-demo-stage::backdrop { background: #0e1a1452; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-  .portal-demo-stage:modal .demo-focus-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1.25rem; border-bottom: 1px solid #dbe3df; background: #fff; }
-  .demo-focus-bar h2 { font: 600 .95rem var(--sans); letter-spacing: -.015em; margin: 0; }
-  .demo-focus-bar button { border: 1px solid #dbe3df; border-radius: 6px; padding: .5rem .75rem; background: #fff; color: var(--ink); font: 500 .85rem var(--sans); cursor: pointer; }
-  .demo-focus-bar button:hover { background: #edf1ef; }
-  .portal-demo-stage:modal .portal-demo-frame { flex: 1; min-height: 0; width: 100%; max-width: none; height: 100% !important; margin: 0; border: 0; border-radius: 0; }
-  body:has(.portal-demo-stage:modal) { overflow: hidden; }
-  @keyframes experiment-focus-in { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: scale(1); } }
-  @media(max-width: 600px) { .portal-demo-stage:modal { width: calc(100vw - 16px); height: calc(100svh - 16px); border-radius: 10px; } .portal-demo-stage:modal .demo-focus-bar { padding: .7rem .85rem; } }
-  @media(prefers-reduced-motion: reduce) { .portal-demo-stage:modal { animation: none; } .portal-demo-stage::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: #0e1a14b3; } }
-  .nav-cta, .cta-strip .btn-primary { background: #2563eb; color: #fff; }
-  .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
-  .nav-cta:hover { background: #1d4ed8 !important; }
-
-
-/* Compact footer with clear visual hierarchy. */
-footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
-.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
-footer .footer-logo { flex: none; width: 126px; }
-.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
-.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
-.footer-support:hover { color: #fff; }
-.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
-.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
-.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
-.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
-@media (max-width: 600px) {
-  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
-  .footer-identity, .footer-details { align-items: center; text-align: center; }
-}
-  .app-intro-grid .section-title { margin-bottom: 0; }
-  .app-intro-copy {
-    margin: 0; padding: 1.6rem 1.75rem; max-width: 85ch;
-    font-size: 1.05rem; line-height: 1.8; color: #3f4d44;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid var(--rule); border-left: 3px solid var(--water, #1a6b4a);
-    border-radius: 14px; box-shadow: 0 14px 32px rgba(14, 26, 20, 0.05);
-  }
-
-/* Shared accessible mobile navigation. */
-.hamburger { border: 0; padding: 0; background: transparent; }
-.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
-.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
-.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
-.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
 @media (max-width: 900px) {
-  .hamburger { box-sizing: content-box; padding: 12px 8px; }
-  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
-  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+  .app-intro-grid { grid-template-columns: 1fr; gap: 1rem; align-items: start; }
+  .app-intro-copy { justify-self: start; }
+  .app-cards { grid-template-columns: 1fr; gap: 2.5rem; }
+  .app-card-image { max-height: 340px; }
+  .why-bullets { grid-template-columns: 1fr; }
 }
-
-/* H2O logo color on quote and support actions. */
-:root { --h2o-brand: #91e4d2; --h2o-brand-hover: #7bc3b4; }
-.cta-strip .btn-primary {
-  background: var(--h2o-brand); color: #0e1a14;
+@media (max-width: 600px) {
+  .portal-demo-stage:modal { width: calc(100vw - 16px); height: calc(100svh - 16px); border-radius: 10px; }
+  .portal-demo-stage:modal .demo-focus-bar { padding: .7rem .85rem; }
 }
-.cta-strip .btn-primary:hover {
-  background: var(--h2o-brand-hover) !important; color: #0e1a14;
+@media (prefers-reduced-motion: reduce) {
+  .portal-demo-stage:modal { animation: none; }
+  .portal-demo-stage::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: #0e1a14b3; }
 }
-.nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
 </style>
 <script src="/site-navigation.js" defer></script>
-<link rel="stylesheet" href="/site-brand-footer.css?v=b3ac352c470d">
-<script src="/site-brand-footer.js?v=ad278df15485" defer></script>
+<script src="/site-ambient.js?v=20261014" defer></script>
+<script src="/site-brand-footer.js?v=20261014" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/applications">
 <meta property="og:type" content="website">
@@ -817,7 +101,7 @@ footer .footer-logo { flex: none; width: 126px; }
   <a href="/" class="nav-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
   <ul class="nav-links">
     <li><a href="/">Home</a></li>
-    <li><a href="/applications" class="active">Applications</a></li>
+    <li><a href="/applications" class="active" aria-current="page">Applications</a></li>
     <li><a href="/about">About Us</a></li>
     <li><a href="/support">Support</a></li>
     <li><a href="/quote">Request a quote</a></li>
@@ -825,8 +109,6 @@ footer .footer-logo { flex: none; width: 126px; }
   </ul>
   <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
 </nav>
-
-<!-- MOBILE MENU -->
 <div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true">
   <button class="mob-close" type="button" aria-label="Close navigation" onclick="toggleMenu()">✕ close</button>
   <a href="/" onclick="toggleMenu()">Home</a>
@@ -841,9 +123,9 @@ footer .footer-logo { flex: none; width: 126px; }
 <div class="application-flow">
 <!-- APPLICATIONS -->
 <div class="applications" id="application-areas">
-  <div class="app-intro-grid reveal">
+  <div class="app-intro-grid" data-ambient>
     <div>
-      <div class="section-label">Application Areas</div>
+      <div class="section-label">Application areas</div>
       <h1 class="section-title">Irrigation for<br>controlled research.</h1>
     </div>
     <p class="app-intro-copy">
@@ -852,17 +134,11 @@ footer .footer-logo { flex: none; width: 126px; }
   </div>
 
   <!-- Application Cards -->
-  <div class="app-cards reveal">
+  <div class="app-cards">
 
     <!-- 1: Plant Stress -->
     <div class="app-card" id="plant-stress">
-      <div class="app-card-num">01 —</div>
-      <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M24 42 C24 42 8 30 8 18 A16 16 0 0 1 40 18 C40 30 24 42 24 42Z"/>
-        <path d="M24 18 L24 32"/>
-        <path d="M18 24 L24 18 L30 24"/>
-      </svg>
-      <h3 class="app-card-title">Plant Stress<br>Experiments</h3>
+      <h3 class="app-card-title">Plant stress experiments</h3>
       <p class="app-card-desc">
         Apply defined moisture targets across replicated pots. Review each pot’s readings through drought and recovery.
       </p>
@@ -873,39 +149,22 @@ footer .footer-logo { flex: none; width: 126px; }
 
      <!-- 2: Plant Phenotyping -->
     <div class="app-card" id="plant-phenotyping">
-      <div class="app-card-num">02 —</div>
-      <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="24" cy="24" r="18"/>
-        <circle cx="24" cy="24" r="8"/>
-        <line x1="24" y1="6" x2="24" y2="16"/>
-        <line x1="24" y1="32" x2="24" y2="42"/>
-        <line x1="6" y1="24" x2="16" y2="24"/>
-        <line x1="32" y1="24" x2="42" y2="24"/>
-      </svg>
-      <h3 class="app-card-title">Plant<br>Phenotyping</h3>
+      <h3 class="app-card-title">Plant phenotyping</h3>
       <p class="app-card-desc">
         Apply consistent water treatments across genotypes and compare growth measurements with individual irrigation histories.
       </p>
-      <div class="app-card-image is-photo is-photo-phenotyping">
+      <div class="app-card-image is-photo-phenotyping">
         <img src="/applications-plant-phenotyping-20260804.jpg" width="1448" height="1086" loading="lazy" decoding="async" alt="Researcher using a tablet while examining greenhouse plants">
       </div>
     </div>
 
     <!-- 3: Research Greenhouses -->
     <div class="app-card" id="greenhouses">
-      <div class="app-card-num">03 —</div>
-      <svg class="app-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 20 L24 6 L42 20"/>
-        <path d="M6 20 L6 42 L42 42 L42 20"/>
-        <rect x="18" y="28" width="12" height="14" rx="1"/>
-        <path d="M14 20 L14 42"/>
-        <path d="M34 20 L34 42"/>
-      </svg>
-      <h3 class="app-card-title">Research &amp; Commercial<br>Greenhouses</h3>
+      <h3 class="app-card-title">Research and commercial greenhouses</h3>
       <p class="app-card-desc">
         Monitor greenhouse benches and container arrays with independent irrigation targets and histories by zone.
       </p>
-      <div class="app-card-image is-photo is-photo-greenhouse">
+      <div class="app-card-image is-photo-greenhouse">
         <img src="/applications-research-greenhouse-20260804.jpg" width="1122" height="1402" loading="lazy" decoding="async" alt="Rows of container plants inside a large commercial greenhouse">
       </div>
     </div>
@@ -976,8 +235,6 @@ footer .footer-logo { flex: none; width: 126px; }
 
 </div><!-- /application-flow -->
 
-
-<!-- FOOTER -->
 </main>
 
 <footer>
@@ -1005,7 +262,6 @@ footer .footer-logo { flex: none; width: 126px; }
     </div>
   </div>
 </footer>
-
 
 <script>
   // Keep the overview frame close to its list; detail screens retain their scrolling viewport.
@@ -1077,278 +333,6 @@ footer .footer-logo { flex: none; width: 126px; }
 
   const applicationsHeader = document.querySelector('nav');
   new ResizeObserver(() => document.documentElement.style.setProperty('--applications-header-height', applicationsHeader.getBoundingClientRect().height + 'px')).observe(applicationsHeader);
-
-
-
-  const experimentVisuals = document.querySelectorAll('.experiment-visual');
-
-  function animateExperiment(target) {
-    const wipe = target.querySelector('.experiment-wipe');
-    if (!wipe) {
-      if (wipe) wipe.setAttribute('width', '660');
-      return;
-    }
-
-    const duration = 2600;
-    const startWidth = 0;
-    const endWidth = 660;
-    const startedAt = performance.now();
-
-    function drawFrame(now) {
-      const progress = Math.min((now - startedAt) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      wipe.setAttribute('width', String(startWidth + (endWidth - startWidth) * eased));
-      if (progress < 1) requestAnimationFrame(drawFrame);
-    }
-
-    requestAnimationFrame(drawFrame);
-  }
-
-  function setupInteractiveExperiment(target) {
-    const svg = target.querySelector('.experiment-chart');
-    if (!svg) return;
-
-    const traces = Array.from(svg.querySelectorAll('.experiment-trace'));
-    const dots = Array.from(svg.querySelectorAll('.trace-end circle'));
-    const tooltip = svg.querySelector('.experiment-readout');
-    const crosshair = svg.querySelector('.experiment-crosshair');
-    const accent = svg.querySelector('.tooltip-accent');
-    const tooltipTitle = svg.querySelector('.tooltip-title');
-    const tooltipDetail = svg.querySelector('.tooltip-detail');
-    const tooltipValue = svg.querySelector('.tooltip-value');
-    const status = target.closest('.experiment-shell')?.querySelector('.experiment-status');
-    const traceById = new Map(traces.map(trace => [trace.dataset.traceId, trace]));
-    const dotById = new Map(dots.map(dot => [dot.dataset.traceId, dot]));
-    const samplesByTrace = new Map(traces.map(trace => {
-      const length = trace.getTotalLength();
-      const samples = Array.from({ length: 97 }, (_, index) =>
-        trace.getPointAtLength((length * index) / 96)
-      );
-      return [trace, samples];
-    }));
-    let lockedTraceId = null;
-    let hoveredTraceId = null;
-    let keyboardTraceIndex = -1;
-
-    function svgPoint(event) {
-      const point = svg.createSVGPoint();
-      point.x = event.clientX;
-      point.y = event.clientY;
-      const matrix = svg.getScreenCTM();
-      return matrix ? point.matrixTransform(matrix.inverse()) : null;
-    }
-
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
-
-    function vwcFromPoint(point) {
-      const topY = 68;
-      const bottomY = 488;
-      const topVwc = 60;
-      const bottomVwc = 10;
-      const ratio = (clamp(point.y, topY, bottomY) - topY) / (bottomY - topY);
-      const vwc = topVwc - (ratio * (topVwc - bottomVwc));
-      return vwc.toFixed(1);
-    }
-
-    function nearestPointOnTrace(trace, point) {
-      const samples = samplesByTrace.get(trace) || [];
-      let bestPoint = samples[0] || { x: 64, y: 488 };
-      let bestDistance = Infinity;
-
-      samples.forEach(sample => {
-        const distance = ((sample.x - point.x) ** 2) + ((sample.y - point.y) ** 2);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestPoint = sample;
-        }
-      });
-
-      return { point: bestPoint, distance: Math.sqrt(bestDistance) };
-    }
-
-    function closestTrace(point) {
-      return traces.reduce((best, trace) => {
-        const candidate = nearestPointOnTrace(trace, point);
-        if (!best || candidate.distance < best.distance) {
-          return { trace, point: candidate.point, distance: candidate.distance };
-        }
-        return best;
-      }, null);
-    }
-
-    function endpointPoint(dot) {
-      return {
-        x: Number(dot.getAttribute('cx')),
-        y: Number(dot.getAttribute('cy')),
-      };
-    }
-
-    function directTraceFromEvent(event, fallbackPoint) {
-      const directTarget = event.target.closest('[data-trace-id]');
-      if (!directTarget || !svg.contains(directTarget)) return null;
-      const trace = traceById.get(directTarget.dataset.traceId);
-      if (!trace) return null;
-
-      if (directTarget.tagName.toLowerCase() === 'circle') {
-        return { trace, point: endpointPoint(directTarget), distance: 0 };
-      }
-
-      const candidate = nearestPointOnTrace(trace, fallbackPoint);
-      return { trace, point: candidate.point, distance: 0 };
-    }
-
-    function setTooltip(trace, point) {
-      if (!tooltip || !crosshair || !accent) return;
-      const tooltipX = clamp(point.x + 18, 76, 548);
-      const tooltipY = clamp(point.y - 58, 58, 398);
-      const color = trace.getAttribute('stroke') || '#22c55e';
-
-      tooltip.setAttribute('transform', `translate(${tooltipX - 456} ${tooltipY - 150})`);
-      tooltip.classList.add('is-visible');
-      crosshair.setAttribute('x1', String(clamp(point.x, 64, 724)));
-      crosshair.setAttribute('x2', String(clamp(point.x, 64, 724)));
-      crosshair.classList.add('is-visible');
-      accent.style.fill = color;
-
-      if (tooltipTitle) tooltipTitle.textContent = trace.dataset.label || 'Run';
-      if (tooltipDetail) tooltipDetail.textContent = trace.dataset.detail || 'VWC response';
-      if (tooltipValue) tooltipValue.textContent = `${vwcFromPoint(point)}% VWC`;
-    }
-
-    function hideTooltip() {
-      tooltip?.classList.remove('is-visible');
-      crosshair?.classList.remove('is-visible');
-    }
-
-    function updateTraceClasses(displayPoint) {
-      const activeId = lockedTraceId;
-      const hoverId = activeId ? null : hoveredTraceId;
-      svg.classList.toggle('has-active', Boolean(activeId));
-
-      traces.forEach(trace => {
-        trace.classList.toggle('is-active', trace.dataset.traceId === activeId);
-        trace.classList.toggle('is-hovered', trace.dataset.traceId === hoverId);
-      });
-
-      dots.forEach(dot => {
-        dot.classList.toggle('is-active', dot.dataset.traceId === activeId);
-        dot.classList.toggle('is-hovered', dot.dataset.traceId === hoverId);
-      });
-
-      const displayId = activeId || hoverId;
-      const displayTrace = displayId ? traceById.get(displayId) : null;
-      if (displayTrace && displayPoint) {
-        setTooltip(displayTrace, displayPoint);
-        if (status) {
-          status.textContent = `${displayTrace.dataset.label}, ${displayTrace.dataset.detail}, ${vwcFromPoint(displayPoint)} percent VWC`;
-        }
-      } else {
-        hideTooltip();
-      }
-    }
-
-    function selectTraceByIndex(index) {
-      keyboardTraceIndex = (index + traces.length) % traces.length;
-      const trace = traces[keyboardTraceIndex];
-      const dot = dotById.get(trace.dataset.traceId);
-      lockedTraceId = trace.dataset.traceId;
-      hoveredTraceId = null;
-      updateTraceClasses(dot ? endpointPoint(dot) : samplesByTrace.get(trace)?.at(-1));
-    }
-
-    svg.addEventListener('pointermove', event => {
-      const point = svgPoint(event);
-      if (!point) return;
-
-      if (lockedTraceId) {
-        const lockedTrace = traceById.get(lockedTraceId);
-        if (lockedTrace) {
-          const candidate = nearestPointOnTrace(lockedTrace, point);
-          updateTraceClasses(candidate.point);
-        }
-        return;
-      }
-
-      const direct = directTraceFromEvent(event, point);
-      const nearest = direct || closestTrace(point);
-
-      if (nearest && nearest.distance <= 28) {
-        hoveredTraceId = nearest.trace.dataset.traceId;
-        updateTraceClasses(nearest.point);
-      } else {
-        hoveredTraceId = null;
-        updateTraceClasses(null);
-      }
-    });
-
-    svg.addEventListener('pointerleave', () => {
-      if (!lockedTraceId) {
-        hoveredTraceId = null;
-        updateTraceClasses(null);
-      }
-    });
-
-    svg.addEventListener('click', event => {
-      const point = svgPoint(event);
-      if (!point) return;
-
-      const direct = directTraceFromEvent(event, point);
-      const nearest = direct || closestTrace(point);
-
-      if (nearest && nearest.distance <= 30) {
-        const traceId = nearest.trace.dataset.traceId;
-        lockedTraceId = lockedTraceId === traceId ? null : traceId;
-        hoveredTraceId = null;
-        updateTraceClasses(lockedTraceId ? nearest.point : null);
-      } else {
-        lockedTraceId = null;
-        hoveredTraceId = null;
-        updateTraceClasses(null);
-      }
-    });
-
-    svg.addEventListener('keydown', event => {
-      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-        event.preventDefault();
-        selectTraceByIndex(keyboardTraceIndex + 1);
-      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        selectTraceByIndex(keyboardTraceIndex < 0 ? traces.length - 1 : keyboardTraceIndex - 1);
-      } else if (event.key === 'Home') {
-        event.preventDefault();
-        selectTraceByIndex(0);
-      } else if (event.key === 'End') {
-        event.preventDefault();
-        selectTraceByIndex(traces.length - 1);
-      } else if (event.key === 'Escape') {
-        lockedTraceId = null;
-        hoveredTraceId = null;
-        keyboardTraceIndex = -1;
-        updateTraceClasses(null);
-      }
-    });
-  }
-
-  experimentVisuals.forEach(el => {
-    el.classList.add('has-motion');
-    setupInteractiveExperiment(el);
-    const wipe = el.querySelector('.experiment-wipe');
-    if (wipe) wipe.setAttribute('width', '0');
-  });
-
-  const revealEls = document.querySelectorAll('.reveal, .experiment-visual');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        e.target.classList.add('visible');
-        if (e.target.classList.contains('experiment-visual')) animateExperiment(e.target);
-        observer.unobserve(e.target);
-      }
-    });
-  }, { threshold: 0.1 });
-  revealEls.forEach(el => observer.observe(el));
 </script>
 </body>
 </html>

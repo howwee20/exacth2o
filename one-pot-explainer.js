@@ -310,14 +310,26 @@
     changeTarget(); rememberPrevious();
   });
   compareButton?.addEventListener('click', () => { comparing = !comparing; if (!comparing) previousTarget = null; drawComparisons(comparing); updateSummary(); });
-  replayButton?.addEventListener('click', () => {
-    if (replayStarted != null) { stopReplay(); render(); return; }
+  function startReplay() {
     currentValue = selectedValue; currentPoints = selected.points; morph = null;
     if (reducedMotion.matches) { render(); return; }
     replayStarted = performance.now(); replayProgress = 0;
     replayButton.textContent = 'Show full window'; replayButton.setAttribute('aria-pressed', 'true');
     render(); animate();
+  }
+  replayButton?.addEventListener('click', () => {
+    if (replayStarted != null) { stopReplay(); render(); return; }
+    startReplay();
   });
+  // The three days play once as the chart first comes into view.
+  if (replayButton && 'IntersectionObserver' in window) {
+    const intro = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      intro.disconnect();
+      if (!reducedMotion.matches && !document.hidden && replayStarted == null && !morph) startReplay();
+    }, { threshold: 0.45 });
+    intro.observe(chart);
+  }
   if (typeof ResizeObserver !== 'undefined') {
     let width = 0, height = 0;
     const observer = new ResizeObserver(() => {

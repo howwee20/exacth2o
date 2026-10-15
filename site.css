@@ -1,0 +1,144 @@
+/* ExactH2O public website: shared tokens, navigation, footer and type.
+   Page-specific layout lives with each page. The portal and demo use site-ui.css. */
+:root {
+  --bg: #f7f9f8;
+  --surface: #ffffff;
+  --bg-dark: #101f1a;
+  --ink: #172a23;
+  --muted: #53665d;
+  --water: #176449;
+  --water-light: #207c5b;
+  --mint: #8ed3b8;
+  --h2o-brand: #91e4d2;
+  --mist: #edf1ef;
+  --rule: #dbe3df;
+  --action: #2456d6;
+  --action-hover: #1d4ed8;
+  --sans: 'Instrument Sans', 'Instrument Sans Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: var(--sans);
+  --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --gutter: clamp(1.25rem, 4vw, 4rem);
+  --content: 1280px;
+}
+@media (min-width: 2200px) { :root { --content: 1500px; } }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+body { overflow-x: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }main, section, article { min-width: 0; }
+p { text-wrap: pretty; }
+h1 em, h2 em { font-style: normal; }
+button, input, select, textarea { font-family: var(--sans); }
+a, button, input, select, textarea, [tabindex] { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid #4d9f83; outline-offset: 4px; }
+::selection { background: #cfeadd; color: var(--ink); }
+
+/* Navigation */
+body > nav {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between; gap: 2rem;
+  min-height: 72px; padding: 0 max(var(--gutter), calc((100% - var(--content)) / 2)); box-sizing: border-box;
+  background: var(--bg-dark); border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+/* The wordmark artwork carries 11px of space on its left; align the letters with the content edge. */
+.nav-logo { position: relative; display: block; flex: none; width: 168px; margin-left: -11px; aspect-ratio: 4.8 / 1; overflow: hidden; transition: opacity .2s var(--ease); }
+.nav-logo:hover { opacity: .8; }
+.nav-logo img {
+  position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; transform: translateY(-50%);
+  -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%;
+  mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%;
+}
+.nav-links { display: flex; align-items: center; gap: 1.75rem; margin: 0; padding: 0; list-style: none; }
+.nav-links li { display: flex; }
+.nav-links a {
+  position: relative; display: inline-flex; align-items: center; min-height: 40px;
+  font: 500 .875rem/1 var(--sans); color: #c6d2cc; text-decoration: none; transition: color .2s var(--ease);
+}
+.nav-links a:not(.nav-cta)::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 7px; height: 1px;
+  background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease);
+}
+.nav-links a:not(.nav-cta):hover { color: #fff; }
+.nav-links a:not(.nav-cta):hover::after, .nav-links a.active::after { transform: scaleX(1); }
+.nav-links a.active { color: #fff; }
+.nav-links a.active::after { background: var(--mint); }
+.nav-links a[href="/quote"] { color: var(--h2o-brand); }
+.nav-links .nav-cta { justify-content: center; min-height: 38px; padding: 0 1rem; border-radius: 6px; background: var(--action); color: #fff; transition: background .2s var(--ease); }
+.nav-links .nav-cta:hover { background: var(--action-hover); }
+.hamburger {
+  display: none; flex-direction: column; justify-content: space-between;
+  width: 24px; height: 16px; box-sizing: content-box; padding: 12px 8px; margin-right: -8px;
+  border: 0; background: transparent; cursor: pointer;
+}
+.hamburger span { display: block; width: 100%; height: 2px; border-radius: 2px; background: #c6d2cc; transition: transform .3s var(--ease), opacity .2s; }
+.hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.mobile-menu {
+  display: none; position: fixed; inset: 0; z-index: 250; overflow-y: auto;
+  flex-direction: column; align-items: center; justify-content: center; gap: clamp(.75rem, 3vh, 1.6rem);
+  background: var(--bg-dark);
+}
+.mobile-menu.active { display: flex; }
+.mobile-menu a { font: 500 clamp(1.5rem, 5vh, 2rem)/1.4 var(--sans); letter-spacing: -.02em; color: #e3ebe6; text-decoration: none; }
+.mobile-menu a:hover { color: #fff; }
+.mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
+.mobile-menu a[href="/portal"] { margin-top: .5rem; padding: .3rem 1.5rem; border-radius: 6px; background: var(--action); color: #fff; }
+.mobile-menu .mob-close { position: absolute; top: 1.25rem; right: 1.25rem; padding: .75rem; border: 0; background: transparent; color: #c4d0c7; font: 500 .8125rem var(--sans); cursor: pointer; }
+.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
+@media (max-width: 900px) {
+  .nav-links { display: none; }
+  .hamburger { display: flex; }
+}
+
+/* Shared type and actions */
+.section-label { display: flex; align-items: center; gap: .7rem; margin-bottom: .8rem; font: 600 .8125rem/1.4 var(--sans); letter-spacing: .01em; text-transform: none; color: var(--water); }
+.section-label::before { content: ''; display: block; flex: none; width: 1.5rem; height: 1px; background: currentColor; }
+.section-title { font-family: var(--sans); font-size: clamp(2rem, 4vw, 3.25rem); font-weight: 600; line-height: 1.1; letter-spacing: -.035em; text-wrap: balance; }
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 1.4rem;
+  border: 0; border-radius: 6px; background: var(--action); color: #fff;
+  font: 600 .9rem/1.35 var(--sans); letter-spacing: 0; text-transform: none; text-decoration: none;
+  transition: background .2s var(--ease);
+}
+.btn-primary:hover { background: var(--action-hover); }
+.text-link { display: inline-flex; align-items: center; gap: .35rem; color: var(--water); font-weight: 600; text-decoration: none; text-underline-offset: 4px; }
+.text-link:hover { text-decoration: underline; }
+.text-link > span[aria-hidden] { transition: transform .25s var(--ease); }
+.text-link:hover > span[aria-hidden] { transform: translateX(3px); }
+
+/* Footer details beside the wordmark (layout: site-brand-footer.css) */
+body > footer { padding-inline: max(var(--gutter), calc((100% - var(--content)) / 2)); background: var(--bg-dark); color: #a5b1aa; font-family: var(--sans); letter-spacing: 0; border-top: 0; }
+.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .7rem; text-align: right; }
+.footer-support { font: 400 .875rem/1.4 var(--sans); color: #d3d9d4; text-decoration: none; overflow-wrap: anywhere; }
+.footer-support:hover { color: #fff; }
+.site-policy-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 16px; font: 400 .75rem/1.5 var(--sans); }
+.site-policy-links a { display: inline-flex; align-items: center; min-height: 44px; color: #bbc8c0; text-decoration: none; text-underline-offset: 4px; }
+.site-policy-links a:hover { color: #fff; text-decoration: underline; }
+.footer-copyright { font: 400 .6875rem/1.5 var(--sans); color: #a5b1aa; }
+.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
+.made-in-america svg { display: block; flex: none; width: 16px; height: auto; opacity: .8; }
+.made-in-america span { font: 500 .5625rem/1.3 var(--sans); letter-spacing: .09em; }
+
+/* Live-reading texture behind page headers (site-ambient.js) */
+[data-ambient] { position: relative; isolation: isolate; }
+.ambient-field { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
+
+/* Legal and utility documents */
+.public-document { box-sizing: content-box; max-width: 712px; margin: 0 auto; padding: clamp(3rem, 7vw, 5rem) var(--gutter) clamp(4rem, 8vw, 6rem); color: #193127; font: 400 1rem/1.75 var(--sans); }
+.public-document h1 { margin: 0 0 1rem; font-size: clamp(2rem, 5vw, 2.875rem); font-weight: 600; line-height: 1.1; letter-spacing: -.04em; }
+.public-document h2 { margin: 2.5rem 0 .5rem; font-size: 1.375rem; font-weight: 600; line-height: 1.35; letter-spacing: -.025em; }
+.public-document p, .public-document ul { margin: 0 0 1rem; }
+.public-document ul { padding-left: 1.25rem; }
+.public-document li + li { margin-top: .35rem; }
+.public-document a { color: var(--water); text-underline-offset: 3px; }
+.public-document .eyebrow { margin-bottom: 1.5rem; font-size: .8125rem; color: var(--muted); }
+.public-document .document-lead { font-size: 1.1875rem; line-height: 1.65; color: var(--muted); }
+.public-document .document-note { padding: .65rem 1.1rem; border-left: 3px solid #a3b5a8; background: #eef2ec; }
+
+@media (max-width: 700px) {
+  .footer-details, .site-policy-links { align-items: flex-end; justify-content: flex-end; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

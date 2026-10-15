@@ -25,153 +25,45 @@
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css?v=20261014">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
 <style>
-  :root {
-    --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
-    --water: #1a6b4a; --water-light: #2e9e6e; --water-pale: #d4ede3;
-    --accent: #7cbf9e; --mist: #e8e3d8;
-    --rule: rgba(14,26,20,0.15); --card-bg: #ffffff;
-    --serif: 'DM Serif Display', Georgia, serif; --mono: 'DM Mono', 'Courier New', monospace; --sans: 'Instrument Sans', 'Instrument Sans Fallback', sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; overflow-x: hidden; }
-
-  /* NAV — identical to Applications */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 4rem; background: rgba(14,26,20,0.96); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(124,191,158,0.15); }
-  .nav-logo { position: relative; display: block; flex: 0 0 auto; width: 168px; aspect-ratio: 4.8 / 1; overflow: hidden; text-decoration: none; }
-  .nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
-  .nav-links { display: flex; gap: 2.5rem; list-style: none; }
-  .nav-links a { font-family: var(--mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,241,235,0.55); text-decoration: none; opacity: 1; transition: opacity 0.2s; }
-  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
-  .nav-cta { background: #2563eb; color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: #1d4ed8 !important; }
-  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
-  .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
-  .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
-  .hamburger.active span:nth-child(2) { opacity: 0; }
-  .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(6px,-6px); }
-  .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 250; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-  .mobile-menu.active { display: flex; }
-  .mobile-menu a { font-family: var(--serif); font-size: 2.2rem; color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
-  .mobile-menu a:hover { opacity: 0.7; }
-  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
-
-  /* PAGE HEADER — matches applications hero style */
-  .page-header { background: var(--bg); padding: 9rem 4rem 5rem; border-bottom: 1px solid var(--rule); }
-  .ph-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.8rem; }
-  .ph-eyebrow::before { content: ''; width: 2rem; height: 1px; background: var(--water); display: block; }
-  .page-header h1 { font-family: var(--serif); font-size: clamp(3rem, 5vw, 5rem); line-height: 1.0; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 1.5rem; }
-  .page-header h1 em { font-style: italic; color: var(--water); }
-  .ph-sub { font-size: 1.05rem; line-height: 1.75; color: var(--ink); opacity: 0.65; max-width: 55ch; border-left: 2px solid var(--water-light); padding-left: 1.25rem; }
-
-  /* SECTION HELPERS */
-  .section-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.7rem; }
-  .section-label::before { content: ''; width: 1.5rem; height: 1px; background: var(--water); display: block; }
-  .section-title { font-family: var(--serif); font-size: clamp(2.2rem, 3.5vw, 3.4rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 2rem; }
-
-  /* TEAM SECTION */
-  .team-section { padding: 6rem 4rem; background: var(--bg); }
-  .team-inner { max-width: 1400px; margin: 0 auto; }
-  .team-intro-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 3rem; align-items: center; margin-bottom: 4rem; padding-bottom: 4rem; border-bottom: 1px solid var(--rule); }
-  .team-group-photo { display: block; width: 100%; height: auto; border: 3px solid #78998a; border-radius: 6px; box-shadow: 0 3px 6px rgba(14,26,20,.10), 0 14px 28px -8px rgba(14,26,20,.25); }
-  .team-intro-desc { font-size: 1.05rem; line-height: 1.8; opacity: 0.65; padding-top: 0.5rem; }
-
-  .founders-grid { display: grid; grid-template-columns: 1fr; gap: 3rem; max-width: 1100px; margin: 0 auto; }
-  .founder-card { display: grid; grid-template-columns: minmax(200px,280px) minmax(0,1fr); align-items: center; gap: clamp(2rem,5vw,5rem); padding-bottom: 3rem; border-bottom: 1px solid var(--rule); }
-  .founder-card:last-child { padding-bottom: 0; border-bottom: 0; }
-  .founder-photo { width: 100%; aspect-ratio: 4 / 5; overflow: hidden; background: var(--mist); border: 3px solid #78998a; border-radius: 6px; box-shadow: 0 3px 6px rgba(14,26,20,.10), 0 14px 28px -8px rgba(14,26,20,.25); }
-  .founder-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-  .founder-photo-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(160deg, var(--bg-dark) 0%, #1a3020 100%); }
-  .founder-initials { font-family: var(--serif); font-size: 4rem; color: var(--accent); opacity: 0.6; line-height: 1; }
-  .founder-info { padding: 0; min-width: 0; max-width: 62ch; }
-  .founder-num { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; color: var(--water); opacity: 0.5; margin-bottom: 1rem; }
-  .founder-name { font-family: var(--serif); font-size: clamp(2rem,3vw,2.7rem); color: var(--ink); margin-bottom: 0.3rem; line-height: 1.1; }
-  .founder-title { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--water); margin-bottom: 1.5rem; opacity: 0.8; }
-  .founder-bio { font-size: 0.95rem; line-height: 1.75; color: var(--ink); opacity: 0.65; margin-bottom: 1.8rem; }
-  .founder-links { border-top: 1px solid var(--rule); padding-top: 1.5rem; display: flex; flex-direction: column; gap: 0.6rem; }
-  .founder-link { display: flex; align-items: center; gap: 0.8rem; font-family: var(--mono); font-size: 0.72rem; color: var(--water); text-decoration: none; letter-spacing: 0.04em; transition: opacity 0.2s; }
-  .founder-link:hover { opacity: 0.7; }
-  .founder-link-icon { width: 28px; height: 28px; background: var(--water-pale); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
-
-  /* CTA */
-  .btn-primary { background: var(--water); color: #fff; padding: 0.85rem 2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: background 0.2s; }
-  .btn-primary:hover { background: var(--water-light); }
-  .cta-strip { background: var(--bg-dark); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(244,241,235,0.08); }
-  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary { background: #2563eb; color: #fff; font-size: 0.8rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
-
-  /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
-  .footer-logo { position: relative; display: block; width: 126px; aspect-ratio: 4.8 / 1; overflow: hidden; }
-  .footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
-  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-
-  .reveal { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
-  .reveal.visible { opacity: 1; transform: none; }
-
-
-
-  @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .page-header, .team-section, .cta-strip { padding: 4rem 1.5rem; }
-    .page-header { padding-top: 7rem; }
-    .team-section { padding-top: 6rem; }
-    .team-intro-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
-  }
-  @media (max-width: 600px) {
-    .founders-grid { gap: 2.5rem; }
-    .founder-card { grid-template-columns: 1fr; gap: 1.5rem; padding-bottom: 2.5rem; }
-    .founder-photo { max-width: 280px; }
-  }
-/* Compact footer with clear visual hierarchy. */
-footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
-.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
-footer .footer-logo { flex: none; width: 126px; }
-.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
-.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
-.footer-support:hover { color: #fff; }
-.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
-.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
-.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
-.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
-@media (max-width: 600px) {
-  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
-  .footer-identity, .footer-details { align-items: center; text-align: center; }
-}
-
-/* Shared accessible mobile navigation. */
-.hamburger { border: 0; padding: 0; background: transparent; }
-.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
-.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
-.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
-.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
+.team-section { padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(4rem, 8vw, 6rem); }
+.team-inner { max-width: var(--content); margin: 0 auto; }
+.team-intro-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 3rem; align-items: stretch; margin-bottom: clamp(3rem, 6vw, 4.5rem); padding-bottom: clamp(3rem, 6vw, 4.5rem); border-bottom: 1px solid var(--rule); }
+.team-group-photo { display: block; width: 100%; height: auto; border-radius: 10px; outline: 1px solid rgba(23, 42, 35, .08); outline-offset: -1px; }
+.team-intro-copy { display: flex; flex-direction: column; justify-content: center; padding: 2rem 0; --ambient-opacity: .085; }
+.team-intro-copy .section-title { margin-bottom: 1.25rem; }
+.team-intro-desc { max-width: 44ch; font-size: 1.05rem; line-height: 1.75; color: var(--muted); }
+.founders-grid { display: grid; gap: 3rem; max-width: 1100px; margin: 0 auto; }
+.founder-card { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); align-items: center; gap: clamp(2rem, 5vw, 4.5rem); padding-bottom: 3rem; border-bottom: 1px solid var(--rule); }
+.founder-card:last-child { padding-bottom: 0; border-bottom: 0; }
+.founder-photo { width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 10px; background: var(--mist); }
+.founder-photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform .7s var(--ease); }
+.founder-card:hover .founder-photo img { transform: scale(1.02); }
+.founder-photo-placeholder { width: 100%; height: 100%; align-items: center; justify-content: center; background: var(--bg-dark); color: var(--mint); font: 600 3rem var(--sans); letter-spacing: -.03em; }
+.founder-info { min-width: 0; max-width: 62ch; }
+.founder-name { margin-bottom: .25rem; font-size: 1.7rem; font-weight: 600; line-height: 1.15; letter-spacing: -.025em; }
+.founder-title { margin-bottom: 1.25rem; font-size: .875rem; font-weight: 500; color: var(--water); }
+.founder-bio { margin-bottom: 1.5rem; font-size: .95rem; line-height: 1.7; color: var(--muted); }
+.founder-links { padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+.founder-link { display: inline-flex; align-items: center; gap: .6rem; min-height: 32px; color: var(--water); font-size: .9rem; font-weight: 500; text-decoration: none; text-underline-offset: 4px; }
+.founder-link:hover { text-decoration: underline; }
+.founder-link svg { flex: none; width: 16px; height: 16px; }
 @media (max-width: 900px) {
-  .hamburger { box-sizing: content-box; padding: 12px 8px; }
-  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
-  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
+  .team-intro-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .team-intro-copy { padding: 1rem 0 0; }
 }
-
-/* H2O logo color on quote and support actions. */
-:root { --h2o-brand: #91e4d2; --h2o-brand-hover: #7bc3b4; }
-.cta-strip .btn-primary {
-  background: var(--h2o-brand); color: #0e1a14;
+@media (max-width: 600px) {
+  .founders-grid { gap: 2.5rem; }
+  .founder-card { grid-template-columns: 1fr; gap: 1.5rem; padding-bottom: 2.5rem; }
+  .founder-photo { max-width: 260px; }
 }
-.cta-strip .btn-primary:hover {
-  background: var(--h2o-brand-hover) !important; color: #0e1a14;
-}
-.nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
 </style>
 <script src="/site-navigation.js" defer></script>
-<link rel="stylesheet" href="/site-brand-footer.css?v=b3ac352c470d">
-<script src="/site-brand-footer.js?v=ad278df15485" defer></script>
+<script src="/site-ambient.js?v=20261014" defer></script>
+<script src="/site-brand-footer.js?v=20261014" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/about">
 <meta property="og:type" content="website">
@@ -188,7 +80,7 @@ footer .footer-logo { flex: none; width: 126px; }
   <ul class="nav-links">
     <li><a href="/">Home</a></li>
     <li><a href="/applications">Applications</a></li>
-    <li><a href="/about" class="active">About Us</a></li>
+    <li><a href="/about" class="active" aria-current="page">About Us</a></li>
     <li><a href="/support">Support</a></li>
     <li><a href="/quote">Request a quote</a></li>
     <li><a href="/portal" class="nav-cta">Sign in</a></li>
@@ -208,28 +100,27 @@ footer .footer-logo { flex: none; width: 126px; }
 
 <div class="team-section">
   <div class="team-inner">
-    <div class="team-intro-grid reveal">
+    <div class="team-intro-grid">
       <img class="team-group-photo" src="team-group-20260913.webp" width="1800" height="1198" alt="The exactH2O team together outdoors" fetchpriority="high" decoding="async">
-      <div>
+      <div class="team-intro-copy" data-ambient>
         <div class="section-label">Leadership</div>
         <h1 class="section-title">Built by scientists,<br>for scientists</h1>
         <p class="team-intro-desc">ExactH2O combines plant physiology, environmental sensing, and instrument engineering to support controlled irrigation research.</p>
       </div>
     </div>
-    <div class="founders-grid reveal">
+    <div class="founders-grid">
 
       <div class="founder-card">
         <div class="founder-photo">
           <img src="team-binod-20260915.png" width="1024" height="1536" loading="lazy" decoding="async" alt="Binod Basyal" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">BB</div></div>
+          <div class="founder-photo-placeholder" style="display:none;">BB</div>
         </div>
         <div class="founder-info">
-          <div class="founder-num">01 —</div>
           <h3 class="founder-name">Binod Basyal</h3>
           <div class="founder-title">Co-Founder and Chief Executive Officer</div>
           <p class="founder-bio">Binod studies plant–water relationships and drought stress. He holds a PhD in Biology and co-invented the ExactH2O irrigation control system.</p>
           <div class="founder-links">
-            <a href="mailto:binod@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>binod@exacth2o.com</a>
+            <a href="mailto:binod@exacth2o.com" class="founder-link"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="m2 4 6 4.5L14 4"/></svg>binod@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -237,15 +128,14 @@ footer .footer-logo { flex: none; width: 126px; }
       <div class="founder-card">
         <div class="founder-photo">
           <img src="team-portrait-1-20260913.webp" width="1000" height="1503" loading="lazy" decoding="async" alt="Berkley Walker" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">BW</div></div>
+          <div class="founder-photo-placeholder" style="display:none;">BW</div>
         </div>
         <div class="founder-info">
-          <div class="founder-num">02 —</div>
           <h3 class="founder-name">Berkley Walker</h3>
           <div class="founder-title">Co-Founder and Chief Technology Officer</div>
           <p class="founder-bio">Berkley leads technical strategy at ExactH2O. He teaches plant physiology, researches photosynthesis, and brings experience in environmental sensing and product development.</p>
           <div class="founder-links">
-            <a href="mailto:berkley@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>berkley@exacth2o.com</a>
+            <a href="mailto:berkley@exacth2o.com" class="founder-link"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="m2 4 6 4.5L14 4"/></svg>berkley@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -253,15 +143,14 @@ footer .footer-logo { flex: none; width: 126px; }
       <div class="founder-card">
         <div class="founder-photo">
           <img src="team-portrait-4-20260913.webp" width="1000" height="1504" loading="lazy" decoding="async" alt="Jacob Hicks" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">JH</div></div>
+          <div class="founder-photo-placeholder" style="display:none;">JH</div>
         </div>
         <div class="founder-info">
-          <div class="founder-num">03 —</div>
           <h3 class="founder-name">Jacob Hicks</h3>
           <div class="founder-title">Co-Founder and Chief Operating Officer</div>
           <p class="founder-bio">Jacob has more than 15 years of experience repairing and developing scientific instruments. He helped design and build the ExactH2O system.</p>
           <div class="founder-links">
-            <a href="mailto:jake@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>jake@exacth2o.com</a>
+            <a href="mailto:jake@exacth2o.com" class="founder-link"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="m2 4 6 4.5L14 4"/></svg>jake@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -269,15 +158,14 @@ footer .footer-logo { flex: none; width: 126px; }
       <div class="founder-card">
         <div class="founder-photo">
           <img src="team-portrait-2-20260913.webp" width="1000" height="1504" loading="lazy" decoding="async" alt="EJ Howe" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-          <div class="founder-photo-placeholder" style="display:none;"><div class="founder-initials">EH</div></div>
+          <div class="founder-photo-placeholder" style="display:none;">EH</div>
         </div>
         <div class="founder-info">
-          <div class="founder-num">04 —</div>
           <h3 class="founder-name">EJ Howe</h3>
           <div class="founder-title">Co-Founder and Chief Product Officer</div>
           <p class="founder-bio">EJ leads software and connected hardware development. He built the web control platform and works across embedded systems, networking, sensing, and field instrumentation.</p>
           <div class="founder-links">
-            <a href="mailto:ej@exacth2o.com" class="founder-link"><span class="founder-link-icon">✉</span>ej@exacth2o.com</a>
+            <a href="mailto:ej@exacth2o.com" class="founder-link"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="m2 4 6 4.5L14 4"/></svg>ej@exacth2o.com</a>
           </div>
         </div>
       </div>
@@ -316,13 +204,5 @@ footer .footer-logo { flex: none; width: 126px; }
 </footer>
 
 
-<script>
-
-  const revealEls = document.querySelectorAll('.reveal');
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-  }, { threshold: 0.1 });
-  revealEls.forEach(el => obs.observe(el));
-</script>
 </body>
 </html>

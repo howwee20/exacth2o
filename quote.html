@@ -18,7 +18,6 @@
 })();
 </script>
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
-<meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
@@ -27,189 +26,62 @@
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.css?v=20261014">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
 <style>
-  :root {
-    --bg: #f4f1eb; --bg-dark: #0e1a14; --ink: #0e1a14;
-    --water: #1a6b4a; --water-light: #2e9e6e; --water-pale: #d4ede3;
-    --accent: #7cbf9e; --mist: #e8e3d8;
-    --rule: rgba(14,26,20,0.15);
-    --serif: 'DM Serif Display', Georgia, serif; --mono: 'DM Mono', 'Courier New', monospace; --sans: 'Instrument Sans', 'Instrument Sans Fallback', sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; overflow-x: hidden; }
-
-  /* NAV — identical to Applications */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 4rem; background: rgba(14,26,20,0.96); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(124,191,158,0.15); }
-  .nav-logo { position: relative; display: block; flex: 0 0 auto; width: 168px; aspect-ratio: 4.8 / 1; overflow: hidden; text-decoration: none; }
-  .nav-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
-  .nav-links { display: flex; gap: 2.5rem; list-style: none; }
-  .nav-links a { font-family: var(--mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,241,235,0.55); text-decoration: none; opacity: 1; transition: opacity 0.2s; }
-  .nav-links a:hover, .nav-links a.active { opacity: 1; color: var(--accent); }
-  .nav-cta { background: #2563eb; color: #fff !important; padding: 0.4rem 1rem; border-radius: 2px; opacity: 1 !important; }
-  .nav-cta:hover { background: #1d4ed8 !important; }
-  .hamburger { display: none; flex-direction: column; justify-content: space-between; width: 28px; height: 20px; cursor: pointer; z-index: 300; }
-  .hamburger span { width: 100%; height: 2px; background: var(--accent); border-radius: 2px; transition: all 0.3s; }
-  .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(6px,6px); }
-  .hamburger.active span:nth-child(2) { opacity: 0; }
-  .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(6px,-6px); }
-  .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 250; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-  .mobile-menu.active { display: flex; }
-  .mobile-menu a { font-family: var(--serif); font-size: 2.2rem; color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
-  .mobile-menu a:hover { opacity: 0.7; }
-  .mob-close { position: absolute; top: 1.5rem; right: 2rem; font-family: var(--mono); font-size: 0.8rem; color: rgba(244,241,235,0.4); cursor: pointer; letter-spacing: 0.1em; }
-
-  /* SECTION HELPERS */
-  .section-label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--water); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.7rem; }
-  .section-label::before { content: ''; width: 1.5rem; height: 1px; background: var(--water); display: block; }
-  .section-title { font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3rem); line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
-
-  /* QUOTE LAYOUT */
-  .quote-section { padding: 8rem 4rem 4rem; background: var(--bg); }
-  .quote-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 4rem; align-items: start; }
-  .q-sidebar { position: sticky; top: 7rem; }
-  .q-intro { font-size: 0.95rem; line-height: 1.7; color: #536157; margin-bottom: 1.5rem; }
-  .q-points { display: flex; flex-direction: column; margin-bottom: 1.75rem; }
-  .q-point { padding: .9rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 2.2rem 1fr; gap: 0.8rem; align-items: start; }
-  .q-point-icon { color: var(--water); font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; margin-top: 0.1rem; }
-  .q-point-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.2rem; }
-  .q-point-desc { font-size: .85rem; line-height: 1.6; color: #536157; }
-  .q-direct { background: #fff; border: 1px solid var(--rule); border-left: 3px solid var(--water); border-radius: 8px; box-shadow: 0 14px 32px rgba(14,26,20,.05); padding: 1.5rem; }
-  .q-direct-label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--water); margin-bottom: 0.8rem; }
-  .q-direct p { font-size: 0.85rem; color: #3f4d44; line-height: 1.6; }
-  .q-direct a { color: #2563eb; font-weight: 600; text-decoration: none; }
-  .q-direct a:hover { text-decoration: underline; }
-
-  /* FORM */
-  .quote-form-wrap { background: var(--card-bg, #fff); border: 1px solid var(--rule); padding: 2.25rem; }
-  .form-title { font-family: var(--serif); font-size: 1.6rem; color: var(--ink); margin-bottom: 0.4rem; }
-  .form-subtitle { font-size: 0.9rem; color: #536157; margin-bottom: 1.75rem; }
-
-  /* Success / Error messages */
-  .form-msg { display: none; padding: 1.2rem 1.5rem; border-radius: 2px; font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.03em; margin-bottom: 2rem; }
-  .form-msg.success { background: var(--water-pale); border: 1px solid var(--water); color: var(--water); }
-  .form-msg.error { background: #fdf0f0; border: 1px solid #c0392b; color: #c0392b; }
-
-  .form-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
-  .form-row .form-group { margin-bottom: 0; min-width: 0; }
-  .form-group { margin-bottom: 1.25rem; }
-  .form-group label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: #3e5045; margin-bottom: 0.5rem; }
-  .req { color: var(--water); }
-  .form-group input, .form-group select, .form-group textarea {
-    width: 100%; padding: 0.85rem 1rem; border: 1px solid var(--rule); border-radius: 2px;
-    font-family: var(--sans); font-size: 0.92rem; color: var(--ink); background: var(--bg);
-    transition: border-color 0.2s, box-shadow 0.2s; appearance: none; -webkit-appearance: none;
-  }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-    outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12);
-  }
-  .form-group textarea { resize: vertical; min-height: 130px; }
-
-  /* Honeypot — invisible to humans, visible to bots */
-  .hp-trap { opacity: 0; position: absolute; top: 0; left: 0; height: 0; width: 0; z-index: -1; pointer-events: none; overflow: hidden; }
-
-  .submit-btn { width: 100%; background: #2563eb; color: #fff; padding: 1.1rem; border: none; border-radius: 2px; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; }
-  .submit-btn:hover:not(:disabled) { background: #1d4ed8; }
-  .submit-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 4px; }
-  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  /* CTA */
-  .btn-primary { background: var(--water); color: #fff; padding: 0.85rem 2rem; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: background 0.2s; }
-  .btn-primary:hover { background: var(--water-light); }
-  .cta-strip { background: var(--bg-dark); padding: 5rem 4rem; text-align: center; position: relative; overflow: hidden; border-top: 1px solid rgba(244,241,235,0.08); }
-  .cta-strip::before { content: ''; position: absolute; inset: 0; background: none; pointer-events: none; }
-  .cta-strip h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3.5rem); color: #fff; margin-bottom: 1rem; position: relative; z-index: 1; }
-  .cta-strip p { font-size: 1.05rem; color: rgba(244,241,235,0.72); margin-bottom: 2.5rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary { background: #2563eb; color: #fff; font-size: 0.8rem; position: relative; z-index: 1; }
-  .cta-strip .btn-primary:hover { background: #1d4ed8; color: #fff; }
-
-  /* FOOTER */
-  footer { background: var(--bg-dark); color: rgba(244,241,235,0.35); padding: 2.5rem 4rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; border-top: 0; }
-  .footer-logo { position: relative; display: block; width: 126px; aspect-ratio: 4.8 / 1; overflow: hidden; }
-  .footer-logo img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; -webkit-mask-image: url('/exacth2o-logo.jpeg'); -webkit-mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-image: url('/exacth2o-logo.jpeg'); mask-mode: luminance; mask-repeat: no-repeat; mask-size: 100% 100%; transform: translateY(-50%); }
-  footer a { color: rgba(244,241,235,0.35); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-
-  .reveal { opacity: 1; transform: none; transition: opacity 0.7s ease, transform 0.7s ease; }
-  .reveal.visible { opacity: 1; transform: none; }
-
-  @media (max-width: 900px) {
-    nav { padding: 1rem 1.5rem; } .nav-links { display: none; } .hamburger { display: flex; }
-    .quote-section { padding: 7rem 1.5rem 4rem; }
-    .quote-inner { grid-template-columns: 1fr; gap: 3rem; }
-    .q-sidebar { position: static; }
-    .form-row { grid-template-columns: 1fr; }
-    .quote-form-wrap { padding: 2rem 1.5rem; }
-    .cta-strip { padding: 4rem 1.5rem; }
-    footer { flex-direction: column; gap: 0.8rem; text-align: center; padding: 2rem 1.5rem; }
-  }
-/* Compact footer with clear visual hierarchy. */
-footer { display: flex; flex-direction: row; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 2rem; padding-top: 2.25rem; padding-bottom: 2.25rem; border-top: 1px solid rgba(244,241,235,.08); }
-.footer-identity { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
-footer .footer-logo { flex: none; width: 126px; }
-.footer-details { display: flex; flex-direction: column; align-items: flex-end; gap: .6rem; text-align: right; }
-.footer-support { font-family: var(--sans); font-size: .875rem; font-weight: 400; line-height: 1.4; letter-spacing: 0; color: #d3d9d4; }
-.footer-support:hover { color: #fff; }
-.footer-copyright { font-family: var(--sans); font-size: .6875rem; line-height: 1.5; letter-spacing: 0; color: #959f97; }
-.made-in-america { display: inline-flex; align-items: center; gap: .4rem; color: #a2ada5; white-space: nowrap; }
-.made-in-america svg { display: block; width: 16px; height: auto; flex: none; opacity: .8; }
-.made-in-america span { font-family: var(--sans); font-size: .5625rem; font-weight: 500; line-height: 1.3; letter-spacing: .09em; }
-@media (max-width: 600px) {
-  footer { flex-direction: column; align-items: center; gap: 1.5rem; }
-  .footer-identity, .footer-details { align-items: center; text-align: center; }
+.quote-section { padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(4rem, 8vw, 6rem); }
+.quote-inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: clamp(2rem, 5vw, 4rem); align-items: stretch; max-width: var(--content); margin: 0 auto; }
+.q-sidebar { --ambient-opacity: .055; }
+.q-sidebar .section-title { margin-bottom: 1rem; }
+.q-intro { max-width: 36ch; margin-bottom: 1.5rem; font-size: 1rem; line-height: 1.7; color: var(--muted); }
+.q-direct p { font-size: .9rem; line-height: 1.6; color: var(--muted); }
+.q-direct a { color: var(--water); font-weight: 600; text-decoration: none; text-underline-offset: 4px; overflow-wrap: anywhere; }
+.q-direct a:hover { text-decoration: underline; }
+.quote-form-wrap { padding: clamp(1.5rem, 3vw, 2.25rem); border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); }
+.form-title { margin-bottom: 1.5rem; font-size: 1.5rem; font-weight: 600; letter-spacing: -.025em; }
+.form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
+.form-row .form-group { min-width: 0; margin-bottom: 0; }
+.form-group { margin-bottom: 1.25rem; }
+.form-group label { display: block; margin-bottom: .5rem; font-size: .875rem; font-weight: 600; color: #344e40; }
+.form-group label .form-hint { font-weight: 400; }
+.req { color: var(--water); }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; min-height: 48px; padding: .75rem 1rem; border: 1px solid #aebfb4; border-radius: 7px;
+  background-color: #fff; color: var(--ink); font: 400 1rem/1.5 var(--sans);
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease); appearance: none; -webkit-appearance: none;
 }
-
-  .form-group select { padding-right: 2.75rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23536157' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 16px; }
-  .form-group input::placeholder, .form-group textarea::placeholder { color: #66736b; opacity: 1; }
-  .form-hint { font-size: .8125rem; color: #536157; line-height: 1.6; margin: -.1rem 0 .65rem; }
-  .q-direct a { overflow-wrap: anywhere; }
-  @media (max-width: 900px) {
-    .quote-inner { gap: 2rem; }
-    .q-intro { margin-bottom: 1rem; }
-    .q-points { margin-bottom: 1rem; }
-    .q-point { padding: .55rem 0; }
-    .q-point-title { margin-bottom: 0; }
-    .q-direct { padding: 1rem 1.25rem; }
-    .q-direct-label { margin-bottom: .35rem; }
-    .form-row { gap: 1.25rem; }
-    .form-group input, .form-group select, .form-group textarea { font-size: 1rem; }
-  }
-
-/* Shared accessible mobile navigation. */
-.hamburger { border: 0; padding: 0; background: transparent; }
-.mobile-menu .mob-close { border: 0; background: transparent; color: #c4d0c7; padding: .75rem; }
-.hamburger:focus-visible, .mobile-menu a:focus-visible, .mob-close:focus-visible { outline: 2px solid #9dbfff; outline-offset: 6px; }
-.mobile-menu a[href="/portal"] { background: #2563eb; color: #fff; padding: .35rem 1.5rem; border-radius: 3px; }
-.mobile-menu a[href="/portal"]:hover { background: #1d4ed8; opacity: 1; }
-@media (max-width: 900px) {
-  .hamburger { box-sizing: content-box; padding: 12px 8px; }
-  .mobile-menu { overflow-y: auto; gap: clamp(.75rem,3vh,2rem); }
-  .mobile-menu a { font-size: clamp(1.5rem,5vh,2.2rem); }
-}
-
-.field-error { color: #a22d24; font-size: .8125rem; line-height: 1.5; margin-top: .4rem; }
+.form-group input:hover, .form-group select:hover, .form-group textarea:hover { border-color: #8fa598; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--water); box-shadow: 0 0 0 3px rgba(23, 100, 73, .12); }
+.form-group input::placeholder, .form-group textarea::placeholder { color: #66736b; opacity: 1; }
+.form-group select { padding-right: 2.75rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23536157' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 16px; }
+.form-group textarea { min-height: 130px; resize: vertical; }
 .form-group [aria-invalid="true"] { border-color: #a22d24; }
-.validation-summary { color: #a22d24; font-size: .875rem; }
+.form-hint { margin: -.1rem 0 .65rem; font-size: .8125rem; line-height: 1.6; color: var(--muted); }
+.form-hint a { color: var(--water); text-underline-offset: 3px; }
+.field-error { margin-top: .4rem; font-size: .8125rem; line-height: 1.5; color: #a22d24; }
+.validation-summary { font-size: .875rem; color: #a22d24; }
 .validation-summary:not(:empty) { margin-bottom: 1rem; }
-.form-msg { margin-bottom: 1rem; }
+.form-msg { display: none; margin-bottom: 1rem; padding: 1rem 1.25rem; border-radius: 7px; font-size: .875rem; line-height: 1.6; }
+.form-msg.success { border: 1px solid var(--water); background: #e3f1ea; color: var(--water); }
+.form-msg.error { border: 1px solid #c0392b; background: #fdf0f0; color: #a22d24; }
 .form-group input, .form-group select, .form-group textarea, .form-msg { scroll-margin-top: 7rem; }
-
-/* H2O logo color on quote and support actions. */
-:root { --h2o-brand: #91e4d2; --h2o-brand-hover: #7bc3b4; }
-.cta-strip .btn-primary {
-  background: var(--h2o-brand); color: #0e1a14;
+.hp-trap { position: absolute; top: 0; left: 0; z-index: -1; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+.submit-btn { width: 100%; min-height: 52px; margin: .5rem 0 .85rem; border: 0; border-radius: 7px; background: var(--action); color: #fff; font: 600 1rem/1.4 var(--sans); cursor: pointer; transition: background .2s var(--ease); }
+.submit-btn:hover:not(:disabled) { background: var(--action-hover); }
+.submit-btn:focus-visible { outline: 2px solid var(--action); outline-offset: 4px; }
+.submit-btn:disabled { opacity: .6; cursor: not-allowed; }
+@media (max-width: 900px) {
+  .quote-inner { grid-template-columns: 1fr; gap: 2rem; }
+  .q-intro { margin-bottom: 1rem; }
 }
-.cta-strip .btn-primary:hover {
-  background: var(--h2o-brand-hover) !important; color: #0e1a14;
+@media (max-width: 700px) {
+  .form-row { grid-template-columns: minmax(0, 1fr); }
 }
-.nav-links a[href="/quote"], .mobile-menu a[href="/quote"] { color: var(--h2o-brand); }
-
-.support-contact-button, .submit-btn { background: #2563eb; color: #fff; }
-.support-contact-button:hover, .submit-btn:hover:not(:disabled) { background: #1d4ed8 !important; color: #fff; }
 </style>
 <script src="/site-navigation.js" defer></script>
+<script src="/site-ambient.js?v=20261014" defer></script>
+<script src="/site-brand-footer.js?v=20261014" defer></script>
 <script src="/site-metrics.js" defer></script>
-<link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/quote">
 <meta property="og:type" content="website">
@@ -228,7 +100,7 @@ footer .footer-logo { flex: none; width: 126px; }
     <li><a href="/applications">Applications</a></li>
     <li><a href="/about">About Us</a></li>
     <li><a href="/support">Support</a></li>
-    <li><a href="/quote" class="active">Request a quote</a></li>
+    <li><a href="/quote" class="active" aria-current="page">Request a quote</a></li>
     <li><a href="/portal" class="nav-cta">Sign in</a></li>
   </ul>
   <button class="hamburger" id="hamburger" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileMenu" onclick="toggleMenu()"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
@@ -245,25 +117,19 @@ footer .footer-logo { flex: none; width: 126px; }
 <main id="main-content">
 
 <div class="quote-section">
-  <div class="quote-inner reveal">
+  <div class="quote-inner">
 
-    <div class="q-sidebar">
+    <div class="q-sidebar" data-ambient>
       <h1 class="section-title">Request a quote</h1>
       <p class="q-intro">Tell us about your facility and research goals. We’ll follow up by email.</p>
       <div class="q-direct">
-        <div class="q-direct-label">Direct Contact</div>
         <p>Prefer email?<br><a href="mailto:support@exacth2o.com">support@exacth2o.com</a></p>
       </div>
     </div>
 
     <div>
       <div class="quote-form-wrap">
-
-
-
         <h2 class="form-title">Your project</h2>
-
-
         <form id="quoteForm" novalidate>
           <!-- Honeypot anti-spam trap — bots fill this, humans don't see it -->
           <div class="hp-trap" aria-hidden="true">
@@ -272,28 +138,28 @@ footer .footer-logo { flex: none; width: 126px; }
 
           <div class="form-row">
             <div class="form-group">
-              <label for="name">Full Name <span class="req">*</span></label>
+              <label for="name">Full name <span class="req">*</span></label>
               <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100" aria-describedby="nameError">
               <p class="field-error" id="nameError" hidden></p>
             </div>
             <div class="form-group">
-              <label for="email">Email Address <span class="req">*</span></label>
+              <label for="email">Email address <span class="req">*</span></label>
               <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200" aria-describedby="emailError">
               <p class="field-error" id="emailError" hidden></p>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="phone">Phone Number</label>
+              <label for="phone">Phone number</label>
               <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567" autocomplete="tel" maxlength="30">
             </div>
             <div class="form-group">
-              <label for="org">Organization / Institution</label>
+              <label for="org">Organization or institution</label>
               <input type="text" id="org" name="organization" placeholder="Your organization" autocomplete="organization" maxlength="150">
             </div>
           </div>
           <div class="form-group">
-            <label for="application">Application Type <span class="req">*</span></label>
+            <label for="application">Application type <span class="req">*</span></label>
             <select id="application" name="application" required aria-describedby="applicationError">
               <option value="">Please select…</option>
               <option value="Plant Research / Drought Studies">Plant Research / Drought Studies</option>
@@ -306,7 +172,7 @@ footer .footer-logo { flex: none; width: 126px; }
               <p class="field-error" id="applicationError" hidden></p>
           </div>
           <div class="form-group">
-            <label for="timeline">Expected Timeline</label>
+            <label for="timeline">Expected timeline</label>
             <select id="timeline" name="timeline">
               <option value="">Select timeline…</option>
               <option value="Immediate (within 1 month)">Immediate (within 1 month)</option>
@@ -319,7 +185,7 @@ footer .footer-logo { flex: none; width: 126px; }
           <div class="form-group">
             <label for="potCount">Approximate pot count <span class="form-hint">(optional)</span></label><input id="potCount" name="potCount" type="text" inputmode="numeric" maxlength="30" placeholder="For example, 48 or 100–200">
           </div><div class="form-group">
-            <label for="message">Project Details <span class="req">*</span></label>
+            <label for="message">Project details <span class="req">*</span></label>
             <p class="form-hint" id="projectHint">Include growing media, irrigation zones, and research goals. Estimates are fine.</p>
             <textarea id="message" name="message" required aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="2900"></textarea>
               <p class="field-error" id="messageError" hidden></p>
@@ -339,7 +205,21 @@ footer .footer-logo { flex: none; width: 126px; }
 </main>
 
 <footer>
-<div class="footer-details">
+<div class="brand-finale" role="img" aria-label="ExactH2O">
+<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="brand-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#a6b7ae"/></pattern>
+      <pattern id="brand-water-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#91e4d2"/></pattern>
+      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
+    </defs>
+    <g class="brand-finale-type">
+      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
+    </g>
+  </svg>
+  </div>
+  <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
     <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
 <div class="footer-copyright">© 2026 exactH2O · All rights reserved</div>
@@ -500,11 +380,6 @@ footer .footer-logo { flex: none; width: 126px; }
   });
 
   // Reveal animations
-  const revealEls = document.querySelectorAll('.reveal');
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-  }, { threshold: 0.1 });
-  revealEls.forEach(el => obs.observe(el));
 </script>
 </body>
 </html>
