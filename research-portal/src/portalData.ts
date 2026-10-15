@@ -87,7 +87,7 @@ export function pairingsFromDeviceConfigState(
     if (!pairing) continue;
 
     const name = typeof pairing.name === "string" ? pairing.name.trim() : "";
-    const label = /^Zone(\d+)-Pot(\d+)$/i.exec(name);
+    const label = /^(?:[A-Za-z][A-Za-z0-9 _]*-)?Zone(\d+)-Pot(\d+)$/i.exec(name);
     const sensor = recordValue(pairing.Sensor);
     const valve = recordValue(pairing.Valve);
     const calibration = recordValue(pairing.Calibration);

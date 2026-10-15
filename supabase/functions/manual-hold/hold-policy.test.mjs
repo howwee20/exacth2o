@@ -95,3 +95,12 @@ test('candidate test is admin-only, recorded, conflict checked, and does not con
   assert.equal(candidateTestRoute(pot, [pot], [32], 'admin').channel, 26);
   assert.equal(JSON.stringify(pot), before);
 });
+
+test('a sole enabled pairing identifies a shared valve without changing legacy observations', () => {
+ const active={...pairing('Huiqiao-Zone3-Pot68',32,20),WTCPercentLimit:35,ValveOpenTime:4000};
+ const old={...pairing('Zone3-Pot68',32,20,'D:R'),WTCPercentLimit:0,ValveOpenTime:2000};
+ const result=resolvePots([{pot_number:68,status:'confirmed',relay_address:32,channel:20}],[32],[old,active]).find(p=>p.pot===68);
+ assert.equal(result.pairing.name,active.name);
+ assert.equal(result.pairing.namedPot,68);
+ assert.equal(old.WTCPercentLimit,0);
+});

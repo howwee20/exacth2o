@@ -12,7 +12,7 @@ export const routeLabel = (relay, channel) => `0x${relay.toString(16)}:${channel
 
 /** Pot number in a pairing name like "Zone3-Pot18". Research labels only: not physical identity. */
 export function pairingPot(name = "") {
-  const match = /^Zone\d+-Pot(\d{1,3})$/i.exec(name);
+  const match = /^(?:[A-Za-z][A-Za-z0-9 _]*-)?Zone\d+-Pot(\d{1,3})$/i.exec(name);
   return match ? Number(match[1]) : null;
 }
 
@@ -60,7 +60,8 @@ export function resolvePots(routes, boards, pairings) {
     const label = routeLabel(row.relay_address, row.channel);
     const sharing = (confirmedOwners.get(label) ?? []).filter((owner) => owner !== pot);
     const valvePairings = onValve.get(label) ?? [];
-    const pairing = valvePairings.length === 1 ? valvePairings[0] : null;
+    const enabled = valvePairings.filter(item => Number(item.WTCPercentLimit) > 0 && Number(item.ValveOpenTime) > 0);
+    const pairing = valvePairings.length === 1 ? valvePairings[0] : enabled.length === 1 ? enabled[0] : null;
     const entry = { ...base, relayAddress: row.relay_address, channel: row.channel,
       pairing: pairing ? { name: pairing.name, sensorKey: pairing.Sensor ? `${pairing.Sensor.boardSerialId}:${pairing.Sensor.address}` : null,
         namedPot: pairingPot(pairing.name), sensorId: pairing.sensorId, valveId: pairing.valveId } : null,

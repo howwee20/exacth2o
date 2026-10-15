@@ -114,7 +114,7 @@ export function inventoryFromDeviceConfig(configRow) {
   return configPairings.flatMap((rawPairing) => {
     const pairing = record(rawPairing);
     const name = text(pairing.name, 120);
-    const label = /^Zone(\d+)-Pot(\d+)$/i.exec(name);
+    const label = /^(?:[A-Za-z][A-Za-z0-9 _]*-)?Zone(\d+)-Pot(\d+)$/i.exec(name);
     const sensor = record(pairing.Sensor);
     const valve = record(pairing.Valve);
     const calibration = record(pairing.Calibration);

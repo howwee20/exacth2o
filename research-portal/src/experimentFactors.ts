@@ -173,12 +173,12 @@ export function potGroups(
 
 /** Pot number from a controller pairing name such as "Zone2-Pot17". */
 export function potNumberFromPairingName(name: string) {
-  const match = /^Zone(\d+)-Pot(\d+)$/i.exec(name.trim());
+  const match = /^(?:[A-Za-z][A-Za-z0-9 _]*-)?Zone(\d+)-Pot(\d+)$/i.exec(name.trim());
   return match ? Number(match[2]) : null;
 }
 
 export function zoneFromPairingName(name: string) {
-  const match = /^Zone(\d+)-Pot(\d+)$/i.exec(name.trim());
+  const match = /^(?:[A-Za-z][A-Za-z0-9 _]*-)?Zone(\d+)-Pot(\d+)$/i.exec(name.trim());
   return match ? Number(match[1]) : null;
 }
 
