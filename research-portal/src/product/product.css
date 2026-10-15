@@ -1433,3 +1433,9 @@
 .px-source-note { max-width:85ch; font-size:13px; line-height:1.65; }
 .px-source-note h2 { font-size:13px; margin:12px 0 4px; }
 @media print { .px-compact-experiment, .px-saved-views { display:none; } }
+
+.px-manual-water { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--px-border, #dbe3df); }
+.px-hold-water { width: 100%; min-height: 64px; margin: .75rem 0; background: #17664d; color: white; font-weight: 700; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.px-hold-water.is-watering { background: #126e9a; box-shadow: 0 0 0 5px #d9edf5; }
+.px-hold-water:disabled { opacity: .5; cursor: not-allowed; }
+.px-hold-water:focus-visible { outline: 3px solid #247da3; outline-offset: 4px; }
