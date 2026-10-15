@@ -83,3 +83,15 @@ test("presses are bounded by both press time and server receipt", () => {
   assert.equal(holdExpiry(now + 1001, now), null);
   assert.equal(holdExpiry(Number.NaN, now), null);
 });
+
+test('candidate test is admin-only, recorded, conflict checked, and does not confirm the record', async () => {
+  const { candidateTestRoute } = await import('./hold-policy.mjs');
+  const pot = { pot: 74, status: 'needs_confirmation', candidate: { relayAddress: 32, channel: 26 } };
+  const before = JSON.stringify(pot);
+  assert.equal(candidateTestRoute(pot, [pot], [32], 'researcher'), null);
+  assert.equal(candidateTestRoute(pot, [pot], [], 'admin'), null);
+  assert.equal(candidateTestRoute({ ...pot, candidate: null }, [pot], [32], 'admin'), null);
+  assert.equal(candidateTestRoute(pot, [pot, { pot: 75, status: 'ready', relayAddress: 32, channel: 26 }], [32], 'admin'), null);
+  assert.equal(candidateTestRoute(pot, [pot], [32], 'admin').channel, 26);
+  assert.equal(JSON.stringify(pot), before);
+});

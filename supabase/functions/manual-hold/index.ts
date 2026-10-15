@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { boardAddresses, holdExpiry, POT_COUNT, potForPairing, resolvePots, routeLabel } from "./hold-policy.mjs";
+import { candidateTestRoute, boardAddresses, holdExpiry, POT_COUNT, potForPairing, resolvePots, routeLabel } from "./hold-policy.mjs";
 
 // Hold-to-water for physical pots 1-100. The server owns the destination controller and each
 // pot's recorded valve route; the browser names only a pot number. Sensor pairings never
@@ -9,7 +9,7 @@ const origins = new Set(["https://exacth2o.com", "https://www.exacth2o.com", "ht
 const holdActions = ["start", "renew", "stop", "status"];
 const routeActions = ["routes", "confirm_route", "remove_route"];
 type PotRoute = { pot: number; status: "ready" | "needs_confirmation" | "no_water_line" | "unmapped" | "conflict"; relayAddress?: number; channel?: number;
-  pairing?: { name: string; sensorKey: string | null; namedPot: number | null; sensorId?: number; valveId?: number } | null; reason?: string };
+  candidate?: { relayAddress: number; channel: number } | null; pairing?: { name: string; sensorKey: string | null; namedPot: number | null; sensorId?: number; valveId?: number } | null; reason?: string };
 type PairingRecord = { name?: string; Valve?: { relayAddress?: string | number; address?: string | number } };
 
 async function loadRoutes(admin: SupabaseClient, projectId: string, deviceId: string) {
@@ -74,14 +74,19 @@ serve(async (request) => {
     }
 
     if (!Number.isInteger(body.sequence) || body.sequence < 0 || !/^[-a-f0-9]{36}$/i.test(body.sessionId || "")) return reply({ error: "Invalid hold request" }, 400);
-    const [{ pots, pairings }, gate] = await Promise.all([
-      action === "start" || action === "renew" ? loadRoutes(admin, projectId, deviceId) : Promise.resolve({ pots: [] as PotRoute[], pairings: [] as PairingRecord[] }),
+    const [{ pots, pairings, boards }, gate] = await Promise.all([
+      action === "start" || action === "renew" ? loadRoutes(admin, projectId, deviceId) : Promise.resolve({ pots: [] as PotRoute[], pairings: [] as PairingRecord[], boards: [] as number[] }),
       action === "start" || action === "renew" ? controlGateClosed(admin, projectId, deviceId) : Promise.resolve(null),
     ]);
     // Portal builds published before pot numbers name a pairing; use the pot its valve waters.
     if (body.potNumber == null && typeof body.pairingName === "string") body.potNumber = potForPairing(pots, pairings, body.pairingName);
     if ((action === "start" || action === "renew") && (!Number.isInteger(body.potNumber) || body.potNumber < 1 || body.potNumber > POT_COUNT)) return reply({ error: "Pot route unavailable; refresh Find pot" }, 409);
-    const pot: PotRoute = pots.find((entry) => entry.pot === body.potNumber) ?? { pot: body.potNumber, status: "unmapped" as const };
+    let pot: PotRoute = pots.find((entry) => entry.pot === body.potNumber) ?? { pot: body.potNumber, status: "unmapped" as const };
+    if (body.testCandidate === true && (action === "start" || action === "renew")) {
+      const testRoute = candidateTestRoute(pot, pots, boards, role);
+      if (!testRoute) return reply({ error: "Recorded candidate is unavailable for testing" }, 409);
+      pot = testRoute;
+    }
     // Stop and status always reach the controller; only new water is refused here.
     if (gate) return reply({ error: gate }, 409);
     if (pot.status !== "ready" && action !== "stop" && action !== "status") return reply({ error: pot.reason ?? "Pot route unavailable", pot }, 409);
@@ -113,7 +118,7 @@ serve(async (request) => {
         action: action === "start" ? "manual_hold_start" : "manual_hold_stop",
         status: !result ? "unknown" : result.ok ? String(data.status ?? "unknown") : "rejected",
         details: { session_id: body.sessionId, pot_number: body.potNumber, route: pot.relayAddress ? routeLabel(pot.relayAddress, pot.channel!) : null,
-          route_kind: payload.routeKind, controller_ms: Date.now() - started, error: result?.ok ? null : data.error ?? null } });
+          test_candidate: body.testCandidate === true, route_kind: payload.routeKind, controller_ms: Date.now() - started, error: result?.ok ? null : data.error ?? null } });
       // Auditing never delays or blocks the hold itself.
       const runtime = (globalThis as { EdgeRuntime?: { waitUntil(promise: Promise<unknown>): void } }).EdgeRuntime;
       if (runtime) runtime.waitUntil(Promise.resolve(audit)); else await audit;

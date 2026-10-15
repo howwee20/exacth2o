@@ -43,6 +43,7 @@ export class ManualWaterClient {
     private readonly deviceId: string,
     private readonly fetchImpl: typeof fetch = (...args) => fetch(...args),
     private readonly token: () => Promise<string | null> = async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+    private readonly testCandidate = false,
   ) {}
 
   serverNow() { return Date.now() + this.offset; }
@@ -76,12 +77,14 @@ export class ManualWaterClient {
     }
   }
 
+  candidateTestClient() { return new ManualWaterClient(this.projectId, this.deviceId, this.fetchImpl, this.token, true); }
+
   routes() { return this.post<RouteBook>({ action: 'routes' }); }
   confirmRoute(potNumber: number, relayAddress: number, channel: number, note: string) {
     return this.post<RouteBook>({ action: 'confirm_route', potNumber, relayAddress, channel, note });
   }
   removeRoute(potNumber: number) { return this.post<RouteBook>({ action: 'remove_route', potNumber }); }
   hold(action: HoldAction, potNumber: number, sessionId: string, sequence: number, options: { keepalive?: boolean; timeoutMs?: number; shouldSend?: () => boolean } = {}) {
-    return this.post<HoldReply>({ action, potNumber, sessionId, sequence }, options);
+    return this.post<HoldReply>({ action, potNumber, sessionId, sequence, ...(this.testCandidate ? { testCandidate: true } : {}) }, options);
   }
 }

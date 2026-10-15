@@ -85,3 +85,14 @@ export function holdExpiry(sentAt, now) {
   if (!Number.isFinite(sentAt) || sentAt < now - PRESS_MAX_AGE_MS || sentAt > now + PRESS_MAX_LEAD_MS) return null;
   return Math.min(now + RECEIPT_LEASE_MS, sentAt + LEASE_MS);
 }
+
+/** Test only a server-recorded candidate, without marking physical identity confirmed. */
+export function candidateTestRoute(pot, pots, boards, role) {
+  const candidate = pot?.candidate;
+  if (role !== 'admin' || pot?.status !== 'needs_confirmation' || !candidate
+      || !boards.includes(candidate.relayAddress) || !Number.isInteger(candidate.channel)
+      || candidate.channel < 1 || candidate.channel > 48) return null;
+  if (pots.some(other => other.pot !== pot.pot && other.status === 'ready'
+      && other.relayAddress === candidate.relayAddress && other.channel === candidate.channel)) return null;
+  return { ...pot, ...candidate, status: 'ready', pairing: null };
+}

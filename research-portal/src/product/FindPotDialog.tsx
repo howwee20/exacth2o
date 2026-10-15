@@ -249,6 +249,7 @@ const neededCopy = {
 } as const;
 
 function RouteNeeded({ route, canConfirm, book, client, onBook }: { route: PotRoute; canConfirm: boolean; book: RouteBook | null; client: ManualWaterClient; onBook: (book: RouteBook) => void }) {
+  const testClient = useMemo(() => client.candidateTestClient(), [client]);
   const start = route.candidate ?? (route.relayAddress != null && route.channel != null ? { relayAddress: route.relayAddress, channel: route.channel } : null);
   const [board, setBoard] = useState(start?.relayAddress ?? book?.boards[0] ?? 0);
   const [channel, setChannel] = useState(start?.channel ?? 0);
@@ -272,6 +273,10 @@ function RouteNeeded({ route, canConfirm, book, client, onBook }: { route: PotRo
       <p>{route.status === "conflict" ? route.reason : body}</p>
       {route.evidence ? <p className="px-route-evidence">{route.evidence}</p> : null}
       {route.candidate ? <p className="px-route-evidence">Recorded route: <span className="px-mono">{routeLabel(route.candidate.relayAddress, route.candidate.channel)}</span></p> : null}
+      {canConfirm && route.status === "needs_confirmation" && route.candidate ? <div>
+        <p>Test the recorded valve while someone watches the pot. Testing does not confirm or change the mapping.</p>
+        <HoldWaterControl key={`test:${route.pot}:${route.candidate.relayAddress}:${route.candidate.channel}`} client={testClient} pot={route} />
+      </div> : null}
       {canConfirm && route.status === "conflict" && route.source === "admin"
         ? <button type="button" className="px-button is-small" disabled={busy} onClick={() => void submit("remove")}>Remove confirmed route</button> : null}
       {canConfirm && route.status !== "conflict" ? (
