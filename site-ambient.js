@@ -100,7 +100,8 @@
       context.font = `400 ${size}px 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
       context.textBaseline = 'top';
       context.fillStyle = `rgb(${color})`;
-      const span = Math.max(width, height);
+      // Patches keep a readable size on ultrawide screens instead of filling the panel.
+      const span = Math.min(Math.max(width, height), 900);
       const centers = blobs.map(blob => ({
         x: width * (0.5 + 0.48 * Math.sin(blob.x + clock * blob.sx)),
         y: height * (0.5 + 0.46 * Math.sin(blob.y + clock * blob.sy)),
