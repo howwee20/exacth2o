@@ -75,13 +75,13 @@ serve(async (request) => {
 
     if (!Number.isInteger(body.sequence) || body.sequence < 0 || !/^[-a-f0-9]{36}$/i.test(body.sessionId || "")) return reply({ error: "Invalid hold request" }, 400);
     const [{ pots, pairings }, gate] = await Promise.all([
-      loadRoutes(admin, projectId, deviceId),
+      action === "start" || action === "renew" ? loadRoutes(admin, projectId, deviceId) : Promise.resolve({ pots: [] as PotRoute[], pairings: [] as PairingRecord[] }),
       action === "start" || action === "renew" ? controlGateClosed(admin, projectId, deviceId) : Promise.resolve(null),
     ]);
     // Portal builds published before pot numbers name a pairing; use the pot its valve waters.
     if (body.potNumber == null && typeof body.pairingName === "string") body.potNumber = potForPairing(pots, pairings, body.pairingName);
-    if (!Number.isInteger(body.potNumber) || body.potNumber < 1 || body.potNumber > POT_COUNT) return reply({ error: "Pot route unavailable; refresh Find pot" }, 409);
-    const pot = pots.find((entry) => entry.pot === body.potNumber)!;
+    if ((action === "start" || action === "renew") && (!Number.isInteger(body.potNumber) || body.potNumber < 1 || body.potNumber > POT_COUNT)) return reply({ error: "Pot route unavailable; refresh Find pot" }, 409);
+    const pot: PotRoute = pots.find((entry) => entry.pot === body.potNumber) ?? { pot: body.potNumber, status: "unmapped" as const };
     // Stop and status always reach the controller; only new water is refused here.
     if (gate) return reply({ error: gate }, 409);
     if (pot.status !== "ready" && action !== "stop" && action !== "status") return reply({ error: pot.reason ?? "Pot route unavailable", pot }, 409);
@@ -101,18 +101,23 @@ serve(async (request) => {
       sensorId: ready ? pot.pairing?.sensorId : undefined, valveId: ready ? pot.pairing?.valveId : undefined };
     const base = Deno.env.get("OWNER_HEALTH_BASE_URL") || `https://${deviceId}.balena-devices.com/owner-health`;
     const started = Date.now();
-    const result = await fetch(`${base.replace(/\/$/, "")}/api/manual-hold`, { method: "POST",
-      headers: { "Content-Type": "application/json", "X-ExactH2O-Hold-Secret": secret }, body: JSON.stringify(payload), signal: AbortSignal.timeout(3500) });
-    const data = await result.json().catch(() => ({ error: "Controller response unreadable" }));
+    let result: Response | undefined;
+    let data: Record<string, unknown> = { error: "Controller response unavailable; command outcome unknown" };
+    try {
+    result = await fetch(`${base.replace(/\/$/, "")}/api/manual-hold`, { method: "POST",
+      headers: { "Content-Type": "application/json", "X-ExactH2O-Hold-Secret": secret }, body: JSON.stringify(payload), signal: AbortSignal.timeout(action === "status" ? 7000 : 3500) });
+    data = await result.json().catch(() => ({ error: "Controller response unreadable" }));
+    } finally {
     if (action === "start" || action === "stop") {
       const audit = admin.from("project_control_audit").insert({ project_id: projectId, device_id: deviceId, actor_id: user.id,
         action: action === "start" ? "manual_hold_start" : "manual_hold_stop",
-        status: result.ok ? String(data.status ?? "unknown") : "rejected",
+        status: !result ? "unknown" : result.ok ? String(data.status ?? "unknown") : "rejected",
         details: { session_id: body.sessionId, pot_number: body.potNumber, route: pot.relayAddress ? routeLabel(pot.relayAddress, pot.channel!) : null,
-          route_kind: payload.routeKind, controller_ms: Date.now() - started, error: result.ok ? null : data.error ?? null } });
+          route_kind: payload.routeKind, controller_ms: Date.now() - started, error: result?.ok ? null : data.error ?? null } });
       // Auditing never delays or blocks the hold itself.
       const runtime = (globalThis as { EdgeRuntime?: { waitUntil(promise: Promise<unknown>): void } }).EdgeRuntime;
       if (runtime) runtime.waitUntil(Promise.resolve(audit)); else await audit;
+    }
     }
     // The controller also refuses a signal whose lease expired in transit; that is lateness, not a refusal.
     const code = result.status === 409 && /expired/i.test(String(data.error ?? "")) ? "late" : undefined;

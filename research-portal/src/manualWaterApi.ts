@@ -48,11 +48,11 @@ export class ManualWaterClient {
   serverNow() { return Date.now() + this.offset; }
 
   async post<T>(body: Record<string, unknown>, options: { keepalive?: boolean; timeoutMs?: number; shouldSend?: () => boolean } = {}): Promise<ApiResult<T> | null> {
-    const token = await this.token();
-    if (!token) return { ok: false, status: 401, error: 'Sign in to water manually', transient: false };
-    if (options.shouldSend && !options.shouldSend()) return null;
-    const sent = Date.now();
     try {
+      const token = await this.token();
+      if (!token) return { ok: false, status: 401, error: 'Sign in to water manually', transient: false };
+      if (options.shouldSend && !options.shouldSend()) return null;
+      const sent = Date.now();
       const response = await this.fetchImpl(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manual-hold`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
@@ -82,6 +82,6 @@ export class ManualWaterClient {
   }
   removeRoute(potNumber: number) { return this.post<RouteBook>({ action: 'remove_route', potNumber }); }
   hold(action: HoldAction, potNumber: number, sessionId: string, sequence: number, options: { keepalive?: boolean; timeoutMs?: number; shouldSend?: () => boolean } = {}) {
-    return this.post<HoldReply>({ action, potNumber, sessionId, sequence, sentAt: this.serverNow() }, options);
+    return this.post<HoldReply>({ action, potNumber, sessionId, sequence }, options);
   }
 }

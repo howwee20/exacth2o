@@ -93,3 +93,27 @@ test('Find pot covers pots 1-100 by physical route, and only ready pots can be h
   await expect(page.getByRole('button',{name:/Hold to water/})).toHaveCount(0);
   expect(actions.filter(x=>['start','renew'].includes(x))).toEqual([]);
 });
+
+
+test('temporary status failure reconnects automatically without starting water',async({page})=>{
+  const actions:string[]=[];
+  let probes=0;
+  await page.route('**/functions/v1/manual-hold',async route=>{
+    const body=route.request().postDataJSON();actions.push(body.action);
+    if(++probes===1)await route.fulfill({status:503,json:{error:'Controller response unavailable'}});
+    else await route.fulfill({json:{status:'closed',ready:true,available:true,serverTime:Date.now()}});
+  });
+  await page.goto(harness);
+  await expect(page.getByRole('status')).toContainText('Retrying automatically');
+  await expect(page.getByRole('button',{name:/Hold to water/})).toBeEnabled();
+  expect(actions).toEqual(['status','status']);
+});
+
+test('controller fault stays unavailable and is never treated as a connection retry',async({page})=>{
+  const actions=await controller(page,()=>({status:'fault',ready:false,available:true}));
+  await page.goto(harness);
+  await expect(page.getByRole('status')).toContainText('valve fault');
+  await expect(page.getByRole('button',{name:/Hold to water/})).toBeDisabled();
+  await page.waitForTimeout(2200);
+  expect(actions).toEqual(['status']);
+});

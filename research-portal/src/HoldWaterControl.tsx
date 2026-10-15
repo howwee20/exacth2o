@@ -12,34 +12,55 @@ export function HoldWaterControl({ client, pot }: { client: ManualWaterClient; p
   const [elapsed, setElapsed] = useState(0);
   const session = useRef<HoldSession | null>(null);
   const statusId = useId();
-
-  const check = useCallback(async () => {
-    setAvailability({ state: 'checking', message: 'Checking controller…' });
-    const result = await client.hold('status', pot.pot, crypto.randomUUID(), 0);
-    if (!result) return;
-    if (!result.ok) { setAvailability({ state: 'unavailable', message: result.error }); return; }
-    const reply = result.data;
-    if (reply.available === false) setAvailability({ state: 'unavailable', message: 'Hold-to-water is not commissioned on this controller.' });
-    else if (reply.ready === false) setAvailability({ state: 'unavailable', message: 'The controller is recovering from a valve fault. Manual watering is paused until it restarts.' });
-    else if (reply.busy) setAvailability({ state: 'busy', message: 'Another hold is running on this controller.' });
-    else setAvailability({ state: 'ready', message: 'Ready' });
-  }, [client, pot.pot]);
+  const [checkVersion, setCheckVersion] = useState(0);
 
   const release = useCallback(() => { session.current?.release(); }, []);
 
   useEffect(() => {
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let pending = false;
+    let failures = 0;
+    const check = async () => {
+      if (disposed || pending || document.hidden) return;
+      pending = true;
+      const result = await client.hold('status', pot.pot, crypto.randomUUID(), 0, { timeoutMs: 10000 });
+      pending = false;
+      if (disposed || !result) return;
+      if (!result.ok) {
+        if (result.transient) {
+          failures += 1;
+          setAvailability({ state: 'checking', message: 'Reconnecting to the controller… Retrying automatically.' });
+          timer = setTimeout(() => void check(), Math.min(1000 * failures, 5000));
+        } else setAvailability({ state: 'unavailable', message: result.error });
+        return;
+      }
+      failures = 0;
+      const reply = result.data;
+      if (reply.available === false) setAvailability({ state: 'unavailable', message: 'Hold-to-water is not commissioned on this controller.' });
+      else if (reply.ready === false) setAvailability({ state: 'unavailable', message: 'The controller is recovering from a valve fault. Manual watering is paused until it restarts.' });
+      else if (reply.busy) {
+        setAvailability({ state: 'busy', message: 'Another hold is running on this controller.' });
+        timer = setTimeout(() => void check(), 2000);
+      } else setAvailability({ state: 'ready', message: 'Ready' });
+    };
     void check();
-    const hidden = () => { if (document.hidden) release(); };
+    const resume = () => { clearTimeout(timer); void check(); };
+    const hidden = () => { if (document.hidden) release(); else resume(); };
     window.addEventListener('blur', release);
     window.addEventListener('pagehide', release);
+    window.addEventListener('online', resume);
     document.addEventListener('visibilitychange', hidden);
     return () => {
+      disposed = true;
+      clearTimeout(timer);
       release();
       window.removeEventListener('blur', release);
       window.removeEventListener('pagehide', release);
+      window.removeEventListener('online', resume);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [check, release]);
+  }, [client, pot.pot, checkVersion, release]);
 
   useEffect(() => {
     if (view?.phase !== 'watering' || view.openedAt == null) return undefined;
@@ -103,7 +124,7 @@ export function HoldWaterControl({ client, pot }: { client: ManualWaterClient; p
         <p id={statusId} role="status" aria-live="polite" data-slow={view?.slow ? 'true' : undefined}>
           {view?.slow && holding ? 'Waiting for the controller. Water stops on its own if the connection drops.' : message}
         </p>
-        {recheck ? <button type="button" className="px-button is-small" onClick={() => { setView(null); void check(); }}>Check again</button> : null}
+        {recheck ? <button type="button" className="px-button is-small" onClick={() => { setView(null); setAvailability({ state: 'checking', message: 'Checking controller…' }); setCheckVersion((version) => version + 1); }}>Check again</button> : null}
       </div>
       <p className="px-water-note">Overrides moisture targets, schedules and watering pauses for this hold only. Saved settings are unchanged. 15-second limit.</p>
     </section>
