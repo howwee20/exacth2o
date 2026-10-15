@@ -2,7 +2,7 @@ name: Responsive and visual regression
 on:
   workflow_call:
   push:
-    branches: [homepage-polish-oct14, codex/hold-water-and-site-polish]
+    branches: [homepage-polish-oct14, codex/hold-water-and-site-polish, claude/hold-water-routes]
 permissions:
   contents: read
 jobs:
@@ -20,7 +20,7 @@ jobs:
       - run: npx --prefix research-portal playwright install --with-deps chromium firefox webkit
       - name: Browser acceptance and screenshots
         working-directory: research-portal
-        run: npx playwright test ${{ (github.ref == 'refs/heads/homepage-polish-oct14' || github.ref == 'refs/heads/codex/hold-water-and-site-polish') && '--update-snapshots' || '' }}
+        run: npx playwright test ${{ (github.ref == 'refs/heads/homepage-polish-oct14' || github.ref == 'refs/heads/codex/hold-water-and-site-polish' || github.ref == 'refs/heads/claude/hold-water-routes') && '--update-snapshots' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
