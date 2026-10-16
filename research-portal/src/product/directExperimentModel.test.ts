@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {targetDraft,commandOutcome} from './directExperimentModel';
+import {targetDraft,commandOutcome,targetGroups,targetLabel} from './directExperimentModel';
 import type {PairingRow} from '../types';
 import type {PortalExperiment} from '../experimentRegistry';
 const pairings:PairingRow[]=[65,66,67].map((n,i)=>({id:n,name:`Pot${n}`,pot_number:n,zone:3,source_sensor_id:n,sensor_key:`board:${i}`,source_valve_id:n,valve_key:`0x20:${i}`,wtc_percent_limit:10+i,valve_open_time_ms:2000+i*1000,measurement_interval_ms:600000}));
@@ -10,3 +10,13 @@ describe('direct target changes',()=>{
  it('does not silently enable watering',()=>{expect(()=>targetDraft(experiment,pairings.map(p=>p.name==='Pot66'?{...p,valve_open_time_ms:0}:p),['Pot66'],15)).toThrow('disabled');});
  it('requires every command acknowledgement before reporting applied',()=>{expect(commandOutcome(['a','b'],[{id:'a',status:'succeeded'}])).toBe('pending');expect(commandOutcome(['a','b'],[{id:'a',status:'succeeded'},{id:'b',status:'failed'}])).toBe('failed');expect(commandOutcome(['a','b'],[{id:'a',status:'succeeded'},{id:'b',status:'succeeded'}])).toBe('applied');expect(commandOutcome([],[])).toBe('pending');});
 });
+
+ it('labels mixed-crop treatment targets and keeps their exact pot membership',()=>{
+ const controls=new Set([65,66,69,70,73,74]);
+ const ps=Array.from({length:12},(_,i)=>({...pairings[0],name:`Pot${65+i}`,pot_number:65+i,wtc_percent_limit:controls.has(65+i)?30:10}));
+ const ex={...experiment,pairingNames:ps.map(p=>p.name),assignments:ps.map(p=>({...experiment.assignments![0],pairing_name:p.name,pot_number:p.pot_number,crop:p.pot_number%2?'Sorghum':'Maize',treatment:controls.has(p.pot_number)?'Control':'Drought'}))};
+ const groups=targetGroups(ex,ps);
+ expect(groups.map(g=>targetLabel(g.value,g,true))).toEqual(['Control 30%','Drought 10%']);
+ expect(groups[0].names).toEqual(['Pot65','Pot66','Pot69','Pot70','Pot73','Pot74']);
+ expect(groups[1].names).toEqual(['Pot67','Pot68','Pot71','Pot72','Pot75','Pot76']);
+ });

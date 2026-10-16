@@ -177,7 +177,7 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
         if (!editable) return <span key={group.key} className="px-tpill is-static" style={{ top: y, left }}>{label}</span>;
         return <div key={group.key} className={`px-tcontrol${editing ? ' is-active' : ''}`} style={{ top: y, left }}>
           <TargetPill label={label} value={value} previewing={editing && changed} disabled={busy || Boolean(edit && !editing)} dimmed={dimmed}
-            ariaLabel={distinguish ? `${group.crops.map(capital).join(' / ') || `${group.names.length} pots`} target` : 'Moisture target'}
+            ariaLabel={distinguish ? `${group.treatments?.length === 1 && group.treatments[0] ? group.treatments[0] : group.crops.map(capital).join(' / ') || `${group.names.length} pots`} target` : 'Moisture target'}
             pixelsPerPercent={geometry.pixelsPerPercent} low={geometry.low} high={geometry.high}
             onStart={() => { begin(group); setDragging(true); }} onPreview={preview} onEnd={() => setDragging(false)}
             onTap={() => { begin(group); setPopover(open => !(open && editing)); }}

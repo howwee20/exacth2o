@@ -29,7 +29,7 @@ export function commandOutcome(ids: string[], rows: {id: string; status: string}
 }
 
 /** Pots sharing one current target. Independent crop targets each get their own control. */
-export type TargetGroup = { key: string; value: number; names: string[]; crops: string[] };
+export type TargetGroup = { key: string; value: number; names: string[]; crops: string[]; treatments?: string[] };
 
 export function targetGroups(experiment: PortalExperiment, pairings: readonly PairingRow[]): TargetGroup[] {
   const byValue = new Map<number, TargetGroup>();
@@ -37,9 +37,12 @@ export function targetGroups(experiment: PortalExperiment, pairings: readonly Pa
     const pairing = pairings.find(p => p.name === name);
     if (!pairing || pairing.wtc_percent_limit < 0 || pairing.valve_open_time_ms <= 0) continue;
     const value = pairing.wtc_percent_limit;
-    const group = byValue.get(value) ?? { key: `target-${value}`, value, names: [], crops: [] };
+    const group = byValue.get(value) ?? { key: `target-${value}`, value, names: [], crops: [], treatments: [] };
     group.names.push(name);
-    const crop = experiment.assignments?.find(a => a.pairing_name === name)?.crop;
+    const assignment = experiment.assignments?.find(a => a.pairing_name === name);
+    const crop = assignment?.crop;
+    const treatment = assignment?.treatment?.trim() ?? '';
+    if (!group.treatments!.includes(treatment)) group.treatments!.push(treatment);
     if (crop && !group.crops.includes(crop)) group.crops.push(crop);
     byValue.set(value, group);
   }
@@ -49,7 +52,8 @@ export function targetGroups(experiment: PortalExperiment, pairings: readonly Pa
 /** Pill text: "25% target", with the crop only when several targets need telling apart. */
 export function targetLabel(value: number, group: TargetGroup | null, distinguish: boolean) {
   if (!distinguish || !group) return `${value}% target`;
-  const who = group.crops.length ? group.crops.map(capitalize).join(' / ') : `${group.names.length} pots`;
+  const treatment = group.treatments?.length === 1 ? group.treatments[0] : '';
+  const who = treatment ? capitalize(treatment) : group.crops.length ? group.crops.map(capitalize).join(' / ') : `${group.names.length} pots`;
   return `${who} ${value}%`;
 }
 
