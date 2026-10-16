@@ -1,6 +1,5 @@
 import { PotInspector } from './product/PotInspector';
 import { DirectExperiment } from './product/DirectExperiment';
-import { ChartJournal } from './product/ChartJournal';
 import { SavedTraceViews } from "./product/SavedTraceViews";
 import { ExperimentHistory } from "./product/ExperimentHistory";
 import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
@@ -210,7 +209,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     useState("");
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
-  const [chartMoment, setChartMoment] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The settings panel loads on first open and then stays mounted so its form state survives closing.
   const [settingsMounted, setSettingsMounted] = useState(false);
@@ -2943,7 +2941,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   extraTargetValues={direct.extraTargetValues}
                   freezeScale={direct.freezeScale}
                   affectedNames={direct.affected}
-                  onChartMoment={setChartMoment}
                   headerSpace={hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" ? 26 : 0}
                 />
               )}
@@ -3073,7 +3070,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           </aside>
         ) : null}
       </section>
-      {selectedVwcTimeBounds ? <ChartJournal experiment={selectedExperiment} projectId={activeProjectId} deviceId={activeDeviceId} pairings={sortedPairings} startMs={selectedVwcTimeBounds.startMs} endMs={selectedVwcTimeBounds.endMs} moment={chartMoment} onMoment={setChartMoment} canWrite={canWriteNotes} outbox={noteOutbox}/> : null}
     </>}</DirectExperiment>
   );
 
