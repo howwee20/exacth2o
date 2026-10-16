@@ -24,6 +24,7 @@
 /* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
+.quote-extra{padding:14px 0}.quote-extra summary{cursor:pointer;color:#315e46;margin-bottom:16px;font-weight:600}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css?v=20261014">
@@ -136,30 +137,8 @@
             <input type="text" name="_honey" tabindex="-1" autocomplete="off">
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="name">Full name <span class="req">*</span></label>
-              <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100" aria-describedby="nameError">
-              <p class="field-error" id="nameError" hidden></p>
-            </div>
-            <div class="form-group">
-              <label for="email">Email address <span class="req">*</span></label>
-              <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200" aria-describedby="emailError">
-              <p class="field-error" id="emailError" hidden></p>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="phone">Phone number</label>
-              <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567" autocomplete="tel" maxlength="30">
-            </div>
-            <div class="form-group">
-              <label for="org">Organization or institution</label>
-              <input type="text" id="org" name="organization" placeholder="Your organization" autocomplete="organization" maxlength="150">
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="application">Application type <span class="req">*</span></label>
+<div class="form-group">
+            <label for="application">What would you use it for? <span class="req">*</span></label>
             <select id="application" name="application" required aria-describedby="applicationError">
               <option value="">Please select…</option>
               <option value="Plant Research / Drought Studies">Plant Research / Drought Studies</option>
@@ -171,7 +150,28 @@
             </select>
               <p class="field-error" id="applicationError" hidden></p>
           </div>
-          <div class="form-group">
+<div class="form-group">
+            <label for="potCount">Approximate pot count <span class="form-hint">(optional)</span></label><input id="potCount" name="potCount" type="text" inputmode="numeric" maxlength="30" placeholder="For example, 48 or 100–200">
+          </div>
+<div class="form-row"><div class="form-group">
+              <label for="name">Full name <span class="req">*</span></label>
+              <input type="text" id="name" name="name" required placeholder="Jane Smith" autocomplete="name" maxlength="100" aria-describedby="nameError">
+              <p class="field-error" id="nameError" hidden></p>
+            </div><div class="form-group">
+              <label for="email">Email address <span class="req">*</span></label>
+              <input type="email" id="email" name="email" required placeholder="jane@university.edu" autocomplete="email" maxlength="200" aria-describedby="emailError">
+              <p class="field-error" id="emailError" hidden></p>
+            </div></div>
+<details class="quote-extra"><summary>Add details (optional)</summary>
+<div class="form-group">
+              <label for="org">Organization or institution</label>
+              <input type="text" id="org" name="organization" placeholder="Your organization" autocomplete="organization" maxlength="150">
+            </div>
+<div class="form-group">
+              <label for="phone">Phone number</label>
+              <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567" autocomplete="tel" maxlength="30">
+            </div>
+<div class="form-group">
             <label for="timeline">Expected timeline</label>
             <select id="timeline" name="timeline">
               <option value="">Select timeline…</option>
@@ -182,14 +182,13 @@
               <option value="Just planning / researching">Just planning / researching</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="potCount">Approximate pot count <span class="form-hint">(optional)</span></label><input id="potCount" name="potCount" type="text" inputmode="numeric" maxlength="30" placeholder="For example, 48 or 100–200">
-          </div><div class="form-group">
-            <label for="message">Project details <span class="req">*</span></label>
+<div class="form-group">
+            <label for="message">Anything else? (optional)</label>
             <p class="form-hint" id="projectHint">Include growing media, irrigation zones, and research goals. Estimates are fine.</p>
-            <textarea id="message" name="message" required aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="2900"></textarea>
+            <textarea id="message" name="message" aria-describedby="projectHint messageError" placeholder="Tell us about your project and what you need the system to do…" maxlength="2900"></textarea>
               <p class="field-error" id="messageError" hidden></p>
           </div>
+</details>
           <p class="validation-summary" id="validationSummary" role="alert" aria-atomic="true"></p>
           <div class="form-msg success" id="successMsg" role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
           <div class="form-msg error" id="errorMsg" role="alert" aria-atomic="true" tabindex="-1"></div>
@@ -246,7 +245,7 @@
     try { return crypto.randomUUID(); } catch { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12); }
   };
 
-  const requiredFields = ['name', 'email', 'application', 'message'];
+  const requiredFields = ['name', 'email', 'application'];
   const validationSummary = document.getElementById('validationSummary');
   function fieldError(id) {
     const value = document.getElementById(id).value.trim();
@@ -332,7 +331,7 @@
       organization: this.querySelector('[name="organization"]').value.trim(),
       application,
       timeline: this.querySelector('[name="timeline"]').value,
-      message: (this.querySelector('[name="potCount"]').value.trim() ? 'Approximate pot count: ' + this.querySelector('[name="potCount"]').value.trim() + '\n\n' : '') + message,
+      message: (this.querySelector('[name="potCount"]').value.trim() ? 'Approximate pot count: ' + this.querySelector('[name="potCount"]').value.trim() + '\n\n' : '') + (message || ('Please help me plan a system for ' + application + '.')),
       honey: honey ? honey.value : '',
       sourceUrl: window.location.href
     };

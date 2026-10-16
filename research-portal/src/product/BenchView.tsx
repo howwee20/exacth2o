@@ -271,7 +271,7 @@ export function BenchView({
       ) : null}
 
       <div className="px-benches">
-        {model.benches.map((bench) => {
+        {model.benches.filter(bench=>bench.cells.length>0).map((bench) => {
           const benchBoards = showBoards ? Array.from(new Set(bench.cells.map((cell) => cell.sensorBoard ?? "?"))) : [];
           return (
             <article key={bench.id} className="px-bench" aria-label={bench.label}>
@@ -307,7 +307,7 @@ export function BenchView({
       </div>
 
       {model.unplaced.length ? (
-        <p className="px-notice is-info">{model.unplaced.length} {model.unplaced.length === 1 ? "pot is" : "pots are"} on the controller but not in the recorded layout: {potRangeText(model.unplaced.map((name) => pairings.find((pairing) => pairing.name === name)?.pot_number ?? 0).filter(Boolean))}.</p>
+        <section className="px-card px-current-pots"><h2 className="px-section-label">Current pots · positions not recorded</h2><div className="px-pot-choices">{model.unplaced.map(name=>{const p=pairings.find(p=>p.name===name);const e=experimentByPot.get(name);return p?<PortalLink key={name} className="px-button" to={e?{view:"experiment",experiment:e.id,tab:"pots",pot:name}:{view:"bench",pot:name}}>Pot {p.pot_number}{e?.assignments?.find(a=>a.pairing_name===name)?.crop ? ` · ${e.assignments.find(a=>a.pairing_name===name)?.crop}` : ""}</PortalLink>:null;})}</div><p className="px-muted">{model.unplaced.length} {model.unplaced.length === 1 ? "pot is" : "pots are"} on the controller but not in the recorded layout: {potRangeText(model.unplaced.map((name) => pairings.find((pairing) => pairing.name === name)?.pot_number ?? 0).filter(Boolean))}. These are current controller identities; no physical positions have been assumed.</p></section>
       ) : null}
 
       <div className="px-legend" aria-label="How pots are drawn">

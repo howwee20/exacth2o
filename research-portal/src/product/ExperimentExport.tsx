@@ -6,13 +6,15 @@ import { loadRecordSources } from "../recordClient";
 import { calibrationRequestItems, gapItems, noteItems, planItems, settingsItems, wateringItems, type RecordItem } from "../recordModel";
 import type { PairingRow, SensorReading } from "../types";
 
-export function ExperimentExport({experiment, pairings, readings, projectId, deviceId, nowMs, loadedWindowMs, onClose}: {
+export function ExperimentExport({experiment, pairings, readings, projectId, deviceId, nowMs, loadedWindowMs, initialNames, initialWindow, onClose}: {
   experiment: PortalExperiment; pairings: readonly PairingRow[]; readings: readonly SensorReading[]; projectId: string; deviceId: string;
-  nowMs: number; loadedWindowMs: number; onClose: () => void;
+  nowMs: number; loadedWindowMs: number; initialNames?: string[]; initialWindow?: {startMs:number;endMs:number}; onClose: () => void;
 }) {
-  const [spanHours,setSpanHours] = useState(Math.min(72,loadedWindowMs / 3_600_000));
-  const [customStart,setCustomStart] = useState(experiment.startedAt?.slice(0,16) ?? new Date(nowMs-14*86400000).toISOString().slice(0,16));
-  const [customEnd,setCustomEnd] = useState(new Date(nowMs).toISOString().slice(0,16));
+  const [selectedNames] = useState(initialNames);
+  const [selectionOnly,setSelectionOnly] = useState(Boolean(initialNames));
+  const [spanHours,setSpanHours] = useState(initialWindow ? -1 : Math.min(72,loadedWindowMs / 3_600_000));
+  const [customStart,setCustomStart] = useState(initialWindow ? new Date(initialWindow.startMs).toISOString().slice(0,16) : experiment.startedAt?.slice(0,16) ?? new Date(nowMs-14*86400000).toISOString().slice(0,16));
+  const [customEnd,setCustomEnd] = useState(new Date(initialWindow?.endMs ?? nowMs).toISOString().slice(0,16));
   const [progress,setProgress] = useState(0);
   const [firstReadingAt,setFirstReadingAt] = useState<number | null>(null);
 
@@ -53,7 +55,7 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
       if (queryStartMs === null) warnings.push("No experiment start is recorded. This CSV includes all stored measurements for labels in the recorded plans; choose custom dates to restrict reused labels.");
       let recordStart = queryStartMs ?? endMs;
       try {
-        const scope = await loadExportExperiment(experiment);
+        const scope = await loadExportExperiment(experiment,selectionOnly ? selectedNames : undefined);
         if (!active) return;
         setExportExperiment(scope);
         const measurements = await loadExportReadings({projectId,deviceId,pairingNames:scope.pairingNames,startMs:queryStartMs,endMs,signal:cancel.signal,onProgress:(count)=>{if(active)setProgress(count);}});
@@ -78,14 +80,14 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
       if (active) {setProblems(warnings);setLoading(false);}
     })();
     return () => { active = false; cancel.abort(); };
-  }, [deviceId,endMs,experiment.databaseId,experiment.pairingNames,experiment.assignments,experiment,pairings,projectId,queryStartMs]);
+  }, [selectionOnly,selectedNames,deviceId,endMs,experiment.databaseId,experiment.pairingNames,experiment.assignments,experiment,pairings,projectId,queryStartMs]);
   const input: ExperimentReportInput = useMemo(() => ({experiment:exportExperiment,currentExperiment:experiment,pairings,readings:exportReadings,events,problems,startMs,endMs,generatedAt:anchor,preserveRecordedLabels:true,source:document.documentElement.dataset.portalMode === "demo" ? "demo measurements" : "stored measurements"}),[anchor,endMs,events,experiment,exportExperiment,pairings,problems,exportReadings,startMs]);
   const html = useMemo(() => experimentBriefHtml(input),[input]);
   const filename = `exacth2o-${experiment.id.replace(/[^a-z0-9_-]/gi,"-")}-${new Date(anchor).toISOString().slice(0,10)}`;
   const count = reportReadings(input).length;
   return <div className="px-export-backdrop" role="presentation"><section ref={dialog} className="px-export-dialog" role="dialog" aria-modal="true" aria-labelledby="export-title">
     <header><div><h2 id="export-title">Export experiment</h2><p>{experiment.name} · {count.toLocaleString()} readings · UTC</p></div><button ref={close} className="px-button" onClick={onClose}>Close</button></header>
-    <div className="px-toolbar"><label>Reporting window <select value={spanHours} onChange={(event) => setSpanHours(Number(event.target.value))}><option value={24}>Last 24 hours</option><option value={72}>Last 3 days</option><option value={168}>Last 7 days</option><option value={336}>Last 14 days</option><option value={0}>Entire experiment</option><option value={-1}>Custom dates (UTC)</option></select></label>{spanHours===-1 ? <><label>Start (UTC)<input type="datetime-local" value={customStart} onChange={(e)=>setCustomStart(e.target.value)}/></label><label>End (UTC)<input type="datetime-local" value={customEnd} onChange={(e)=>setCustomEnd(e.target.value)}/></label></> : null}<button className="px-button is-primary" disabled={loading} onClick={() => downloadReportFile(`${filename}-brief.html`,html,"text/html;charset=utf-8")}>{loading ? `Preparing ${progress.toLocaleString()} readings…` : "Save brief"}</button><button className="px-button" disabled={loading||!count} onClick={() => downloadReportFile(`${filename}-readings.csv`,experimentReadingsCsv(input),"text/csv;charset=utf-8")}>Readings CSV</button><button className="px-button" disabled={loading} onClick={() => frame.current?.contentWindow?.print()}>Print / PDF</button></div>
+    <div className="px-toolbar"><label>Pots <select aria-label="Export pots" value={selectionOnly?"selection":"all"} onChange={e=>setSelectionOnly(e.target.value==="selection")}><option value="selection">Current selection ({initialNames?.length ?? pairings.length} pots)</option><option value="all">Whole experiment</option></select></label><label>Reporting window <select value={spanHours} onChange={(event) => setSpanHours(Number(event.target.value))}><option value={24}>Last 24 hours</option><option value={72}>Last 3 days</option><option value={168}>Last 7 days</option><option value={336}>Last 14 days</option><option value={0}>Entire experiment</option><option value={-1}>Custom dates (UTC)</option></select></label>{spanHours===-1 ? <><label>Start (UTC)<input type="datetime-local" value={customStart} onChange={(e)=>setCustomStart(e.target.value)}/></label><label>End (UTC)<input type="datetime-local" value={customEnd} onChange={(e)=>setCustomEnd(e.target.value)}/></label></> : null}<button className="px-button is-primary" disabled={loading} onClick={() => downloadReportFile(`${filename}-brief.html`,html,"text/html;charset=utf-8")}>{loading ? `Preparing ${progress.toLocaleString()} readings…` : "Save brief"}</button><button className="px-button" disabled={loading||!count} onClick={() => downloadReportFile(`${filename}-readings.csv`,experimentReadingsCsv(input),"text/csv;charset=utf-8")}>Readings CSV</button><button className="px-button" disabled={loading} onClick={() => frame.current?.contentWindow?.print()}>Print / PDF</button></div>
     {problems.map((problem)=><p className="px-notice" role="status" key={problem}>{problem}</p>)}
     <div className="px-export-preview" aria-busy={loading}>{loading ? <p className="px-notice" role="status">Preparing {progress.toLocaleString()} readings…</p> : <iframe ref={frame} title="Experiment brief preview" srcDoc={html} sandbox="allow-same-origin allow-modals" />}</div>
   </section></div>;

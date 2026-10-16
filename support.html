@@ -23,6 +23,7 @@
 /* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
+.support-situations{grid-column:1/-1;padding:1.5rem;border:1px solid var(--rule);border-radius:12px}.support-situations h2{margin-bottom:1rem}.support-situations details{padding:1rem 0;border-top:1px solid var(--rule)}.support-situations summary{cursor:pointer;font-weight:600}.support-situations p{margin:.8rem 0;line-height:1.6}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css?v=20261014">
@@ -110,6 +111,14 @@
   </header>
 
   <div class="support-workspace">
+    <section class="support-situations" aria-label="Help by problem">
+      <h2>What do you need help with?</h2>
+      <details><summary>My pot isn’t watering</summary><p>Open the pot and compare its latest moisture reading with its target. Watering above the target is normally off. Check whether the controller is online and whether readings are current. Use the watering record to check recent valve commands.</p><a class="support-draft" data-problem="My pot is not watering" href="mailto:support@exacth2o.com">Ask for help with watering →</a></details>
+      <details><summary>This reading looks wrong</summary><p>Open the pot and choose Explain this reading. Compare the raw signal and calibration history, and check sensor placement before changing calibration.</p><a class="support-draft" data-problem="A reading looks wrong" href="mailto:support@exacth2o.com">Ask for help with a reading →</a></details>
+      <details><summary>I can’t access my experiment</summary><p>Sign in with your invited email address. If the experiment is missing, ask your project administrator to check your access.</p><a class="support-draft" data-problem="I cannot access my experiment" href="mailto:support@exacth2o.com">Ask for access help →</a></details>
+      <details><summary>I want to export my results</summary><p>Open the experiment, select your pots and dates, and choose Export. You can export the current selection or the whole experiment.</p><a href="/portal">Open the portal →</a></details>
+      <p id="support-context"></p>
+    </section>
     <section class="support-contact" aria-labelledby="support-contact-title">
       <svg class="support-contact-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="6" width="26" height="20" rx="3"/><path d="m4 8 12 9L28 8"/></svg>
       <h2 id="support-contact-title">Contact support</h2>
@@ -179,5 +188,7 @@
 </footer>
 
 
-</body>
+<script>
+(()=>{const q=new URLSearchParams(location.search);const pot=(q.get('pot')||'').slice(0,30),experiment=(q.get('experiment')||'').slice(0,120);const context=[pot?'Pot: '+pot:'',experiment?'Experiment: '+experiment:''].filter(Boolean).join('\n');document.getElementById('support-context').textContent=context?'Help for '+context.replace('\n',' · '):'';document.querySelectorAll('.support-draft').forEach(a=>{a.href='mailto:support@exacth2o.com?subject='+encodeURIComponent('ExactH2O: '+a.dataset.problem)+'&body='+encodeURIComponent(context+'\n\nWhat I observed:\n');});})();
+</script></body>
 </html>

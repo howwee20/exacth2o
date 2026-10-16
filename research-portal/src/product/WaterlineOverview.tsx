@@ -124,6 +124,7 @@ export function WaterlineOverview({
   asOfMs,
   loadedWindowMs,
   dataSourceLabel,
+  windowOverride,
 }: {
   experiment: PortalExperiment;
   /** The experiment's pairings (controller configuration). */
@@ -136,6 +137,7 @@ export function WaterlineOverview({
   asOfMs: number | null;
   loadedWindowMs: number;
   dataSourceLabel: string;
+  windowOverride?: {startMs:number;endMs:number};
 }) {
   const factors = useMemo(() => experimentFactors(experiment), [experiment]);
   const groupParam = usePortalQueryValue("group");
@@ -151,7 +153,7 @@ export function WaterlineOverview({
   const completed = experimentIsCompleted(experiment, nowMs);
   const endedMs = experiment.endedAt ? Date.parse(experiment.endedAt) : Number.NaN;
   const endMs = completed && Number.isFinite(endedMs) ? Math.min(endedMs, nowMs) : nowMs;
-  const window = useMemo(() => ({ startMs: Math.max(endMs - span.ms, nowMs - loadedWindowMs), endMs }), [endMs, loadedWindowMs, nowMs, span.ms]);
+  const window = useMemo(() => windowOverride ?? ({ startMs: Math.max(endMs - span.ms, nowMs - loadedWindowMs), endMs }), [windowOverride, endMs, loadedWindowMs, nowMs, span.ms]);
   const traces = useMemo(() => potTraces(readings, pairings, measure), [measure, pairings, readings]);
   const bucketMs = bucketSizeMs(window.endMs - window.startMs);
   const asOf = asOfMs ?? nowMs;
@@ -225,13 +227,13 @@ export function WaterlineOverview({
             ))}
           </div>
         ) : null}
-        <div className="px-segmented" role="group" aria-label="Time window">
+        {!windowOverride ? <div className="px-segmented" role="group" aria-label="Time window">
           {windowChoices.map((choice) => (
             <button key={choice.id} type="button" aria-pressed={choice.id === span.id} onClick={() => setPortalQuery({ span: choice.id === "72h" ? null : choice.id })}>
               {choice.label}
             </button>
           ))}
-        </div>
+        </div> : <span className="px-muted px-small">Using the selected graph dates</span>}
         <label className="px-select">
           <input type="checkbox" checked={showPots} onChange={(event) => setPortalQuery({ pots: event.target.checked ? "1" : null })} />
           Show individual pots

@@ -1,3 +1,5 @@
+import { TargetHandle } from '../product/TargetHandle';
+import type { DirectTarget } from '../product/DirectExperiment';
 import { timeTicks, timeZoneLabel } from "../timeAxis";
 import { Loader2 } from "lucide-react";
 import { type KeyboardEvent, memo, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -42,6 +44,9 @@ type SensorCanvasChartProps = {
   describeTarget?: (series: ChartSeries) => string | null;
   /** Extra space above the plot for an overlaid heading. */
   headerSpace?: number;
+  directTarget?: DirectTarget;
+  affectedNames?: Set<string>;
+  onChartMoment?: (timestampMs: number) => void;
 };
 
 function SensorCanvasChartComponent({
@@ -57,7 +62,9 @@ function SensorCanvasChartComponent({
   targetLines = noTargetLines,
   describeTarget,
   headerSpace = 0,
+  directTarget, affectedNames, onChartMoment,
 }: SensorCanvasChartProps) {
+  const [geometry, setGeometry] = useState<ChartBounds | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const boundsRef = useRef<ChartBounds | null>(null);
@@ -77,7 +84,8 @@ function SensorCanvasChartComponent({
     ])),
     [visibleSeries],
   );
-  const targetValues = useMemo(() => targetLines.map((line) => line.value), [targetLines]);
+  const directValue = directTarget?.value;
+  const targetValues = useMemo(() => [...targetLines.map((line) => line.value), ...(directValue != null ? [directValue] : [])], [targetLines, directValue]);
   const allWateringMarkers = useMemo(
     () => buildWateringOverlayMarkers(wateringEvents, visibleSeries, xDomain),
     [visibleSeries, wateringEvents, xDomain],
@@ -146,6 +154,7 @@ function SensorCanvasChartComponent({
 
       const bounds = chartBounds(visibleSeries, width, height, xDomain, targetValues, compact, headerSpace);
       boundsRef.current = bounds;
+      setGeometry(bounds);
       const { margin, plotWidth, plotHeight, minX, maxX, spanX, xScale, yScale, yTicks } = bounds;
 
       context.save();
@@ -239,6 +248,7 @@ function SensorCanvasChartComponent({
           return summary.sharpDrops.count > 0 || summary.gaps.count > 0 || (summary.latest?.value ?? 100) < 8;
         })();
         context.globalAlpha =
+          affectedNames?.size && !affectedNames.has(item.name) ? 0.16 :
           selected ? 1 :
           isSummary ? (viewMode === "individual" ? 0.85 : 0.95) :
           viewMode === "group" ? 0.2 :
@@ -352,7 +362,7 @@ function SensorCanvasChartComponent({
       window.removeEventListener("resize", scheduleDraw);
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [compact, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
+  }, [affectedNames, compact, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
 
   function plotPosition(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
@@ -538,6 +548,7 @@ function SensorCanvasChartComponent({
     <div
       ref={wrapperRef}
       className={`canvas-chart ${compact ? "is-compact" : ""}`}
+      data-target-pots={affectedNames?.size || undefined}
       tabIndex={compact ? undefined : 0}
       role={compact ? undefined : "group"}
       aria-label={compact ? undefined : chartLabel}
@@ -547,6 +558,7 @@ function SensorCanvasChartComponent({
         ref={canvasRef}
         onMouseMove={updateTooltip}
         onClick={selectNearest}
+        onDoubleClick={event => {const p = plotPosition(event.clientX,event.clientY); if(p) onChartMoment?.(p.bounds.timeAt(p.x));}}
         onMouseLeave={() => {
           if (!lockedSeriesName) {
             setTooltip(null);
@@ -557,6 +569,10 @@ function SensorCanvasChartComponent({
         aria-label={compact ? chartLabel : undefined}
         aria-hidden={compact ? undefined : true}
       />
+      {!compact && geometry ? <div className="px-target-layer">
+        {targetLines.map((line,index) => <span key={line.label} className="px-target-label" style={{top:geometry.yScale(line.value),right:24+targetLines.slice(0,index).filter(other=>other.value===line.value).length*180}}>{line.label}</span>)}
+        {directTarget ? <><div className="px-target-preview" style={{top:geometry.yScale(directTarget.value),left:geometry.margin.left,right:24}}/><TargetHandle target={directTarget} top={geometry.yScale(directTarget.value)} left={geometry.margin.left+8} pixelsPerPercent={geometry.plotHeight/geometry.ySpan}/></>:null}
+      </div> : null}
       {!compact && (hasTreatments || hasGaps || targetLines.length > 0) ? (
         <div className="chart-key" aria-hidden="true">
           {targetLines.map((line) => <span key={`${line.label}-${line.value}`} style={{ color: targetColors[line.tone] }}><i className="is-dashed" />{line.label}</span>)}

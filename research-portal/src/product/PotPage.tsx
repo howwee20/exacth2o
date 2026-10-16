@@ -97,7 +97,7 @@ export function PotPage({
     : [0, 50];
   const segments = decimateForDisplay(points, { startMs: window.startMs, endMs: window.endMs, buckets: 600, gapMs: trace?.gapMs ?? 30 * 60_000 });
   const levels = assignment
-    ? (["treatment", "crop", "substrate", "block"] as const).filter((key) => assignment[key]).map((key) => `${key.charAt(0).toUpperCase()}${key.slice(1)}: ${levelLabel(assignment[key] as string)}`)
+    ? (["treatment", "crop", "substrate", "block"] as const).filter((key) => assignment[key] && !(key === "treatment" && assignment[key]?.toLowerCase() === "observation" && !sensing)).map((key) => `${key.charAt(0).toUpperCase()}${key.slice(1)}: ${levelLabel(assignment[key] as string)}`)
     : [];
   useEffect(() => { const previous = document.title; document.title = `Pot ${pairing.pot_number}${experiment ? ` · ${experiment.name}` : ""} · ExactH2O`; return () => { document.title = previous; }; }, [pairing.pot_number, experiment]);
   const potRoute = experiment
@@ -119,6 +119,7 @@ export function PotPage({
         </p>
       </div>
 
+      <a className="px-button is-small" href={`/support?pot=${encodeURIComponent(String(pairing.pot_number))}&experiment=${encodeURIComponent(experiment?.name ?? "")}`}>Help with this pot</a>
       <div className="px-pot-grid">
         <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
           <div className={`px-card px-reading ${latestVwc && freshness.state !== "stale" && freshness.state !== "unknown" ? "" : "is-silent"}`}>

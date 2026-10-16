@@ -1,0 +1,10 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {DirectExperiment} from '../src/product/DirectExperiment';
+import {TargetHandle} from '../src/product/TargetHandle';
+import type {PairingRow} from '../src/types';
+import type {PortalExperiment} from '../src/experimentRegistry';
+import '../src/product/product.css';
+const pairings:PairingRow[]=[65,66,67].map((n,i)=>({id:n,name:`Pot${n}`,pot_number:n,zone:3,source_sensor_id:n,sensor_key:`board:${i}`,source_valve_id:n,valve_key:`0x20:${i}`,wtc_percent_limit:10,valve_open_time_ms:2000,measurement_interval_ms:600000}));
+const experiment:PortalExperiment={id:'trial',databaseId:'trial-db',currentRevisionId:'revision-1',name:'Trial',shortDescription:'',mode:'controlled',status:'active',groupNames:[],pairingNames:pairings.map(p=>p.name),assignments:pairings.map(p=>({pairing_name:p.name,pot_number:p.pot_number,zone:3,crop:p.pot_number===66?'Maize':'Sorghum',treatment:null,block:null,substrate:null,target_vwc_percent:10,measurement_interval_minutes:10}))};
+createRoot(document.getElementById('root')!).render(<DirectExperiment experiment={experiment} pairings={pairings} projectId="test-project" inventoryUpdatedAt="2026-10-16T18:00:00Z" canEdit demo={false} onRefresh={async()=>{}}>{state=><div style={{height:400,position:'relative'}}>{state.target?<TargetHandle target={state.target} top={350-state.target.value*4} left={30} pixelsPerPercent={4}/>:null}</div>}</DirectExperiment>);

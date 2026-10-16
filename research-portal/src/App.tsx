@@ -1,3 +1,6 @@
+import { PotInspector } from './product/PotInspector';
+import { DirectExperiment } from './product/DirectExperiment';
+import { ChartJournal } from './product/ChartJournal';
 import { SavedTraceViews } from "./product/SavedTraceViews";
 import { ExperimentHistory } from "./product/ExperimentHistory";
 import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
@@ -207,6 +210,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     useState("");
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
+  const [chartMoment, setChartMoment] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The settings panel loads on first open and then stays mounted so its form state survives closing.
   const [settingsMounted, setSettingsMounted] = useState(false);
@@ -375,7 +379,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     ),
     [selectedExperiment, sortedPairings, valveEvents],
   );
-  const selectPot = useCallback((name: string) => setSelectedSeriesName(name), []);
+  const selectPot = useCallback((name: string) => {setSelectedSeriesName(name);navigatePortal({view:"experiment",experiment:selectedExperiment.id,tab:"pots",pot:name});}, [selectedExperiment.id]);
   const groupVisibleNameSets = useMemo(
     () => new Map(selectedExperimentGraphGroups.map((group) => [group.id, new Set(group.pairingNames)])),
     [selectedExperimentGraphGroups],
@@ -2744,7 +2748,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
 
   const potsTabContent = (
-    <>
+    <DirectExperiment key={selectedExperiment.id} experiment={selectedExperiment} pairings={sortedPairings} projectId={activeProjectId} inventoryUpdatedAt={configState?.updated_at ?? null} canEdit={canUseExperimentSettings} demo={isDemo} onRefresh={async()=>{await loadExperimentCatalog();await loadDeviceSyncState();}}>{direct => <>
+
       {error && !data.readings.length ? (
         <div className="banner error" role="alert">
           <AlertTriangle size={18} />
@@ -2764,9 +2769,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
       <section
         ref={dashboardMainRef}
-        className={`dashboard-main ${graphExpanded ? "is-expanded" : ""} ${showExperimentGraphOverview ? "is-experiment-overview" : ""}`}
+        className={`dashboard-main ${direct.groups ? "is-direct-groups" : ""} ${graphExpanded ? "is-expanded" : ""} ${showExperimentGraphOverview ? "is-experiment-overview" : ""}`}
       >
-        {showExperimentGraphOverview ? (
+        {direct.groups ? <WaterlineOverview experiment={selectedExperiment} pairings={sortedPairings.filter(p=>chartVisibleNames.has(p.name))} readings={experimentReadings} valveEvents={valveEventsForExperiment(valveEvents,selectedExperiment)} nowMs={clockNowMs} asOfMs={lastGoodCheckAt} loadedWindowMs={rollingExperimentHistoryMs} dataSourceLabel={dataSourceLabel} windowOverride={selectedVwcTimeBounds ?? undefined}/> : showExperimentGraphOverview ? (
           <section className="experiment-graph-overview">
             <div className="experiment-graph-toolbar">
               <div className="chart-view-toggle" aria-label="Graph view">
@@ -2931,8 +2936,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   loading={loading && !series.some((item) => item.points.length)}
                   xDomain={selectedVwcTimeBounds}
                   wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : undefined}
-                  targetLines={visibleTargetLines}
+                  targetLines={direct.lines.length ? direct.lines : visibleTargetLines}
                   describeTarget={describePotTarget}
+                  directTarget={direct.target}
+                  affectedNames={direct.affected}
+                  onChartMoment={setChartMoment}
                   headerSpace={hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" ? 26 : 0}
                 />
               )}
@@ -3028,7 +3036,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                       <div className="px-trace-row" key={pairing.name}>
                       <button
                         type="button"
-                        className={`pot-toggle ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
+                        className={`pot-toggle ${direct.affected.has(pairing.name) ? "is-target-selected" : ""} ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
                         onClick={() => togglePot(pairing.name)}
                         aria-pressed={visible}
                         aria-label={`Pot ${pairing.pot_number}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings in the last 72 hours"}`}
@@ -3062,7 +3070,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           </aside>
         ) : null}
       </section>
-    </>
+      {selectedVwcTimeBounds ? <ChartJournal experiment={selectedExperiment} projectId={activeProjectId} deviceId={activeDeviceId} pairings={sortedPairings} startMs={selectedVwcTimeBounds.startMs} endMs={selectedVwcTimeBounds.endMs} moment={chartMoment} onMoment={setChartMoment} canWrite={canWriteNotes} outbox={noteOutbox}/> : null}
+    </>}</DirectExperiment>
   );
 
   const productHeader = (
@@ -3141,7 +3150,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       {exportOpen && routeExperiment ? <FeatureBoundary name="Experiment export"><ExperimentExport
         experiment={routeExperiment} pairings={sortedPairings} readings={experimentReadings}
         projectId={activeProjectId} deviceId={activeDeviceId}
-        nowMs={clockNowMs} loadedWindowMs={rollingExperimentHistoryMs} onClose={() => setExportOpen(false)}
+        nowMs={clockNowMs} loadedWindowMs={rollingExperimentHistoryMs} initialNames={visibleWateringPairings.map(p=>p.name)} initialWindow={selectedVwcTimeBounds ?? undefined} onClose={() => setExportOpen(false)}
       /></FeatureBoundary> : null}
       {findPotDialog}
       <HealthSelectedDetailDrawer
@@ -3347,9 +3356,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (!routeExperiment) {
       return productShell(<ExperimentNotFound id={route.experiment} loading={!catalogReady || accessLoading} />);
     }
-    if (route.pot) {
-      return productShell(renderPotPage(route.pot, routeExperiment));
-    }
     const experimentTabs: ExperimentTab[] = recordAvailable ? ["pots", "overview", "record"] : ["pots", "overview"];
     const tab: ExperimentTab = experimentTabs.includes(route.tab) ? route.tab : "pots";
     return productShell(
@@ -3406,6 +3412,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             /></FeatureBoundary></details>
           </div>
         )}
+        {route.pot ? <PotInspector onClose={()=>navigatePortal({view:"experiment",experiment:routeExperiment.id,tab,pot:null})}>{renderPotPage(route.pot,routeExperiment)}</PotInspector> : null}
       </ExperimentPage>,
     );
   }

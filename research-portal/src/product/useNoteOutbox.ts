@@ -47,6 +47,7 @@ export type NoteDraftInput = {
   body: string;
   tags: string[];
   supersedesId?: string | null;
+  observedAt?: string;
 };
 
 /**
@@ -177,7 +178,7 @@ export function useNoteOutbox(scope: { userId: string; projectId: string; author
       experimentId: input.experimentId,
       body: input.body,
       tags: input.tags,
-      observedAt: new Date().toISOString(),
+      observedAt: input.observedAt ?? new Date().toISOString(),
       authorLabel: scope.authorLabel,
       supersedesId: input.supersedesId ?? null,
       writtenOffline: typeof navigator !== "undefined" && navigator.onLine === false,

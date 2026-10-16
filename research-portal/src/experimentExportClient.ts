@@ -39,13 +39,15 @@ export async function loadExportReadings(input: {projectId:string;deviceId:strin
 }
 
 /** Include labels from every recorded plan version, including pots removed from the latest plan. */
-export async function loadExportExperiment(experiment: PortalExperiment): Promise<PortalExperiment> {
-  if (!experiment.databaseId) return experiment;
-  const history = await readRecordPages<{pairing_name:string}>(async (from,to)=>{
-    const result = await supabase.from("experiment_assignments").select("pairing_name")
+export async function loadExportExperiment(experiment: PortalExperiment, selectedNames?: readonly string[]): Promise<PortalExperiment> {
+  if (!experiment.databaseId) return selectedNames ? {...experiment,pairingNames:selectedNames,assignments:experiment.assignments?.filter(a=>selectedNames.includes(a.pairing_name))} : experiment;
+  const history = await readRecordPages<{pairing_name:string;sensor_key_snapshot?:string|null}>(async (from,to)=>{
+    const result = await supabase.from("experiment_assignments").select("pairing_name,sensor_key_snapshot")
       .eq("experiment_id",experiment.databaseId).order("revision_id").order("pairing_name").range(from,to);
     if (result.error) throw result.error;
     return result.data ?? [];
   },20000);
-  return {...experiment,pairingNames:[...new Set([...experiment.pairingNames,...history.map(row=>row.pairing_name)])]};
+  const sensors = new Set(experiment.assignments?.filter(a=>selectedNames?.includes(a.pairing_name)).map(a=>a.sensor_key_snapshot).filter(Boolean));
+  const rows = selectedNames ? history.filter(row=>selectedNames.includes(row.pairing_name) || Boolean(row.sensor_key_snapshot && sensors.has(row.sensor_key_snapshot))) : history;
+  return {...experiment,pairingNames:[...new Set([...(selectedNames ?? experiment.pairingNames),...rows.map(row=>row.pairing_name)])],assignments:selectedNames ? experiment.assignments?.filter(a=>selectedNames.includes(a.pairing_name)) : experiment.assignments};
 }

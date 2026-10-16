@@ -11,6 +11,19 @@
   const presets = [...root.querySelectorAll('[data-one-pot-target]')];
   if (!target || !chart || !result) return;
 
+  const handle = document.createElement('button');
+  handle.type = 'button'; handle.className = 'one-pot-grab'; handle.setAttribute('role','slider');
+  handle.setAttribute('aria-label','Demo moisture target'); handle.setAttribute('aria-valuemin',target.min);handle.setAttribute('aria-valuemax',target.max);handle.setAttribute('aria-orientation','vertical');
+  handle.title = 'Drag in 1% steps, or use the arrow keys. Simulation only.';
+  const plotWrap = document.createElement('div');plotWrap.className='one-pot-plot-wrap';chart.before(plotWrap);plotWrap.append(chart,handle);
+  let drag = null;
+  const setGrabValue = value => {target.value=String(Math.max(Number(target.min),Math.min(Number(target.max),Math.round(value))));target.dispatchEvent(new Event('input',{bubbles:true}));};
+  handle.addEventListener('pointerdown',e=>{e.preventDefault();if(!plot)return;handle.setPointerCapture(e.pointerId);drag={y:e.clientY,value:selectedValue,scale:plot.plotH/40};});
+  handle.addEventListener('pointermove',e=>{if(drag)setGrabValue(drag.value+(drag.y-e.clientY)/drag.scale);});
+  handle.addEventListener('pointerup',e=>{drag=null;handle.releasePointerCapture(e.pointerId);target.dispatchEvent(new Event('change',{bubbles:true}));});
+  handle.addEventListener('pointercancel',()=>{drag=null;});
+  handle.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();setGrabValue(Number(target.value)+(['ArrowUp','ArrowRight'].includes(e.key)?1:-1));}});
+
   const HOUR = 3_600_000, DAY = 24 * HOUR, STEP = HOUR / 6, DURATION = 3 * DAY;
   const references = [18, 26, 36];
   let comparing = false;
@@ -234,7 +247,8 @@
     plot.targetLine.style.stroke = ink;
     plot.label.setAttribute('y', Math.max(m.top + 12, y(currentValue) - 8));
     plot.label.style.fill = ink;
-    plot.label.textContent = `${selectedValue}% target`;
+    plot.label.textContent = '';
+    handle.textContent = `⠿ ${selectedValue}% target`;handle.setAttribute('aria-valuenow',String(selectedValue));handle.style.top=`${y(currentValue)}px`;handle.style.left=`${m.left+8}px`;
     const replaying = replayStarted != null;
     plot.clipRect.setAttribute('width', plotW * (replaying ? replayProgress : 1));
     plot.playhead.setAttribute('opacity', replaying ? '1' : '0');
