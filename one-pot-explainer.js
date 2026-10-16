@@ -11,18 +11,51 @@
   const presets = [...root.querySelectorAll('[data-one-pot-target]')];
   if (!target || !chart || !result) return;
 
-  const handle = document.createElement('button');
-  handle.type = 'button'; handle.className = 'one-pot-grab'; handle.setAttribute('role','slider');
-  handle.setAttribute('aria-label','Demo moisture target'); handle.setAttribute('aria-valuemin',target.min);handle.setAttribute('aria-valuemax',target.max);handle.setAttribute('aria-orientation','vertical');
-  handle.title = 'Drag in 1% steps, or use the arrow keys. Simulation only.';
-  const plotWrap = document.createElement('div');plotWrap.className='one-pot-plot-wrap';chart.before(plotWrap);plotWrap.append(chart,handle);
-  let drag = null;
-  const setGrabValue = value => {target.value=String(Math.max(Number(target.min),Math.min(Number(target.max),Math.round(value))));target.dispatchEvent(new Event('input',{bubbles:true}));};
-  handle.addEventListener('pointerdown',e=>{e.preventDefault();if(!plot)return;handle.setPointerCapture(e.pointerId);drag={y:e.clientY,value:selectedValue,scale:plot.plotH/40};});
-  handle.addEventListener('pointermove',e=>{if(drag)setGrabValue(drag.value+(drag.y-e.clientY)/drag.scale);});
-  handle.addEventListener('pointerup',e=>{drag=null;handle.releasePointerCapture(e.pointerId);target.dispatchEvent(new Event('change',{bubbles:true}));});
-  handle.addEventListener('pointercancel',()=>{drag=null;});
-  handle.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();setGrabValue(Number(target.value)+(['ArrowUp','ArrowRight'].includes(e.key)?1:-1));}});
+  // The target pill: drag or arrow keys preview a new target, the adjacent check applies it to the
+  // simulation, and the cross or Escape restores it. Same interaction as the portal, with no equipment.
+  const make = (tag, className, attrs = {}) => { const node = document.createElement(tag); node.className = className; for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v); return node; };
+  const control = make('div', 'one-pot-tcontrol');
+  const handle = make('button', 'one-pot-pill', { type: 'button', role: 'slider', 'aria-label': 'Demo moisture target', 'aria-valuemin': target.min, 'aria-valuemax': target.max, 'aria-orientation': 'vertical' });
+  handle.title = 'Drag in 1% steps or use the arrow keys, then confirm. Simulation only.';
+  const cluster = make('span', 'one-pot-tcluster'); cluster.hidden = true;
+  const applyButton = make('button', 'one-pot-tbtn is-apply', { type: 'button' }); applyButton.textContent = '✓';
+  const cancelButton = make('button', 'one-pot-tbtn', { type: 'button', 'aria-label': 'Cancel and keep the current target', title: 'Cancel (Esc)' }); cancelButton.textContent = '×';
+  cluster.append(applyButton, cancelButton); control.append(handle, cluster);
+  const band = make('div', 'one-pot-tband', { 'aria-hidden': 'true' });
+  const previewLine = make('div', 'one-pot-tline', { 'aria-hidden': 'true' }); previewLine.hidden = true;
+  const plotWrap = make('div', 'one-pot-plot-wrap'); chart.before(plotWrap); plotWrap.append(chart, previewLine, band, control);
+  const low = Number(target.min), high = Number(target.max);
+  const clampTarget = value => Math.max(low, Math.min(high, Math.round(value)));
+  let preview = null, drag = null;
+  const setPreview = value => { preview = value == null ? null : clampTarget(value); render(); };
+  const applyPreview = () => {
+    if (preview == null || preview === selectedValue) { setPreview(null); return; }
+    interactionStart = selectedValue; target.value = String(preview); preview = null;
+    changeTarget(); rememberPrevious(); handle.focus({ preventScroll: true });
+  };
+  // Every move is measured from where the gesture began, on the chart's fixed 10–50% axis.
+  const startDrag = e => {
+    if (e.button !== 0 || !plot) return;
+    e.preventDefault(); e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* moves still arrive over the control */ }
+    drag = { id: e.pointerId, y: e.clientY, value: preview ?? selectedValue, scale: plot.plotH / 40 };
+    handle.classList.add('is-dragging');
+  };
+  const moveDrag = e => { if (drag && e.pointerId === drag.id) setPreview(drag.value + (drag.y - e.clientY) / drag.scale); };
+  const endDrag = e => { if (!drag || e.pointerId !== drag.id) return; drag = null; handle.classList.remove('is-dragging'); if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); };
+  for (const node of [handle, band]) {
+    node.addEventListener('pointerdown', startDrag); node.addEventListener('pointermove', moveDrag);
+    node.addEventListener('pointerup', endDrag); node.addEventListener('pointercancel', endDrag); node.addEventListener('lostpointercapture', endDrag);
+  }
+  cluster.addEventListener('pointerdown', e => e.stopPropagation());
+  applyButton.addEventListener('click', applyPreview);
+  cancelButton.addEventListener('click', () => { setPreview(null); handle.focus({ preventScroll: true }); });
+  handle.addEventListener('keydown', e => {
+    const steps = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 5, PageDown: -5 };
+    if (e.key in steps) { e.preventDefault(); setPreview((preview ?? selectedValue) + steps[e.key]); }
+    else if (e.key === 'Enter' && preview != null) { e.preventDefault(); applyPreview(); }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && preview != null) setPreview(null); });
 
   const HOUR = 3_600_000, DAY = 24 * HOUR, STEP = HOUR / 6, DURATION = 3 * DAY;
   const references = [18, 26, 36];
@@ -242,13 +275,24 @@
     plot.line.style.stroke = ink;
     plot.area.setAttribute('d', `${path(currentPoints)}L${x(DURATION)} ${m.top + plotH}L${x(0)} ${m.top + plotH}Z`);
     plot.area.style.fill = ink;
-    plot.targetLine.setAttribute('y1', y(currentValue));
-    plot.targetLine.setAttribute('y2', y(currentValue));
+    plot.targetLine.setAttribute('y1', y(selectedValue));
+    plot.targetLine.setAttribute('y2', y(selectedValue));
     plot.targetLine.style.stroke = ink;
     plot.label.setAttribute('y', Math.max(m.top + 12, y(currentValue) - 8));
     plot.label.style.fill = ink;
     plot.label.textContent = '';
-    handle.textContent = `⠿ ${selectedValue}% target`;handle.setAttribute('aria-valuenow',String(selectedValue));handle.style.top=`${y(currentValue)}px`;handle.style.left=`${m.left+8}px`;
+    const shown = preview ?? selectedValue, changed = preview != null && preview !== selectedValue;
+    handle.textContent = `${shown}% target`;
+    handle.classList.toggle('is-preview', changed);
+    handle.setAttribute('aria-valuenow', String(shown));
+    handle.setAttribute('aria-valuetext', `${shown}% target${changed ? ', not applied' : ''}; simulation only`);
+    control.style.top = band.style.top = `${y(shown)}px`;
+    control.style.left = `${m.left + 8}px`;
+    band.style.left = previewLine.style.left = `${m.left}px`;
+    band.style.width = previewLine.style.width = `${plotW}px`;
+    previewLine.style.top = `${y(shown)}px`;
+    previewLine.hidden = cluster.hidden = !changed;
+    applyButton.setAttribute('aria-label', `Apply ${shown}% target to the simulation`); applyButton.title = applyButton.getAttribute('aria-label');
     const replaying = replayStarted != null;
     plot.clipRect.setAttribute('width', plotW * (replaying ? replayProgress : 1));
     plot.playhead.setAttribute('opacity', replaying ? '1' : '0');
@@ -294,7 +338,8 @@
   function changeTarget() {
     inputFrame = 0;
     const next = Number(target.value);
-    if (next === selectedValue) return;
+    preview = null;
+    if (next === selectedValue) { render(); return; }
     stopReplay();
     const newlyComparing = !comparing;
     comparing = true;

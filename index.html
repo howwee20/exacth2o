@@ -22,7 +22,22 @@
 <style>
 /* Metric-matched fallback: text keeps its line breaks when the web font arrives (Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
-.one-pot-plot-wrap{position:relative}.one-pot-grab{position:absolute;transform:translateY(-50%);border:1px solid #527661;border-radius:22px;background:white;color:#204e38;padding:9px 15px;font:600 13px inherit;cursor:ns-resize;touch-action:none;box-shadow:0 2px 8px #163c2c16}.one-pot-grab:focus-visible{outline:3px solid #66a889;outline-offset:3px}.one-pot-grab:active{background:#e6f4eb}
+.one-pot-plot-wrap { position: relative; }
+.one-pot-tcontrol { position: absolute; z-index: 3; display: flex; align-items: center; gap: 5px; transform: translateY(-50%); }
+.one-pot-pill { position: relative; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid #b9cdc1; border-radius: 13px; background: #fff; color: #173c2c; font: 600 12px/1 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 1px 2px rgba(16, 37, 28, .08); cursor: ns-resize; touch-action: none; user-select: none; -webkit-user-select: none; transition: border-color .15s var(--ease), background-color .15s var(--ease); }
+.one-pot-pill::before { content: ''; position: absolute; inset: -9px -8px; }
+.one-pot-pill:hover { border-color: #7fa58f; }
+.one-pot-pill.is-dragging, .one-pot-pill.is-preview { border-color: #2c7a57; background: #f3faf6; color: #10432f; }
+.one-pot-pill:focus-visible, .one-pot-tbtn:focus-visible { outline: 2px solid #2456d6; outline-offset: 2px; }
+.one-pot-tcluster { display: inline-flex; gap: 4px; }
+.one-pot-tcluster[hidden], .one-pot-tline[hidden] { display: none; }
+.one-pot-tbtn { position: relative; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid #c9d7cf; border-radius: 50%; background: #fff; color: #375a49; font: 600 13px/1 var(--sans); cursor: pointer; box-shadow: 0 1px 2px rgba(16, 37, 28, .08); }
+.one-pot-tbtn::before { content: ''; position: absolute; inset: -6px; }
+.one-pot-tbtn:hover { background: #eef4f0; }
+.one-pot-tbtn.is-apply { border-color: #1f7a55; background: #1f7a55; color: #fff; }
+.one-pot-tbtn.is-apply:hover { background: #19684a; }
+.one-pot-tband { position: absolute; z-index: 2; height: 14px; transform: translateY(-50%); cursor: ns-resize; touch-action: none; }
+.one-pot-tline { position: absolute; z-index: 1; border-top: 1.5px solid #2c7a57; pointer-events: none; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css?v=20261014">
@@ -185,7 +200,7 @@
 }
 </style>
 <script src="/site-navigation.js" defer></script>
-<script src="/one-pot-explainer.js?v=20261016-direct-target" defer></script>
+<script src="/one-pot-explainer.js?v=20261016-target-pill" defer></script>
 <script src="/site-ambient.js?v=20261015-2" defer></script>
 <script src="/site-brand-footer.js?v=20261014" defer></script>
 <script src="/site-metrics.js" defer></script>

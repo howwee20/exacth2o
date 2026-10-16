@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { experimentFactors, groupingLabel, parseGrouping, potGroups, type FactorKey, type PotGroup } from "../experimentFactors";
 import { experimentIsCompleted } from "../experimentMeasurement";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
@@ -125,7 +125,10 @@ export function WaterlineOverview({
   loadedWindowMs,
   dataSourceLabel,
   windowOverride,
+  leading,
 }: {
+  /** A control shown first in the toolbar, e.g. the Individual / Groups switch. */
+  leading?: ReactNode;
   experiment: PortalExperiment;
   /** The experiment's pairings (controller configuration). */
   pairings: readonly PairingRow[];
@@ -208,6 +211,7 @@ export function WaterlineOverview({
   return (
     <section className="px-waterline" aria-label="Overview">
       <div className="px-toolbar">
+        {leading}
         {factors.length ? (
           <label className="px-select">
             Group by

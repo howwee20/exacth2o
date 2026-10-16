@@ -1,8 +1,7 @@
-import { TargetHandle } from '../product/TargetHandle';
-import type { DirectTarget } from '../product/DirectExperiment';
+import type { TargetGeometry } from '../product/TargetControl';
 import { timeTicks, timeZoneLabel } from "../timeAxis";
 import { Loader2 } from "lucide-react";
-import { type KeyboardEvent, memo, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, memo, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { healthNumber } from "../healthValues";
 import { formatDuration, formatMeasurementTime } from "../measurementFreshness";
 import { plantGroupLabel, treatmentLabel } from "../portalPresentation";
@@ -20,6 +19,7 @@ import { axisLabel, buildWateringOverlayMarkers, type ChartBounds, chartBounds, 
 
 const noWateringEvents: HealthWateringEvent[] = [];
 const noTargetLines: ChartTargetLine[] = [];
+const noExtraValues: readonly number[] = [];
 const targetColors: Record<ChartTargetLine["tone"], string> = {
   control: "#1d4ed8",
   drought: "#c2410c",
@@ -44,7 +44,12 @@ type SensorCanvasChartProps = {
   describeTarget?: (series: ChartSeries) => string | null;
   /** Extra space above the plot for an overlaid heading. */
   headerSpace?: number;
-  directTarget?: DirectTarget;
+  /** Interactive target controls drawn above the plot; they replace the plain target labels. */
+  targetLayer?: (geometry: TargetGeometry) => ReactNode;
+  /** Values the y-axis should include besides the drawn target lines (e.g. a previewed target). */
+  extraTargetValues?: readonly number[];
+  /** Hold the y-axis still, e.g. while a target is being dragged. */
+  freezeScale?: boolean;
   affectedNames?: Set<string>;
   onChartMoment?: (timestampMs: number) => void;
 };
@@ -62,7 +67,7 @@ function SensorCanvasChartComponent({
   targetLines = noTargetLines,
   describeTarget,
   headerSpace = 0,
-  directTarget, affectedNames, onChartMoment,
+  targetLayer, extraTargetValues = noExtraValues, freezeScale = false, affectedNames, onChartMoment,
 }: SensorCanvasChartProps) {
   const [geometry, setGeometry] = useState<ChartBounds | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -84,8 +89,11 @@ function SensorCanvasChartComponent({
     ])),
     [visibleSeries],
   );
-  const directValue = directTarget?.value;
-  const targetValues = useMemo(() => [...targetLines.map((line) => line.value), ...(directValue != null ? [directValue] : [])], [targetLines, directValue]);
+  const targetValues = useMemo(() => [...targetLines.map((line) => line.value), ...extraTargetValues], [targetLines, extraTargetValues]);
+  // The axis captured when a drag begins; every redraw during the gesture reuses it.
+  const frozenDomainRef = useRef<ChartBounds | null>(null);
+  if (!freezeScale) frozenDomainRef.current = null;
+  else if (!frozenDomainRef.current) frozenDomainRef.current = boundsRef.current;
   const allWateringMarkers = useMemo(
     () => buildWateringOverlayMarkers(wateringEvents, visibleSeries, xDomain),
     [visibleSeries, wateringEvents, xDomain],
@@ -152,7 +160,9 @@ function SensorCanvasChartComponent({
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, width, height);
 
-      const bounds = chartBounds(visibleSeries, width, height, xDomain, targetValues, compact, headerSpace);
+      const frozen = frozenDomainRef.current;
+      const bounds = chartBounds(visibleSeries, width, height, xDomain, targetValues, compact, headerSpace,
+        frozen ? { yMin: frozen.yMin, yMax: frozen.yMax, ySpan: frozen.ySpan, yTicks: frozen.yTicks } : null);
       boundsRef.current = bounds;
       setGeometry(bounds);
       const { margin, plotWidth, plotHeight, minX, maxX, spanX, xScale, yScale, yTicks } = bounds;
@@ -362,7 +372,7 @@ function SensorCanvasChartComponent({
       window.removeEventListener("resize", scheduleDraw);
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [affectedNames, compact, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
+  }, [affectedNames, compact, freezeScale, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
 
   function plotPosition(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
@@ -569,13 +579,14 @@ function SensorCanvasChartComponent({
         aria-label={compact ? chartLabel : undefined}
         aria-hidden={compact ? undefined : true}
       />
-      {!compact && geometry ? <div className="px-target-layer">
-        {targetLines.map((line,index) => <span key={line.label} className="px-target-label" style={{top:geometry.yScale(line.value),right:24+targetLines.slice(0,index).filter(other=>other.value===line.value).length*180}}>{line.label}</span>)}
-        {directTarget ? <><div className="px-target-preview" style={{top:geometry.yScale(directTarget.value),left:geometry.margin.left,right:24}}/><TargetHandle target={directTarget} top={geometry.yScale(directTarget.value)} left={geometry.margin.left+8} pixelsPerPercent={geometry.plotHeight/geometry.ySpan}/></>:null}
+      {!compact && geometry && targetLayer ? <div className="px-target-layer">
+        {targetLayer({ yScale: geometry.yScale, top: geometry.margin.top, bottom: geometry.margin.top + geometry.plotHeight,
+          left: geometry.margin.left, right: geometry.margin.left + geometry.plotWidth, pixelsPerPercent: geometry.plotHeight / geometry.ySpan,
+          low: Math.ceil(geometry.yMin), high: Math.floor(geometry.yMax) })}
       </div> : null}
-      {!compact && (hasTreatments || hasGaps || targetLines.length > 0) ? (
+      {!compact && (hasTreatments || hasGaps || (!targetLayer && targetLines.length > 0)) ? (
         <div className="chart-key" aria-hidden="true">
-          {targetLines.map((line) => <span key={`${line.label}-${line.value}`} style={{ color: targetColors[line.tone] }}><i className="is-dashed" />{line.label}</span>)}
+          {targetLayer ? null : targetLines.map((line) => <span key={`${line.label}-${line.value}`} style={{ color: targetColors[line.tone] }}><i className="is-dashed" />{line.label}</span>)}
           {hasTreatments ? <span><i className="is-solid" />Control</span> : null}
           {hasTreatments ? <span><i className="is-dashed" />Drought</span> : null}
           {hasGaps ? <span><i className="is-break" />Line break = no readings</span> : null}

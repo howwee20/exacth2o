@@ -2771,7 +2771,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         ref={dashboardMainRef}
         className={`dashboard-main ${direct.groups ? "is-direct-groups" : ""} ${graphExpanded ? "is-expanded" : ""} ${showExperimentGraphOverview ? "is-experiment-overview" : ""}`}
       >
-        {direct.groups ? <WaterlineOverview experiment={selectedExperiment} pairings={sortedPairings.filter(p=>chartVisibleNames.has(p.name))} readings={experimentReadings} valveEvents={valveEventsForExperiment(valveEvents,selectedExperiment)} nowMs={clockNowMs} asOfMs={lastGoodCheckAt} loadedWindowMs={rollingExperimentHistoryMs} dataSourceLabel={dataSourceLabel} windowOverride={selectedVwcTimeBounds ?? undefined}/> : showExperimentGraphOverview ? (
+        {direct.groups ? <WaterlineOverview leading={direct.viewToggle} experiment={selectedExperiment} pairings={sortedPairings.filter(p=>chartVisibleNames.has(p.name))} readings={experimentReadings} valveEvents={valveEventsForExperiment(valveEvents,selectedExperiment)} nowMs={clockNowMs} asOfMs={lastGoodCheckAt} loadedWindowMs={rollingExperimentHistoryMs} dataSourceLabel={dataSourceLabel} windowOverride={selectedVwcTimeBounds ?? undefined}/> : showExperimentGraphOverview ? (
           <section className="experiment-graph-overview">
             <div className="experiment-graph-toolbar">
               <div className="chart-view-toggle" aria-label="Graph view">
@@ -2862,7 +2862,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               </div>
             ) : null}
             <div className="chart-tools">
-              <span className="px-chart-caption">Individual traces <span>{visibleWateringPairings.length} / {sortedPairings.length} visible</span></span>
+              {direct.viewToggle}
+              <span className="px-chart-caption"><span>{visibleWateringPairings.length} / {sortedPairings.length} visible</span></span>
               <div className="chart-view-toggle" aria-label="Graph view">
                 <button
                   type="button"
@@ -2938,7 +2939,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : undefined}
                   targetLines={direct.lines.length ? direct.lines : visibleTargetLines}
                   describeTarget={describePotTarget}
-                  directTarget={direct.target}
+                  targetLayer={direct.targetLayer}
+                  extraTargetValues={direct.extraTargetValues}
+                  freezeScale={direct.freezeScale}
                   affectedNames={direct.affected}
                   onChartMoment={setChartMoment}
                   headerSpace={hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" ? 26 : 0}
