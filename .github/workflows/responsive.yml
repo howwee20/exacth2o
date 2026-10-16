@@ -1,8 +1,7 @@
-name: Responsive and visual regression
+name: Responsive and visual regression (manual)
 on:
   workflow_call:
-  push:
-    branches: [homepage-polish-oct14, codex/hold-water-and-site-polish, claude/hold-water-routes]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

@@ -2,9 +2,6 @@ name: Verify ExactH2O release (manual)
 
 on:
   workflow_dispatch:
-  # Feature branches that change controller or database code run the full release checks.
-  push:
-    branches: [claude/hold-water-routes]
 
 permissions:
   contents: read
