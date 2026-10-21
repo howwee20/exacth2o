@@ -16,6 +16,14 @@ import "../src/product/product.css";
 
 const params = new URLSearchParams(location.search);
 const fake = new FakeBackend({ preset: params.get("preset") === "issues" ? "issues" : "clean" });
+if (params.get("preset") === "partial") {
+  fake.rows("portal_bench_layout_versions").push({
+    id: "old-layout", project_id: harnessIds.project, device_id: harnessIds.device, version: 3,
+    basis: "recorded", author_label: "Previous layout", created_at: new Date().toISOString(),
+    layout: { benches: [{ id: "old", label: "Old bench", rows: 1, columns: 1 }],
+      positions: [{ pairing_name: "Obsolete-Pot65", bench: "old", row: 1, column: 1 }] },
+  });
+}
 fake.install(supabase);
 (window as unknown as { __preview: FakeBackend }).__preview = fake;
 
@@ -47,7 +55,7 @@ function Preview() {
     });
   }, []);
   const hash = fake.hash;
-  const pairings = useMemo(() => fake.portalPairings(), [hash]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pairings = useMemo(() => fake.portalPairings().filter((pairing) => params.get("preset") !== "partial" || [65, 100].includes(pairing.pot_number)), [hash]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <main className="px-shell ac-preview" data-version={version}>
       <header className="px-header">
