@@ -1,0 +1,1589 @@
+{
+ "title": "ExactH2O chamber-agent benchmark and Edge budget, 2026-10-21",
+ "how_to_reproduce": "scripts/perf/agent-harness/run-scenario.mjs against a local stack (see docs/performance/2026-10-21-backend-optimization.md); before = functions at a36042ec, after = this change; same installed clients and scenario.",
+ "scenario_minutes": {
+  "idle": 10,
+  "commands": 14,
+  "viewer": 5,
+  "session": 3,
+  "faults": 4
+ },
+ "before": {
+  "label": "old",
+  "generated_at": "2026-10-21T03:48:22.212Z",
+  "environment": "local Supabase stack (postgres 17.6.1.127, PostgREST 14.5, edge-runtime 1.69.28); installed clients: native bridge 2.1.2, screen agent 1.0.1, lighting bridge 2.1.0 (JDK 8)",
+  "clock_offset_ms": 17,
+  "phase_ms": {
+   "idle": 600006,
+   "commands": 842818,
+   "viewer": 301244,
+   "session": 178351,
+   "faults": 238261
+  },
+  "invocation_rates": {
+   "idle": {
+    "gas-mixer-agent:heartbeat": {
+     "calls": 49,
+     "errors": 0,
+     "calls_per_hour": 294,
+     "duration_ms": {
+      "n": 49,
+      "p50": 15,
+      "p95": 34,
+      "p99": 82,
+      "max": 82
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 49,
+     "errors": 0,
+     "calls_per_hour": 294,
+     "duration_ms": {
+      "n": 49,
+      "p50": 23,
+      "p95": 30,
+      "p99": 32,
+      "max": 32
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 99,
+     "errors": 0,
+     "calls_per_hour": 594,
+     "duration_ms": {
+      "n": 99,
+      "p50": 5011,
+      "p95": 5019,
+      "p99": 5095,
+      "max": 5095
+     }
+    },
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 42,
+     "errors": 0,
+     "calls_per_hour": 252,
+     "duration_ms": {
+      "n": 42,
+      "p50": 17,
+      "p95": 25,
+      "p99": 82,
+      "max": 82
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 42,
+     "errors": 0,
+     "calls_per_hour": 252,
+     "duration_ms": {
+      "n": 42,
+      "p50": 10,
+      "p95": 16,
+      "p99": 42,
+      "max": 42
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 49,
+     "errors": 0,
+     "calls_per_hour": 294,
+     "duration_ms": {
+      "n": 49,
+      "p50": 12020,
+      "p95": 12032,
+      "p99": 12051,
+      "max": 12051
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 42,
+     "errors": 0,
+     "calls_per_hour": 252,
+     "duration_ms": {
+      "n": 42,
+      "p50": 12018,
+      "p95": 12032,
+      "p99": 12034,
+      "max": 12034
+     }
+    },
+    "_total": {
+     "calls_per_hour": 2232,
+     "projected_31_days": 1660608
+    }
+   },
+   "commands": {
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 54,
+     "errors": 0,
+     "calls_per_hour": 231,
+     "duration_ms": {
+      "n": 54,
+      "p50": 15,
+      "p95": 77,
+      "p99": 97,
+      "max": 97
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 77,
+     "errors": 0,
+     "calls_per_hour": 329,
+     "duration_ms": {
+      "n": 77,
+      "p50": 10,
+      "p95": 23,
+      "p99": 27,
+      "max": 27
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 170,
+     "errors": 0,
+     "calls_per_hour": 726,
+     "duration_ms": {
+      "n": 170,
+      "p50": 5010,
+      "p95": 5025,
+      "p99": 5101,
+      "max": 5109
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 69,
+     "errors": 0,
+     "calls_per_hour": 295,
+     "duration_ms": {
+      "n": 69,
+      "p50": 16,
+      "p95": 84,
+      "p99": 135,
+      "max": 135
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 69,
+     "errors": 0,
+     "calls_per_hour": 295,
+     "duration_ms": {
+      "n": 69,
+      "p50": 21,
+      "p95": 33,
+      "p99": 50,
+      "max": 50
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 77,
+     "errors": 0,
+     "calls_per_hour": 329,
+     "duration_ms": {
+      "n": 77,
+      "p50": 12013,
+      "p95": 12030,
+      "p99": 12033,
+      "max": 12033
+     }
+    },
+    "gas-mixer-native-agent:ack": {
+     "calls": 74,
+     "errors": 0,
+     "calls_per_hour": 316,
+     "duration_ms": {
+      "n": 74,
+      "p50": 7,
+      "p95": 13,
+      "p99": 14,
+      "max": 14
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 69,
+     "errors": 0,
+     "calls_per_hour": 295,
+     "duration_ms": {
+      "n": 69,
+      "p50": 12020,
+      "p95": 12030,
+      "p99": 12046,
+      "max": 12046
+     }
+    },
+    "lighting-native-agent:result": {
+     "calls": 36,
+     "errors": 0,
+     "calls_per_hour": 154,
+     "duration_ms": {
+      "n": 36,
+      "p50": 14,
+      "p95": 18,
+      "p99": 20,
+      "max": 20
+     }
+    },
+    "_total": {
+     "calls_per_hour": 2970,
+     "projected_31_days": 2209680
+    }
+   },
+   "viewer": {
+    "lighting-native-agent:sync": {
+     "calls": 51,
+     "errors": 0,
+     "calls_per_hour": 609,
+     "duration_ms": {
+      "n": 51,
+      "p50": 5012,
+      "p95": 5022,
+      "p99": 5102,
+      "max": 5102
+     }
+    },
+    "lighting-native-agent:result": {
+     "calls": 1,
+     "errors": 0,
+     "calls_per_hour": 12,
+     "duration_ms": {
+      "n": 1,
+      "p50": 16,
+      "p95": 16,
+      "p99": 16,
+      "max": 16
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 25,
+     "errors": 0,
+     "calls_per_hour": 299,
+     "duration_ms": {
+      "n": 25,
+      "p50": 18,
+      "p95": 27,
+      "p99": 108,
+      "max": 108
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 25,
+     "errors": 0,
+     "calls_per_hour": 299,
+     "duration_ms": {
+      "n": 25,
+      "p50": 23,
+      "p95": 35,
+      "p99": 43,
+      "max": 43
+     }
+    },
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 21,
+     "errors": 0,
+     "calls_per_hour": 251,
+     "duration_ms": {
+      "n": 21,
+      "p50": 20,
+      "p95": 73,
+      "p99": 101,
+      "max": 101
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 21,
+     "errors": 0,
+     "calls_per_hour": 251,
+     "duration_ms": {
+      "n": 21,
+      "p50": 11,
+      "p95": 15,
+      "p99": 17,
+      "max": 17
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 25,
+     "errors": 0,
+     "calls_per_hour": 299,
+     "duration_ms": {
+      "n": 25,
+      "p50": 12021,
+      "p95": 12028,
+      "p99": 12029,
+      "max": 12029
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 21,
+     "errors": 0,
+     "calls_per_hour": 251,
+     "duration_ms": {
+      "n": 21,
+      "p50": 12022,
+      "p95": 12035,
+      "p99": 12041,
+      "max": 12041
+     }
+    },
+    "_total": {
+     "calls_per_hour": 2271,
+     "projected_31_days": 1689624
+    }
+   },
+   "session": {
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 13,
+     "errors": 0,
+     "calls_per_hour": 262,
+     "duration_ms": {
+      "n": 13,
+      "p50": 13,
+      "p95": 64,
+      "p99": 64,
+      "max": 64
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 13,
+     "errors": 0,
+     "calls_per_hour": 262,
+     "duration_ms": {
+      "n": 13,
+      "p50": 9,
+      "p95": 12,
+      "p99": 12,
+      "max": 12
+     }
+    },
+    "gas-mixer-agent:ack": {
+     "calls": 33,
+     "errors": 0,
+     "calls_per_hour": 666,
+     "duration_ms": {
+      "n": 33,
+      "p50": 9,
+      "p95": 13,
+      "p99": 22,
+      "max": 22
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 18,
+     "errors": 0,
+     "calls_per_hour": 363,
+     "duration_ms": {
+      "n": 18,
+      "p50": 13,
+      "p95": 24,
+      "p99": 24,
+      "max": 24
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 143,
+     "errors": 0,
+     "calls_per_hour": 2886,
+     "duration_ms": {
+      "n": 143,
+      "p50": 24,
+      "p95": 39,
+      "p99": 48,
+      "max": 94
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 304,
+     "errors": 0,
+     "calls_per_hour": 6136,
+     "duration_ms": {
+      "n": 304,
+      "p50": 21,
+      "p95": 28,
+      "p99": 37,
+      "max": 91
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 29,
+     "errors": 0,
+     "calls_per_hour": 585,
+     "duration_ms": {
+      "n": 29,
+      "p50": 5012,
+      "p95": 5020,
+      "p99": 5105,
+      "max": 5105
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 13,
+     "errors": 0,
+     "calls_per_hour": 262,
+     "duration_ms": {
+      "n": 13,
+      "p50": 12020,
+      "p95": 12026,
+      "p99": 12026,
+      "max": 12026
+     }
+    },
+    "_total": {
+     "calls_per_hour": 11422,
+     "projected_31_days": 8497968
+    }
+   },
+   "faults": {
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 17,
+     "errors": 0,
+     "calls_per_hour": 257,
+     "duration_ms": {
+      "n": 17,
+      "p50": 17,
+      "p95": 84,
+      "p99": 84,
+      "max": 84
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 17,
+     "errors": 0,
+     "calls_per_hour": 257,
+     "duration_ms": {
+      "n": 17,
+      "p50": 9,
+      "p95": 21,
+      "p99": 21,
+      "max": 21
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 40,
+     "errors": 0,
+     "calls_per_hour": 604,
+     "duration_ms": {
+      "n": 40,
+      "p50": 5013,
+      "p95": 5020,
+      "p99": 5093,
+      "max": 5093
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 17,
+     "errors": 0,
+     "calls_per_hour": 257,
+     "duration_ms": {
+      "n": 17,
+      "p50": 12020,
+      "p95": 12029,
+      "p99": 12029,
+      "max": 12029
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 19,
+     "errors": 0,
+     "calls_per_hour": 287,
+     "duration_ms": {
+      "n": 19,
+      "p50": 12020,
+      "p95": 12032,
+      "p99": 12032,
+      "max": 12032
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 19,
+     "errors": 0,
+     "calls_per_hour": 287,
+     "duration_ms": {
+      "n": 19,
+      "p50": 15,
+      "p95": 86,
+      "p99": 86,
+      "max": 86
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 19,
+     "errors": 0,
+     "calls_per_hour": 287,
+     "duration_ms": {
+      "n": 19,
+      "p50": 23,
+      "p95": 43,
+      "p99": 43,
+      "max": 43
+     }
+    },
+    "gas-mixer-native-agent:ack": {
+     "calls": 4,
+     "errors": 0,
+     "calls_per_hour": 60,
+     "duration_ms": {
+      "n": 4,
+      "p50": 7,
+      "p95": 12,
+      "p99": 12,
+      "max": 12
+     }
+    },
+    "_total": {
+     "calls_per_hour": 2296,
+     "projected_31_days": 1708224
+    }
+   }
+  },
+  "command_latency_ms": {
+   "native": {
+    "queue_to_agent_ms": {
+     "n": 37,
+     "p50": 772,
+     "p95": 1882,
+     "p99": 1897,
+     "max": 1897
+    },
+    "queue_to_applied_ms": {
+     "n": 37,
+     "p50": 2789,
+     "p95": 3902,
+     "p99": 3911,
+     "max": 3911
+    }
+   },
+   "lighting": {
+    "queue_to_agent_ms": {
+     "n": 37,
+     "p50": 2938,
+     "p95": 5944,
+     "p99": 6040,
+     "max": 6040
+    },
+    "queue_to_applied_ms": {
+     "n": 37,
+     "p50": 2926,
+     "p95": 5930,
+     "p99": 6031,
+     "max": 6031
+    }
+   },
+   "tap": {
+    "queue_to_agent_ms": {
+     "n": 33,
+     "p50": 267,
+     "p95": 583,
+     "p99": 1417,
+     "max": 1417
+    },
+    "queue_to_applied_ms": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "p99": null,
+     "max": null
+    }
+   },
+   "native_after_listener_drop": {
+    "queue_to_agent_ms": {
+     "n": 1,
+     "p50": 1124,
+     "p95": 1124,
+     "p99": 1124,
+     "max": 1124
+    },
+    "queue_to_applied_ms": {
+     "n": 1,
+     "p50": 3153,
+     "p95": 3153,
+     "p99": 3153,
+     "max": 3153
+    }
+   },
+   "native_after_row_lock": {
+    "queue_to_agent_ms": {
+     "n": 1,
+     "p50": 1115,
+     "p95": 1115,
+     "p99": 1115,
+     "max": 1115
+    },
+    "queue_to_applied_ms": {
+     "n": 1,
+     "p50": 3146,
+     "p95": 3146,
+     "p99": 3146,
+     "max": 3146
+    }
+   }
+  },
+  "command_outcomes": {
+   "native": {
+    "applied": 37
+   },
+   "lighting": {
+    "observed": 37
+   },
+   "tap": {
+    "delivered": 33
+   },
+   "native_after_listener_drop": {
+    "applied": 1
+   },
+   "native_after_row_lock": {
+    "applied": 1
+   },
+   "native_expired_on_arrival": {
+    "expired": 1,
+    "delivered": 0
+   }
+  },
+  "screen_session": {
+   "first_frame_after_session_ms": 6660,
+   "frames_during_session": 143,
+   "taps_executed": 33
+  },
+  "viewer_bridge_age_ms": {
+   "native": {
+    "n": 60,
+    "p50": 7249,
+    "p95": 13278,
+    "p99": 13593,
+    "max": 13593
+   },
+   "lighting": {
+    "n": 60,
+    "p50": 2800,
+    "p95": 5749,
+    "p99": 5765,
+    "max": 5765
+   }
+  },
+  "database_statements": {
+   "api_role_calls": 20430,
+   "api_role_exec_ms": 1041
+  }
+ },
+ "after": {
+  "label": "new",
+  "generated_at": "2026-10-21T04:25:11.368Z",
+  "environment": "local Supabase stack (postgres 17.6.1.127, PostgREST 14.5, edge-runtime 1.69.28); clients: native bridge 2.1.2 (installed), screen agent 1.0.1 (installed), lighting bridge 2.1.0 (JDK 8)",
+  "clock_offset_ms": 17,
+  "phase_ms": {
+   "idle": 600007,
+   "commands": 862163,
+   "viewer": 301325,
+   "session": 178505,
+   "faults": 238262
+  },
+  "invocation_rates": {
+   "idle": {
+    "lighting-native-agent:sync": {
+     "calls": 60,
+     "errors": 0,
+     "calls_per_hour": 360,
+     "duration_ms": {
+      "n": 60,
+      "p50": 9017,
+      "p95": 9054,
+      "p99": 9111,
+      "max": 9111
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 12,
+     "errors": 0,
+     "calls_per_hour": 72,
+     "duration_ms": {
+      "n": 12,
+      "p50": 16015,
+      "p95": 16027,
+      "p99": 16027,
+      "max": 16027
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 13,
+     "errors": 0,
+     "calls_per_hour": 78,
+     "duration_ms": {
+      "n": 13,
+      "p50": 16015,
+      "p95": 16083,
+      "p99": 16083,
+      "max": 16083
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 12,
+     "errors": 0,
+     "calls_per_hour": 72,
+     "duration_ms": {
+      "n": 12,
+      "p50": 16012,
+      "p95": 16018,
+      "p99": 16018,
+      "max": 16018
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 13,
+     "errors": 0,
+     "calls_per_hour": 78,
+     "duration_ms": {
+      "n": 13,
+      "p50": 16014,
+      "p95": 16085,
+      "p99": 16085,
+      "max": 16085
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 12,
+     "errors": 0,
+     "calls_per_hour": 72,
+     "duration_ms": {
+      "n": 12,
+      "p50": 16019,
+      "p95": 16028,
+      "p99": 16028,
+      "max": 16028
+     }
+    },
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 12,
+     "errors": 0,
+     "calls_per_hour": 72,
+     "duration_ms": {
+      "n": 12,
+      "p50": 16016,
+      "p95": 16122,
+      "p99": 16122,
+      "max": 16122
+     }
+    },
+    "_total": {
+     "calls_per_hour": 804,
+     "projected_31_days": 598176
+    }
+   },
+   "commands": {
+    "gas-mixer-native-agent:state": {
+     "calls": 106,
+     "errors": 0,
+     "calls_per_hour": 443,
+     "duration_ms": {
+      "n": 106,
+      "p50": 31,
+      "p95": 48,
+      "p99": 119,
+      "max": 9149
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 106,
+     "errors": 0,
+     "calls_per_hour": 443,
+     "duration_ms": {
+      "n": 106,
+      "p50": 8009,
+      "p95": 8019,
+      "p99": 8022,
+      "max": 8022
+     }
+    },
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 68,
+     "errors": 0,
+     "calls_per_hour": 284,
+     "duration_ms": {
+      "n": 68,
+      "p50": 37,
+      "p95": 52,
+      "p99": 142,
+      "max": 142
+     }
+    },
+    "gas-mixer-native-agent:ack": {
+     "calls": 76,
+     "errors": 0,
+     "calls_per_hour": 317,
+     "duration_ms": {
+      "n": 76,
+      "p50": 8,
+      "p95": 13,
+      "p99": 15,
+      "max": 15
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 212,
+     "errors": 0,
+     "calls_per_hour": 885,
+     "duration_ms": {
+      "n": 212,
+      "p50": 4011,
+      "p95": 4023,
+      "p99": 4104,
+      "max": 9018
+     }
+    },
+    "lighting-native-agent:result": {
+     "calls": 37,
+     "errors": 0,
+     "calls_per_hour": 154,
+     "duration_ms": {
+      "n": 37,
+      "p50": 14,
+      "p95": 21,
+      "p99": 27,
+      "max": 27
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 18,
+     "errors": 0,
+     "calls_per_hour": 75,
+     "duration_ms": {
+      "n": 18,
+      "p50": 16016,
+      "p95": 16093,
+      "p99": 16093,
+      "max": 16093
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 18,
+     "errors": 0,
+     "calls_per_hour": 75,
+     "duration_ms": {
+      "n": 18,
+      "p50": 16013,
+      "p95": 16116,
+      "p99": 16116,
+      "max": 16116
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 17,
+     "errors": 0,
+     "calls_per_hour": 71,
+     "duration_ms": {
+      "n": 17,
+      "p50": 16013,
+      "p95": 16093,
+      "p99": 16093,
+      "max": 16093
+     }
+    },
+    "_total": {
+     "calls_per_hour": 2747,
+     "projected_31_days": 2043768
+    }
+   },
+   "viewer": {
+    "lighting-native-agent:sync": {
+     "calls": 61,
+     "errors": 0,
+     "calls_per_hour": 729,
+     "duration_ms": {
+      "n": 61,
+      "p50": 4013,
+      "p95": 4021,
+      "p99": 4106,
+      "max": 4106
+     }
+    },
+    "lighting-native-agent:result": {
+     "calls": 1,
+     "errors": 0,
+     "calls_per_hour": 12,
+     "duration_ms": {
+      "n": 1,
+      "p50": 12,
+      "p95": 12,
+      "p99": 12,
+      "max": 12
+     }
+    },
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 30,
+     "errors": 0,
+     "calls_per_hour": 358,
+     "duration_ms": {
+      "n": 30,
+      "p50": 34,
+      "p95": 53,
+      "p99": 120,
+      "max": 120
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 30,
+     "errors": 0,
+     "calls_per_hour": 358,
+     "duration_ms": {
+      "n": 30,
+      "p50": 25,
+      "p95": 30,
+      "p99": 32,
+      "max": 32
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 30,
+     "errors": 0,
+     "calls_per_hour": 358,
+     "duration_ms": {
+      "n": 30,
+      "p50": 8013,
+      "p95": 8022,
+      "p99": 8024,
+      "max": 8024
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 7,
+     "errors": 0,
+     "calls_per_hour": 84,
+     "duration_ms": {
+      "n": 7,
+      "p50": 16011,
+      "p95": 16090,
+      "p99": 16090,
+      "max": 16090
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 6,
+     "errors": 0,
+     "calls_per_hour": 72,
+     "duration_ms": {
+      "n": 6,
+      "p50": 16016,
+      "p95": 16024,
+      "p99": 16024,
+      "max": 16024
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 6,
+     "errors": 0,
+     "calls_per_hour": 72,
+     "duration_ms": {
+      "n": 6,
+      "p50": 16016,
+      "p95": 16018,
+      "p99": 16018,
+      "max": 16018
+     }
+    },
+    "_total": {
+     "calls_per_hour": 2043,
+     "projected_31_days": 1519992
+    }
+   },
+   "session": {
+    "gas-mixer-agent:heartbeat": {
+     "calls": 18,
+     "errors": 0,
+     "calls_per_hour": 363,
+     "duration_ms": {
+      "n": 18,
+      "p50": 29,
+      "p95": 49,
+      "p99": 49,
+      "max": 49
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 148,
+     "errors": 0,
+     "calls_per_hour": 2985,
+     "duration_ms": {
+      "n": 148,
+      "p50": 49,
+      "p95": 64,
+      "p99": 139,
+      "max": 235
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 280,
+     "errors": 0,
+     "calls_per_hour": 5647,
+     "duration_ms": {
+      "n": 280,
+      "p50": 513,
+      "p95": 525,
+      "p99": 587,
+      "max": 694
+     }
+    },
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 6,
+     "errors": 0,
+     "calls_per_hour": 121,
+     "duration_ms": {
+      "n": 6,
+      "p50": 40,
+      "p95": 16019,
+      "p99": 16019,
+      "max": 16019
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 6,
+     "errors": 0,
+     "calls_per_hour": 121,
+     "duration_ms": {
+      "n": 6,
+      "p50": 25,
+      "p95": 16085,
+      "p99": 16085,
+      "max": 16085
+     }
+    },
+    "gas-mixer-agent:ack": {
+     "calls": 35,
+     "errors": 0,
+     "calls_per_hour": 706,
+     "duration_ms": {
+      "n": 35,
+      "p50": 7,
+      "p95": 10,
+      "p99": 31,
+      "max": 31
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 21,
+     "errors": 0,
+     "calls_per_hour": 424,
+     "duration_ms": {
+      "n": 21,
+      "p50": 9010,
+      "p95": 9023,
+      "p99": 9097,
+      "max": 9097
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 6,
+     "errors": 0,
+     "calls_per_hour": 121,
+     "duration_ms": {
+      "n": 6,
+      "p50": 8014,
+      "p95": 16014,
+      "p99": 16014,
+      "max": 16014
+     }
+    },
+    "_total": {
+     "calls_per_hour": 10488,
+     "projected_31_days": 7803072
+    }
+   },
+   "faults": {
+    "gas-mixer-native-agent:heartbeat": {
+     "calls": 12,
+     "errors": 0,
+     "calls_per_hour": 181,
+     "duration_ms": {
+      "n": 12,
+      "p50": 50,
+      "p95": 16026,
+      "p99": 16026,
+      "max": 16026
+     }
+    },
+    "gas-mixer-native-agent:state": {
+     "calls": 14,
+     "errors": 0,
+     "calls_per_hour": 212,
+     "duration_ms": {
+      "n": 14,
+      "p50": 33,
+      "p95": 16023,
+      "p99": 16023,
+      "max": 16023
+     }
+    },
+    "gas-mixer-native-agent:poll": {
+     "calls": 13,
+     "errors": 0,
+     "calls_per_hour": 196,
+     "duration_ms": {
+      "n": 13,
+      "p50": 8009,
+      "p95": 16012,
+      "p99": 16012,
+      "max": 16012
+     }
+    },
+    "lighting-native-agent:sync": {
+     "calls": 24,
+     "errors": 0,
+     "calls_per_hour": 363,
+     "duration_ms": {
+      "n": 24,
+      "p50": 9017,
+      "p95": 9026,
+      "p99": 9106,
+      "max": 9106
+     }
+    },
+    "gas-mixer-native-agent:ack": {
+     "calls": 4,
+     "errors": 0,
+     "calls_per_hour": 60,
+     "duration_ms": {
+      "n": 4,
+      "p50": 7,
+      "p95": 11,
+      "p99": 11,
+      "max": 11
+     }
+    },
+    "gas-mixer-agent:poll": {
+     "calls": 5,
+     "errors": 0,
+     "calls_per_hour": 76,
+     "duration_ms": {
+      "n": 5,
+      "p50": 16018,
+      "p95": 16022,
+      "p99": 16022,
+      "max": 16022
+     }
+    },
+    "gas-mixer-agent:heartbeat": {
+     "calls": 5,
+     "errors": 0,
+     "calls_per_hour": 76,
+     "duration_ms": {
+      "n": 5,
+      "p50": 16011,
+      "p95": 16019,
+      "p99": 16019,
+      "max": 16019
+     }
+    },
+    "gas-mixer-agent:frame": {
+     "calls": 5,
+     "errors": 0,
+     "calls_per_hour": 76,
+     "duration_ms": {
+      "n": 5,
+      "p50": 16012,
+      "p95": 16114,
+      "p99": 16114,
+      "max": 16114
+     }
+    },
+    "_total": {
+     "calls_per_hour": 1240,
+     "projected_31_days": 922560
+    }
+   }
+  },
+  "command_latency_ms": {
+   "native": {
+    "queue_to_agent_ms": {
+     "n": 38,
+     "p50": 30,
+     "p95": 1600,
+     "p99": 2011,
+     "max": 2011
+    },
+    "queue_to_applied_ms": {
+     "n": 38,
+     "p50": 2084,
+     "p95": 3661,
+     "p99": 4051,
+     "max": 4051
+    }
+   },
+   "lighting": {
+    "queue_to_agent_ms": {
+     "n": 38,
+     "p50": 1081,
+     "p95": 1094,
+     "p99": 1099,
+     "max": 1099
+    },
+    "queue_to_applied_ms": {
+     "n": 38,
+     "p50": 1070,
+     "p95": 1082,
+     "p99": 1088,
+     "max": 1088
+    }
+   },
+   "tap": {
+    "queue_to_agent_ms": {
+     "n": 35,
+     "p50": 26,
+     "p95": 98,
+     "p99": 171,
+     "max": 171
+    },
+    "queue_to_applied_ms": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "p99": null,
+     "max": null
+    }
+   },
+   "native_after_listener_drop": {
+    "queue_to_agent_ms": {
+     "n": 1,
+     "p50": 2085,
+     "p95": 2085,
+     "p99": 2085,
+     "max": 2085
+    },
+    "queue_to_applied_ms": {
+     "n": 1,
+     "p50": 4126,
+     "p95": 4126,
+     "p99": 4126,
+     "max": 4126
+    }
+   },
+   "native_after_row_lock": {
+    "queue_to_agent_ms": {
+     "n": 1,
+     "p50": 34,
+     "p95": 34,
+     "p99": 34,
+     "max": 34
+    },
+    "queue_to_applied_ms": {
+     "n": 1,
+     "p50": 2087,
+     "p95": 2087,
+     "p99": 2087,
+     "max": 2087
+    }
+   }
+  },
+  "command_outcomes": {
+   "native": {
+    "applied": 38
+   },
+   "lighting": {
+    "observed": 38
+   },
+   "tap": {
+    "delivered": 35
+   },
+   "native_after_listener_drop": {
+    "applied": 1
+   },
+   "native_after_row_lock": {
+    "applied": 1
+   },
+   "native_expired_on_arrival": {
+    "expired": 1,
+    "delivered": 0
+   }
+  },
+  "screen_session": {
+   "first_frame_after_session_ms": 195,
+   "frames_during_session": 148,
+   "taps_executed": 35
+  },
+  "viewer_bridge_age_ms": {
+   "native": {
+    "n": 60,
+    "p50": 2551,
+    "p95": 7504,
+    "p99": 7622,
+    "max": 7622
+   },
+   "lighting": {
+    "n": 60,
+    "p50": 2943,
+    "p95": 3099,
+    "p99": 3170,
+    "max": 3170
+   }
+  },
+  "database_statements": {
+   "api_role_calls": 11990,
+   "api_role_exec_ms": 4566
+  }
+ },
+ "model": {
+  "generated_from": "scripts/budget/edge-budget-model.mjs",
+  "pricing": {
+   "includedInvocations": 2000000,
+   "targetInvocations": 1200000,
+   "overagePerMillionUsd": 2,
+   "source": "https://supabase.com/docs/guides/platform/manage-your-usage/edge-function-invocations (read 2026-10-21)"
+  },
+  "installed_clients": {
+   "native": {
+    "version": "exacth2o-gas-mixer-native-bridge/2.1.2",
+    "waitAfterCycleS": 2,
+    "heartbeatEveryS": 10,
+    "timeoutS": 20
+   },
+   "screen": {
+    "version": "exacth2o-gas-mixer-agent/1.0.1",
+    "heartbeatEveryS": 10,
+    "frameEveryS": 1.25,
+    "pollEveryS": 0.5,
+    "loopSleepS": 0.1,
+    "timeoutS": 20
+   },
+   "lighting": {
+    "version": "exacth2o-lighting-bridge-2.1.0",
+    "sleepS": 1,
+    "readTimeoutS": 12
+   }
+  },
+  "server_budget": {
+   "pythonResponseBudgetMs": 16000,
+   "javaResponseBudgetMs": 9000,
+   "lightingAttendedHoldMs": 4000,
+   "nativeAttendedPollHoldMs": 8000,
+   "screenSessionHoldMs": 500,
+   "syncHoldMaxMs": 25000,
+   "syncClientMarginMs": 5000,
+   "fallbackQueryIntervalMs": 2000,
+   "lightingFallbackIdleMs": 5000,
+   "legacyIdleHoldMs": 12000,
+   "wakeConnectTimeoutMs": 1200,
+   "minimumHoldMs": 250
+  },
+  "agent_rates_held": {
+   "native": {
+    "unattendedPerDay": 5184,
+    "attendedPerHour": 1009.3457943925234,
+    "unattendedCycleS": 50
+   },
+   "screen": {
+    "unattendedPerDay": 5333.333333333333,
+    "sessionPerHour": 8346.382978723404,
+    "unattendedCycleS": 48.6
+   },
+   "lighting": {
+    "unattendedPerDay": 8550.22266204849,
+    "attendedPerHour": 705.1909892262487,
+    "unattendedCycleS": 10.105
+   }
+  },
+  "agent_rates_deployed_2026_10_20": {
+   "native": {
+    "unattendedPerDay": 17222.591362126248,
+    "attendedPerHour": 717.607973421927,
+    "unattendedCycleS": 15.049999999999999
+   },
+   "screen": {
+    "unattendedPerDay": 18989.010989010992,
+    "sessionPerHour": 10440,
+    "unattendedCycleS": 13.649999999999999
+   },
+   "lighting": {
+    "unattendedPerDay": 14152.334152334151,
+    "attendedPerHour": 589.6805896805896,
+    "unattendedCycleS": 6.105
+   }
+  },
+  "projections": {
+   "before_normal": {
+    "profile": "normal",
+    "server": "deployed-2026-10-20",
+    "days": 31,
+    "sources": {
+     "gas-mixer-native-agent": 533900,
+     "gas-mixer-agent": 638511,
+     "lighting-native-agent": 438722,
+     "commands": 3720,
+     "receive-walker-telemetry": 96627,
+     "sync-owner-health (control executor watchdog, 120 s)": 22320,
+     "sync-owner-health (GitHub watchdog, 30 min)": 1488,
+     "website-analytics (admin home tile, visible)": 1736,
+     "interactive control/session/manual-hold calls": 1240,
+     "sync-owner-health (Supabase Cron)": 8928,
+     "assistant-automation-runner (Supabase Cron)": 8928
+    },
+    "total": 1756120,
+    "percent_of_included": 87.8,
+    "headroom_percent": 12.2,
+    "meets_target": false
+   },
+   "after_normal": {
+    "profile": "normal",
+    "server": "held",
+    "days": 31,
+    "sources": {
+     "gas-mixer-native-agent": 209891,
+     "gas-mixer-agent": 207308,
+     "lighting-native-agent": 286691,
+     "commands": 3720,
+     "receive-walker-telemetry": 96627,
+     "sync-owner-health (control executor watchdog, 120 s)": 22320,
+     "sync-owner-health (GitHub watchdog, 30 min)": 1488,
+     "website-analytics (admin home tile, visible)": 1736,
+     "interactive control/session/manual-hold calls": 1240,
+     "sync-owner-health (Supabase Cron)": 310,
+     "assistant-automation-runner (Supabase Cron)": 0
+    },
+    "total": 831331,
+    "percent_of_included": 41.6,
+    "headroom_percent": 58.4,
+    "meets_target": true
+   },
+   "before_busy": {
+    "profile": "busy",
+    "server": "deployed-2026-10-20",
+    "days": 31,
+    "sources": {
+     "gas-mixer-native-agent": 533900,
+     "gas-mixer-agent": 887772,
+     "lighting-native-agent": 438722,
+     "commands": 18600,
+     "receive-walker-telemetry": 96627,
+     "sync-owner-health (control executor watchdog, 120 s)": 22320,
+     "sync-owner-health (GitHub watchdog, 30 min)": 1488,
+     "website-analytics (admin home tile, visible)": 1736,
+     "interactive control/session/manual-hold calls": 1240,
+     "sync-owner-health (Supabase Cron)": 8928,
+     "assistant-automation-runner (Supabase Cron)": 8928
+    },
+    "total": 2020261,
+    "percent_of_included": 101,
+    "headroom_percent": -1,
+    "meets_target": false
+   },
+   "after_busy": {
+    "profile": "busy",
+    "server": "held",
+    "days": 31,
+    "sources": {
+     "gas-mixer-native-agent": 357454,
+     "gas-mixer-agent": 417182,
+     "lighting-native-agent": 351592,
+     "commands": 18600,
+     "receive-walker-telemetry": 96627,
+     "sync-owner-health (control executor watchdog, 120 s)": 22320,
+     "sync-owner-health (GitHub watchdog, 30 min)": 1488,
+     "website-analytics (admin home tile, visible)": 1736,
+     "interactive control/session/manual-hold calls": 1240,
+     "sync-owner-health (Supabase Cron)": 310,
+     "assistant-automation-runner (Supabase Cron)": 0
+    },
+    "total": 1268549,
+    "percent_of_included": 63.4,
+    "headroom_percent": 36.6,
+    "meets_target": false
+   },
+   "after_normal_no_listener": {
+    "profile": "normal",
+    "server": "held-no-listener",
+    "days": 31,
+    "sources": {
+     "gas-mixer-native-agent": 429690,
+     "gas-mixer-agent": 504360,
+     "lighting-native-agent": 438722,
+     "commands": 3720,
+     "receive-walker-telemetry": 96627,
+     "sync-owner-health (control executor watchdog, 120 s)": 22320,
+     "sync-owner-health (GitHub watchdog, 30 min)": 1488,
+     "website-analytics (admin home tile, visible)": 1736,
+     "interactive control/session/manual-hold calls": 1240,
+     "sync-owner-health (Supabase Cron)": 310,
+     "assistant-automation-runner (Supabase Cron)": 0
+    },
+    "total": 1500213,
+    "percent_of_included": 75,
+    "headroom_percent": 25,
+    "meets_target": false
+   }
+  }
+ },
+ "production_observations": {
+  "window": "2026-10-20/21 (read-only)",
+  "edge_24h_2026-10-20T02:13Z": {
+   "total": 172189,
+   "gas-mixer-agent": 80269,
+   "lighting-native-agent": 57027,
+   "gas-mixer-native-agent": 30473,
+   "receive-walker-telemetry": 3117,
+   "sync-owner-health": 947,
+   "assistant-automation-runner": 288,
+   "website-analytics": 56,
+   "note": "mixer agents online until 20:12Z against the pre-2026-10-20-fix server; 402s during the quota restriction included"
+  },
+  "edge_1h_2026-10-21T01:13Z": {
+   "total": 761,
+   "lighting-native-agent": 585,
+   "receive-walker-telemetry": 120,
+   "sync-owner-health": 42,
+   "assistant-automation-runner": 12,
+   "website-analytics": 2,
+   "projected_31_days": 566184,
+   "note": "mixer offline"
+  },
+  "lighting_execution_ms_1h": {
+   "p50": 5121,
+   "p95": 5177,
+   "p99": 5350,
+   "max": 6155
+  },
+  "gateway_requests_1h": 5064,
+  "command_history_30_days": {
+   "gas_native": {
+    "n": 70,
+    "by_status": {
+     "rejected": 13,
+     "applied": 42,
+     "expired": 15
+    },
+    "ttl_s": [
+     15
+    ],
+    "accept_p50": 6.3173265,
+    "accept_p95": 13.78649475,
+    "accept_max": 15.509538,
+    "apply_p50": 6.6608415,
+    "apply_p95": 14.12469475,
+    "apply_max": 15.814538,
+    "errors": {
+     "Invalid isoformat string: '2026-10-17T10:00:20.96004+00:00'": 1,
+     "Invalid isoformat string: '2026-10-01T02:00:39.51391+00:00'": 1,
+     "Invalid isoformat string: '2026-10-18T02:06:43.53106+00:00'": 1,
+     "Mixer state revision changed": 6,
+     "Invalid isoformat string: '2026-10-20T02:03:01.81733+00:00'": 1,
+     "Invalid isoformat string: '2026-10-19T11:31:26.1225+00:00'": 1,
+     "Command expired before the bridge accepted it": 15,
+     "Invalid isoformat string: '2026-10-14T10:01:46.97283+00:00'": 1,
+     "Invalid isoformat string: '2026-10-19T11:33:01.47551+00:00'": 1
+    }
+   },
+   "lighting": {
+    "n": 51,
+    "by_status": {
+     "observed": 51
+    },
+    "ttl_s": [
+     20
+    ],
+    "recv_p50": 0.626424,
+    "recv_p95": 1.2057885,
+    "recv_max": 8.126431,
+    "obs_p50": 3.544515,
+    "obs_p95": 17.411229,
+    "errors": null
+   }
+  },
+  "database": {
+   "size": "2811 MB",
+   "sensor_readings": "1903 MB (530 MB heap, 1373 MB indexes)",
+   "cron.job_run_details": "124 MB, 753417 rows",
+   "stats_since": "2026-07-26"
+  }
+ }
+}
