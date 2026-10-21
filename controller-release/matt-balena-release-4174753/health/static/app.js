@@ -1235,7 +1235,7 @@ function updateTiles(data) {
     ["System state", state || "--"],
     ["API response", apiOk && data.api.healthcheck ? `${data.api.healthcheck.elapsedMs} ms` : "failed"],
     ["Scheduler jobs", ownerStatus.scheduler_jobs_loaded !== undefined ? ownerStatus.scheduler_jobs_loaded : "--"],
-    ["Expected Matt jobs", ownerStatus.scheduler_expected_matt_jobs !== undefined ? ownerStatus.scheduler_expected_matt_jobs : "--"],
+    ["Expected configured jobs", ownerStatus.scheduler_expected_matt_jobs !== undefined ? ownerStatus.scheduler_expected_matt_jobs : "--"],
     ["Extra jobs loaded", ownerStatus.scheduler_extra_jobs_loaded !== undefined ? ownerStatus.scheduler_extra_jobs_loaded : "--"],
     ["Last checked", dateTimeText(ownerStatus.last_checked_at || data.generatedAt)],
   ], controllerLevel);
@@ -1487,7 +1487,7 @@ function updateApiFacts(data) {
     ["Last sensor reading", dateTimeText(ownerStatus.last_sensor_reading_at)],
     ["Last DB write", dateTimeText(ownerStatus.last_database_write_at)],
     ["Scheduler jobs", ownerStatus.scheduler_jobs_loaded !== undefined ? ownerStatus.scheduler_jobs_loaded : scheduler.available ? scheduler.totalPending : "--"],
-    ["Expected Matt jobs", ownerStatus.scheduler_expected_matt_jobs !== undefined ? ownerStatus.scheduler_expected_matt_jobs : "--"],
+    ["Expected configured jobs", ownerStatus.scheduler_expected_matt_jobs !== undefined ? ownerStatus.scheduler_expected_matt_jobs : "--"],
     ["Extra scheduler jobs", ownerStatus.scheduler_extra_jobs_loaded !== undefined ? ownerStatus.scheduler_extra_jobs_loaded : "--"],
     ["Known issues", (ownerStatus.known_issues || []).length],
     ["System state", data.api && data.api.system && data.api.system.data && data.api.system.data.state],

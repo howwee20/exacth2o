@@ -3,10 +3,32 @@ import test from "node:test";
 import {
   applyNativeField,
   nativeAckPreviousStatuses,
+  nativeCommandForBridge,
   bridgeIsReady,
   normalizeNativeField,
   normalizeNativeMachineState,
 } from "./gas-mixer-native-policy.mjs";
+
+test("bridge timestamps accept the exact five-digit expiry rejected in production", () => {
+  const command = { id: "test", payload: { field: "use_licor", value: true }, expected_revision: 42,
+    created_at: "2026-10-20T02:02:46.81733+00:00", expires_at: "2026-10-20T02:03:01.81733+00:00" };
+  const normalized = nativeCommandForBridge(command);
+  assert.equal(normalized.expires_at, "2026-10-20T02:03:01.817Z");
+  assert.equal(normalized.created_at, "2026-10-20T02:02:46.817Z");
+  assert.deepEqual(normalized.payload, command.payload);
+  assert.equal(normalized.expected_revision, 42);
+  assert.equal(command.expires_at, "2026-10-20T02:03:01.81733+00:00");
+});
+
+test("timestamp formatting handles every PostgreSQL fractional precision without extending expiry", () => {
+  for (const fraction of ["", ".1", ".12", ".123", ".1234", ".12345", ".123456"]) {
+    const value = `2026-10-20T02:03:01${fraction}+00:00`;
+    const result = nativeCommandForBridge({ created_at: value, expires_at: value });
+    assert.match(result.expires_at, /\.\d{3}Z$/);
+    assert.equal(Date.parse(result.expires_at), Date.parse(value));
+  }
+  assert.throws(() => nativeCommandForBridge({ created_at: "invalid", expires_at: "invalid" }));
+});
 
 const state = {
   use_licor: false,

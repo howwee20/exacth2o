@@ -128,9 +128,11 @@ RESEARCHER_MAP = [
     (50, "Zone2-Pot50", "D30GQN2D:2", "0x20:2", "standard"),
     (91, "Zone4-Pot91", "D30GQN2E:p", "0x20:44", "standard"),
     (92, "Zone4-Pot92", "D30GQN2E:q", "0x20:45", "standard"),
-    (93, "Zone4-Pot93", "D30GQN2E:r", "0x20:46", "standard"),
+    # Software assignments in revision 08afcbb9 (2026-08-02), also confirmed
+    # by the current controller configuration. This is not physical verification.
+    (93, "Zone4-Pot93", "D30GQN2E:o", "0x20:46", "software assignment updated July 23"),
     (94, "Zone4-Pot94", "D30GQN2E:s", "0x20:47", "standard"),
-    (95, "Zone4-Pot95", "D30GQN2E:o", "0x20:48", "replacement o"),
+    (95, "Zone4-Pot95", "D30GQN2E:r", "0x20:48", "software assignment updated July 23"),
     (96, "Zone4-Pot96", "D30GQN2E:u", "0x20:39", "piped from row 86"),
     (97, "Zone4-Pot97", "D30GQN2E:v", "0x20:40", "piped from row 87"),
     (98, "Zone4-Pot98", "D30GQN2E:w", "0x20:41", "piped from row 88"),
@@ -2477,7 +2479,11 @@ def canonical_owner_status(health):
     public_reachable_raw = bool((public_url.get("ownerHealth") or public_url.get("dashboard") or {}).get("ok"))
     public_reachable = public_reachable_raw or api_ok
     scheduler_jobs = scheduler.get("totalPending")
-    scheduler_diag = scheduler_diagnostics(scheduler, sensors_expected)
+    # The scheduler serves every configured pairing, not only the legacy
+    # 20-pot researcher map. Compare counts only with a successful API read.
+    pairing_inventory = api.get("pairings") or {}
+    configured_jobs = pairing_inventory.get("count") if pairing_inventory.get("ok") else None
+    scheduler_diag = scheduler_diagnostics(scheduler, configured_jobs)
     uptime_seconds = hardware.get("uptimeSeconds")
     restart_summary = recent_restart_summary(uptime_seconds, health.get("generatedAt"), hours=24)
     restart_count = restart_summary.get("count", 0)
@@ -2521,7 +2527,7 @@ def canonical_owner_status(health):
         active_alerts.append("Scheduler has no queued jobs.")
     if scheduler_diag.get("overloaded"):
         active_alerts.append(
-            f"Scheduler is loading {scheduler_diag['jobsLoaded']} jobs for {sensors_expected} Matt pots; {scheduler_diag['extraJobsLoaded']} extra jobs are likely unused backlog/noise."
+            f"Scheduler has {scheduler_diag['jobsLoaded']} pending jobs for {configured_jobs} configured pairings; inspect the {scheduler_diag['extraJobsLoaded']} excess jobs."
         )
     if scheduler.get("available") is False:
         active_alerts.append("Scheduler queue could not be checked.")

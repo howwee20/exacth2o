@@ -42,6 +42,17 @@ export function bridgeIsReady(state, nowMs = Date.now()) {
   return Number.isFinite(heartbeatMs) && heartbeatMs >= nowMs - 45_000;
 }
 
+// Postgres emits 1-6 fractional digits; the installed Python's fromisoformat
+// accepts only 3 or 6. Canonical milliseconds preserve compatibility and can
+// only shorten an expiry by less than 1 ms, never extend the command lifetime.
+export function nativeCommandForBridge(command) {
+  return {
+    ...command,
+    created_at: new Date(command.created_at).toISOString(),
+    expires_at: new Date(command.expires_at).toISOString(),
+  };
+}
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
