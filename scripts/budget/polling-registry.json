@@ -96,6 +96,18 @@
       "setInterval": 1,
       "cadence": "4 s command status/readback while a settings batch is unsettled, stops after 8 min; database only",
       "edge": false
+    },
+    "research-portal/src/autocalibrate/RunProgress.tsx": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "5 s elapsed-time display, no request",
+      "edge": false
+    },
+    "research-portal/src/autocalibrate/runStore.ts": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 2,
+      "cadence": "30 s active session heartbeat and manual ownership check; 2 min changed-evidence checkpoint during real runs; database only",
+      "edge": false
     }
   }
 }
