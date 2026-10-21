@@ -12,7 +12,7 @@ type SettingsAssistantProps = {
   autoReview?: boolean;
   embedded?: boolean;
   controlBusy: boolean;
-  onApply: (plan: SettingsPlan, configHash: string) => Promise<void>;
+  onApply: (plan: SettingsPlan, configHash: string) => Promise<unknown>;
 };
 
 export function SettingsAssistant({

@@ -15,25 +15,79 @@ export type PotRoute = {
   updatedAt?: string;
   reason?: string;
 };
-export type RouteBook = { pots: PotRoute[]; boards: number[]; canConfirm: boolean };
-export type HoldAction = 'start' | 'renew' | 'stop' | 'status';
+
+/**
+ * One configured valve output (solenoid), identified by its board and channel. The
+ * solenoid number is the label recorded for that output, never a display index; the
+ * physical pot is known only from a recorded field route.
+ */
+export type ValveOutput = {
+  key: string;
+  relayAddress: number;
+  channel: number;
+  solenoidNumber: number | null;
+  labelStatus: 'confirmed' | 'needs_confirmation' | null;
+  labelSource: string | null;
+  pots: number[];
+  candidatePots: number[];
+  pairing: { name: string; sensorKey: string | null; namedPot: number | null } | null;
+  sharedPairings?: string[];
+};
+
+export type RouteBook = {
+  pots: PotRoute[];
+  outputs: ValveOutput[];
+  boards: number[];
+  canConfirm: boolean;
+  canTakeover: boolean;
+  leaseMs: number;
+  renewMs: number;
+};
+
+export type Destination = { kind: 'pot'; potNumber: number } | { kind: 'solenoid'; relayAddress: number; channel: number };
+export type HoldAction = 'start' | 'renew' | 'stop' | 'status' | 'takeover';
 export type HoldReply = {
-  status?: 'open' | 'closed' | 'fault';
+  status?: 'acquiring' | 'opening' | 'open' | 'closed' | 'fault';
   ready?: boolean;
   busy?: boolean;
   available?: boolean;
   error?: string;
-  startedAt?: number;
-  deadline?: number;
+  code?: string;
+  endReason?: string;
+  sequence?: number;
+  openedForMs?: number;
+  remainingMs?: number;
+  leaseMilliseconds?: number;
+  maxContinuousMilliseconds?: number | null;
+  activeOwnerLabel?: string | null;
+  activeRoute?: { relayAddress: number; address: number; label?: string } | null;
+  fault?: string;
+  configRewrite?: boolean;
+  automaticSuspended?: boolean;
+  renewMs?: number;
+  controllerMs?: number;
 };
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string; transient: boolean };
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string; transient: boolean; code?: string };
+export type PostOptions = { keepalive?: boolean; timeoutMs?: number; shouldSend?: () => boolean };
 
 export const routeLabel = (relay: number, channel: number) => `0x${relay.toString(16)} · channel ${channel}`;
+export const boardLabel = (relay: number) => `0x${relay.toString(16)}`;
+
+export function outputName(output: Pick<ValveOutput, 'solenoidNumber' | 'relayAddress' | 'channel'>) {
+  return output.solenoidNumber != null ? `Solenoid ${output.solenoidNumber}` : `Output ${boardLabel(output.relayAddress)}:${output.channel}`;
+}
+
+export function sameDestination(a: Destination | null, b: Destination | null) {
+  if (!a || !b || a.kind !== b.kind) return false;
+  return a.kind === 'pot' ? a.potNumber === (b as typeof a).potNumber : a.relayAddress === (b as typeof a).relayAddress && a.channel === (b as typeof a).channel;
+}
 
 /**
- * Client for the manual-hold Edge Function. The browser names a pot number only; the server
- * owns the controller and route. Press times are sent on the server's clock, estimated from
- * each reply, so a fast or slow computer clock cannot reject or stretch a hold.
+ * Client for the manual-hold Edge Function. The browser names a pot or a configured
+ * output; the server resolves the route and owns the controller. Press times are sent
+ * on the server's clock, estimated from each reply, so a fast or slow computer clock
+ * cannot reject or stretch a hold. Nothing here retries a start or renewal: a lost
+ * request is simply superseded by the next fresh signal, never replayed.
  */
 export class ManualWaterClient {
   private offset = 0;
@@ -48,7 +102,7 @@ export class ManualWaterClient {
 
   serverNow() { return Date.now() + this.offset; }
 
-  async post<T>(body: Record<string, unknown>, options: { keepalive?: boolean; timeoutMs?: number; shouldSend?: () => boolean } = {}): Promise<ApiResult<T> | null> {
+  async post<T>(body: Record<string, unknown>, options: PostOptions = {}): Promise<ApiResult<T> | null> {
     try {
       const token = await this.token();
       if (!token) return { ok: false, status: 401, error: 'Sign in to water manually', transient: false };
@@ -60,6 +114,7 @@ export class ManualWaterClient {
         body: JSON.stringify({ ...body, sentAt: body.sentAt ?? this.serverNow(), projectId: this.projectId, deviceId: this.deviceId }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 4500),
         keepalive: options.keepalive,
+        cache: 'no-store',
       });
       const received = Date.now();
       const data = await response.json().catch(() => ({}));
@@ -70,7 +125,7 @@ export class ManualWaterClient {
         this.offset = data.serverTime - (sent + received) / 2;
       }
       // "late" marks one signal that took too long in transit; later signals may still arrive in time.
-      if (!response.ok) return { ok: false, status: response.status, error: data.error || 'Controller unavailable', transient: response.status >= 500 || data.code === 'late' };
+      if (!response.ok) return { ok: false, status: response.status, error: data.error || 'Controller unavailable', transient: response.status >= 500 || data.code === 'late', code: data.code };
       return { ok: true, data: data as T };
     } catch {
       return { ok: false, status: 0, error: 'Controller connection lost', transient: true };
@@ -79,12 +134,24 @@ export class ManualWaterClient {
 
   candidateTestClient() { return new ManualWaterClient(this.projectId, this.deviceId, this.fetchImpl, this.token, true); }
 
-  routes() { return this.post<RouteBook>({ action: 'routes' }); }
+  inventory() { return this.post<RouteBook>({ action: 'inventory' }); }
+  /** Older name for inventory(). */
+  routes() { return this.inventory(); }
   confirmRoute(potNumber: number, relayAddress: number, channel: number, note: string) {
     return this.post<RouteBook>({ action: 'confirm_route', potNumber, relayAddress, channel, note });
   }
   removeRoute(potNumber: number) { return this.post<RouteBook>({ action: 'remove_route', potNumber }); }
-  hold(action: HoldAction, potNumber: number, sessionId: string, sequence: number, options: { keepalive?: boolean; timeoutMs?: number; shouldSend?: () => boolean } = {}) {
-    return this.post<HoldReply>({ action, potNumber, sessionId, sequence, ...(this.testCandidate ? { testCandidate: true } : {}) }, options);
+  labelOutput(solenoidNumber: number, relayAddress: number, channel: number, note: string) {
+    return this.post<RouteBook>({ action: 'label_output', solenoidNumber, relayAddress, channel, note });
+  }
+  hold(action: HoldAction, destination: Destination | null, sessionId: string, sequence: number, options: PostOptions = {}) {
+    return this.post<HoldReply>({
+      action,
+      sessionId,
+      sequence,
+      ...(destination ? { destination } : {}),
+      ...(destination?.kind === 'pot' ? { potNumber: destination.potNumber } : {}),
+      ...(this.testCandidate ? { testCandidate: true } : {}),
+    }, options);
   }
 }

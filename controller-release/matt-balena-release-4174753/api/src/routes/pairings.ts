@@ -6,7 +6,9 @@ import Calibration from '../models/calibration';
 import { MySQLRowDataPacket } from '@fastify/mysql'
 import { createGzip } from 'zlib'
 import { EXPORT_CHUNK_SIZE, formatDateInCentralTime, escapeCsvValue, writeToGzip } from '../utils/csvExportUtils'
-import { sendApiError, withTimeout } from '../utils/requestTimeout'
+import { sendApiError, withTimeout, fetchWithTimeout, SYSTEM_CRON_TIMEOUT_MS } from '../utils/requestTimeout'
+import { sequelize } from '../database'
+import { PairingRecord, parseRemapChanges, parseSettingsChanges, planRemap, planSettings } from '../utils/pairingTopology'
 
 async function stopIfSystemStateIsRunning(reply: FastifyReply): Promise<boolean> {
   const system = await withTimeout(System.findOne({ where: { id: 1 } }), 'system state database lookup')
@@ -189,6 +191,124 @@ const deletePairing = async (request: FastifyRequest<{ Params: { sensorId: numbe
     console.error(error);
     reply.code(500).send({ message: 'Internal Server Error' });
   }
+}
+
+const topologyRecord = (row: any): PairingRecord => ({
+  sensorId: Number(row.sensorId),
+  valveId: Number(row.valveId),
+  name: row.name ?? null,
+  groupId: row.groupId ?? null,
+  WTCPercentLimit: row.WTCPercentLimit ?? null,
+  ValveOpenTime: row.ValveOpenTime ?? null,
+  MeasurementInterval: row.MeasurementInterval ?? null,
+  calibrationId: row.calibrationId ?? null,
+})
+
+class TopologyConflict extends Error {
+  constructor(readonly errors: string[]) {
+    super(errors.join('; '))
+  }
+}
+
+/** Ask cron to refuse new hold-to-water sessions while the topology is rewritten. */
+async function topologyLease(action: 'begin' | 'end', id: string) {
+  const response = await fetchWithTimeout(`${process.env.CRON_URL}/valves/config-rewrite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-exacth2o-controller-secret': process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '' },
+    body: JSON.stringify({ action, id, ttlMs: 120_000 }),
+  }, 'topology rewrite lease', SYSTEM_CRON_TIMEOUT_MS)
+  if (!response.ok) {
+    const body: any = await response.json().catch(() => ({}))
+    throw new Error(body?.message || `lease ${action} refused with HTTP ${response.status}`)
+  }
+}
+
+const pairingReadback = async (sensorIds: number[]) => {
+  const rows = await withTimeout(Pairing.findAll({
+    include: [
+      { model: Sensor, attributes: ['address', 'type', 'boardSerialId'] },
+      { model: Valve, attributes: ['address', 'relayAddress'] },
+      { model: Calibration, attributes: ['name', 'polynomialCoefficientsCommaDelimited'] },
+    ],
+  }), 'topology readback')
+  const wanted = new Set(sensorIds)
+  return rows.filter((row: any) => wanted.has(Number(row.sensorId)))
+}
+
+/**
+ * Moves many pots to different valves in ONE transaction: every change applies or
+ * none does, so a crash or error can never leave a half-applied permutation.
+ */
+const remapPairings = async (request: FastifyRequest<{ Body: { remapId?: string; changes?: unknown } }>, reply: FastifyReply) => {
+  if (await stopIfSystemStateIsRunning(reply)) return
+  const parsed = parseRemapChanges(request.body?.changes)
+  if (!parsed.ok) return reply.code(400).send({ message: parsed.errors.join('; '), errors: parsed.errors })
+  const leaseId = String(request.body?.remapId || '').trim().slice(0, 120) || `remap-${Date.now()}`
+  try {
+    await topologyLease('begin', leaseId)
+  } catch (error: any) {
+    return reply.code(409).send({ message: `Topology change refused: ${error?.message || error}` })
+  }
+  try {
+    await sequelize.transaction(async (transaction) => {
+      const rows = await Pairing.findAll({ transaction, lock: transaction.LOCK.UPDATE })
+      const plan = planRemap(rows.map(topologyRecord), parsed.value)
+      if (!plan.ok) throw new TopologyConflict(plan.errors)
+      for (const row of plan.value.deletes) {
+        await Pairing.destroy({ where: { sensorId: row.sensorId, valveId: row.valveId }, transaction })
+      }
+      for (const row of plan.value.creates) {
+        await Pairing.create({ ...row }, { transaction })
+      }
+    })
+    const pairings = await pairingReadback(parsed.value.map((change) => change.sensorId))
+    return reply.send({ ok: true, applied: parsed.value.length, pairings })
+  } catch (error: any) {
+    if (error instanceof TopologyConflict) return reply.code(409).send({ message: error.message, errors: error.errors })
+    console.error('Atomic remap failed and was rolled back', error)
+    return reply.code(500).send({ message: 'Remap failed; the transaction was rolled back' })
+  } finally {
+    await topologyLease('end', leaseId).catch((error) => console.error('Could not end topology lease', error))
+  }
+}
+
+/** Restores (or sets) per-pot watering settings for many pots in ONE transaction. */
+const updatePairingSettings = async (request: FastifyRequest<{ Body: { pairings?: unknown } }>, reply: FastifyReply) => {
+  if (await stopIfSystemStateIsRunning(reply)) return
+  const parsed = parseSettingsChanges(request.body?.pairings)
+  if (!parsed.ok) return reply.code(400).send({ message: parsed.errors.join('; '), errors: parsed.errors })
+  try {
+    await sequelize.transaction(async (transaction) => {
+      const rows = await Pairing.findAll({ transaction, lock: transaction.LOCK.UPDATE })
+      const plan = planSettings(rows.map(topologyRecord), parsed.value)
+      if (!plan.ok) throw new TopologyConflict(plan.errors)
+      for (const change of plan.value) {
+        await Pairing.update({
+          WTCPercentLimit: change.WTCPercentLimit,
+          ValveOpenTime: change.ValveOpenTime,
+          MeasurementInterval: change.MeasurementInterval,
+        }, { where: { sensorId: change.sensorId, valveId: change.valveId }, transaction })
+      }
+    })
+    const pairings = await pairingReadback(parsed.value.map((change) => change.sensorId))
+    return reply.send({ ok: true, applied: parsed.value.length, pairings })
+  } catch (error: any) {
+    if (error instanceof TopologyConflict) return reply.code(409).send({ message: error.message, errors: error.errors })
+    console.error('Bulk settings change failed and was rolled back', error)
+    return reply.code(500).send({ message: 'Settings change failed; the transaction was rolled back' })
+  }
+}
+
+export const remapPairingsRoute: IRoute = {
+  method: 'POST',
+  url: '/pairings/remap',
+  handler: remapPairings
+}
+
+export const updatePairingSettingsRoute: IRoute = {
+  method: 'POST',
+  url: '/pairings/settings',
+  handler: updatePairingSettings
 }
 
 export const getAllPairingsRoute: IRoute = {

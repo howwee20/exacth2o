@@ -220,6 +220,8 @@ export function controlCommandLabel(commandType: ControlCommandType) {
     create_calibration: "Create calibration",
     delete_calibration: "Delete calibration",
     apply_calibration: "Apply calibration",
+    remap_pairing_valves: "Move pots to measured valves",
+    restore_pairing_settings: "Restore pot settings",
     manual_water: "Manual water",
     update_board_config: "Update board config",
     initialize_sensors: "Initialize sensors",

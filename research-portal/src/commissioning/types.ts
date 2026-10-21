@@ -7,6 +7,8 @@ export type SelectedPot = {
   potNumber: number | null;
   valveKey: string;
   sensorKey: string;
+  /** A pot whose current pairing the researchers have confirmed: a positive control. */
+  reference?: boolean;
 };
 
 export type Reading = {
@@ -49,6 +51,14 @@ export type PulseTicket = { commandId: string; operationId: string | null };
 
 export type IntakeProbe = { open: boolean; detail: string };
 
+/** A hold-to-water session on this controller, from the manual-hold records. */
+export type ManualIntervention = {
+  id: string;
+  startedAtMs: number;
+  endedAtMs: number | null;
+  label: string;
+};
+
 // Everything the orchestrator may do to the outside world. The real adapter
 // maps these onto the existing authenticated Edge Function and RLS-guarded
 // tables; tests supply a mock controller. There is deliberately no method that
@@ -57,6 +67,11 @@ export type CommissioningPorts = {
   now: () => number;
   sleep: (ms: number, signal: AbortSignal) => Promise<void>;
   readControllerStatus: () => Promise<ControllerStatus>;
+  /**
+   * Readings for these sensors recorded at or after sinceMs. An adapter may return
+   * only rows it has not returned before (incremental paging); the orchestrator
+   * merges and de-duplicates either way.
+   */
   readReadings: (sensorKeys: string[], sinceMs: number) => Promise<Reading[]>;
   countActiveWateringCommands: () => Promise<number>;
   // Selected pairings whose automatic watering target is still active.
@@ -64,6 +79,8 @@ export type CommissioningPorts = {
   probePulseIntake: () => Promise<IntakeProbe>;
   requestPulse: (request: PulseRequest) => Promise<PulseTicket>;
   readCommand: (commandId: string) => Promise<CommandSnapshot | null>;
+  /** Manual hold sessions that started at or after sinceMs, or are still open. */
+  readManualInterventions?: (sinceMs: number) => Promise<ManualIntervention[]>;
 };
 
 export type CommissioningConfig = {
@@ -94,6 +111,10 @@ export type CommissioningConfig = {
   overshootLimitVwc: number;
   reviewConfidence: number;
   safeControllerStates: string[];
+  /** Readings older than this, relative to the current pulse, are dropped from memory. */
+  readingRetentionSeconds: number;
+  /** After manual watering ends, readings are treated as contaminated for this long. */
+  manualSettleSeconds: number;
 };
 
 export type LogKind =
@@ -108,7 +129,9 @@ export type LogKind =
   | "decision"
   | "error"
   | "abort"
-  | "mapping_change";
+  | "interruption"
+  | "mapping_change"
+  | "restore";
 
 export type LogEntry = {
   seq: number;
@@ -162,6 +185,10 @@ export type PulseEvidence = {
   responses: SensorResponse[];
   observedSeconds: number;
   physicalDeliveryVerified: false;
+  /** Which run segment produced it (a resumed run adds a segment). */
+  segment?: number;
+  /** Evidence that must not be used, e.g. manual watering overlapped its observation. */
+  invalidated?: { reason: string; at: string } | null;
 };
 
 export type ProposalFault =
@@ -170,7 +197,8 @@ export type ProposalFault =
   | "cross_talk"
   | "duplicate_claim"
   | "overshoot"
-  | "low_confidence";
+  | "low_confidence"
+  | "reference_conflict";
 
 export type ProposedMapping = {
   valveKey: string;
@@ -192,7 +220,14 @@ export type ProposedMapping = {
 export type UnresolvedValve = {
   valveKey: string;
   pairingName: string;
-  reason: ProposalFault | "not_reached" | "command_failed";
+  reason: ProposalFault | "not_reached" | "command_failed" | "invalidated";
+  detail: string;
+};
+
+/** A selected sensor that no selected valve moved: its water source is unaccounted for. */
+export type UnclaimedSensor = {
+  sensorKey: string;
+  pairingName: string;
   detail: string;
 };
 
@@ -201,8 +236,15 @@ export type RunOutcome =
   | "completed_with_findings"
   | "dry_run_completed"
   | "aborted"
+  | "interrupted"
   | "stopped_by_interlock"
   | "failed";
+
+export type RunInterruption = {
+  at: string;
+  reason: string;
+  source: "manual_watering" | "operator" | "screen_closed" | "connection" | "interlock";
+};
 
 export type CommissioningResult = {
   runId: string;
@@ -216,7 +258,12 @@ export type CommissioningResult = {
   evidence: PulseEvidence[];
   proposals: ProposedMapping[];
   unresolved: UnresolvedValve[];
+  unclaimed: UnclaimedSensor[];
   pulsesRequested: number;
   valveSecondsRequested: number;
   log: LogEntry[];
+  /** Valves whose final evidence is usable; a resumed run skips these. */
+  completedValves: string[];
+  segments: number;
+  interruption: RunInterruption | null;
 };

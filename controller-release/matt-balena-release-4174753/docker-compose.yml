@@ -5,6 +5,7 @@ volumes:
   database: {}
   redis_data: {}
   cron_config: {}
+  watchdog_data: {}
   health_data: {}
   publisher_data: {}
 
@@ -81,6 +82,36 @@ services:
       MIN_WATERING_RETRY_MS: "1800000"
       MAX_WATERING_PULSES_PER_SETTLE_WINDOW: "2"
       VALVE_RECOVERY_DELAY_MS: "30000"
+      # Hold-to-water: renewable controller lease and post-release settling.
+      MANUAL_HOLD_LEASE_MS: "2500"
+      MANUAL_HOLD_SETTLE_MS: "60000"
+      MANUAL_HOLD_PULSE_QUIET_MS: "120000"
+      # Set only from the valve/supply datasheet; unset means no continuous-on cap.
+      # EXACTH2O_VALVE_MAX_CONTINUOUS_ON_MS: ""
+
+  # Independent watchdog: a separate process that forces every relay board's RESET
+  # low if cron_svc stops answering while an output is open past its deadline.
+  valve_watchdog:
+    build:
+      context: ./cron
+      dockerfile: cron.dockerfile
+    command: ["node", "dist/watchdog/main.js"]
+    devices:
+      - "/dev/mem:/dev/mem"
+    privileged: true
+    restart: always
+    volumes:
+      - "watchdog_data:/data"
+    depends_on:
+      - cron_svc
+    environment:
+      VALVE_WATCHDOG_CRON_URL: "http://cron_svc:3000/v1"
+      VALVE_WATCHDOG_RESET_GPIOS: "16"
+      VALVE_WATCHDOG_POLL_MS: "250"
+      VALVE_WATCHDOG_HOLD_GRACE_MS: "1500"
+      VALVE_WATCHDOG_PULSE_GRACE_MS: "5000"
+      VALVE_WATCHDOG_AUTOMATIC_GRACE_MS: "120000"
+      VALVE_WATCHDOG_STATE_FILE: "/data/valve-watchdog.json"
 
   control_executor:
     build:
@@ -199,7 +230,7 @@ services:
       PI_DEVICE_API_BASE: "http://api_svc:8888"
       PI_PUBLIC_URL: "https://3100e37ee3205651fe3dd86dafd4dc0c.balena-devices.com"
       PI_EXPECTED_BOARDS: "0x20,0x24,0x26"
-      PI_EXPECTED_SERVICES: "api_svc,ui_svc,cron_svc,database_svc,redis_svc,health_svc,control_executor,supabase_publisher"
+      PI_EXPECTED_SERVICES: "api_svc,ui_svc,cron_svc,database_svc,redis_svc,health_svc,control_executor,supabase_publisher,valve_watchdog"
       PI_ETH_DEVICE: "eth0"
       PI_CONTROLLER_IPV4: "35.8.86.10"
       PI_HOST_SYS: "/sys"

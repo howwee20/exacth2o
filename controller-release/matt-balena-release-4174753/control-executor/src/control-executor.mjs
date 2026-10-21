@@ -1,6 +1,6 @@
 import { controllerCommandTypes } from "./generated/platform-capabilities.mjs";
 
-const VERSION = "exacth2o-control-executor/0.4.0";
+const VERSION = "exacth2o-control-executor/0.5.0";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const supportedCommandTypes = new Set(controllerCommandTypes);
 
@@ -377,6 +377,12 @@ function resolvePairing(index, name) {
 }
 
 function resolveSensor(index, key) {
+  // SDI-12 addresses are case-sensitive ("p" and "P" are different probes on one
+  // board), so an exact board:address match always wins over the loose lookup.
+  const exactKey = String(key || "").trim();
+  const exact = index.sensors.find((sensor) =>
+    `${firstDefined(sensor?.boardSerialId, sensor?.BoardSerialId, "")}:${firstDefined(sensor?.address, sensor?.Address, "")}` === exactKey);
+  if (exact) return exact;
   const target = normalizeKey(key);
   const match = index.sensors.find((sensor) => sensorKeys(sensor).includes(target));
   if (!match) throw new Error(`Sensor not found: ${key}`);
@@ -490,6 +496,124 @@ function calibrationPayload(payload) {
     polynomialCoefficientsCommaDelimited: String(coefficients),
     readingsJSONString: JSON.stringify(points),
   };
+}
+
+function resolveRemapChanges(index, payload) {
+  const raw = asArray(payload.changes);
+  if (raw.length === 0) throw new Error("remap_pairing_valves requires changes");
+  return raw.map((change) => {
+    const pairing = resolvePairing(index, change.pairing_name);
+    const ids = pairingIds(pairing);
+    const sensor = resolveSensor(index, change.sensor_key);
+    if (!sameId(itemId(sensor), ids.sensorId)) {
+      throw new Error(`Configuration changed: ${change.pairing_name} is no longer on sensor ${change.sensor_key}`);
+    }
+    const fromValve = resolveValve(index, change.from_valve_key);
+    if (!sameId(itemId(fromValve), ids.valveId)) {
+      throw new Error(`Configuration changed: ${change.pairing_name} is no longer on valve ${change.from_valve_key}`);
+    }
+    const toValve = resolveValve(index, change.to_valve_key);
+    return {
+      pairingName: pairName(pairing),
+      sensorKey: change.sensor_key,
+      fromValveKey: change.from_valve_key,
+      toValveKey: change.to_valve_key,
+      sensorId: Number(ids.sensorId),
+      fromValveId: Number(ids.valveId),
+      toValveId: Number(itemId(toValve)),
+      before: pairing,
+    };
+  });
+}
+
+function pairingOn(index, sensorId, valveId) {
+  return index.pairings.find((item) => {
+    try {
+      const ids = pairingIds(item);
+      return sameId(ids.sensorId, sensorId) && sameId(ids.valveId, valveId);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function classifyRemap(index, changes) {
+  const moved = changes.filter((change) => pairingOn(index, change.sensorId, change.toValveId)).length;
+  const original = changes.filter((change) => pairingOn(index, change.sensorId, change.fromValveId)).length;
+  if (moved === changes.length && original === 0) return "applied";
+  if (original === changes.length && moved === 0) return "not_applied";
+  return "unknown";
+}
+
+const carriedFields = [
+  ["name", (item) => pairName(item)],
+  ["group", (item) => firstDefined(item?.groupId, item?.GroupId, item?.group?.id)],
+  ["target", (item) => firstDefined(item?.WTCPercentLimit, item?.wtcPercentLimit)],
+  ["pulse", (item) => firstDefined(item?.ValveOpenTime, item?.valveOpenTime)],
+  ["interval", (item) => firstDefined(item?.MeasurementInterval, item?.measurementInterval)],
+  ["calibration", (item) => firstDefined(item?.calibrationId, item?.CalibrationId, item?.calibration?.id)],
+];
+
+function verifyRemap(index, changes) {
+  const problems = [];
+  for (const change of changes) {
+    const after = pairingOn(index, change.sensorId, change.toValveId);
+    if (!after) {
+      problems.push(`${change.pairingName} is not on valve ${change.toValveKey}`);
+      continue;
+    }
+    if (pairingOn(index, change.sensorId, change.fromValveId)) problems.push(`${change.pairingName} is still also on valve ${change.fromValveKey}`);
+    for (const [label, read] of carriedFields) {
+      if (String(read(after) ?? "") !== String(read(change.before) ?? "")) problems.push(`${change.pairingName} ${label} changed`);
+    }
+  }
+  return problems;
+}
+
+function boundedInteger(value, min, max, label) {
+  if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${label} must be an integer from ${min} to ${max}`);
+  return value;
+}
+
+function resolveSettingsEntries(index, payload) {
+  const raw = asArray(payload.pairings);
+  if (raw.length === 0) throw new Error("restore_pairing_settings requires pairings");
+  return raw.map((entry) => {
+    const pairing = resolvePairing(index, entry.pairing_name);
+    const ids = pairingIds(pairing);
+    if (entry.sensor_key && !sameId(itemId(resolveSensor(index, entry.sensor_key)), ids.sensorId)) {
+      throw new Error(`Configuration changed: ${entry.pairing_name} is no longer on sensor ${entry.sensor_key}`);
+    }
+    if (entry.valve_key && !sameId(itemId(resolveValve(index, entry.valve_key)), ids.valveId)) {
+      throw new Error(`Configuration changed: ${entry.pairing_name} is no longer on valve ${entry.valve_key}`);
+    }
+    const disabled = entry.target_vwc === null || entry.target_vwc === undefined || entry.disable_watering === true;
+    const target = disabled ? -999999 : Number(entry.target_vwc);
+    if (!disabled && !(Number.isFinite(target) && target >= 0 && target <= 100)) throw new Error(`${entry.pairing_name}: target must be 0-100`);
+    return {
+      pairingName: pairName(pairing),
+      sensorId: Number(ids.sensorId),
+      valveId: Number(ids.valveId),
+      WTCPercentLimit: Math.round(target),
+      ValveOpenTime: boundedInteger(entry.valve_open_time_ms, 0, 120000, `${entry.pairing_name} pulse length`),
+      MeasurementInterval: boundedInteger(entry.measurement_interval_ms, 30000, 3600000, `${entry.pairing_name} interval`),
+    };
+  });
+}
+
+function verifySettings(index, entries) {
+  const problems = [];
+  for (const entry of entries) {
+    const after = pairingOn(index, entry.sensorId, entry.valveId);
+    if (!after) {
+      problems.push(`${entry.pairingName} is missing`);
+      continue;
+    }
+    if (Number(firstDefined(after.WTCPercentLimit, after.wtcPercentLimit)) !== entry.WTCPercentLimit) problems.push(`${entry.pairingName} target`);
+    if (Number(firstDefined(after.ValveOpenTime, after.valveOpenTime)) !== entry.ValveOpenTime) problems.push(`${entry.pairingName} pulse length`);
+    if (Number(firstDefined(after.MeasurementInterval, after.measurementInterval)) !== entry.MeasurementInterval) problems.push(`${entry.pairingName} interval`);
+  }
+  return problems;
 }
 
 export async function executeCommand(command, options) {
@@ -624,6 +748,48 @@ export async function executeCommand(command, options) {
     return { dryRun, action: "apply_calibration", results };
   }
 
+  if (command.command_type === "remap_pairing_valves") {
+    await requireStopped(api, "remap_pairing_valves");
+    const index = await loadControllerIndex(api);
+    const changes = resolveRemapChanges(index, payload);
+    if (dryRun) return { dryRun, action: "remap_pairing_valves", changes };
+    let applied;
+    try {
+      applied = await api.post("/pairings/remap", {
+        remapId: String(payload.remap_id || command.id || "").slice(0, 120),
+        changes: changes.map(({ pairingName, sensorId, fromValveId, toValveId }) => ({ pairingName, sensorId, fromValveId, toValveId })),
+      });
+    } catch (error) {
+      if (!(error instanceof IndeterminateMutationError)) throw error;
+      // The remap is a single controller transaction. Read back to learn whether it
+      // committed before deciding the outcome is unknown.
+      const outcome = classifyRemap(await loadControllerIndex(api), changes);
+      if (outcome === "applied") applied = { recoveredByReadback: true };
+      else if (outcome === "not_applied") throw new Error("remap_pairing_valves did not apply (confirmed by controller readback)");
+      else throw error;
+    }
+    const after = await loadControllerIndex(api);
+    const mismatches = verifyRemap(after, changes);
+    if (mismatches.length) {
+      throw new IndeterminateMutationError(`remap readback mismatch: ${mismatches.slice(0, 5).join("; ")}`);
+    }
+    return { dryRun, action: "remap_pairing_valves", applied: changes.length, controller: applied, readback: changes.map(({ pairingName, sensorKey, toValveKey }) => ({ pairingName, sensorKey, valveKey: toValveKey })) };
+  }
+
+  if (command.command_type === "restore_pairing_settings") {
+    await requireStopped(api, "restore_pairing_settings");
+    const index = await loadControllerIndex(api);
+    const entries = resolveSettingsEntries(index, payload);
+    if (dryRun) return { dryRun, action: "restore_pairing_settings", entries };
+    const applied = await api.post("/pairings/settings", { pairings: entries.map(({ pairingName, sensorId, valveId, WTCPercentLimit, ValveOpenTime, MeasurementInterval }) => ({ pairingName, sensorId, valveId, WTCPercentLimit, ValveOpenTime, MeasurementInterval })) });
+    const after = await loadControllerIndex(api);
+    const mismatches = verifySettings(after, entries);
+    if (mismatches.length) {
+      throw new IndeterminateMutationError(`settings readback mismatch: ${mismatches.slice(0, 5).join("; ")}`);
+    }
+    return { dryRun, action: "restore_pairing_settings", applied: entries.length, controller: applied };
+  }
+
   if (command.command_type === "manual_water") {
     const durationSeconds = Number(payload.duration_seconds || payload.seconds || 0);
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
@@ -653,6 +819,21 @@ export async function executeCommand(command, options) {
       pulses.push(await pulseValve(api, valve, durationSeconds, pulsePath, dryRun, pulseCommandId));
       if (!dryRun) await sleep(durationSeconds * 1000);
     }
+    // Report what the controller recorded for each pulse: an operator taking manual
+    // control ends a timed pulse early, and that must not read as a complete pulse.
+    const interruptions = [];
+    if (!dryRun) {
+      for (const pulse of pulses) {
+        const pulseId = pulse?.pulseId;
+        if (!pulseId) continue;
+        try {
+          const status = await api.get(`${pulsePath}/${encodeURIComponent(pulseId)}`);
+          if (status?.interruptedBy) interruptions.push({ pulseId, interruptedBy: status.interruptedBy, closedAt: status.closedAt ?? null });
+        } catch (error) {
+          interruptions.push({ pulseId, interruptedBy: "status_unavailable", error: String(error?.message || error).slice(0, 200) });
+        }
+      }
+    }
     return {
       dryRun,
       action: "manual_water",
@@ -661,6 +842,7 @@ export async function executeCommand(command, options) {
       totalValveSeconds,
       valveCount: valves.length,
       pulses,
+      ...(interruptions.length ? { interrupted: interruptions[0].interruptedBy, interruptions } : {}),
     };
   }
 
@@ -698,6 +880,8 @@ export async function executeCommand(command, options) {
 }
 
 const syncAfterCommandTypes = new Set([
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "update_pairing",
   "bulk_update_pairings",
   "create_pairing",

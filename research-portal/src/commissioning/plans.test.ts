@@ -3,17 +3,20 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { defaultCommissioningConfig } from "./orchestrator";
+import { summarizeBaseline } from "./analysis";
+import { configForSelection, defaultCommissioningConfig, singlePotLimitation } from "./orchestrator";
 import { evaluatePreflight, type PreflightFacts } from "./preflight";
 import {
   buildPreparePlan,
+  buildRemapPlan,
   buildRestorePlan,
-  buildTopologyPlan,
+  changeCycles,
   invertChanges,
-  maxPlanCommands,
+  planRestoreScope,
   snapshotPots,
   valveChangesFromProposals,
   verifyReadback,
+  verifyRestore,
 } from "./topologyPlan";
 import type { PairingRow } from "../types";
 import type { ProposedMapping, SelectedPot, SensorBaseline } from "./types";
@@ -72,6 +75,32 @@ function facts(overrides: Partial<PreflightFacts> = {}): PreflightFacts {
 const failed = (report: ReturnType<typeof evaluatePreflight>) => report.checks.filter((check) => check.blocks).map((check) => check.id);
 
 describe("preflight", () => {
+  it("lets researchers run it, as the command service already allows their bounded pulses", () => {
+    expect(evaluatePreflight(facts({ role: "researcher" })).canStart).toBe(true);
+  });
+
+  it("explains why one pot cannot be checked, while 100 pots get budgets sized to the selection", () => {
+    const one = evaluatePreflight(facts({ pots: pots(1), baselines: [baseline("S1")] }));
+    expect(one.canStart).toBe(false);
+    expect(one.checks.find((check) => check.id === "selection")?.detail).toBe(singlePotLimitation);
+    const all = pots(100);
+    const config = configForSelection(100);
+    const report = evaluatePreflight(facts({ pots: all, config, baselines: all.map((pot) => baseline(pot.sensorKey)) }));
+    expect(report.canStart).toBe(true);
+    expect(config.maxTotalValveSeconds).toBe(900);
+    expect(config.maxPulses).toBe(200);
+    expect(report.worstCaseValveSeconds).toBe(900);
+    expect(report.checks.find((check) => check.id === "budget_covers")?.detail).toMatch(/900 valve-seconds/);
+    expect(report.estimatedMinutes).toBeGreaterThan(300);
+    expect(report.checks.find((check) => check.id === "duration")?.status).toBe("pass");
+  });
+
+  it("starts after recent manual watering but says baselines wait for the pots to settle", () => {
+    const report = evaluatePreflight(facts({ manualHolds: [{ id: "h1", startedAtMs: now - 600_000, endedAtMs: now - 300_000, label: "pot 7" }] }));
+    expect(report.canStart).toBe(true);
+    expect(report.checks.find((check) => check.id === "manual_hold")?.detail).toMatch(/after the pots settle/);
+  });
+
   it("passes only when every gate is satisfied, and always discloses the unreadable executor gate", () => {
     const report = evaluatePreflight(facts());
     expect(report.canStart).toBe(true);
@@ -82,7 +111,11 @@ describe("preflight", () => {
   });
 
   it.each([
-    ["non-admin role", { role: "researcher" }, "role"],
+    ["viewer role", { role: "viewer" }, "role"],
+    ["no project role", { role: null }, "role"],
+    ["manual watering in progress", { manualHolds: [{ id: "h1", startedAtMs: now - 60_000, endedAtMs: null, label: "solenoid 23" }] }, "manual_hold"],
+    ["manual watering records unreadable", { manualHolds: null }, "manual_hold"],
+    ["another session holds the controller", { otherActiveSession: { runId: "hw-1", operator: "jake", startedAt: new Date(now - 3_600_000).toISOString() } }, "session"],
     ["stale controller", { controller: { observedAtMs: now - 7_200_000, freshUntilMs: now - 7_000_000, controllerState: "RUNNING", wateringEnabled: true } }, "controller_fresh"],
     ["controller never seen", { controller: null }, "controller_fresh"],
     ["automatic watering still enabled", { autoWateringPairings: ["Zone1-Pot4"] }, "auto_watering"],
@@ -117,6 +150,14 @@ describe("preflight", () => {
     expect(failed(slow)).toContain("cadence");
   });
 
+  it("judges cadence by the latest readings, so pots switched to 60 s by preparation pass minutes later", () => {
+    const start = Date.parse("2026-10-21T12:00:00Z");
+    // 40 minutes of 10-minute readings, then the preparation switches the pot to 60 s.
+    const readings = [0, 600, 1200, 1800, 2400, 2460, 2520, 2580, 2640].map((seconds, index) => ({ sensorKey: "S1", atMs: start + seconds * 1000, vwc: 20 + (index % 2) * 0.05 }));
+    expect(summarizeBaseline("S1", readings.slice(0, 6), defaultCommissioningConfig).cadenceSeconds).toBe(600);
+    expect(summarizeBaseline("S1", readings, defaultCommissioningConfig).cadenceSeconds).toBe(60);
+  });
+
   it("lets a dry run proceed with the server watering gate closed, but never with an unsafe controller", () => {
     const closed = evaluatePreflight(facts({ mode: "dry_run", intake: { open: false, detail: "locked" } }));
     expect(closed.canStart).toBe(true);
@@ -131,25 +172,69 @@ const proposal = (valveKey: string, proposedSensorKey: string, recordedSensorKey
 });
 
 describe("prepare and restore plans", () => {
-  const pairings = [pairing(1), pairing(2, { wtc_percent_limit: 20 }), pairing(3, { wtc_percent_limit: -999999 })];
+  const pairings = [pairing(1), pairing(2, { wtc_percent_limit: 20, valve_open_time_ms: 2500 }), pairing(3, { wtc_percent_limit: -999999 }), pairing(4, { valve_open_time_ms: 0 })];
   const snapshot = snapshotPots(pairings, pairings.map((item) => item.name));
 
-  it("records the previous settings, then disables automatic watering without touching targets' record", () => {
-    expect(snapshot.map((pot) => [pot.targetVwc, pot.wateringDisabled])).toEqual([[30, false], [20, false], [null, true]]);
+  it("records exact settings, then disables automatic watering with one command", () => {
+    expect(snapshot.map((pot) => [pot.wtcPercentLimit, pot.valveOpenTimeMs, pot.wateringDisabled])).toEqual([[30, 5000, false], [20, 2500, false], [-999999, 5000, true], [30, 0, true]]);
     const plan = buildPreparePlan(snapshot);
     expect(plan.commands).toEqual([expect.objectContaining({
       command_type: "bulk_update_pairings",
-      payload: { pairing_names: ["Zone1-Pot1", "Zone1-Pot2", "Zone1-Pot3"], disable_watering: true, measurement_interval_seconds: 60 },
+      payload: { pairing_names: ["Zone1-Pot1", "Zone1-Pot2", "Zone1-Pot3", "Zone1-Pot4"], disable_watering: true, measurement_interval_seconds: 60 },
     })]);
   });
 
-  it("restores each pot to exactly what was recorded, leaving a previously disabled pot disabled", () => {
-    const payloads = buildRestorePlan(snapshot).commands.map((command) => command.payload);
-    expect(payloads).toEqual([
-      { pairing_names: ["Zone1-Pot1"], open_time_seconds: 5, measurement_interval_seconds: 600, target_vwc: 30 },
-      { pairing_names: ["Zone1-Pot2"], open_time_seconds: 5, measurement_interval_seconds: 600, target_vwc: 20 },
-      { pairing_names: ["Zone1-Pot3"], open_time_seconds: 5, measurement_interval_seconds: 600, disable_watering: true },
+  it("restores each pot exactly (milliseconds, disabled-by-pulse-length kept) in one command", () => {
+    const plan = buildRestorePlan(snapshot);
+    expect(plan.commands).toHaveLength(1);
+    expect(plan.commands[0].command_type).toBe("restore_pairing_settings");
+    expect((plan.commands[0].payload.pairings as unknown[])).toEqual([
+      { pairing_name: "Zone1-Pot1", sensor_key: "S1", valve_key: "0x20:1", target_vwc: 30, valve_open_time_ms: 5000, measurement_interval_ms: 600000 },
+      { pairing_name: "Zone1-Pot2", sensor_key: "S2", valve_key: "0x20:2", target_vwc: 20, valve_open_time_ms: 2500, measurement_interval_ms: 600000 },
+      { pairing_name: "Zone1-Pot3", sensor_key: "S3", valve_key: "0x20:3", target_vwc: null, valve_open_time_ms: 5000, measurement_interval_ms: 600000 },
+      // Watering was off only because the pulse length was zero: restored exactly, still off.
+      { pairing_name: "Zone1-Pot4", sensor_key: "S4", valve_key: "0x20:4", target_vwc: 30, valve_open_time_ms: 0, measurement_interval_ms: 600000 },
     ]);
+  });
+
+  it("restores 100 pots with 100 different original configurations in one command and verifies each", () => {
+    const many = Array.from({ length: 100 }, (_, index) => pairing(index + 1, {
+      wtc_percent_limit: index % 10 === 0 ? -999999 : 10 + index * 0.5,
+      valve_open_time_ms: 1000 + index * 37,
+      measurement_interval_ms: 30_000 + index * 6_000,
+      group_name: `Group ${index % 7}`,
+    }));
+    const snap = snapshotPots(many, many.map((item) => item.name));
+    const plan = buildRestorePlan(snap);
+    const entries = plan.commands[0].payload.pairings as Array<Record<string, unknown>>;
+    expect(entries).toHaveLength(100);
+    expect(new Set(entries.map((entry) => JSON.stringify([entry.target_vwc, entry.valve_open_time_ms, entry.measurement_interval_ms]))).size).toBe(100);
+    expect(JSON.stringify(plan.commands[0].payload).length).toBeLessThan(64_000);
+    // Readback after preparation: nothing is restored yet.
+    const prepared = many.map((item) => ({ ...item, wtc_percent_limit: -999999, measurement_interval_ms: 60_000 }));
+    expect(verifyRestore(snap, prepared).verified).toBe(false);
+    expect(verifyRestore(snap, many).verified).toBe(true);
+    const oneOff = many.map((item, index) => (index === 57 ? { ...item, valve_open_time_ms: item.valve_open_time_ms + 1 } : item));
+    expect(verifyRestore(snap, oneOff).rows.filter((row) => !row.verified).map((row) => row.pairingName)).toEqual(["Zone1-Pot58"]);
+  });
+
+  it("keeps unresolved, unverified and externally changed pots sensing-only, unless explicitly released", () => {
+    const many = Array.from({ length: 6 }, (_, index) => pairing(index + 1));
+    const snap = snapshotPots(many, many.map((item) => item.name));
+    const current = many.map((item) => (item.name === "Zone1-Pot6" ? { ...item, wtc_percent_limit: 44 } : { ...item, wtc_percent_limit: -999999, measurement_interval_ms: 60_000 }));
+    const scope = planRestoreScope({
+      snapshot: snap,
+      currentPairings: current,
+      unresolved: [{ valveKey: "0x20:2", pairingName: "Zone1-Pot2", reason: "no_response", detail: "No sensor rose" }],
+      unclaimed: [{ sensorKey: "S3", pairingName: "Zone1-Pot3", detail: "" }],
+      pendingChanges: [],
+      unverifiedChanges: [{ pairingName: "Zone1-Pot4", sensorKey: "S4", fromValveKey: "0x20:4", toValveKey: "0x20:5" }],
+    });
+    expect(scope.restore.map((pot) => pot.pairingName)).toEqual(["Zone1-Pot1", "Zone1-Pot5"]);
+    expect(scope.heldBack.map((item) => item.pairingName).sort()).toEqual(["Zone1-Pot2", "Zone1-Pot3", "Zone1-Pot4", "Zone1-Pot6"]);
+    expect(scope.heldBack.find((item) => item.pairingName === "Zone1-Pot6")?.reason).toMatch(/changed after preparation/);
+    const released = planRestoreScope({ snapshot: snap, currentPairings: current, unresolved: [{ valveKey: "0x20:2", pairingName: "Zone1-Pot2", reason: "no_response", detail: "x" }], unclaimed: [], pendingChanges: [], unverifiedChanges: [], releasedAnyway: new Set(["Zone1-Pot2"]) });
+    expect(released.restore.map((pot) => pot.pairingName)).toContain("Zone1-Pot2");
   });
 });
 
@@ -174,61 +259,58 @@ describe("applying reviewed mappings", () => {
     expect(problems.join(" ")).toMatch(/0x20:2 would be left without a pot/);
   });
 
-  it("builds a delete-then-create plan that carries settings and calibration over", () => {
+  it("applies a swap as ONE atomic remap command that keeps names, groups, settings and calibration", () => {
     const { changes } = valveChangesFromProposals(proposals, snapshot);
-    const { plan, problems } = buildTopologyPlan(changes, snapshot, "apply");
+    const { plan, problems } = buildRemapPlan(changes, snapshot, "apply", "hw-test-1");
     expect(problems).toEqual([]);
-    const types = plan!.commands.map((command) => command.command_type);
-    expect(types).toEqual(["delete_pairing", "delete_pairing", "create_pairing", "create_pairing", "apply_calibration"]);
-    expect(plan!.commands[2].payload).toEqual({
-      name: "Zone1-Pot2", sensor_key: "S2", valve_key: "0x20:1", group_name: "Maize control",
-      target_vwc: 30, open_time_seconds: 5, measurement_interval_seconds: 600,
-    });
-    expect(plan!.commands[4].payload).toEqual({ calibration_name: "teros-2026", pairing_names: ["Zone1-Pot1"] });
-    // Only command types the existing reviewed-settings batch accepts.
-    expect(types.every((type) => ["delete_pairing", "create_pairing", "update_pairing", "apply_calibration"].includes(type))).toBe(true);
+    expect(plan!.commands).toHaveLength(1);
+    expect(plan!.commands[0]).toMatchObject({ command_type: "remap_pairing_valves", payload: { remap_id: "hw-test-1", changes: [
+      { pairing_name: "Zone1-Pot2", sensor_key: "S2", from_valve_key: "0x20:2", to_valve_key: "0x20:1" },
+      { pairing_name: "Zone1-Pot1", sensor_key: "S1", from_valve_key: "0x20:1", to_valve_key: "0x20:2" },
+    ] } });
+    expect(plan!.commands.some((command) => ["delete_pairing", "create_pairing", "apply_calibration"].includes(command.command_type))).toBe(false);
   });
 
-  it("recreates a sensing-only pot as sensing-only", () => {
-    const disabled = snapshotPots([pairing(1, { wtc_percent_limit: -999999 }), pairing(2, { wtc_percent_limit: -999999 })], ["Zone1-Pot1", "Zone1-Pot2"]);
-    const { changes } = valveChangesFromProposals(proposals.slice(0, 2), disabled);
-    const { plan } = buildTopologyPlan(changes, disabled, "apply");
-    expect(plan!.commands.filter((command) => command.command_type === "create_pairing").every((command) => command.payload.target_vwc === 0)).toBe(true);
-    expect(plan!.commands.filter((command) => command.command_type === "update_pairing").map((command) => command.payload)).toEqual([
-      { pairing_name: "Zone1-Pot2", disable_watering: true },
-      { pairing_name: "Zone1-Pot1", disable_watering: true },
-    ]);
-  });
-
-  it("offers an exact rollback to the previous topology", () => {
-    const { changes } = valveChangesFromProposals(proposals, snapshot);
-    const rollback = buildTopologyPlan(invertChanges(changes), snapshot, "rollback");
-    expect(rollback.plan!.summary).toMatch(/roll back/);
-    expect(rollback.plan!.commands.filter((command) => command.command_type === "create_pairing").map((command) => [command.payload.name, command.payload.valve_key]))
-      .toEqual([["Zone1-Pot2", "0x20:2"], ["Zone1-Pot1", "0x20:1"]]);
-  });
-
-  it("refuses a plan too large for one reviewed batch and a plan with nothing to do", () => {
-    const many = Array.from({ length: 12 }, (_, index) => pairing(index + 1));
+  it("applies a 100-pot permutation cycle as one command, with an exact one-command rollback", () => {
+    const many = Array.from({ length: 100 }, (_, index) => pairing(index + 1, { name: index === 67 ? "Huiqiao-Zone3-Pot68" : `Zone${Math.floor(index / 25) + 1}-Pot${index + 1}` }));
     const snap = snapshotPots(many, many.map((item) => item.name));
-    const rotated = many.map((item, index) => proposal(item.valve_key, many[(index + 1) % 12].sensor_key, item.sensor_key));
-    const { changes } = valveChangesFromProposals(rotated, snap);
-    const result = buildTopologyPlan(changes, snap, "apply");
-    expect(result.plan).toBeNull();
-    expect(result.problems.join(" ")).toMatch(new RegExp(`more than one reviewed batch allows \\(${maxPlanCommands}\\)`));
-    expect(buildTopologyPlan([], snap, "apply").problems.join(" ")).toMatch(/nothing to change/);
+    // Valve i waters the pot whose sensor was recorded on valve i+1: one 100-pot cycle.
+    const rotated = many.map((item, index) => proposal(item.valve_key, many[(index + 1) % 100].sensor_key, item.sensor_key));
+    const { changes, problems } = valveChangesFromProposals(rotated, snap);
+    expect(problems).toEqual([]);
+    expect(changes).toHaveLength(100);
+    const cycles = changeCycles(changes);
+    expect(cycles.cycles).toHaveLength(1);
+    expect(cycles.cycles[0]).toHaveLength(100);
+    expect(cycles.incomplete).toEqual([]);
+    const { plan } = buildRemapPlan(changes, snap, "apply", "hw-cycle");
+    expect(plan!.commands).toHaveLength(1);
+    expect(JSON.stringify(plan!.commands[0].payload).length).toBeLessThan(64_000);
+    const rollback = buildRemapPlan(invertChanges(changes), snap, "rollback", "hw-cycle-rollback");
+    expect(rollback.plan!.summary).toMatch(/roll back 100/);
+    const back = rollback.plan!.commands[0].payload.changes as Array<{ pairing_name: string; to_valve_key: string }>;
+    expect(new Map(back.map((change) => [change.pairing_name, change.to_valve_key])).get("Huiqiao-Zone3-Pot68")).toBe("0x20:68");
   });
 
-  it("verifies the change only from the controller's re-read configuration", () => {
+  it("refuses incomplete chains and an empty change", () => {
+    const chain = [
+      { pairingName: "Zone1-Pot1", sensorKey: "S1", fromValveKey: "0x20:1", toValveKey: "0x20:2" },
+      { pairingName: "Zone1-Pot2", sensorKey: "S2", fromValveKey: "0x20:2", toValveKey: "0x20:3" },
+    ];
+    expect(buildRemapPlan(chain, snapshot, "apply", "x").problems.join(" ")).toMatch(/do not form complete swaps or cycles/);
+    expect(buildRemapPlan([], snapshot, "apply", "x").problems.join(" ")).toMatch(/nothing to change/);
+  });
+
+  it("verifies the change only from the controller's re-read configuration, including carried settings", () => {
     const { changes } = valveChangesFromProposals(proposals, snapshot);
-    expect(verifyReadback(changes, pairings).verified).toBe(false);
+    expect(verifyReadback(changes, pairings, snapshot).verified).toBe(false);
     const applied = [pairing(1, { valve_key: "0x20:2" }), pairing(2, { valve_key: "0x20:1" }), pairing(3), pairing(4)];
-    const readback = verifyReadback(changes, applied);
+    const readback = verifyReadback(changes, applied, snapshot);
     expect(readback.verified).toBe(true);
-    expect(readback.rows.every((row) => row.verified)).toBe(true);
-    const partial = verifyReadback(changes, [pairing(1, { valve_key: "0x20:2" }), pairing(2), pairing(3), pairing(4)]);
-    expect(partial.verified).toBe(false);
+    const partial = verifyReadback(changes, [pairing(1, { valve_key: "0x20:2" }), pairing(2), pairing(3), pairing(4)], snapshot);
     expect(partial.rows.filter((row) => !row.verified).map((row) => row.pairingName)).toEqual(["Zone1-Pot2"]);
+    const lostCalibration = verifyReadback(changes, [pairing(1, { valve_key: "0x20:2", calibration_name: null }), pairing(2, { valve_key: "0x20:1" }), pairing(3), pairing(4)], snapshot);
+    expect(lostCalibration.rows.find((row) => row.pairingName === "Zone1-Pot1")?.settingsChanged).toEqual(["calibration"]);
   });
 });
 
@@ -250,6 +332,27 @@ describe("real-hardware boundary", () => {
     expect(/\.(insert|update|upsert|delete|rpc)\s*\(/.test(adapter)).toBe(false);
     // No controller URL, tunnel, or privileged key in the browser path.
     expect(/balena|valves\/pulse|service_role|SERVICE_ROLE|controller-secret/i.test(adapter)).toBe(false);
+  });
+
+  it("the session records module writes only autocalibration records, never controller settings", () => {
+    const records = readFileSync(join(here, "..", "commissioningRecords.ts"), "utf8");
+    expect(records.match(/\.from\(\s*["']([a-z_]+)["']\s*\)\s*\.(insert|update|upsert|delete)/g)?.every((call) => call.includes("commissioning_sessions"))).toBe(true);
+    // Session ownership and pot records only; none of these functions touches a controller or its settings.
+    expect(records.match(/\.rpc\(\s*["']([a-z_]+)["']/g)).toEqual([
+      '.rpc("claim_commissioning_run"',
+      '.rpc("renew_commissioning_run"',
+      '.rpc("reconcile_autocalibration_bindings"',
+      '.rpc("confirm_autocalibration_delivery"',
+    ]);
+    expect(/functions\.invoke|balena|service_role|SERVICE_ROLE/i.test(records)).toBe(false);
+  });
+
+  it("the Autocalibrate screens reach the backend only through the adapters and the reviewed settings queue", () => {
+    const directory = join(here, "..", "autocalibrate");
+    for (const name of readdirSync(directory).filter((file) => /\.tsx?$/.test(file) && !file.endsWith(".test.ts"))) {
+      const source = readFileSync(join(directory, name), "utf8");
+      expect(source, name).not.toMatch(/from ["']\.\.\/supabase["']|\.rpc\(|\.from\(["']|functions\.invoke|fetch\(/);
+    }
   });
 
   it("sends exactly one pairing per pulse command and never a settings command", () => {

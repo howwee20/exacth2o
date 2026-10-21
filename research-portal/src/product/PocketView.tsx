@@ -79,6 +79,7 @@ export function PocketView({
   refreshFailed,
   outbox,
   onLeave,
+  onManualWater,
 }: {
   potKey: string | null;
   writing: boolean;
@@ -96,6 +97,8 @@ export function PocketView({
   refreshFailed: boolean;
   outbox: Outbox;
   onLeave: () => void;
+  /** Opens manual watering (troubleshooting), at this pot's physical number when one is open. */
+  onManualWater?: (potNumber: number | null) => void;
 }) {
   const screen = usePortalQueryValue("screen");
   const [entry, setEntry] = useState("");
@@ -146,6 +149,12 @@ export function PocketView({
     <header className="px-pocket-top">
       <b>At the bench</b>
       <NetworkChip online={online} waiting={outbox.waiting.length} failed={outbox.failed.length} needsSignIn={outbox.needsSignIn} syncing={outbox.syncing} />
+      {onManualWater ? (
+        <button type="button" className="px-pocket-leave" onClick={() => {
+          const bound = pairingName ? bindings.find((binding) => binding.pairingName === pairingName)?.potNumber : null;
+          onManualWater(bound ?? match?.pairing.pot_number ?? null);
+        }}>Water</button>
+      ) : null}
       <button type="button" className="px-pocket-leave" onClick={onLeave}>Full portal</button>
     </header>
   );

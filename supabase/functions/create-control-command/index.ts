@@ -6,6 +6,7 @@ import {
   manualWaterIntakeEnabled,
 } from "./command-policy.mjs";
 import { controllerCommandTypes } from "../_shared/platform-capabilities.mjs";
+import { MAX_TOPOLOGY_PAYLOAD_BYTES, validateRemapPayload, validateRestorePayload } from "./topology-policy.mjs";
 import {
   ensureApprovedOperation,
   markOperationFailed,
@@ -22,6 +23,8 @@ type CommandType =
   | "create_calibration"
   | "delete_calibration"
   | "apply_calibration"
+  | "remap_pairing_valves"
+  | "restore_pairing_settings"
   | "manual_water"
   | "update_board_config"
   | "initialize_sensors"
@@ -75,6 +78,8 @@ const commandTypes = new Set<CommandType>(
 
 const destructiveCommands = new Set<CommandType>([
   "delete_pairing",
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "manual_water",
   "update_board_config",
   "initialize_sensors",
@@ -90,6 +95,8 @@ const stoppedConfigurationCommands = new Set<CommandType>([
   "create_calibration",
   "delete_calibration",
   "apply_calibration",
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "update_board_config",
 ]);
 
@@ -184,7 +191,8 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
   }
 
   const jsonSize = JSON.stringify(rawPayload).length;
-  if (jsonSize > 20_000) throw new Error("Command payload is too large");
+  const topology = commandType === "remap_pairing_valves" || commandType === "restore_pairing_settings";
+  if (jsonSize > (topology ? MAX_TOPOLOGY_PAYLOAD_BYTES : 20_000)) throw new Error("Command payload is too large");
 
   const payload: Record<string, unknown> = {};
   let requiresConfirmation = destructiveCommands.has(commandType);
@@ -280,6 +288,14 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
     } else {
       requiresConfirmation = true;
     }
+  }
+
+  if (commandType === "remap_pairing_valves") {
+    Object.assign(payload, validateRemapPayload(rawPayload));
+  }
+
+  if (commandType === "restore_pairing_settings") {
+    Object.assign(payload, validateRestorePayload(rawPayload));
   }
 
   if (commandType === "manual_water") {

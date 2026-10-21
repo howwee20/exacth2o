@@ -13,6 +13,8 @@ interface ManualPulseRecord extends ManualPulseRequest {
   startedAt: string
   closedAt?: string
   error?: string
+  /** Why a pulse ended before its timer, e.g. an operator took manual control. */
+  interruptedBy?: string
 }
 
 interface ManualPulseState {
@@ -27,6 +29,7 @@ export interface ManualPulseResult {
   duplicate: boolean
   startedAt: string
   closedAt?: string
+  interruptedBy?: string
 }
 
 type ValveOperation = (request: ManualPulseRequest) => Promise<void> | void
@@ -59,7 +62,24 @@ export class ManualPulseManager {
       duplicate,
       startedAt: record.startedAt,
       closedAt: record.closedAt,
+      interruptedBy: record.interruptedBy,
     }
+  }
+
+  /** The recorded outcome of a pulse that already ran (a replay or a status check). */
+  priorResult(pulseId: string): ManualPulseResult | null {
+    const prior = this.state.records.find((record) => record.pulseId === pulseId)
+    if (prior) return this.result(prior, true)
+    if (this.state.active?.pulseId === pulseId) return this.result(this.state.active, true)
+    return null
+  }
+
+  /** Milliseconds until the active pulse's own timer closes it, or null when none is active. */
+  remainingMilliseconds(): number | null {
+    const active = this.state.active
+    if (!active) return null
+    const started = Date.parse(active.startedAt)
+    return Number.isFinite(started) ? Math.max(0, started + active.durationMilliseconds - Date.now()) : 0
   }
 
   private async load(): Promise<void> {
@@ -155,13 +175,14 @@ export class ManualPulseManager {
     }
   }
 
-  async closeActive(): Promise<ManualPulseResult | null> {
+  async closeActive(interruptedBy?: string): Promise<ManualPulseResult | null> {
     await this.load()
     if (!this.state.active) return null
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
 
     const active = this.state.active
+    if (interruptedBy) active.interruptedBy = interruptedBy
     try {
       await this.closeWithFallback(active)
       active.status = 'closed'

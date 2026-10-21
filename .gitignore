@@ -2,3 +2,6 @@
 controller-release/**/dist/
 controller-before-device.json
 controller-before-release.json
+
+# Browser runner output when invoked from the repository root.
+/test-results/

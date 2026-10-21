@@ -4,6 +4,7 @@ import { MachineState } from './types'
 import StateMachine from './StateMachine'
 import { BoardConfig } from './controllers/Expand13Manager'
 import { timingSafeEqual } from 'crypto'
+import { HoldError } from './services/ManualHoldManager'
 
 interface IAPIResponse {
   message: string
@@ -178,23 +179,77 @@ export function createServer(stateMachine: StateMachine, options: { environment:
     } catch (error: any) {
       server.log.error(error)
       const message = error?.message || 'Manual pulse rejected'
-      const conflict = message.includes('already') || message.includes('another valve') || message.includes('aggregate')
+      const conflict = message.includes('already') || message.includes('another valve') || message.includes('aggregate') || message.includes('timed pulse refused')
       return reply.status(conflict ? 409 : 500).send({ message })
     }
   })
 
-  server.post(`/${pathPrefix}/valves/hold`, async (request: FastifyRequest<{Body: any}>, reply: FastifyReply) => {
+  const holdSecretMatches = (request: FastifyRequest): boolean => {
     const expected = process.env.EXACTH2O_MANUAL_HOLD_SECRET || ''
     const supplied = String(request.headers['x-exacth2o-hold-secret'] || '')
-    if (!expected || supplied.length !== expected.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return reply.code(401).send({error:'Hold authentication required'})
+    return Boolean(expected) && supplied.length === expected.length && timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))
+  }
+  const holdStatus: Record<HoldError['code'], number> = { invalid: 400, owner: 403, busy: 409, late: 409, route: 409, unavailable: 409, failed: 500 }
+
+  server.post(`/${pathPrefix}/valves/hold`, async (request: FastifyRequest<{Body: any}>, reply: FastifyReply) => {
+    if (!holdSecretMatches(request)) return reply.code(401).send({error:'Hold authentication required'})
     const body: any = request.body || {}
     if (!['start','renew','stop','status'].includes(body.action)) return reply.code(400).send({error:'Invalid hold action'})
-    if (!Number.isInteger(body.address) || body.address < 1 || body.address > 48 || !Number.isInteger(body.relayAddress) || body.relayAddress < 3 || body.relayAddress > 127) return reply.code(400).send({error:'Invalid valve route'})
-    if (body.routeKind !== undefined && !['pairing','manual'].includes(body.routeKind)) return reply.code(400).send({error:'Invalid route kind'})
-    if (body.routeKind !== 'manual' && (!Number.isInteger(body.sensorId) || !Number.isInteger(body.valveId))) return reply.code(400).send({error:'Invalid pot identity'})
+    const routed = body.action === 'start' || body.action === 'renew'
+    const hasRoute = body.relayAddress !== undefined || body.address !== undefined
+    if ((routed || hasRoute) && (!Number.isInteger(body.address) || body.address < 1 || body.address > 48 || !Number.isInteger(body.relayAddress) || body.relayAddress < 3 || body.relayAddress > 127)) {
+      return reply.code(400).send({error:'Invalid valve route'})
+    }
+    if (body.destinationKind !== undefined && !['pot','solenoid'].includes(body.destinationKind)) return reply.code(400).send({error:'Invalid destination kind'})
+    if (routed && !Number.isFinite(body.expiresAt)) return reply.code(400).send({error:'Hold signal expiry is required'})
     try {
       return await stateMachine.holdManualValve(body.action, body)
-    } catch(error: any) { return reply.code(409).send({error:error.message || 'Hold rejected'}) }
+    } catch(error: any) {
+      const code: HoldError['code'] = error instanceof HoldError ? error.code : 'failed'
+      return reply.code(holdStatus[code] ?? 409).send({error:error.message || 'Hold rejected', code})
+    }
+  })
+
+  // Read-only ownership snapshot for the independent valve watchdog (internal network only).
+  server.get(`/${pathPrefix}/valves/arbiter`, async () => stateMachine.getArbiterStatus())
+
+  server.get(`/${pathPrefix}/valves/pulse/:pulseId`, async (request: FastifyRequest<{ Params: { pulseId: string } }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
+    const result = stateMachine.manualPulseStatus(String(request.params.pulseId || ''))
+    return result ? reply.send(result) : reply.code(404).send({ message: 'Pulse not found' })
+  })
+
+  // A topology rewrite (atomic pairing remap) holds this lease so no hold starts mid-rewrite.
+  server.post(`/${pathPrefix}/valves/config-rewrite`, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
+    const body: any = request.body || {}
+    const id = String(body.id || '').slice(0, 120)
+    if (!id || !['begin', 'end'].includes(body.action)) return reply.code(400).send({ message: 'Invalid rewrite lease request' })
+    if (body.action === 'end') {
+      stateMachine.endConfigRewrite(id)
+      return reply.send({ ok: true })
+    }
+    const decision = stateMachine.beginConfigRewrite(id, Number(body.ttlMs))
+    return decision.allowed ? reply.send({ ok: true }) : reply.code(409).send({ message: decision.reason })
+  })
+
+  server.post(`/${pathPrefix}/valves/watchdog`, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
+    const body: any = request.body || {}
+    if (body.event !== 'tripped') return reply.code(400).send({ message: 'Unsupported watchdog event' })
+    stateMachine.recordWatchdogTrip(String(body.reason || 'lease overrun').slice(0, 300))
+    return reply.send({ ok: true })
+  })
+
+  server.post(`/${pathPrefix}/valves/reconcile`, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+    if (!requireControllerSecret(request, reply)) return
+    const body: any = request.body || {}
+    if (body.confirmedClosed !== true) return reply.code(400).send({ message: 'Confirm every outlet is closed first' })
+    try {
+      return reply.send(await stateMachine.reconcileValveFault(String(body.note || '')))
+    } catch (error: any) {
+      return reply.code(409).send({ message: error?.message || 'Reconciliation refused' })
+    }
   })
 
   server.get(`/${pathPrefix}/state`, async (request: FastifyRequest, reply: FastifyReply) => {

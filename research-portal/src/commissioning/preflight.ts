@@ -1,9 +1,10 @@
-import { hardLimits, validateConfig, validateSelection } from "./orchestrator";
+import { hardLimits, singlePotLimitation, validateConfig, validateSelection } from "./orchestrator";
 import type {
   CommissioningConfig,
   CommissioningMode,
   ControllerStatus,
   IntakeProbe,
+  ManualIntervention,
   SelectedPot,
   SensorBaseline,
 } from "./types";
@@ -24,6 +25,10 @@ export type PreflightFacts = {
   baselines: readonly SensorBaseline[];
   // Selected pairings whose automatic watering could still fire during the run.
   autoWateringPairings: readonly string[];
+  /** Hold-to-water sessions in the recent past (null when they could not be read). */
+  manualHolds?: readonly ManualIntervention[] | null;
+  /** Another autocalibration session holding this controller. */
+  otherActiveSession?: { runId: string; operator: string | null; startedAt: string } | null;
 };
 
 export type PreflightStatus = "pass" | "fail" | "warn";
@@ -41,8 +46,19 @@ export type PreflightReport = {
   checks: PreflightCheck[];
   canStart: boolean;
   estimatedMinutes: number | null;
+  /** Upper estimate if every valve needs its one retry. */
+  estimatedMaxMinutes: number | null;
   worstCaseValveSeconds: number;
 };
+
+export const operatorRoles = new Set(["admin", "researcher"]);
+
+export function formatDuration(minutes: number) {
+  if (minutes < 90) return `${Math.round(minutes)} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes - hours * 60);
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
 
 export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
   const real = facts.mode === "real";
@@ -50,29 +66,41 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
   const add = (id: string, label: string, ok: boolean, detail: string, blocks = true, warnOnly = false) => {
     checks.push({ id, label, status: ok ? "pass" : warnOnly ? "warn" : "fail", detail, blocks: !ok && blocks && !warnOnly });
   };
+  const nameFor = new Map(facts.pots.map((pot) => [pot.sensorKey, pot.potNumber != null ? `Pot ${pot.potNumber}` : pot.pairingName]));
 
-  add("role", "Administrator access",
-    facts.role === "admin",
-    facts.role === "admin"
-      ? "Signed in as a project administrator."
-      : "Hardware commissioning is limited to project administrators.");
+  add("role", "Operator access",
+    operatorRoles.has(facts.role ?? ""),
+    operatorRoles.has(facts.role ?? "")
+      ? `Signed in as a project ${facts.role}.`
+      : "Autocalibration needs project researcher or administrator access.");
+
+  add("session", "No other autocalibration is using this controller",
+    !facts.otherActiveSession,
+    facts.otherActiveSession
+      ? `Run ${facts.otherActiveSession.runId}${facts.otherActiveSession.operator ? ` (${facts.otherActiveSession.operator})` : ""} started ${new Date(facts.otherActiveSession.startedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} and is still open. Resume, finish or abandon it first.`
+      : "This controller is free.");
 
   const selectionProblems = validateSelection(facts.pots);
   add("selection", `Selection of ${hardLimits.minPots}–${hardLimits.maxPots} pots with unique identities`,
     selectionProblems.length === 0,
-    selectionProblems.length ? selectionProblems.join(" ") : `${facts.pots.length} pots, each with one distinct valve and one distinct sensor.`);
+    selectionProblems.length
+      ? selectionProblems.join(" ")
+      : `${facts.pots.length} pots, each with one distinct valve and one distinct sensor. Every pulse is measured on all ${facts.pots.length} sensors.`);
+  if (facts.pots.length === 1 && !selectionProblems.includes(singlePotLimitation)) {
+    add("single_pot", "More than one pot selected", false, singlePotLimitation);
+  }
 
-  const configProblems = validateConfig(facts.config);
+  const configProblems = validateConfig(facts.config, facts.pots.length);
   const worstCaseValveSeconds = facts.pots.length * (facts.config.pulseSeconds + facts.config.escalatedPulseSeconds);
   add("limits", "Pulse and water budget within limits",
     configProblems.length === 0,
     configProblems.length
       ? configProblems.join(" ")
-      : `${facts.config.pulseSeconds}s pulses, one ${facts.config.escalatedPulseSeconds}s retry at most, budget ${facts.config.maxTotalValveSeconds} valve-seconds and ${facts.config.maxPulses} pulses.`);
+      : `${facts.config.pulseSeconds}s pulses, at most one ${facts.config.escalatedPulseSeconds}s retry per valve; budget ${facts.config.maxTotalValveSeconds} valve-seconds and ${facts.config.maxPulses} pulses.`);
   add("budget_covers", "Budget covers the planned pulses",
     facts.config.maxTotalValveSeconds >= facts.pots.length * facts.config.pulseSeconds,
     facts.config.maxTotalValveSeconds >= worstCaseValveSeconds
-      ? `Worst case is ${worstCaseValveSeconds} valve-seconds, inside the budget.`
+      ? `Worst case is ${worstCaseValveSeconds} valve-seconds (${facts.pots.length} × ${facts.config.pulseSeconds + facts.config.escalatedPulseSeconds}s), inside the budget.`
       : facts.config.maxTotalValveSeconds >= facts.pots.length * facts.config.pulseSeconds
         ? `The budget covers one pulse per valve but not every possible retry (worst case ${worstCaseValveSeconds}). The run stops safely if it runs out.`
         : `The budget is smaller than one pulse per valve (${facts.pots.length * facts.config.pulseSeconds} valve-seconds needed).`);
@@ -102,7 +130,7 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
   add("auto_watering", "Automatic watering disabled on every selected pot",
     facts.autoWateringPairings.length === 0,
     facts.autoWateringPairings.length
-      ? `${facts.autoWateringPairings.join(", ")} still ${facts.autoWateringPairings.length === 1 ? "has" : "have"} an active target, so the controller could water ${facts.autoWateringPairings.length === 1 ? "it" : "them"} on its own mid-run. Use “Prepare pots” below.`
+      ? `${facts.autoWateringPairings.length} selected pot(s) still have an active target, so the controller could water them on its own mid-run. Use “Prepare the pots”.`
       : "No selected pot can be watered automatically during the run.");
 
   add("queue_clear", "No conflicting watering command",
@@ -113,29 +141,57 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
         ? "No watering command is queued or running."
         : `${facts.activeWateringCommands} watering command(s) are queued or running.`);
 
+  if (facts.manualHolds !== undefined) {
+    const holds = facts.manualHolds;
+    const open = holds?.find((hold) => hold.endedAtMs == null) ?? null;
+    const recent = holds?.filter((hold) => hold.endedAtMs != null && hold.endedAtMs + facts.config.manualSettleSeconds * 1000 > facts.nowMs) ?? [];
+    add("manual_hold", "No manual watering in progress",
+      holds != null && !open,
+      holds == null
+        ? "Could not read manual watering records, so manual watering cannot be ruled out."
+        : open
+          ? `${open.label} is being watered by hand now. Autocalibration starts after it ends and the pots settle.`
+          : recent.length
+            ? `Manual watering ended ${Math.round((facts.nowMs - Math.max(...recent.map((hold) => hold.endedAtMs ?? 0))) / 60000)} min ago; baselines will use readings from after the pots settle.`
+            : "No manual watering in the last half hour.");
+  }
+
   const unusable = facts.baselines.filter((item) => !item.valid);
   const missing = facts.pots.filter((pot) => !facts.baselines.some((item) => item.sensorKey === pot.sensorKey));
+  const describe = (sensorKey: string, why: string) => `${nameFor.get(sensorKey) ?? sensorKey} (${sensorKey}): ${why}`;
   add("sensors", "Selected sensors reporting plausible values",
     facts.baselines.length > 0 && unusable.length === 0 && missing.length === 0,
     facts.baselines.length === 0
       ? "No recent readings were found for the selected sensors."
       : unusable.length || missing.length
-        ? [...unusable.map((item) => `${item.sensorKey}: ${item.reason}`), ...missing.map((pot) => `${pot.sensorKey}: no readings.`)].join(" ")
+        ? [...unusable.map((item) => describe(item.sensorKey, item.reason ?? "not usable")), ...missing.map((pot) => describe(pot.sensorKey, "no readings."))].slice(0, 12).join(" ") +
+          (unusable.length + missing.length > 12 ? ` …and ${unusable.length + missing.length - 12} more.` : "")
         : `All ${facts.baselines.length} sensors have recent, plausible readings.`);
 
   const cadences = facts.baselines.map((item) => item.cadenceSeconds).filter((value): value is number => value != null);
   const cadence = cadences.length ? Math.max(...cadences) : null;
   const perValveSeconds = cadence == null ? null : facts.config.cooldownSeconds + facts.config.settleSkipSeconds + cadence * (facts.config.minPostReadings + 1);
   const cadenceOk = cadence != null && perValveSeconds != null && perValveSeconds <= facts.config.maxObserveSeconds;
+  const estimatedMinutes = perValveSeconds == null ? null : Math.round((facts.pots.length * perValveSeconds) / 60);
+  const estimatedMaxMinutes = perValveSeconds == null ? null : Math.round((2 * facts.pots.length * perValveSeconds) / 60);
   add("cadence", "Sensors report often enough to see a response",
     cadenceOk,
     cadence == null
       ? "Not enough readings to work out how often the sensors report."
       : cadenceOk
-        ? `Sensors report about every ${Math.round(cadence)}s, so each valve needs roughly ${Math.round(perValveSeconds / 60)} min.`
-        : `Sensors report about every ${Math.round(cadence)}s, too slow for the ${Math.round(facts.config.maxObserveSeconds / 60)} min observation window. Shorten the measurement interval for these pots first.`,
+        ? `Sensors report about every ${Math.round(cadence)}s, so each valve needs roughly ${Math.round((perValveSeconds as number) / 60)} min.`
+        : `Sensors report about every ${Math.round(cadence)}s, too slow for the ${Math.round(facts.config.maxObserveSeconds / 60)} min observation window. If the pots were just prepared, wait a few minutes for readings at the new interval and check again; otherwise shorten their measurement interval first.`,
     true,
     cadence != null && !cadenceOk ? false : cadence == null);
+
+  if (estimatedMinutes != null) {
+    const limitMinutes = facts.config.maxRunSeconds / 60;
+    add("duration", "Run fits its time limit",
+      (estimatedMaxMinutes ?? 0) <= limitMinutes,
+      `About ${formatDuration(estimatedMinutes)} (up to ${formatDuration(estimatedMaxMinutes ?? estimatedMinutes)} if every valve needs its retry). The run stops itself after ${formatDuration(limitMinutes)}. Keep this screen open: closing it stops further pulses, and the run can be resumed later from its recorded evidence.`,
+      true,
+      true);
+  }
 
   if (facts.intake) {
     add("intake", "Server accepts watering commands (physical fail-safe recorded)",
@@ -159,7 +215,8 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
   return {
     checks,
     canStart: checks.every((check) => !check.blocks),
-    estimatedMinutes: perValveSeconds == null ? null : Math.round((facts.pots.length * perValveSeconds) / 60),
+    estimatedMinutes,
+    estimatedMaxMinutes,
     worstCaseValveSeconds,
   };
 }

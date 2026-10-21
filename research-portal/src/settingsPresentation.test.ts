@@ -10,6 +10,7 @@ import {
   parseValveIdentity,
   relativeAgeText,
   sensorsReportingText,
+  settingsNavItemsFor,
 } from "./settingsPresentation";
 import type { PairingRow, SensorReading } from "./types";
 
@@ -151,5 +152,14 @@ describe("overview next action", () => {
   it("never offers an action while the controller is away", () => {
     expect(overviewNextAction({ ...ready, presence: "offline" }).actionLabel).toBeNull();
     expect(overviewNextAction({ ...ready, presence: "never" }).actionLabel).toBeNull();
+  });
+});
+
+describe("settings sections", () => {
+  it("offers Autocalibrate as the one place to start autocalibration, from the installation and from an experiment", () => {
+    expect(settingsNavItemsFor("installation").map((item) => item.id)).toContain("autocalibrate");
+    expect(settingsNavItemsFor("experiment").map((item) => item.id)).toEqual(["overview", "autocalibrate", "calibrations", "exports"]);
+    // Sensor calibration stays its own section, separate from valve autocalibration.
+    expect(settingsNavItemsFor("installation").find((item) => item.id === "calibrations")?.label).toBe("Sensor calibration");
   });
 });

@@ -156,6 +156,8 @@ export type ControlCommandType =
   | "create_calibration"
   | "delete_calibration"
   | "apply_calibration"
+  | "remap_pairing_valves"
+  | "restore_pairing_settings"
   | "manual_water"
   | "update_board_config"
   | "initialize_sensors"
@@ -200,10 +202,13 @@ export type QueueControlCommand = (
   options?: { confirm?: boolean; operationIntent?: string },
 ) => Promise<void>;
 
+/** A reviewed settings batch the server accepted: its commands in execution order. */
+export type QueuedSettingsBatch = { batchId: string; commandIds: string[] };
+
 export type QueueSettingsPlan = (
   plan: SettingsPlan,
   configHash: string,
-) => Promise<void>;
+) => Promise<QueuedSettingsBatch | null>;
 
 export type DeviceHealthSnapshot = {
   id: string;

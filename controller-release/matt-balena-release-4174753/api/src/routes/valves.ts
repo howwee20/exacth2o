@@ -160,6 +160,33 @@ const pulseValve = async (request: FastifyRequest<{
   }
 }
 
+/** The controller's recorded outcome for one timed pulse, including an early interruption. */
+const pulseStatus = async (request: FastifyRequest<{ Params: { pulseId: string } }>, reply: FastifyReply) => {
+  const expectedSecret = String(process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '')
+  const suppliedSecret = String(request.headers['x-exacth2o-controller-secret'] || '')
+  if (!secretsMatch(suppliedSecret, expectedSecret)) {
+    reply.code(401).send({ message: 'Controller command authentication required' })
+    return
+  }
+  try {
+    const response = await fetchWithTimeout(
+      `${process.env.CRON_URL}/valves/pulse/${encodeURIComponent(String(request.params.pulseId || ''))}`,
+      { method: 'GET', headers: { 'x-exacth2o-controller-secret': expectedSecret } },
+      'cron timed pulse status',
+      CRON_REQUEST_TIMEOUT_MS,
+    )
+    const text = await response.text()
+    let body: unknown = text
+    try {
+      body = text ? JSON.parse(text) : {}
+    } catch {
+      // Keep the text body.
+    }
+    reply.code(response.status).send(body)
+  } catch (error) {
+    sendApiError(reply, error, 'Pulse status')
+  }
+}
 
 export const getAllValvesRoute: IRoute = {
   method: 'GET',
@@ -201,6 +228,12 @@ export const pulseValveRoute: IRoute = {
   method: 'POST',
   url: '/valves/pulse',
   handler: pulseValve,
+}
+
+export const pulseStatusRoute: IRoute = {
+  method: 'GET',
+  url: '/valves/pulse/:pulseId',
+  handler: pulseStatus,
 }
 
 // Streaming export functionality

@@ -97,3 +97,143 @@ export function candidateTestRoute(pot, pots, boards, role) {
       && other.relayAddress === candidate.relayAddress && other.channel === candidate.channel)) return null;
   return { ...pot, ...candidate, status: 'ready', pairing: null };
 }
+
+// ---------------------------------------------------------------- outputs (direct solenoid troubleshooting)
+
+export const CHANNELS_PER_BOARD = 48;
+
+function parseRelay(value) {
+  if (typeof value === "number") return Number.isInteger(value) ? value : null;
+  const text = String(value ?? "").trim();
+  const number = /^0x/i.test(text) ? parseInt(text, 16) : Number(text);
+  return Number.isInteger(number) ? number : null;
+}
+
+/**
+ * Every configured valve output, identified by its board address and channel. The
+ * inventory is the controller's own valve list when it reports one, otherwise every
+ * channel of every configured board. A solenoid number appears only when a label is
+ * recorded for that output; the physical pot appears only from a recorded route.
+ *
+ * @param {{ boards?: number[], valves?: any[], labels?: any[], pots?: any[], pairings?: any[] }} input
+ */
+export function resolveOutputs({ boards = [], valves = [], labels = [], pots = [], pairings = [] }) {
+  const configured = new Set(boards);
+  const keys = new Map();
+  const add = (relay, channel) => {
+    if (relay == null || !Number.isInteger(channel) || channel < 1 || channel > CHANNELS_PER_BOARD || !configured.has(relay)) return;
+    keys.set(routeLabel(relay, channel), { relayAddress: relay, channel });
+  };
+  for (const valve of Array.isArray(valves) ? valves : []) add(parseRelay(valve?.relayAddress ?? valve?.RelayAddress), Number(valve?.address ?? valve?.Address));
+  if (keys.size === 0) for (const relay of boards) for (let channel = 1; channel <= CHANNELS_PER_BOARD; channel++) add(relay, channel);
+
+  const labelFor = new Map(labels.map((label) => [routeLabel(label.relay_address, label.channel), label]));
+  const onValve = new Map();
+  for (const pairing of pairings ?? []) {
+    const relay = parseRelay(pairing?.Valve?.relayAddress), channel = Number(pairing?.Valve?.address);
+    if (relay == null || !Number.isInteger(channel)) continue;
+    const key = routeLabel(relay, channel);
+    onValve.set(key, [...(onValve.get(key) ?? []), pairing]);
+  }
+  const confirmedPot = new Map();
+  const candidatePot = new Map();
+  for (const pot of pots) {
+    if (pot.status === "ready" || pot.status === "conflict") {
+      if (pot.relayAddress != null) confirmedPot.set(routeLabel(pot.relayAddress, pot.channel), [...(confirmedPot.get(routeLabel(pot.relayAddress, pot.channel)) ?? []), pot.pot]);
+    } else if (pot.candidate) {
+      const key = routeLabel(pot.candidate.relayAddress, pot.candidate.channel);
+      candidatePot.set(key, [...(candidatePot.get(key) ?? []), pot.pot]);
+    }
+  }
+  const boardOrder = new Map(boards.map((relay, index) => [relay, index]));
+  return [...keys.values()]
+    .map(({ relayAddress, channel }) => {
+      const key = routeLabel(relayAddress, channel);
+      const label = labelFor.get(key);
+      const valvePairings = onValve.get(key) ?? [];
+      const pairing = valvePairings.length === 1 ? valvePairings[0] : null;
+      return {
+        key,
+        relayAddress,
+        channel,
+        solenoidNumber: label ? label.solenoid_number : null,
+        labelStatus: label ? label.status : null,
+        labelSource: label ? label.source : null,
+        // Physical pot from a confirmed field route; "candidate" pots still need a check.
+        pots: confirmedPot.get(key) ?? [],
+        candidatePots: candidatePot.get(key) ?? [],
+        pairing: pairing ? { name: pairing.name, sensorKey: pairing.Sensor ? `${pairing.Sensor.boardSerialId}:${pairing.Sensor.address}` : null, namedPot: pairingPot(pairing.name) } : null,
+        sharedPairings: valvePairings.length > 1 ? valvePairings.map((item) => item.name) : undefined,
+      };
+    })
+    .sort((a, b) => (a.solenoidNumber ?? 10_000) - (b.solenoidNumber ?? 10_000)
+      || (boardOrder.get(a.relayAddress) ?? 99) - (boardOrder.get(b.relayAddress) ?? 99) || a.channel - b.channel);
+}
+
+/**
+ * Resolves what the browser asked to water into one immutable output. A pot is
+ * watered by its recorded route only; a solenoid must be a configured output. The
+ * browser never supplies an address that the server has not resolved itself.
+ */
+/**
+ * @param {any} destination
+ * @param {{ pots: any[], outputs: any[], boards: number[], role: string, testCandidate?: boolean }} context
+ */
+export function resolveDestination(destination, { pots, outputs, boards, role, testCandidate = false }) {
+  if (destination?.kind === "solenoid") {
+    const relay = Number(destination.relayAddress), channel = Number(destination.channel);
+    const output = outputs.find((item) => item.relayAddress === relay && item.channel === channel);
+    if (!output) return { ok: false, status: 409, error: "That output is not configured on this controller" };
+    return { ok: true, kind: "solenoid", relayAddress: relay, channel, solenoidNumber: output.solenoidNumber, potNumber: output.pots.length === 1 ? output.pots[0] : null,
+      routeStatus: output.pots.length === 1 ? "confirmed_route" : output.candidatePots.length ? "candidate_route" : "unknown", pairingName: output.pairing?.name ?? null };
+  }
+  const potNumber = Number(destination?.potNumber);
+  if (!Number.isInteger(potNumber) || potNumber < 1 || potNumber > POT_COUNT) return { ok: false, status: 409, error: "Pot route unavailable; refresh the list" };
+  let pot = pots.find((entry) => entry.pot === potNumber) ?? { pot: potNumber, status: "unmapped", reason: "No recorded valve route" };
+  if (testCandidate) {
+    const tested = candidateTestRoute(pot, pots, boards, role);
+    if (!tested) return { ok: false, status: 409, error: "Recorded candidate is unavailable for testing" };
+    pot = tested;
+  }
+  if (pot.status !== "ready") return { ok: false, status: 409, error: pot.reason ?? "Pot route unavailable", pot };
+  const output = outputs.find((item) => item.relayAddress === pot.relayAddress && item.channel === pot.channel);
+  return { ok: true, kind: "pot", relayAddress: pot.relayAddress, channel: pot.channel, potNumber, solenoidNumber: output?.solenoidNumber ?? null,
+    routeStatus: testCandidate ? "candidate_test" : "confirmed_route", pairingName: pot.pairing?.name ?? null };
+}
+
+/**
+ * Claims from a JWT that the Supabase gateway already verified (verify_jwt = true).
+ * Used on the renewal and stop paths so a heartbeat needs no Auth round trip; the
+ * start path still calls Auth. Returns null for anything malformed or expired.
+ */
+export function verifiedClaims(jwt, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const parts = String(jwt || "").split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const json = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(parts[1].length / 4) * 4, "=")), (c) => c.charCodeAt(0))));
+    if (typeof json.sub !== "string" || !/^[0-9a-f-]{36}$/i.test(json.sub)) return null;
+    if (json.role !== "authenticated") return null;
+    if (!Number.isFinite(json.exp) || json.exp <= nowSeconds) return null;
+    return { sub: json.sub, exp: json.exp };
+  } catch {
+    return null;
+  }
+}
+
+/** Small TTL cache for per-heartbeat checks (role, intake gate). Bounded in size. */
+export function ttlCache(ttlMs, maxEntries = 500, now = () => Date.now()) {
+  const entries = new Map();
+  return {
+    get(key) {
+      const entry = entries.get(key);
+      if (!entry) return undefined;
+      if (now() - entry.at > ttlMs) { entries.delete(key); return undefined; }
+      return entry.value;
+    },
+    set(key, value) {
+      if (entries.size >= maxEntries) entries.delete(entries.keys().next().value);
+      entries.set(key, { value, at: now() });
+    },
+    delete(key) { entries.delete(key); },
+  };
+}

@@ -4,9 +4,11 @@ import { buildWorld, type PresetId } from "../autocal/simulator";
 import { MockController, type MockOptions } from "./testing/mockController";
 import {
   CommissioningRun,
+  configForSelection,
   defaultCommissioningConfig,
   hardLimits,
   requiredConfirmation,
+  singlePotLimitation,
   validateConfig,
   validateSelection,
 } from "./orchestrator";
@@ -123,8 +125,11 @@ describe("start gate", () => {
   it("rejects duplicate identities, out-of-range selections, and out-of-limit pulses", () => {
     const pot = (n: number): SelectedPot => ({ pairingName: `P${n}`, potNumber: n, valveKey: `v${n}`, sensorKey: `s${n}` });
     expect(validateSelection([pot(1), pot(2)])).toEqual([]);
-    expect(validateSelection([pot(1)])[0]).toMatch(/between 2 and 20/);
-    expect(validateSelection(Array.from({ length: 21 }, (_, index) => pot(index)))[0]).toMatch(/between 2 and 20/);
+    // One pot cannot reveal a crossed pairing; the whole 100-pot installation is allowed.
+    expect(validateSelection([pot(1)])[0]).toBe(singlePotLimitation);
+    expect(validateSelection([])[0]).toMatch(/at least 2/);
+    for (const size of [20, 21, 25, 100]) expect(validateSelection(Array.from({ length: size }, (_, index) => pot(index)))).toEqual([]);
+    expect(validateSelection(Array.from({ length: hardLimits.maxPots + 1 }, (_, index) => pot(index)))[0]).toMatch(/At most 200/);
     expect(validateSelection([pot(1), { ...pot(2), valveKey: "v1" }]).join(" ")).toMatch(/Valve identities must be unique: v1/);
     expect(validateSelection([pot(1), { ...pot(2), sensorKey: "s1" }]).join(" ")).toMatch(/Sensor identities must be unique: s1/);
 
@@ -132,6 +137,9 @@ describe("start gate", () => {
     expect(validateConfig({ ...defaultCommissioningConfig, pulseSeconds: hardLimits.maxPulseSeconds + 1 }).length).toBeGreaterThan(0);
     expect(validateConfig({ ...defaultCommissioningConfig, escalatedPulseSeconds: 60 }).length).toBeGreaterThan(0);
     expect(validateConfig({ ...defaultCommissioningConfig, maxTotalValveSeconds: 5000 }).length).toBeGreaterThan(0);
+    // Budgets scale with the selection: 100 pots may use 100 x (3 s + 6 s) = 900 valve-seconds.
+    expect(validateConfig(configForSelection(100), 100)).toEqual([]);
+    expect(validateConfig({ ...configForSelection(100), maxTotalValveSeconds: 2501 }, 100).length).toBeGreaterThan(0);
   });
 
   it("will not command any valve when the limits are violated", async () => {

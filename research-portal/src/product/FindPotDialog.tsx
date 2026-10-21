@@ -11,7 +11,7 @@ type ManualControl = { projectId: string; deviceId: string; controllerName: stri
 type Result = { key: string; pot: number | null; pairing: PairingRow | null; experiment: PortalExperiment | null; route: PotRoute | null };
 const statusText = { ready: "Ready", needs_confirmation: "Needs check", no_water_line: "No water line", unmapped: "No route", conflict: "Conflict" } as const;
 
-function sourceText(route: PotRoute) {
+export function routeSourceText(route: PotRoute) {
   if (!route.source) return "—";
   if (route.source === "admin") {
     const date = route.updatedAt ? new Date(route.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
@@ -98,7 +98,7 @@ export function FindPotDialog({
     if (!open || !client) return undefined;
     let current = true;
     setBookError("");
-    void client.routes().then((result) => {
+    void client.inventory().then((result) => {
       if (!current || !result) return;
       if (result.ok) setBook(result.data); else setBookError(result.error);
     });
@@ -219,6 +219,7 @@ function PotPanel({ titleId, pot, route, experiment, controllerName, client, boo
 }) {
   const valve = route?.relayAddress != null && route.channel != null ? routeLabel(route.relayAddress, route.channel) : null;
   const renamed = route?.pairing && route.pairing.namedPot != null && route.pairing.namedPot !== pot;
+  const solenoid = route?.relayAddress != null ? book?.outputs?.find((output) => output.relayAddress === route.relayAddress && output.channel === route.channel)?.solenoidNumber ?? null : null;
   return (
     <div className="px-pot-panel">
       <header>
@@ -226,14 +227,15 @@ function PotPanel({ titleId, pot, route, experiment, controllerName, client, boo
         <p>{experiment?.name ?? (route?.pairing ? "Not in a current experiment" : "No sensor pairing on this valve")}</p>
       </header>
       <dl className="px-pot-facts">
-        <div><dt>Valve</dt>{valve ? <dd className="px-mono">{valve}</dd> : <dd className="px-muted">{route?.status === "no_water_line" ? "No water line" : "Not confirmed"}</dd>}</div>
+        <div><dt>Valve</dt>{valve ? <dd className="px-mono">{valve}{solenoid != null ? ` · solenoid ${solenoid}` : ""}</dd> : <dd className="px-muted">{route?.status === "no_water_line" ? "No water line" : "Not confirmed"}</dd>}</div>
         <div><dt>Sensor pairing</dt>{route?.pairing ? <dd><span>{route.pairing.name}</span>{route.pairing.sensorKey ? <span className="px-mono px-muted"> · {route.pairing.sensorKey}</span> : null}</dd> : <dd className="px-muted">None</dd>}</div>
-        <div><dt>Route record</dt><dd>{route ? sourceText(route) : "Loading…"}</dd></div>
+        <div><dt>Route record</dt><dd>{route ? routeSourceText(route) : "Loading…"}</dd></div>
         <div><dt>Controller</dt><dd>{controllerName}</dd></div>
       </dl>
       {renamed ? <p className="px-pot-note">This valve's sensor pairing is named {route?.pairing?.name}. Pot numbers here are the physical bench numbers.</p> : null}
       {!route ? <p className="px-muted px-small">Loading valve routes…</p>
-        : route.status === "ready" ? <HoldWaterControl key={`${pot}:${route.relayAddress}:${route.channel}`} client={client} pot={route} />
+        : route.status === "ready" ? <HoldWaterControl key={`${pot}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber: pot }} label={`Pot ${pot}`}
+            renewMs={book?.renewMs} leaseMs={book?.leaseMs} canTakeover={book?.canTakeover} />
         : <RouteNeeded route={route} canConfirm={Boolean(book?.canConfirm)} book={book} client={client} onBook={onBook} />}
       {recordHref ? <a className="px-pot-record" href={recordHref} onClick={onClose}>Open sensor record <span aria-hidden="true">→</span></a> : null}
     </div>
@@ -248,7 +250,7 @@ const neededCopy = {
   ready: ["", ""],
 } as const;
 
-function RouteNeeded({ route, canConfirm, book, client, onBook }: { route: PotRoute; canConfirm: boolean; book: RouteBook | null; client: ManualWaterClient; onBook: (book: RouteBook) => void }) {
+export function RouteNeeded({ route, canConfirm, book, client, onBook }: { route: PotRoute; canConfirm: boolean; book: RouteBook | null; client: ManualWaterClient; onBook: (book: RouteBook) => void }) {
   const testClient = useMemo(() => client.candidateTestClient(), [client]);
   const start = route.candidate ?? (route.relayAddress != null && route.channel != null ? { relayAddress: route.relayAddress, channel: route.channel } : null);
   const [board, setBoard] = useState(start?.relayAddress ?? book?.boards[0] ?? 0);
@@ -275,7 +277,8 @@ function RouteNeeded({ route, canConfirm, book, client, onBook }: { route: PotRo
       {route.candidate ? <p className="px-route-evidence">Recorded route: <span className="px-mono">{routeLabel(route.candidate.relayAddress, route.candidate.channel)}</span></p> : null}
       {canConfirm && route.status === "needs_confirmation" && route.candidate ? <div>
         <p>Test the recorded valve while someone watches the pot. Testing does not confirm or change the mapping.</p>
-        <HoldWaterControl key={`test:${route.pot}:${route.candidate.relayAddress}:${route.candidate.channel}`} client={testClient} pot={route} />
+        <HoldWaterControl key={`test:${route.pot}:${route.candidate.relayAddress}:${route.candidate.channel}`} client={testClient} destination={{ kind: "pot", potNumber: route.pot }}
+          label={`Pot ${route.pot} (recorded route)`} renewMs={book?.renewMs} leaseMs={book?.leaseMs} canTakeover={book?.canTakeover} />
       </div> : null}
       {canConfirm && route.status === "conflict" && route.source === "admin"
         ? <button type="button" className="px-button is-small" disabled={busy} onClick={() => void submit("remove")}>Remove confirmed route</button> : null}

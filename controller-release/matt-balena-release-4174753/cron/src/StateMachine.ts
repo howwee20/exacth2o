@@ -1,4 +1,5 @@
-import { ManualHoldManager, HoldRequest } from './services/ManualHoldManager'
+import { EndReason, HoldAction, HoldError, HoldRoute, HoldSession, HoldSignal, ManualHoldManager } from './services/ManualHoldManager'
+import { ValveArbiter, monotonicMs } from './services/ValveArbiter'
 import { IPairing, MachineState, PairingState, PairingStateType } from './types'
 import { ApiService } from './services/ApiService'
 import { PairingService } from './services/PairingService'
@@ -6,7 +7,7 @@ import { ValveService } from './services/ValveService'
 import { SensorService } from './services/SensorService'
 import { RulesEngineService } from './services/RulesEngineService'
 import { BullQueueService, StateTransitionEvent } from './services/BullQueueService'
-import { DEFAULT_BOARD_CONFIGS, API_ENDPOINTS, DEFAULT_TIMING } from './config/constants'
+import { DEFAULT_BOARD_CONFIGS, API_ENDPOINTS, DEFAULT_TIMING, VALVE_CONFIGURATION } from './config/constants'
 import { BoardConfig } from './controllers/Expand13Manager'
 import { ManualPulseManager, ManualPulseRequest, ManualPulseResult } from './services/ManualPulseManager'
 import { ActiveAutomaticPulse, WateringPulseLedger } from './services/WateringPulseLedger'
@@ -42,6 +43,10 @@ class StateMachine {
   private manualHoldManager: ManualHoldManager
   private manualPulseManager: ManualPulseManager
   private wateringPulseLedger: WateringPulseLedger
+  // The single arbitration policy every opening path consults before taking openValvePairId.
+  private arbiter: ValveArbiter
+  private watchdogReconciled = false
+  private valveInventory: { at: number; keys: Set<string> } | null = null
 
   constructor(apiURL: string, standardDelayTime: number = DEFAULT_TIMING.STANDARD_DELAY) {
     console.log('Setting up StateMachine')
@@ -61,10 +66,26 @@ class StateMachine {
       Number(process.env.MANUAL_PULSE_MAX_MILLISECONDS || 60_000),
       Number(process.env.MANUAL_PULSE_MAX_COMMAND_VALVE_MILLISECONDS || 120_000),
     )
+    this.arbiter = new ValveArbiter(
+      monotonicMs,
+      Number(process.env.MANUAL_HOLD_SETTLE_MS || 60_000),
+      Number(process.env.MANUAL_HOLD_PULSE_QUIET_MS || 120_000),
+    )
+    const maxContinuous = Number(process.env.EXACTH2O_VALVE_MAX_CONTINUOUS_ON_MS || 0)
     this.manualHoldManager = new ManualHoldManager(
       process.env.MANUAL_HOLD_STATE_FILE || '/app/config/manual-holds.json',
-      (request) => this.openManualHold(request),
-      (request) => this.closeManualHold(request),
+      {
+        acquire: (session) => this.acquireForHold(session),
+        open: (session) => this.openManualHold(session),
+        close: (session) => this.closeManualHold(session),
+        release: (session, reason) => this.releaseManualHold(session, reason),
+        onFault: (session, error) => this.arbiter.recordFault(`hold ${session.sessionId} close unconfirmed: ${error instanceof Error ? error.message : String(error)}`, 'close_failed'),
+      },
+      {
+        leaseMs: Number(process.env.MANUAL_HOLD_LEASE_MS || 2_500),
+        // No continuous-on cap is imposed unless the valve/supply ratings call for one.
+        maxContinuousMs: Number.isFinite(maxContinuous) && maxContinuous > 0 ? maxContinuous : null,
+      },
     )
     this.wateringPulseLedger = new WateringPulseLedger(
       process.env.AUTOMATIC_PULSE_LEDGER_PATH || '/app/config/automatic-pulses.json'
@@ -503,6 +524,16 @@ class StateMachine {
         return decision.fault ? 'SENSOR_FAULT' : 'IDLE'
       }
 
+      const arbitration = this.arbiter ? this.arbiter.automaticOpen() : { allowed: true as const }
+      if (!arbitration.allowed) {
+        // Manual troubleshooting, its settling window, a topology rewrite or a valve
+        // fault takes priority. Retry later without changing any saved setting.
+        const retryDelay = arbitration.retryInMs ?? pairing.timingRules.intervalTime
+        await this.logValveOpenBlocked(pairId, `${arbitration.reason}; retrying in ${Math.round(retryDelay)}ms`, 'info')
+        pairing.nextTransitionTime = Date.now() + retryDelay
+        return arbitration.retryInMs == null ? 'IDLE' : 'DELAY'
+      }
+
       if (this.openValvePairId && this.openValvePairId !== pairId) {
         await this.logValveOpenBlocked(
           pairId,
@@ -770,48 +801,276 @@ class StateMachine {
     return await this.valveService.setBoardConfigs(boardConfigs, updateAPI)
   }
 
-  private async openManualHold(request: HoldRequest): Promise<void> {
-    if (![MachineState.RUNNING, MachineState.STOPPED].includes(this.state)) throw new Error('Controller is not ready')
-    if (this.openValvePairId) throw new Error('Another valve is active; release and try again')
-    this.openValvePairId = `hold:${request.sessionId}`
-    this.operateManualPulseValve({...request, pulseId: request.sessionId, commandId: request.sessionId, durationMilliseconds: 2500}, 'OPEN')
+  // ---------------------------------------------------------------- manual hold
+
+  private routeKey(relayAddress: number, address: number) {
+    return `${relayAddress}:${address}`
   }
 
-  private async closeManualHold(request: HoldRequest): Promise<void> {
-    // A rejected start must never close a different session's valve.
-    if (this.openValvePairId && this.openValvePairId !== `hold:${request.sessionId}`) return
-    const pulse = {...request, pulseId: request.sessionId, commandId: request.sessionId, durationMilliseconds: 2500}
-    // Same fallback as automatic pulses: retry the valve, then close every output.
-    // If both fail the hold marker stays set, so automatic watering cannot start
-    // while the hold manager keeps retrying the close.
-    let closed = false
-    for (let attempt = 0; attempt < 3 && !closed; attempt += 1) {
-      try { this.operateManualPulseValve(pulse, 'CLOSE'); closed = true }
-      catch { await new Promise((resolve) => setTimeout(resolve, 100)) }
+  /** The output must exist in the controller's own valve inventory, not just be a plausible address. */
+  private async assertConfiguredOutput(route: HoldRoute): Promise<void> {
+    if (!this.valveService.getBoardConfigs().some((board) => board.address === route.relayAddress)) {
+      throw new HoldError('Valve board unavailable', 'route')
     }
-    if (!closed) this.valveService.closeAllValves()
-    this.openValvePairId = null
+    if (!Number.isInteger(route.address) || route.address < 1 || route.address > VALVE_CONFIGURATION.COLS * VALVE_CONFIGURATION.ROWS) {
+      throw new HoldError('Valve channel is outside the board', 'route')
+    }
+    const fresh = this.valveInventory && Date.now() - this.valveInventory.at < 60_000
+    if (!fresh) {
+      let valves: any[] = []
+      try {
+        valves = await this.apiService.fetchData(API_ENDPOINTS.VALVES, { timeoutMs: 1_500, retries: 0 })
+      } catch {
+        throw new HoldError('Valve inventory unavailable; manual watering cannot be started safely', 'unavailable')
+      }
+      const keys = new Set<string>()
+      for (const valve of Array.isArray(valves) ? valves : []) {
+        const relayText = String(valve?.relayAddress ?? valve?.RelayAddress ?? '').trim()
+        const relay = /^0x/i.test(relayText) ? Number.parseInt(relayText, 16) : Number(relayText)
+        const address = Number(valve?.address ?? valve?.Address)
+        if (Number.isInteger(relay) && Number.isInteger(address)) keys.add(this.routeKey(relay, address))
+      }
+      this.valveInventory = { at: Date.now(), keys }
+    }
+    if (!this.valveInventory!.keys.has(this.routeKey(route.relayAddress, route.address))) {
+      throw new HoldError('That output is not in the controller valve inventory', 'route')
+    }
+  }
+
+  /**
+   * Coordinated ownership transfer for a hold. Runs synchronously up to the first await,
+   * so the arbitration check and the manual-control flag are atomic with respect to
+   * every other request this process handles.
+   */
+  private async acquireForHold(session: HoldSession): Promise<void> {
+    if (![MachineState.RUNNING, MachineState.STOPPED].includes(this.state)) {
+      throw new HoldError('Controller is not ready for manual watering (starting or reloading)', 'unavailable')
+    }
+    const decision = this.arbiter.holdStart()
+    if (!decision.allowed) throw new HoldError(`Manual watering unavailable: ${decision.reason}`, 'unavailable')
+    if (this.openValvePairId?.startsWith('hold:') && this.openValvePairId !== `hold:${session.sessionId}`) {
+      throw new HoldError('Another manual hold owns the output', 'busy')
+    }
+    // From here on automatic starts and timed pulses wait for this operator.
+    this.arbiter.beginManualControl(session.sessionId, session.ownerId)
+    await this.assertConfiguredOutput(session.route)
+
+    const current = this.openValvePairId
+    if (current && current.startsWith('manual:')) {
+      await this.preemptTimedPulse(current)
+    } else if (current && !current.startsWith('hold:')) {
+      await this.preemptAutomaticPulse(current)
+    }
+    if (this.openValvePairId && this.openValvePairId !== `hold:${session.sessionId}`) {
+      throw new HoldError(`The active valve ${this.openValvePairId} did not confirm closed`, 'failed')
+    }
+    this.openValvePairId = `hold:${session.sessionId}`
+  }
+
+  /** Closes an automatic pulse through its normal closure path so manual control can begin. */
+  private async preemptAutomaticPulse(pairId: string): Promise<void> {
+    const activePulse = this.wateringPulseLedger.activePulse()
+    const [sensorId, valveId] = pairId.split('-')
+    const pairing = this.pairingService.getPairing(sensorId, valveId)
+    const closeTarget: ActiveAutomaticPulse = activePulse?.pairId === pairId
+      ? activePulse
+      : {
+          pairId,
+          relayAddress: Number(pairing?.Valve?.relayAddress),
+          address: Number(pairing?.Valve?.address),
+          startedAt: Date.now(),
+        }
+    try {
+      await this.closeAutomaticPulseWithFallback(closeTarget)
+    } catch (error) {
+      this.arbiter.recordFault(`automatic valve ${pairId} close unconfirmed during manual takeover`, 'close_failed')
+      throw new HoldError(`Automatic valve ${pairId} did not confirm closed; check the outlet`, 'failed')
+    }
+    if (activePulse?.pairId === pairId) await this.wateringPulseLedger.completeActive(pairId)
+    if (pairing) pairing.valveOpened = false
+    if (this.openValvePairId === pairId) this.openValvePairId = null
+    this.lastValveClosedAt = Date.now()
+    try {
+      await this.apiService.postData(API_ENDPOINTS.LOGS, {
+        level: 'warn',
+        message: `Automatic valve ${pairId} closed early: an operator took manual control`,
+        source: 'StateMachine',
+      })
+    } catch (error) {
+      console.error('Manual takeover log write failed', error)
+    }
+  }
+
+  /** Ends a timed pulse (autocalibration or bounded manual_water) early and records why. */
+  private async preemptTimedPulse(ownerKey: string): Promise<void> {
+    try {
+      await this.manualPulseManager.closeActive('preempted_by_manual_hold')
+    } catch (error) {
+      this.arbiter.recordFault(`timed pulse ${ownerKey} close unconfirmed during manual takeover`, 'close_failed')
+      throw new HoldError('A timed pulse did not confirm closed; check the outlet', 'failed')
+    }
+    if (this.openValvePairId === ownerKey) this.openValvePairId = null
     this.lastValveClosedAt = Date.now()
   }
 
-  async holdManualValve(action: 'start'|'renew'|'stop'|'status', request: HoldRequest & {routeKind?: 'pairing'|'manual', sensorId?: number, valveId?: number}) {
-    if (process.env.EXACTH2O_MANUAL_HOLD_ENABLED !== '1' && action !== 'stop' && action !== 'status') throw new Error('Hold-to-water is not commissioned on this controller')
-    if (action === 'start' || action === 'renew') {
-      if (!Number.isFinite(request.expiresAt) || request.expiresAt <= Date.now()) throw new Error('Hold signal expired')
-      // Paired pots are re-checked against the controller's own pairing. Pots without a
-      // sensor use the operator-confirmed route resolved by the server on every request.
-      if (request.routeKind !== 'manual') {
-        const pairing = await this.apiService.fetchData(`${API_ENDPOINTS.PAIRINGS}/${request.sensorId}/${request.valveId}`, {timeoutMs: 750, retries: 1})
-        if (!pairing || Number(pairing.Valve?.address) !== request.address || Number(pairing.Valve?.relayAddress) !== request.relayAddress) throw new Error('Pot valve mapping changed; refresh Find pot')
+  private openManualHold(session: HoldSession): void {
+    if (this.openValvePairId !== `hold:${session.sessionId}`) throw new Error('Manual hold does not own the output')
+    const { column, pin } = this.valveService.calculateColumnAndPin(session.route.address)
+    this.valveService.operateValve(session.route.relayAddress, column, pin, 'OPEN')
+    // A paired pot that was watered by hand follows the normal settling rules before
+    // automatic irrigation may water it again.
+    const pairing = this.pairingService.getAllPairings().find((item) =>
+      Number(item.Valve?.relayAddress) === session.route.relayAddress && Number(item.Valve?.address) === session.route.address)
+    if (pairing) recordValveOpen(pairing, Date.now(), DEFAULT_TIMING.WATERING_SETTLE_WINDOW)
+  }
+
+  private async closeManualHold(session: HoldSession): Promise<void> {
+    // A session must never close a different session's valve.
+    if (this.openValvePairId && this.openValvePairId !== `hold:${session.sessionId}`) return
+    const { column, pin } = this.valveService.calculateColumnAndPin(session.route.address)
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        this.valveService.operateValve(session.route.relayAddress, column, pin, 'CLOSE')
+        return
+      } catch (error) {
+        lastError = error
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
-      if (!this.valveService.getBoardConfigs().some(board => board.address === request.relayAddress)) throw new Error('Valve board unavailable')
     }
-    const result = await this.manualHoldManager.request(action, request)
-    return {...result, available: process.env.EXACTH2O_MANUAL_HOLD_ENABLED === '1', leaseMilliseconds: 2500}
+    // Same fallback as automatic pulses. If it also fails the hold keeps the output, so
+    // nothing else can open while the manager keeps retrying the close.
+    try {
+      this.valveService.closeAllValves()
+      return
+    } catch (error) {
+      lastError = error
+    }
+    throw lastError instanceof Error ? lastError : new Error('manual hold close failed')
+  }
+
+  private releaseManualHold(session: HoldSession, reason: EndReason): void {
+    if (this.openValvePairId === `hold:${session.sessionId}`) {
+      this.openValvePairId = null
+      this.lastValveClosedAt = Date.now()
+    }
+    this.arbiter.endManualControl(session.sessionId)
+    if (reason !== 'released' && reason !== 'stopped_before_start') {
+      console.warn(`Manual hold ${session.sessionId} ended: ${reason}`)
+    }
+  }
+
+  /** Recorded outcome of one timed pulse, for the executor's truthful completion report. */
+  manualPulseStatus(pulseId: string) {
+    return this.manualPulseManager.priorResult(pulseId)
+  }
+
+  async holdManualValve(action: HoldAction, body: any) {
+    const enabled = process.env.EXACTH2O_MANUAL_HOLD_ENABLED === '1'
+    if (!enabled && action !== 'stop' && action !== 'status') {
+      throw new HoldError('Hold-to-water is not commissioned on this controller', 'unavailable')
+    }
+    const signal: HoldSignal = {
+      sessionId: String(body?.sessionId || ''),
+      ownerId: String(body?.ownerId || ''),
+      sequence: Number(body?.sequence),
+      expiresAt: Number(body?.expiresAt),
+      route: {
+        relayAddress: Number(body?.relayAddress),
+        address: Number(body?.address),
+        kind: body?.destinationKind === 'solenoid' ? 'solenoid' : 'pot',
+        label: typeof body?.label === 'string' ? body.label.slice(0, 80) : undefined,
+      },
+      takeover: body?.takeover === true,
+    }
+    const result = await this.manualHoldManager.request(action, signal)
+    const arbiter = this.arbiter.snapshot()
+    return {
+      ...result,
+      ready: result.ready && !this.arbiter.fault,
+      available: enabled,
+      fault: this.arbiter.fault ? this.arbiter.fault.reason : undefined,
+      configRewrite: Boolean(arbiter.configRewrite),
+      automaticSuspended: Boolean(arbiter.manualControl) || arbiter.manualSettlingForMs > 0,
+    }
+  }
+
+  /** Read-only snapshot for the independent valve watchdog and diagnostics. */
+  getArbiterStatus() {
+    const now = Date.now()
+    const owner = this.openValvePairId
+    let kind: 'automatic' | 'pulse' | 'hold' | null = null
+    let deadlineInMs: number | null = null
+    if (owner?.startsWith('hold:')) {
+      kind = 'hold'
+      deadlineInMs = this.manualHoldManager.snapshot().active?.remainingMs ?? 0
+    } else if (owner?.startsWith('manual:')) {
+      kind = 'pulse'
+      deadlineInMs = this.manualPulseManager.remainingMilliseconds()
+    } else if (owner) {
+      kind = 'automatic'
+      const [sensorId, valveId] = owner.split('-')
+      const pairing = this.pairingService.getPairing(sensorId, valveId)
+      deadlineInMs = pairing?.nextTransitionTime != null ? Math.max(0, pairing.nextTransitionTime - now) : null
+    }
+    return {
+      ok: true,
+      state: MachineState[this.state],
+      monotonicMs: monotonicMs(),
+      owner: owner ? { key: owner, kind, deadlineInMs } : null,
+      holds: this.manualHoldManager.snapshot(),
+      arbiter: this.arbiter.snapshot(),
+      watchdogReconciled: this.watchdogReconciled,
+    }
+  }
+
+  beginConfigRewrite(id: string, ttlMs: number) {
+    const decision = this.arbiter.beginConfigRewrite(id, ttlMs)
+    if (decision.allowed && this.manualHoldManager.snapshot().active) {
+      // A hold that has not reached manual control yet still owns the session slot.
+      this.arbiter.endConfigRewrite(id)
+      return { allowed: false as const, reason: 'manual watering is in progress; release it before changing the topology', retryInMs: 2_000 }
+    }
+    return decision
+  }
+
+  endConfigRewrite(id: string) {
+    this.arbiter.endConfigRewrite(id)
+  }
+
+  /** The independent watchdog forced every output off. Nothing opens until reconciled. */
+  recordWatchdogTrip(reason: string) {
+    this.watchdogReconciled = false
+    this.arbiter.recordFault(`valve watchdog: ${reason}`, 'watchdog')
+  }
+
+  /** After an operator confirms every outlet is closed: close all again, then clear faults. */
+  async reconcileValveFault(note: string) {
+    if (this.manualHoldManager.snapshot().active) throw new Error('A manual hold is still active')
+    if (this.manualPulseManager.hasActivePulse()) throw new Error('A timed pulse is still active')
+    this.valveService.closeAllValves()
+    const automatic = this.wateringPulseLedger.activePulse()
+    if (automatic) await this.wateringPulseLedger.completeActive(automatic.pairId)
+    this.openValvePairId = null
+    this.lastValveClosedAt = Date.now()
+    this.arbiter.clearFault()
+    this.manualHoldManager.reconcileFault()
+    this.watchdogReconciled = true
+    try {
+      await this.apiService.postData(API_ENDPOINTS.LOGS, { level: 'warn', message: `Valve fault reconciled: ${note.slice(0, 300)}`, source: 'StateMachine' })
+    } catch (error) {
+      console.error('Reconciliation log write failed', error)
+    }
+    return this.getArbiterStatus()
   }
 
   async pulseManualValve(request: ManualPulseRequest): Promise<ManualPulseResult> {
     const manualKey = `manual:${request.pulseId}`
+    // A replay of a pulse that already ran is answered from its record, whatever else is happening.
+    const prior = this.manualPulseManager.priorResult(request.pulseId)
+    if (prior) return prior
+    const decision = this.arbiter.timedPulse()
+    if (!decision.allowed) throw new Error(`timed pulse refused: ${decision.reason}`)
     if (this.openValvePairId && this.openValvePairId !== manualKey) {
       throw new Error(`another valve is already open: ${this.openValvePairId}`)
     }

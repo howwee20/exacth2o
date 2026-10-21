@@ -185,12 +185,13 @@ export class Expand13Controller {
   }
 
   /**
-   * Resets all outputs to the inactive state (all pins LOW) and closes the I²C bus.
+   * Resets all outputs to the inactive state and closes the I²C bus.
    */
   public cleanup(): void {
-    // Set all pins LOW (all relays deactivated) - CHANGED from 0xFF to 0x00
-    this.portState = new Array(NUM_COLUMNS).fill(0x00);
-    console.log('Cleanup: Setting all pins to inactive (LOW).');
+    // These relays are active-low: 0xFF releases every relay. Writing 0x00 here would
+    // energize all 48 outputs at once.
+    this.portState = new Array(NUM_COLUMNS).fill(PINSTATE_HIGH);
+    console.log('Cleanup: releasing every relay (all pins HIGH).');
     this.writePortState();
     this.bus.closeSync();
 

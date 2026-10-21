@@ -93,32 +93,32 @@ describe('controller fail-safe transitions', () => {
 
 
 describe('manual hold route validation', () => {
-  it('checks the versioned pairing endpoint with a bounded lookup', async () => {
-    process.env.EXACTH2O_MANUAL_HOLD_ENABLED = '1'
+  const inventory = [{ relayAddress: '0x24', address: '18' }, { relayAddress: '0x20', address: '5' }]
+  const holdMachine = () => {
     const machine = Object.create(StateMachine.prototype) as any
-    machine.apiService = {fetchData: jest.fn().mockResolvedValue({Valve:{address:'18',relayAddress:'0x24'}})}
-    machine.valveService = {getBoardConfigs: () => [{address:36}]}
-    machine.manualHoldManager = {request: jest.fn().mockResolvedValue({status:'closed'})}
-    const request = {sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:Date.now()+2000,sensorId:640,valveId:1602,address:18,relayAddress:36}
-    await machine.holdManualValve('start',request)
-    expect(machine.apiService.fetchData).toHaveBeenCalledWith('/v1/pairings/640/1602',{timeoutMs:750,retries:1})
-    await expect(machine.holdManualValve('start',{...request,expiresAt:Date.now()-1000})).rejects.toThrow('expired')
+    machine.state = MachineState.RUNNING
+    machine.openValvePairId = null
+    machine.valveInventory = null
+    machine.apiService = { fetchData: jest.fn().mockResolvedValue(inventory) }
+    machine.valveService = { getBoardConfigs: () => [{ address: 36 }, { address: 32 }] }
+    return machine
+  }
+
+  it('checks the requested output against the controller valve inventory with a bounded lookup', async () => {
+    const machine = holdMachine()
+    await machine.assertConfiguredOutput({ relayAddress: 36, address: 18, kind: 'pot' })
+    expect(machine.apiService.fetchData).toHaveBeenCalledWith('/v1/valves', { timeoutMs: 1500, retries: 0 })
+    await expect(machine.assertConfiguredOutput({ relayAddress: 36, address: 19, kind: 'solenoid' })).rejects.toThrow('not in the controller valve inventory')
+    // The inventory is cached; a burst of starts does not re-read it.
     expect(machine.apiService.fetchData).toHaveBeenCalledTimes(1)
-    delete process.env.EXACTH2O_MANUAL_HOLD_ENABLED
   })
 
-  it('uses the server-confirmed route for pots without a sensor pairing, but still requires a configured board', async () => {
-    process.env.EXACTH2O_MANUAL_HOLD_ENABLED = '1'
-    const machine = Object.create(StateMachine.prototype) as any
-    machine.apiService = {fetchData: jest.fn()}
-    machine.valveService = {getBoardConfigs: () => [{address:32}]}
-    machine.manualHoldManager = {request: jest.fn().mockResolvedValue({status:'open'})}
-    const request = {routeKind:'manual',sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:Date.now()+2000,address:5,relayAddress:32}
-    await machine.holdManualValve('start',request)
+  it('requires a configured board before any lookup, and fails closed when the inventory is unreadable', async () => {
+    const machine = holdMachine()
+    await expect(machine.assertConfiguredOutput({ relayAddress: 38, address: 5, kind: 'solenoid' })).rejects.toThrow('board unavailable')
     expect(machine.apiService.fetchData).not.toHaveBeenCalled()
-    await expect(machine.holdManualValve('start',{...request,relayAddress:38})).rejects.toThrow('board unavailable')
-    expect(machine.manualHoldManager.request).toHaveBeenCalledTimes(1)
-    delete process.env.EXACTH2O_MANUAL_HOLD_ENABLED
+    machine.apiService.fetchData.mockRejectedValueOnce(new Error('api down'))
+    await expect(machine.assertConfiguredOutput({ relayAddress: 32, address: 5, kind: 'solenoid' })).rejects.toThrow('inventory unavailable')
   })
 
   it('ends an active hold before start() resets the shared valve lock', async () => {
@@ -131,19 +131,22 @@ describe('manual hold route validation', () => {
     expect(order).toEqual(['stop:hold:test-hold-session', 'load:null'])
   })
 
-  it('retries a hold close, then closes every output, and keeps the lock if both fail', async () => {
+  it('retries a hold close, then closes every output, and throws (keeping the lock) if both fail', async () => {
     const machine = Object.create(StateMachine.prototype) as any
     const operate = jest.fn((): void => { throw new Error('relay busy') })
     const closeAll = jest.fn(() => { throw new Error('bus down') })
     machine.valveService = {calculateColumnAndPin: () => ({column:0,pin:0}), operateValve: operate, closeAllValves: closeAll}
     machine.openValvePairId = 'hold:test-hold-session'
-    const request = {sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:Date.now()+2000,address:5,relayAddress:32}
-    await expect(machine.closeManualHold(request)).rejects.toThrow('bus down')
+    const session = {sessionId:'test-hold-session',ownerId:'operator',route:{relayAddress:32,address:5,kind:'pot'}}
+    await expect(machine.closeManualHold(session)).rejects.toThrow('bus down')
     expect(operate).toHaveBeenCalledTimes(3)
     expect(closeAll).toHaveBeenCalledTimes(1)
+    // The manager keeps the session (and the lock) in fault until a close succeeds.
     expect(machine.openValvePairId).toBe('hold:test-hold-session')
     operate.mockImplementationOnce(() => undefined)
-    await machine.closeManualHold(request)
+    await machine.closeManualHold(session)
+    machine.arbiter = { endManualControl: jest.fn() }
+    machine.releaseManualHold(session, 'released')
     expect(machine.openValvePairId).toBeNull()
   })
 
@@ -151,8 +154,24 @@ describe('manual hold route validation', () => {
     const machine = Object.create(StateMachine.prototype) as any
     machine.valveService = {calculateColumnAndPin: jest.fn(), operateValve: jest.fn(), closeAllValves: jest.fn()}
     machine.openValvePairId = '712-1625'
-    await machine.closeManualHold({sessionId:'test-hold-session',ownerId:'operator',sequence:0,expiresAt:0,address:5,relayAddress:32})
+    await machine.closeManualHold({sessionId:'test-hold-session',ownerId:'operator',route:{relayAddress:32,address:5,kind:'pot'}})
     expect(machine.valveService.operateValve).not.toHaveBeenCalled()
     expect(machine.openValvePairId).toBe('712-1625')
+  })
+})
+
+describe('relay board cleanup', () => {
+  it('releases every active-low relay instead of energizing all outputs', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Expand13Controller } = require('../controllers/Expand13Controller')
+    const writes: number[][] = []
+    const board = Object.create(Expand13Controller.prototype)
+    board.address = 0x20
+    board.portState = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+    board.bus = { i2cWriteSync: (_address: number, _length: number, buffer: Buffer) => { writes.push(Array.from(buffer)) }, closeSync: () => undefined }
+    board.activatePin(0, 2)
+    expect(writes.at(-1)).toEqual([0xfb, 0xff, 0xff, 0xff, 0xff, 0xff])
+    board.cleanup()
+    expect(writes.at(-1)).toEqual([0xff, 0xff, 0xff, 0xff, 0xff, 0xff])
   })
 })
