@@ -28,7 +28,7 @@ test('the aerial view shows every pot; all 100, a zone, one pot and the keyboard
   await page.goto(harness());
   await expect(page.getByRole('heading', { name: 'Choose pots' })).toBeVisible();
   await expect(overhead(page)).toHaveCount(100);
-  await expect(page.getByText(/Schematic arrangement by zone and pot number/)).toBeVisible();
+  await expect(page.getByText(/Pots 1–100 in the PicoGrid schematic arrangement/)).toBeVisible();
   // The presentation composition: rows of 25, zone 1 interlocking with zone 2.
   const row = async (pot: number) => Number(await page.locator(`.ax-overhead .ax-pot[data-pot="${pot}"]`).evaluate((node) => getComputedStyle(node).gridRowStart));
   expect([await row(1), await row(13), await row(14), await row(26), await row(38), await row(51), await row(100)]).toEqual([1, 1, 2, 1, 2, 3, 4]);
@@ -210,4 +210,22 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   await expect(page.getByRole('heading', { name: 'Resume the run' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.ac-interruption')).toContainText(/Manual watering \(Solenoid 40\) interrupted autocalibration/);
   await expect(page.locator('.ac-interruption')).toContainText(/valves have usable evidence and are not pulsed again/);
+});
+
+
+test('partial live inventory and obsolete layout still show all 100 slots without selectable invented routes', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto(harness('?preset=partial'));
+  await expect(overhead(page)).toHaveCount(100);
+  await expect(page.locator('.ac-unplaced')).toHaveCount(0);
+  const missing = page.locator('.ax-overhead .ax-pot[data-pot="1"]');
+  await expect(missing).toHaveAttribute('aria-disabled', 'true');
+  await expect(missing).toHaveAttribute('aria-label', /Not configured on the controller/);
+  await missing.click({ force: true });
+  await expect(page.getByText('0 of 2 selected')).toBeVisible();
+  await page.getByRole('button', { name: 'Select all 2', exact: true }).click();
+  await expect(page.getByText('2 of 2 selected')).toBeVisible();
+  await expect(page.locator('.ax-overhead .ax-pot[data-pot="65"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.ax-overhead .ax-pot[data-pot="100"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(missing).toHaveAttribute('aria-pressed', 'false');
 });

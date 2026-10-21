@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAerialModel, fitsPresentation, potRangeSummary, presentationSlots, readingOrder } from "./aerialLayout";
+import { buildAutocalibrationAerialModel, buildAerialModel, fitsPresentation, potRangeSummary, presentationSlots, readingOrder } from "./aerialLayout";
 import type { PairingRow } from "./types";
 
 function installation(count = 100, zones = 4): PairingRow[] {
@@ -79,5 +79,35 @@ describe("aerial view of the installation", () => {
     expect(order[order.length - 1].row).toBe(4);
     expect(potRangeSummary([5, 1, 2, 3, 9, 10, 12])).toBe("1–3, 5, 9, 10, 12");
     expect(potRangeSummary([])).toBe("");
+  });
+});
+
+
+describe("live partial installation", () => {
+  it("keeps all 100 numbered slots visible when a recorded layout uses obsolete pairing names", () => {
+    const all = installation();
+    const pairings = [all[64], all[99]];
+    const model = buildAutocalibrationAerialModel(pairings, { version: 3, layout: {
+      benches: [{ id: "old", label: "Old bench", rows: 1, columns: 1 }],
+      positions: [{ pairing_name: "Obsolete-Pot65", bench: "old", row: 1, column: 1 }],
+    } });
+    expect(model.basis).toBe("schematic");
+    expect(model.benches[0].pots).toHaveLength(100);
+    expect(model.unplaced).toEqual([]);
+    const configured = model.benches[0].pots.filter((pot) => !pot.unavailableReason);
+    expect(configured.map((pot) => pot.pairingName)).toEqual(pairings.map((pot) => pot.name));
+    expect(configured.map((pot) => pot.valveKey)).toEqual(pairings.map((pot) => pot.valve_key));
+    expect(model.benches[0].pots[0]).toMatchObject({ sensorKey: "", valveKey: "", unavailableReason: expect.stringContaining("Not configured") });
+    expect(model.nodes.flatMap((node) => node.pairingNames)).toEqual(pairings.map((pot) => pot.name));
+  });
+
+  it("preserves duplicate numbered controller pairings separately without inventing hardware routes", () => {
+    const pairings = installation();
+    const alias = { ...pairings[65], id: 999, name: "Other-Pot66", sensor_key: "OTHER:1", valve_key: "0x26:48" };
+    const model = buildAutocalibrationAerialModel([...pairings, alias], null);
+    expect(model.benches[0].pots).toHaveLength(100);
+    expect(model.benches[1].pots).toHaveLength(1);
+    expect(model.benches[1].pots[0]).toMatchObject({ pairingName: alias.name, sensorKey: alias.sensor_key, valveKey: alias.valve_key });
+    expect(new Set(readingOrder(model).map((pot) => pot.pairingName)).size).toBe(101);
   });
 });

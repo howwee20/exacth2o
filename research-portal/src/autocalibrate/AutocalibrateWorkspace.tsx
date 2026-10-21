@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Download } from "lucide-react";
-import { buildAerialModel } from "../aerialLayout";
+import { buildAutocalibrationAerialModel } from "../aerialLayout";
 import { loadLatestBenchLayout, loadPotBindings, type PotBinding } from "../benchClient";
 import type { BenchLayoutDocument } from "../benchLayout";
 import { operatorRoles } from "../commissioning/preflight";
@@ -227,7 +227,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
 
   const byName = useMemo(() => new Map(pairings.map((pairing) => [pairing.name, pairing])), [pairings]);
   const potForSensor = useMemo(() => new Map(pairings.map((pairing) => [pairing.sensor_key, Number.isFinite(pairing.pot_number) ? pairing.pot_number : null])), [pairings]);
-  const model = useMemo(() => buildAerialModel(pairings, layout), [pairings, layout]);
+  const model = useMemo(() => buildAutocalibrationAerialModel(pairings, layout), [pairings, layout]);
   const heldBack = useMemo(() => heldBackFromEarlier(recent, pairings), [recent, pairings]);
   // Readings checked more than ten minutes ago say nothing about the sensors now: a failed
   // or old check shows as "not checked", never as silent sensors.

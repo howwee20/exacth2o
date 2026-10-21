@@ -121,13 +121,13 @@ export function SelectPots(props: Props) {
         onToggle={toggle}
         onToggleZone={referenceMode ? undefined : (zone) => setSelection(toggleGroupSelection(selected, pairings.filter((pairing) => pairing.zone === zone).map((pairing) => pairing.name), availability))}
         onInspect={props.onInspect}
-        label={`Installation seen from above: ${summary.total} pots, ${summary.count} selected`}
+        label={`Installation seen from above: pots 1–100, ${summary.total} configured pairings, ${summary.count} selected`}
       />
       <ul className="ac-legend" aria-label="Legend">
         <li><span className="ac-key is-selected" aria-hidden="true" />Selected</li>
         <li><span className="ac-key is-unavailable" aria-hidden="true" />Cannot take part (reason on the pot)</li>
         <li><span className="ac-key-star" aria-hidden="true">★</span>Known-correct reference</li>
-        <li>{model.basis === "recorded" ? `Positions from the recorded bench layout${model.version ? ` (version ${model.version})` : ""}.` : "Schematic arrangement by zone and pot number, as in the PicoGrid overview; not measured positions."}</li>
+        <li>{model.basis === "recorded" ? `Positions from the recorded bench layout${model.version ? ` (version ${model.version})` : ""}.` : "Pots 1–100 in the PicoGrid schematic arrangement; not measured positions. Striped empty slots have no controller pairing and cannot be selected."}</li>
         <li className="ac-legend-keys">Keyboard: arrow keys move, Space selects, I opens a pot's details.</li>
       </ul>
 

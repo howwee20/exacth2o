@@ -27,6 +27,8 @@ export type AerialPot = {
   row: number;
   column: number;
   tone: ZoneTone;
+  /** Display-only slot: never a controller identity or an actionable target. */
+  unavailableReason?: string;
 };
 
 export type AerialNode = {
@@ -199,6 +201,59 @@ export function buildAerialModel(
     unplaced: [],
     unplacedReason: null,
     version: null,
+  };
+}
+
+/** Full 1–100 overview even when the live controller only configures part of it.
+ * Missing numbers are display-only; duplicate numbered pairings remain individually
+ * addressable in a second schematic bench, with their original hardware identities.
+ * A partial/stale recorded layout must never turn the selector into a list.
+ */
+export function buildAutocalibrationAerialModel(
+  pairings: readonly PairingRow[],
+  recorded: { layout: BenchLayoutDocument; version: number } | null,
+): AerialModel {
+  const recordedModel = recorded ? buildAerialModel(pairings, recorded) : null;
+  const numbers = new Set(pairings.map((pairing) => pairing.pot_number));
+  if (recordedModel?.basis === "recorded" && recordedModel.unplaced.length === 0 &&
+      Array.from({ length: 100 }, (_, index) => index + 1).every((number) => numbers.has(number))) return recordedModel;
+
+  const zones = [1, 2, 3, 4];
+  const used = new Set<string>();
+  const pots: AerialPot[] = Array.from({ length: 100 }, (_, index) => {
+    const number = index + 1;
+    const block = Math.floor(index / 25);
+    // Number determines only the schematic slot, never a sensor or valve address.
+    const pairing = pairings.find((item) => item.pot_number === number);
+    if (pairing) used.add(pairing.name);
+    return {
+      pairingName: pairing?.name ?? `unconfigured-slot-${number}`,
+      potNumber: number,
+      zone: pairing?.zone ?? block + 1,
+      sensorKey: pairing?.sensor_key ?? "",
+      valveKey: pairing?.valve_key ?? "",
+      bench: "installation",
+      ...presentationSlots(block)[index % 25],
+      tone: toneForZone(pairing?.zone ?? block + 1, zones),
+      ...(!pairing ? { unavailableReason: "Not configured on the controller. Configure its sensor and valve before autocalibrating." } : {}),
+    };
+  });
+  const extra = pairings.filter((pairing) => !used.has(pairing.name));
+  const benches: AerialBench[] = [{ id: "installation", label: "Pots 1–100 (schematic)", rows: 4, columns: 25, pots }];
+  if (extra.length) benches.push({
+    id: "additional-pairings", label: "Additional controller pairings (repeated or other pot numbers)",
+    rows: Math.ceil(extra.length / 5), columns: 5,
+    pots: extra.map((pairing, index) => ({ pairingName: pairing.name, potNumber: pairing.pot_number,
+      zone: pairing.zone, sensorKey: pairing.sensor_key, valveKey: pairing.valve_key,
+      bench: "additional-pairings", row: Math.floor(index / 5) + 1, column: index % 5 + 1,
+      tone: toneForZone(pairing.zone, zones) })),
+  });
+  return {
+    basis: "schematic", composition: "presentation", benches,
+    nodes: zones.map((zone, block) => ({ zone, label: `Zone ${zone}`, tone: toneForZone(zone, zones),
+      side: block < 2 ? "top" : "bottom", column: block % 2 === 0 ? 1 : 14,
+      pairingNames: pairings.filter((pairing) => pairing.zone === zone).map((pairing) => pairing.name) })),
+    unplaced: [], unplacedReason: null, version: null,
   };
 }
 

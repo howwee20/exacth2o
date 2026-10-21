@@ -64,6 +64,8 @@ type Props = {
 
 function potName(pot: AerialPot, state: AerialPotState | undefined, selected: boolean, selectable: boolean) {
   const parts = [`Pot ${pot.potNumber}`, `zone ${pot.zone}`];
+  if (pot.unavailableReason) parts.push(`unavailable: ${pot.unavailableReason}`);
+  else parts.push(pot.pairingName);
   if (state?.reference) parts.push("known-correct reference");
   if (selectable) parts.push(selected ? "selected" : "not selected");
   if (state && !state.available) parts.push(`unavailable: ${state.reason ?? "cannot take part"}`);
@@ -116,7 +118,7 @@ export function AerialBench({ model, states, selected, selectable, onToggle, onT
         setFocusName(target.pairingName);
         refs.current.get(target.pairingName)?.focus();
       }
-    } else if ((event.key === "i" || event.key === "I") && onInspect) {
+    } else if ((event.key === "i" || event.key === "I") && onInspect && !pot.unavailableReason) {
       event.preventDefault();
       onInspect(pot.pairingName);
     }
@@ -125,7 +127,7 @@ export function AerialBench({ model, states, selected, selectable, onToggle, onT
   const renderPot = (pot: AerialPot, style?: CSSProperties) => {
     const state = states.get(pot.pairingName);
     const isSelected = selected.has(pot.pairingName);
-    const available = state?.available !== false;
+    const available = !pot.unavailableReason && state?.available !== false;
     const status = state?.status ?? "idle";
     const classes = [
       "ax-pot",
@@ -154,7 +156,7 @@ export function AerialBench({ model, states, selected, selectable, onToggle, onT
         onClick={() => {
           if (selectable) {
             if (available) onToggle?.(pot.pairingName);
-          } else onInspect?.(pot.pairingName);
+          } else if (!pot.unavailableReason) onInspect?.(pot.pairingName);
         }}
         onKeyDown={(event) => onKeyDown(event, pot)}
       >
@@ -216,6 +218,14 @@ export function AerialBench({ model, states, selected, selectable, onToggle, onT
               </section>
             ))}
           </div>
+          {model.benches.slice(1).map((bench) => (
+            <section key={bench.id} className="ax-bench-card" aria-label={bench.label}>
+              <h4>{bench.label}</h4>
+              <div className="ax-compact-grid">
+                {bench.pots.map((pot) => renderCompact(pot))}
+              </div>
+            </section>
+          ))}
         </>
       ) : (
         <div className="ax-benches">
@@ -237,7 +247,7 @@ export function AerialBench({ model, states, selected, selectable, onToggle, onT
   function renderCompact(pot: AerialPot) {
     const state = states.get(pot.pairingName);
     const isSelected = selected.has(pot.pairingName);
-    const available = state?.available !== false;
+    const available = !pot.unavailableReason && state?.available !== false;
     const status = state?.status ?? "idle";
     const name = potName(pot, state, isSelected, selectable);
     return (
@@ -252,7 +262,7 @@ export function AerialBench({ model, states, selected, selectable, onToggle, onT
         onClick={() => {
           if (selectable) {
             if (available) onToggle?.(pot.pairingName);
-          } else onInspect?.(pot.pairingName);
+          } else if (!pot.unavailableReason) onInspect?.(pot.pairingName);
         }}
       >
         <span className="ax-pot-number">{pot.potNumber}</span>
