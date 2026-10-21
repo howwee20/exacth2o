@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { CalendarClock, Check, CircleHelp, Loader2, Pause, Pencil, Play, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "./supabase";
+import { scheduleVisiblePolling } from "./visiblePolling";
 import { loadGasMixerNativeStatus } from "./gasMixerNativeClient";
 import { gasMixerNativeChannelConfig, type GasMixerNativeStatus } from "./gasMixerNative";
 import "./chamberSchedules.css";
@@ -82,8 +83,8 @@ export function ChamberSchedules() {
       finally { refreshing = false; if (active) setLoading(false); }
     };
     void poll();
-    const timer = window.setInterval(() => void poll(), 5000);
-    return () => { active = false; window.clearInterval(timer); };
+    const stopPolling = scheduleVisiblePolling(poll, 5000);
+    return () => { active = false; stopPolling(); };
   }, []);
 
   const operate = async (operation: () => Promise<void>) => {

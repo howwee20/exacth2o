@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { paceLightingIdle } from "../_shared/agent-polling.mjs";
 import {
   nextLightingState,
   normalizeLightingControllerIntensity,
@@ -29,6 +30,7 @@ function parseTimestamp(value: unknown) {
 }
 
 serve(async (request) => {
+  const startedAt = performance.now();
   if (request.method !== "POST") return response({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -141,6 +143,9 @@ serve(async (request) => {
     if (syncError || !synced) return response({ error: "Unable to synchronize lighting state" }, 409);
 
     if (!pending || localChanged || payload.bridge_ready !== true) {
+      if (!pending && !localChanged && payload.bridge_ready === true) {
+        await paceLightingIdle(startedAt);
+      }
       return response({ ok: true, server_time: now, state: synced, command: null });
     }
 

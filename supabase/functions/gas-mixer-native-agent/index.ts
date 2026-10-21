@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { agentPollBudget, pollUntilCommands } from "../_shared/agent-polling.mjs";
 import { nativeAckPreviousStatuses, normalizeNativeMachineState } from "../_shared/gas-mixer-native-policy.mjs";
 
 const gasMixerProjectId = "44444444-4444-4444-8444-444444444441";
@@ -103,14 +104,14 @@ serve(async (request) => {
       .eq("device_id", gasMixerDeviceId)
       .eq("status", "queued")
       .lt("expires_at", now);
-    const { data, error } = await serviceClient.from("gas_mixer_native_commands")
+    const { data, error } = await pollUntilCommands(() => serviceClient.from("gas_mixer_native_commands")
       .select("id,command_type,payload,expected_revision,created_at,expires_at")
       .eq("project_id", gasMixerProjectId)
       .eq("device_id", gasMixerDeviceId)
       .eq("status", "queued")
-      .gt("expires_at", now)
+      .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true })
-      .limit(10);
+      .limit(10), { holdMs: agentPollBudget.nativeIdleMs, signal: request.signal });
     return error ? response({ error: "Unable to poll native mixer commands" }, 503) : response({ ok: true, commands: data ?? [] });
   }
 

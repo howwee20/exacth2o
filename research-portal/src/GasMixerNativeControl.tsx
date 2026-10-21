@@ -1,5 +1,6 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { scheduleVisiblePolling } from "./visiblePolling";
 import {
   applyGasMixerNativeField,
   cloneGasMixerNativeState,
@@ -149,7 +150,7 @@ export function GasMixerNativeControl() {
       setNow(Date.now());
       if (refreshing) return;
       refreshing = true;
-      loadGasMixerNativeStatus()
+      return loadGasMixerNativeStatus()
         .then((next) => {
           if (!active) return;
           setStatus(next);
@@ -186,10 +187,10 @@ export function GasMixerNativeControl() {
         });
     };
     refresh();
-    const timer = window.setInterval(refresh, 1_000);
+    const stopPolling = scheduleVisiblePolling(refresh, 1_000);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, []);
 

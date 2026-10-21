@@ -1,5 +1,6 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { scheduleVisiblePolling } from "./visiblePolling";
 import {
   lightingMaxIntensity,
   lightingMinIntensity,
@@ -33,7 +34,7 @@ export function LightingNativeControl() {
       setNow(Date.now());
       if (refreshing) return;
       refreshing = true;
-      loadLightingNativeStatus()
+      return loadLightingNativeStatus()
         .then((next) => {
           if (!active) return;
           setStatus(next);
@@ -66,10 +67,10 @@ export function LightingNativeControl() {
     };
 
     refresh();
-    const timer = window.setInterval(refresh, 1_000);
+    const stopPolling = scheduleVisiblePolling(refresh, 1_000);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, []);
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { agentPollBudget, pollUntilCommands } from "../_shared/agent-polling.mjs";
 
 const gasMixerProjectId = "44444444-4444-4444-8444-444444444441";
 const gasMixerDeviceId = "gas-mixer:b827eb548a44";
@@ -150,16 +151,29 @@ serve(async (request) => {
       .eq("status", "queued")
       .lt("expires_at", now);
 
-    const { data, error } = await serviceClient.from(
+    // Keep live view/control responsive. Only unattended screen polling waits.
+    const { data: sessions, error: sessionError } = await serviceClient
+      .from("gas_mixer_remote_sessions")
+      .select("id")
+      .eq("project_id", gasMixerProjectId)
+      .eq("device_id", gasMixerDeviceId)
+      .in("status", ["issued", "connected"])
+      .gt("expires_at", new Date().toISOString())
+      .limit(1);
+    if (sessionError) return response({ error: "Unable to check mixer sessions" }, 503);
+    const { data, error } = await pollUntilCommands(() => serviceClient.from(
       "gas_mixer_remote_commands",
     )
       .select("id,event_type,normalized_x,normalized_y,created_at,expires_at")
       .eq("project_id", gasMixerProjectId)
       .eq("device_id", gasMixerDeviceId)
       .eq("status", "queued")
-      .gt("expires_at", now)
+      .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true })
-      .limit(20);
+      .limit(20), {
+        holdMs: sessions?.length ? 0 : agentPollBudget.screenIdleMs,
+        signal: request.signal,
+      });
     if (error) return response({ error: "Unable to poll mixer commands" }, 503);
     return response({ ok: true, commands: data ?? [] });
   }
