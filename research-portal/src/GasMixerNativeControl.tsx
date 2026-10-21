@@ -2,6 +2,11 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { scheduleVisiblePolling } from "./visiblePolling";
 import {
+  chamberCommandReceiptOverdue,
+  chamberStatusIntervals,
+  chamberStatusReadDue,
+} from "./chamberStatusPolling";
+import {
   applyGasMixerNativeField,
   cloneGasMixerNativeState,
   formatGasMixerNativeValue,
@@ -136,37 +141,39 @@ export function GasMixerNativeControl() {
   const [draft, setDraft] = useState<GasMixerNativeMachineState>(() => cloneGasMixerNativeState(fallback));
   const [fieldPhase, setFieldPhase] = useState<Record<string, FieldPhase>>({});
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [requestFailed, setRequestFailed] = useState(false);
   const [now, setNow] = useState(Date.now);
   const dirtyFields = useRef(new Set<GasMixerNativeField>());
-  const pendingCommands = useRef(new Map<GasMixerNativeField, string>());
+  const pendingCommands = useRef(new Map<GasMixerNativeField, { id: string; sentAt: number }>());
   const initialized = useRef(false);
+  const lastReadAt = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
     let refreshing = false;
     const refresh = () => {
-      setNow(Date.now());
-      if (refreshing) return;
+      const tickAt = Date.now();
+      setNow(tickAt);
+      if (refreshing || !chamberStatusReadDue(tickAt, lastReadAt.current, pendingCommands.current.size > 0)) return;
       refreshing = true;
+      lastReadAt.current = tickAt;
       return loadGasMixerNativeStatus()
         .then((next) => {
           if (!active) return;
           setStatus(next);
           setRequestFailed(false);
-          if (!initialized.current || dirtyFields.current.size === 0) {
-            setDraft(cloneGasMixerNativeState(next.requested_state));
-            initialized.current = true;
-          }
+          setLoadError(null);
           let commandError: string | null = null;
           if (next.last_command?.field &&
-              pendingCommands.current.get(next.last_command.field) === next.last_command.id) {
+              pendingCommands.current.get(next.last_command.field)?.id === next.last_command.id) {
             const commandField = next.last_command.field;
             if (["applied", "verified"].includes(next.last_command.status)) {
               pendingCommands.current.delete(commandField);
               dirtyFields.current.delete(commandField);
               setFieldPhase((current) => ({ ...current, [commandField]: "confirmed" }));
+              setError(null);
             } else if (["rejected", "failed", "expired"].includes(next.last_command.status)) {
               pendingCommands.current.delete(commandField);
               dirtyFields.current.delete(commandField);
@@ -174,12 +181,26 @@ export function GasMixerNativeControl() {
               commandError = next.last_command.error_message ?? "The mixer rejected that value";
             }
           }
-          setError(commandError);
+          // A newer command replaces last_command, so an older one can never
+          // report here; after the receipt timeout show it as unconfirmed.
+          for (const [commandField, pending] of pendingCommands.current) {
+            if (!chamberCommandReceiptOverdue(pending.sentAt, Date.now())) continue;
+            pendingCommands.current.delete(commandField);
+            dirtyFields.current.delete(commandField);
+            setFieldPhase((current) => ({ ...current, [commandField]: "failed" }));
+            commandError ??= "The mixer did not confirm that change. Showing the mixer's reported values.";
+          }
+          if (!initialized.current || dirtyFields.current.size === 0) {
+            setDraft(cloneGasMixerNativeState(next.requested_state));
+            initialized.current = true;
+          }
+          // Keep a command error visible until the next edit or confirmation.
+          if (commandError) setError(commandError);
         })
         .catch((reason) => {
           if (!active) return;
           setRequestFailed(true);
-          setError(reason instanceof Error ? reason.message : "Native mixer state is unavailable");
+          setLoadError(reason instanceof Error ? reason.message : "Native mixer state is unavailable");
         })
         .finally(() => {
           refreshing = false;
@@ -187,7 +208,7 @@ export function GasMixerNativeControl() {
         });
     };
     refresh();
-    const stopPolling = scheduleVisiblePolling(refresh, 1_000);
+    const stopPolling = scheduleVisiblePolling(refresh, chamberStatusIntervals.tickMs);
     return () => {
       active = false;
       stopPolling();
@@ -223,10 +244,12 @@ export function GasMixerNativeControl() {
     setFieldPhase((current) => ({ ...current, [field]: "sending" }));
     try {
       const response = await sendGasMixerNativeField(field, value, status.state_revision);
-      pendingCommands.current.set(field, response.command.id);
+      pendingCommands.current.set(field, { id: response.command.id, sentAt: Date.now() });
       setFieldPhase((current) => ({ ...current, [field]: "sending" }));
       setError(null);
     } catch (reason) {
+      // Nothing was queued: show the mixer's values again instead of the draft.
+      dirtyFields.current.delete(field);
       setFieldPhase((current) => ({ ...current, [field]: "failed" }));
       setError(reason instanceof Error ? reason.message : "Unable to send mixer value");
     }
@@ -310,8 +333,8 @@ export function GasMixerNativeControl() {
           </table>
           <div className="native-mixer-ledger-status" aria-live="polite">
             {loading ? <Loader2 className="chart-loading-spinner" size={18} /> : null}
-            {error ? <><AlertTriangle size={16} /><span>{error}</span></> : null}
-            {!loading && !error ? (
+            {loadError ?? error ? <><AlertTriangle size={16} /><span>{loadError ?? error}</span></> : null}
+            {!loading && !(loadError ?? error) ? (
               <span>{connection.online
                 ? status?.last_command?.status === "applied"
                   ? "Setting applied in the mixer. Physical flow is not verified; check observed readings."

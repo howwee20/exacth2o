@@ -9,7 +9,13 @@ import { WalkerMachineTile } from "./WalkerObservationView";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import { SoftwareTermsModal } from "./auth/SoftwareTermsModal";
-import { expiredPortalSessionNotice, isSessionAuthorizationError } from "./authSession";
+import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
+import {
+  authEventReload,
+  expiredPortalSessionNotice,
+  isSessionAuthorizationError,
+  type AuthReloadState,
+} from "./authSession";
 import { SensorCanvasChart } from "./charts/SensorCanvasChart";
 import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
@@ -177,6 +183,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [sessionRevision, setSessionRevision] = useState(0);
+  const authReloadState = useRef<AuthReloadState>({ userId: null, tokenExpiresAtMs: null });
   const [loading, setLoading] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
@@ -1638,6 +1645,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     setSalesSupportError(null);
     setData(initialLoadState);
     dataRef.current = initialLoadState;
+    setExperimentCatalog([]);
+    websiteAnalyticsReportCache.clear();
   }
 
 
@@ -1906,16 +1915,21 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       if (!active) return;
       if (event === "PASSWORD_RECOVERY") { setAuthMode("set-password"); setSessionReady(false); return; }
       if (authMode === "set-password" || authMode === "accept-invite" || authMode === "recover") return;
-      if (session) setAccessLoading(true);
+      // Same-user SIGNED_IN (every tab focus) and routine hourly refreshes
+      // keep the loaded data; only a new user or a post-expiry refresh reloads.
+      const decision = authEventReload(authReloadState.current, event, session);
+      authReloadState.current = decision.next;
+      if (session && decision.userChanged) setAccessLoading(true);
       setSessionReady(Boolean(session));
-      if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
-        setSessionRevision((current) => current + 1);
-      }
+      if (decision.reload) setSessionRevision((current) => current + 1);
     });
 
     void supabase.auth.getSession().then(({ data: sessionData }) => {
       if (!active || authMode === "set-password" || authMode === "accept-invite") return;
-      if (sessionData.session) setAccessLoading(true);
+      if (sessionData.session && authReloadState.current.userId !== sessionData.session.user.id) {
+        setAccessLoading(true);
+      }
+      authReloadState.current = authEventReload(authReloadState.current, "INITIAL_SESSION", sessionData.session).next;
       setSessionReady(Boolean(sessionData.session));
     });
 
@@ -2015,6 +2029,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setData(initialLoadState);
       dataRef.current = initialLoadState;
       valveEventsRef.current = [];
+      // Nothing from the previous account stays visible to the next one.
+      setExperimentCatalog([]);
+      websiteAnalyticsReportCache.clear();
       return;
     }
     void loadPortalAccess();

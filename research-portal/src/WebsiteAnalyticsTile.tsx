@@ -51,8 +51,9 @@ export function WebsiteAnalyticsTile({ onOpen }: { onOpen: () => void }) {
       } catch { if (active) setFailed(true); }
     };
     void refresh();
-    // Once a minute while visible; the server caches for five minutes.
-    const stop = scheduleVisiblePolling(refresh, 60_000);
+    // Each read is an Edge invocation and the server caches for five minutes,
+    // so match that cadence while visible.
+    const stop = scheduleVisiblePolling(refresh, 5 * 60_000);
     return () => { active = false; stop(); };
   }, []);
   function toggleExclusion() {

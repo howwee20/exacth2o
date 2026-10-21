@@ -64,28 +64,42 @@ export function ChamberSchedules() {
   const [review, setReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const pending = useRef(false);
-  const refresh = useCallback(async () => {
+  const readSequence = useRef(0);
+  const lastOverview = useRef<Overview | null>(null);
+  const lastReadAt = useRef(0);
+  // Every read is numbered so an older poll result can never replace a newer
+  // read made after a change.
+  const readOverview = useCallback(async () => {
+    const sequence = ++readSequence.current;
     const { data, error: reason } = await supabase.rpc("chamber_schedule_overview");
     if (reason) throw reason;
+    if (sequence !== readSequence.current) return;
+    lastOverview.current = data as Overview;
+    lastReadAt.current = Date.now();
     setOverview(data as Overview);
   }, []);
+  const refresh = readOverview;
   useEffect(() => {
     let active = true;
     let refreshing = false;
     const poll = async () => {
-      if (refreshing) return;
+      // Read every 5 s while a schedule is enabled or a run is in flight;
+      // otherwise every 15 s, still inside the 30 s "scheduler online" window.
+      const current = lastOverview.current;
+      const busy = !current || current.schedules.some((schedule) => schedule.enabled) ||
+        current.runs.some((run) => run.status === "running");
+      if (refreshing || (!busy && Date.now() - lastReadAt.current < 14_900)) return;
       refreshing = true;
       try {
-        const { data, error: reason } = await supabase.rpc("chamber_schedule_overview");
-        if (reason) throw reason;
-        if (active) { setOverview(data as Overview); setConnectionError(null); }
+        await readOverview();
+        if (active) setConnectionError(null);
       } catch (reason) { if (active) setConnectionError(errorText(reason)); }
       finally { refreshing = false; if (active) setLoading(false); }
     };
     void poll();
     const stopPolling = scheduleVisiblePolling(poll, 5000);
     return () => { active = false; stopPolling(); };
-  }, []);
+  }, [readOverview]);
 
   const operate = async (operation: () => Promise<void>) => {
     if (pending.current) return;

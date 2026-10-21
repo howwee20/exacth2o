@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   gasMixerAccessDenied,
   gasMixerSessionRenewalDelay,
+  mixerSessionEndReason,
   normalizedMixerPoint,
   type GasMixerSessionAccess,
   type GasMixerSessionMode,
@@ -30,6 +31,7 @@ import { GasMixerNativeControl } from "./GasMixerNativeControl";
 import { LightingNativeControl } from "./LightingNativeControl";
 import { ChamberSchedules } from "./ChamberSchedules";
 import { scheduleVisiblePolling } from "./visiblePolling";
+import { supabase } from "./supabase";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -111,6 +113,13 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
   const [frameRevision, setFrameRevision] = useState(0);
   const [frameRefreshBusy, setFrameRefreshBusy] = useState(false);
   const frameRefreshTimer = useRef<number | null>(null);
+  const sessionRef = useRef<GasMixerSessionAccess | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
+  sessionRef.current = session;
+
+  const rememberAccessToken = async () => {
+    accessTokenRef.current = (await supabase.auth.getSession()).data.session?.access_token ?? null;
+  };
 
   useEffect(() => {
     return () => {
@@ -125,7 +134,10 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     if (!session) return;
     if (frameRefreshTimer.current !== null) {
       window.clearTimeout(frameRefreshTimer.current);
+      frameRefreshTimer.current = null;
     }
+    // No frame downloads for a background tab; the view resumes on return.
+    if (document.visibilityState === "hidden") return;
     frameRefreshTimer.current = window.setTimeout(() => {
       frameRefreshTimer.current = null;
       setFrameRevision((value) => value + 1);
@@ -139,9 +151,12 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     const activeSessionId = session.session.id;
 
     const renew = async () => {
+      // A background tab is ended below instead of keeping the lease alive.
+      if (document.visibilityState === "hidden") return;
       try {
         const renewed = await refreshGasMixerSession(session.session_token);
         if (cancelled) return;
+        void rememberAccessToken();
         setSession((current) => current?.session.id === activeSessionId ? renewed : current);
         setSessionError(null);
       } catch (error) {
@@ -176,6 +191,7 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     setSessionNotice(null);
     try {
       setSession(await createGasMixerSession(mode));
+      void rememberAccessToken();
       setFrameRevision(0);
     } catch (error) {
       setSessionError(error instanceof Error ? error.message : "Unable to start the mixer session");
@@ -184,11 +200,12 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const closeSession = async () => {
-    const activeSession = session;
+  const closeSession = async (notice: string | null = null) => {
+    const activeSession = sessionRef.current;
+    sessionRef.current = null;
     setSession(null);
     setSessionError(null);
-    setSessionNotice(null);
+    setSessionNotice(notice);
     if (!activeSession) return;
     setSessionBusy("end");
     try {
@@ -204,6 +221,62 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     void closeSession();
     onBack();
   };
+
+  // While a live view is open the screen agent captures and uploads frames.
+  // End it when nobody can be watching: a minute in a background tab, ten
+  // minutes without activity, leaving the page, or unmounting this view.
+  useEffect(() => {
+    if (!session) return undefined;
+    let hiddenSince: number | null = document.visibilityState === "hidden" ? Date.now() : null;
+    let lastInteraction = Date.now();
+    const onInteraction = () => { lastInteraction = Date.now(); };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenSince = Date.now();
+        return;
+      }
+      hiddenSince = null;
+      lastInteraction = Date.now();
+      setFrameRevision((value) => value + 1);
+    };
+    const onPageHide = () => {
+      const active = sessionRef.current;
+      const token = accessTokenRef.current;
+      if (!active || !token) return;
+      void fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gas-mixer-session`, {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: "end_session", session_token: active.session_token }),
+      }).catch(() => undefined);
+    };
+    const check = window.setInterval(() => {
+      const reason = mixerSessionEndReason({ hiddenSinceMs: hiddenSince, lastInteractionMs: lastInteraction, nowMs: Date.now() });
+      if (reason === "hidden") void closeSession("The live view ended while this tab was in the background. Start it again to continue.");
+      if (reason === "idle") void closeSession("The live view ended after 10 minutes without activity. Start it again to continue.");
+    }, 15_000);
+    const interactions = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    for (const name of interactions) window.addEventListener(name, onInteraction, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.clearInterval(check);
+      for (const name of interactions) window.removeEventListener(name, onInteraction);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+    // closeSession reads the live session from sessionRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.session.id]);
+
+  useEffect(() => () => {
+    const active = sessionRef.current;
+    if (active) void endGasMixerSession(active.session_token).catch(() => undefined);
+  }, []);
 
   const refreshFrameNow = async () => {
     if (!session || frameRefreshBusy) return;
@@ -232,7 +305,8 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
     setSessionNotice("Sending tap to the physical mixer…");
     try {
       await sendGasMixerTap(session.session_token, point.x, point.y);
-      setSessionNotice("Tap delivered to the mixer agent");
+      // The tap is queued; the next frame shows whether the mixer reacted.
+      setSessionNotice("Tap sent to the mixer agent");
       scheduleFrameRefresh(0);
     } catch (error) {
       setSessionNotice(null);
