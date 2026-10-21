@@ -24,7 +24,8 @@ function loadState(): WatchdogState | null {
 }
 
 const initial = loadState()
-rpio.init({ mapping: 'gpio', gpiomem: true })
+// Match the controller's GPIO backend; this installation has no /dev/gpiomem.
+rpio.init({ mapping: 'gpio', gpiomem: false })
 for (const pin of pins) rpio.open(pin, rpio.OUTPUT, initial?.tripped ? rpio.LOW : rpio.HIGH)
 
 const watchdog = new ValveWatchdog({

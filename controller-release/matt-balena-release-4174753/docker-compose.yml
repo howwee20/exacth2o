@@ -97,7 +97,8 @@ services:
       dockerfile: cron.dockerfile
     command: ["node", "dist/watchdog/main.js"]
     devices:
-      - "/dev/gpiomem:/dev/gpiomem"
+      - "/dev/mem:/dev/mem"
+    privileged: true
     restart: always
     volumes:
       - "watchdog_data:/data"
