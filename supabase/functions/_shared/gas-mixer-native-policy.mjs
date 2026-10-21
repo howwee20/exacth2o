@@ -176,3 +176,15 @@ export function nativeAckPreviousStatuses(status) {
   }
   return [];
 }
+
+// Queue reads return expired rows too, so one call both serves the agent and
+// finds what must be marked expired. Equal timestamps count as expired.
+export function splitExpiredCommands(commands, nowMs = Date.now()) {
+  const deliverable = [];
+  const expired = [];
+  for (const command of commands) {
+    const expiresAt = Date.parse(String(command?.expires_at ?? ""));
+    (Number.isFinite(expiresAt) && expiresAt > nowMs ? deliverable : expired).push(command);
+  }
+  return { deliverable, expired };
+}
