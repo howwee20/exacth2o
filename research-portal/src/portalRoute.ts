@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { SettingsSection } from "./portalTypes";
 
 /**
  * Portal routes live in the query string under /portal. portal.html canonicalises every path to
@@ -12,6 +13,7 @@ import { useSyncExternalStore } from "react";
  *   /portal?pot=<pairing name | research pot id>
  *   /portal?view=pocket[&pot=<pot>][&note=1] At the bench
  *   /portal?view=health|support|walker|chamber|analytics
+ *   /portal?view=controller[&settings=<section>]  Installation (and its Settings section)
  *
  * `project` is carried on every link so a copied URL resolves to the same project.
  */
@@ -41,6 +43,17 @@ const clean = (value: string | null) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 };
+
+const linkableSettings = new Set<SettingsSection>(["overview", "water", "pairings", "autocalibrate", "calibrations", "groups", "exports", "hardware"]);
+
+/**
+ * The Settings section a link asks to open: `settings=<section>` on an experiment or
+ * the installation (`?view=controller&settings=autocalibrate` is Settings → Autocalibrate).
+ */
+export function settingsSectionFromSearch(search: string): SettingsSection | null {
+  const value = clean(new URLSearchParams(search).get("settings"));
+  return value && linkableSettings.has(value as SettingsSection) ? (value as SettingsSection) : null;
+}
 
 export function parsePortalRoute(search: string): PortalRoute {
   const params = new URLSearchParams(search);

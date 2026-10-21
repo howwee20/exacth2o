@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, Lock, LogOut, Menu, Radar, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationStudio } from "../CalibrationStudio";
-import { Commissioning } from "../Commissioning";
+import { AutocalibrateWorkspace } from "../autocalibrate/AutocalibrateWorkspace";
 import { SettingsAssistant } from "../SettingsAssistant";
 import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
@@ -10,59 +10,10 @@ import { boardConfigsFromPayload, formatIntervalFromMs, formatSecondsFromMs, for
 import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type QueueSettingsPlan, type SettingsNavItem, type SettingsSection } from "../portalTypes";
 import { downloadJsonFile } from "../readingsExport";
 import { type CommandProgress, type CommandStage } from "../commandLifecycle";
-import { controllerPillText, controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText } from "../settingsPresentation";
+import { controllerPillText, controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
 import { type PairingRow } from "../types";
 
-export const settingsNavItems: SettingsNavItem[] = [
-  {
-    id: "overview",
-    label: "Overview",
-    description: "Status and configuration for the selected workspace.",
-    group: "Experiment",
-  },
-  {
-    id: "water",
-    label: "Watering",
-    description: "Targets and operation for this installation.",
-    group: "Experiment",
-  },
-  {
-    id: "pairings",
-    label: "Pairings",
-    description: "Connect pots to sensors and valves. Set targets and timing.",
-    group: "Set up",
-  },
-  {
-    id: "autocalibrate",
-    label: "Autocalibrate",
-    description: "Test valve-to-pot connections, then review the results before applying them.",
-    group: "Set up",
-  },
-  {
-    id: "calibrations",
-    label: "Sensor calibration",
-    description: "Fit a sensor's raw signal to reference water-content measurements.",
-    group: "Set up",
-  },
-  {
-    id: "groups",
-    label: "Groups",
-    description: "Plant groups used for targets, charts, and exports.",
-    group: "Set up",
-  },
-  {
-    id: "exports",
-    label: "Exports",
-    description: "Download readings and configuration files.",
-    group: "Data",
-  },
-  {
-    id: "hardware",
-    label: "Hardware",
-    description: "Sensors, valves, and controller configuration.",
-    group: "Advanced",
-  },
-];
+export { settingsNavItems };
 
 export type PortalSettingsPanelProps = {
   open: boolean;
@@ -75,6 +26,10 @@ export type PortalSettingsPanelProps = {
   runtimeState: DeviceRuntimeState | null;
   configState: DeviceConfigState | null;
   pairings: PairingRow[];
+  /** Every pairing on the controller, for Autocalibrate's view of the whole installation. */
+  installationPairings?: PairingRow[];
+  /** Experiments on this controller, offered as quick selections in Autocalibrate. */
+  experiments?: readonly PortalExperiment[];
   visiblePotCount: number;
   csvDownload: CsvDownload | null;
   csvError: string | null;
@@ -121,6 +76,8 @@ export function PortalSettingsPanel({
   runtimeState,
   configState,
   pairings,
+  installationPairings,
+  experiments = [],
   visiblePotCount,
   csvDownload,
   csvError,
@@ -140,12 +97,7 @@ export function PortalSettingsPanel({
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
-  // Autocalibrate commissions the installation, not one experiment's watering, so it
-  // stays available when an experiment is sensing-only. It is administrator-only.
-  const availableSettingsNavItems = (scope === "experiment"
-    ? settingsNavItems.filter((item) => ["overview", "calibrations", "exports"].includes(item.id))
-    : settingsNavItems
-  ).filter((item) => item.id !== "autocalibrate" || isAdmin);
+  const availableSettingsNavItems = settingsNavItemsFor(scope);
   const availableSettingsNavGroups = Array.from(
     availableSettingsNavItems.reduce((groups, item) => {
       groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
@@ -509,7 +461,7 @@ export function PortalSettingsPanel({
               lines={[
                 { label: "Checked at the bench", value: <span className="settings-empty-value">Not yet</span> },
               ]}
-              actionLabel={canOpen("pairings") ? "Open Pairings" : isAdmin && canOpen("autocalibrate") ? "Open Autocalibrate" : undefined}
+              actionLabel={canOpen("pairings") ? "Open Pairings" : canOpen("autocalibrate") ? "Open Autocalibrate" : undefined}
               onAction={() => onSectionChange(canOpen("pairings") ? "pairings" : "autocalibrate")}
             />
           </div>
@@ -617,12 +569,10 @@ export function PortalSettingsPanel({
               Sensor and valve addresses identify each connection.
             </p>
             <div className="settings-toolbar-actions">
-              {isAdmin ? (
-                <button type="button" className="settings-secondary-button" onClick={() => onSectionChange("autocalibrate")}>
-                  <Radar size={14} aria-hidden="true" />
-                  Check with Autocalibrate
-                </button>
-              ) : null}
+              <button type="button" className="settings-secondary-button" onClick={() => onSectionChange("autocalibrate")}>
+                <Radar size={14} aria-hidden="true" />
+                Check with Autocalibrate
+              </button>
               <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
                 <Download size={14} aria-hidden="true" />
                 Pairings CSV
@@ -814,22 +764,24 @@ export function PortalSettingsPanel({
     }
 
     if (activeSection === "autocalibrate") {
-      // Real hardware commissioning. Pulses go through the control-command service;
-      // pairing changes go through the same reviewed settings batch as the rest of Settings.
+      // Valve pulses go through the control-command service; pairing and settings changes
+      // through the same reviewed settings batch as the rest of Settings.
       return (
         <>
           {commandStatusPanel}
-          <Commissioning
+          <AutocalibrateWorkspace
             projectId={projectId}
             deviceId={data.latestState?.device_id ?? runtimeState?.device_id ?? configState?.device_id ?? null}
             operator={operatorEmail}
             portalRole={portalRole}
-            experimentId={scope === "installation" ? "installation" : experiment.id}
-            experimentName={scope === "installation" ? "Installation" : experiment.name}
-            pairings={pairings}
+            scope={scope}
+            experiment={experiment}
+            experiments={experiments}
+            pairings={installationPairings ?? pairings}
             configHash={configState?.config_hash?.trim() || null}
-            controlBusy={controlBusy}
+            controllerState={runtimeStateIsFresh(runtimeState) ? runtimeState?.controller_state ?? null : null}
             controllerOnline={controllerIsLive}
+            controlBusy={controlBusy}
             onQueueSettingsPlan={onQueueSettingsPlan}
           />
         </>

@@ -80,3 +80,11 @@ test("unknown and missing roles fail closed", () => {
   assert.equal(commandAccessDecision("researcher", "unknown").allowed, false);
   assert.equal(commandAccessDecision(null, "manual_water").allowed, false);
 });
+
+test("researchers can apply reviewed autocalibration remaps and restores through the settings path", () => {
+  for (const commandType of ["remap_pairing_valves", "restore_pairing_settings"]) {
+    assert.equal(commandAccessDecision("researcher", commandType).allowed, true, commandType);
+    assert.equal(commandAccessDecision("admin", commandType).allowed, true, commandType);
+    assert.equal(commandAccessDecision("viewer", commandType).allowed, false, commandType);
+  }
+});

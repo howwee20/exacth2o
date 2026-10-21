@@ -1,8 +1,10 @@
 import { SimulatedBench, type SimWorld } from "../../autocal/simulator";
+import { createTelemetryReader, type TelemetryPageRequest, type TelemetryRow } from "../telemetry";
 import type {
   CommandSnapshot,
   CommissioningPorts,
   ControllerStatus,
+  ManualIntervention,
   PulseRequest,
   Reading,
   SelectedPot,
@@ -28,6 +30,14 @@ export type MockOptions = {
   silenceSensorAfterPulses?: { sensorKey: string; pulses: number } | null;
   rejectRequestAfterPulses?: number | null;
   warmupSeconds?: number;
+  /** Serve readings like PostgREST: at most pageSize rows per request, uploads delayed. */
+  pagedTelemetry?: { pageSize: number; maxUploadDelaySeconds: number } | null;
+  /** A manual hold starts after this many executed pulses and lasts holdSeconds. */
+  manualHoldAfterPulses?: { pulses: number; holdSeconds: number; label?: string } | null;
+  /** The controller reports this pulse as cut short by manual control. */
+  interruptPulseNumber?: number | null;
+  /** The controller refuses timed pulses with the manual-troubleshooting message. */
+  refuseAsManualAfterPulses?: number | null;
 };
 
 type MockCommand = CommandSnapshot & { request: PulseRequest; executeAtMs: number; valveIndex: number };
@@ -62,9 +72,46 @@ export class MockController {
       silenceSensorAfterPulses: null,
       rejectRequestAfterPulses: null,
       warmupSeconds: 30 * 60,
+      pagedTelemetry: null,
+      manualHoldAfterPulses: null,
+      interruptPulseNumber: null,
+      refuseAsManualAfterPulses: null,
       ...options,
     };
     this.advance(this.options.warmupSeconds);
+  }
+
+  readonly manualSessions: ManualIntervention[] = [];
+  telemetryRequests = 0;
+  maxRowsReturned = 0;
+  private rowId = 0;
+  private readonly rows: TelemetryRow[] = [];
+
+  /** Rows the paged fake knows about at this moment (uploads arrive late). */
+  private servePage(request: TelemetryPageRequest): TelemetryRow[] {
+    this.telemetryRequests += 1;
+    const now = this.nowMs();
+    const keys = new Set(request.sensorKeys);
+    const column = request.order === "recorded" ? "recordedAt" : "receivedAt";
+    const since = Date.parse(request.since);
+    const visible = this.rows
+      .filter((row) => keys.has(row.sensorKey) && Date.parse(row.receivedAt) <= now && Date.parse(row[column]) >= since)
+      .filter((row) => !request.after || Date.parse(row[column]) > Date.parse(request.after.at)
+        || (Date.parse(row[column]) === Date.parse(request.after.at) && row.id > request.after.id))
+      .sort((a, b) => Date.parse(a[column]) - Date.parse(b[column]) || a.id - b.id);
+    // PostgREST caps every response at max-rows regardless of the requested limit.
+    const page = visible.slice(0, Math.min(request.limit, this.options.pagedTelemetry!.pageSize));
+    this.maxRowsReturned = Math.max(this.maxRowsReturned, page.length);
+    return page;
+  }
+
+  /** Time passing with no run in progress (e.g. waiting before a resume). */
+  idle(seconds: number) {
+    this.advance(seconds);
+  }
+
+  get storedReadings() {
+    return this.readings.length;
   }
 
   // The recorded (possibly wrong) pairings: valve i is recorded against sensor i.
@@ -94,6 +141,11 @@ export class MockController {
           if (value == null) return;
           if (silenced && silenced.sensorKey === sensorKey && this.pulsesExecuted >= silenced.pulses) return;
           this.readings.push({ sensorKey, atMs: this.nowMs(), vwc: value });
+          if (this.options.pagedTelemetry) {
+            // Deterministic upload delay per reading, so receipt order differs from recording order.
+            const delay = ((this.rowId * 7919) % 997) / 997 * this.options.pagedTelemetry.maxUploadDelaySeconds * 1000;
+            this.rows.push({ id: ++this.rowId, sensorKey, recordedAt: new Date(this.nowMs()).toISOString(), receivedAt: new Date(this.nowMs() + delay).toISOString(), vwc: value });
+          }
         });
       }
       this.commands.forEach((command) => {
@@ -108,11 +160,21 @@ export class MockController {
           command.error = "manual_water is disabled until the controller timed-pulse bench protocol is approved";
           return;
         }
+        if (this.options.refuseAsManualAfterPulses != null && this.pulsesExecuted >= this.options.refuseAsManualAfterPulses) {
+          command.status = "failed";
+          command.error = "timed pulse refused: manual troubleshooting in progress";
+          return;
+        }
         command.status = "running";
         const { flowMl } = this.bench.pulse(command.valveIndex, command.request.seconds);
         this.pulsesExecuted += 1;
         command.status = "succeeded";
         command.result = { action: "manual_water", failSafe: "controller_timed_pulse", durationSeconds: command.request.seconds, mockFlowMl: Math.round(flowMl) };
+        if (this.options.interruptPulseNumber === this.pulsesExecuted) command.result.interrupted = "preempted_by_manual_hold";
+        const hold = this.options.manualHoldAfterPulses;
+        if (hold && this.pulsesExecuted === hold.pulses && !this.manualSessions.length) {
+          this.manualSessions.push({ id: "hold-1", startedAtMs: this.nowMs(), endedAtMs: this.nowMs() + hold.holdSeconds * 1000, label: hold.label ?? "solenoid 23" });
+        }
       });
     }
   }
@@ -133,8 +195,16 @@ export class MockController {
           wateringEnabled: false,
         };
       },
-      readReadings: async (sensorKeys, sinceMs) =>
-        this.readings.filter((reading) => reading.atMs >= sinceMs && sensorKeys.includes(reading.sensorKey)),
+      readReadings: this.options.pagedTelemetry
+        ? ((reader) => (sensorKeys: string[], sinceMs: number) => reader.read(sensorKeys, sinceMs))(
+          createTelemetryReader(async (request) => this.servePage(request), { pageSize: this.options.pagedTelemetry.pageSize, overlapMs: 2 * 60_000 }),
+        )
+        : async (sensorKeys, sinceMs) =>
+          this.readings.filter((reading) => reading.atMs >= sinceMs && sensorKeys.includes(reading.sensorKey)),
+      readManualInterventions: async (sinceMs) => this.manualSessions
+        .filter((session) => session.startedAtMs <= this.nowMs())
+        .map((session) => ({ ...session, endedAtMs: session.endedAtMs != null && session.endedAtMs <= this.nowMs() ? session.endedAtMs : null }))
+        .filter((session) => session.endedAtMs == null || session.startedAtMs >= sinceMs || (session.endedAtMs ?? 0) >= sinceMs),
       readAutoWateringPairings: async (names) => this.options.autoWateringPairings.filter((name) => names.includes(name)),
       countActiveWateringCommands: async () =>
         this.options.conflictAfterPulses != null && this.pulsesExecuted >= this.options.conflictAfterPulses ? 1 : 0,

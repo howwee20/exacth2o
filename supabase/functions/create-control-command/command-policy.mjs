@@ -2,6 +2,9 @@ export const researcherCommandTypes = new Set([
   "update_pairing",
   "bulk_update_pairings",
   "create_pairing",
+  // Reviewed autocalibration changes keep each pot's identity, group and calibration.
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "create_group",
   "remove_group",
   "manual_water",

@@ -104,3 +104,65 @@ test('a sole enabled pairing identifies a shared valve without changing legacy o
  assert.equal(result.pairing.namedPot,68);
  assert.equal(old.WTCPercentLimit,0);
 });
+
+// ---------------------------------------------------------------- direct solenoid outputs
+
+test('every configured output on all three boards is listed, including those without a sensor or pot', async () => {
+  const { resolveOutputs } = await import('./hold-policy.mjs');
+  const labels = Array.from({ length: 144 }, (_, index) => ({ solenoid_number: index + 1, relay_address: [36, 32, 38][Math.floor(index / 48)], channel: (index % 48) + 1, status: index === 73 ? 'confirmed' : 'needs_confirmation', source: 'pcb_label_scheme' }));
+  const outputs = resolveOutputs({ boards, valves: [], labels, pots: resolvePots(routes, boards, live), pairings: live });
+  assert.equal(outputs.length, 144);
+  assert.deepEqual(outputs.slice(0, 2).map((o) => [o.solenoidNumber, o.relayAddress, o.channel]), [[1, 36, 1], [2, 36, 2]]);
+  // Board boundaries: 48 ends 0x24, 49 starts 0x20, 96 ends 0x20, 97 starts 0x26.
+  const byNumber = new Map(outputs.map((o) => [o.solenoidNumber, o]));
+  assert.deepEqual([48, 49, 96, 97, 100].map((n) => [byNumber.get(n).relayAddress, byNumber.get(n).channel]), [[36, 48], [32, 1], [32, 48], [38, 1], [38, 4]]);
+  assert.equal(byNumber.get(74).labelStatus, 'confirmed');
+  // Solenoid 66 (0x20:18) waters physical pot 66 by its field route; its pairing is named for pot 16.
+  assert.deepEqual(byNumber.get(66).pots, [66]);
+  assert.equal(byNumber.get(66).pairing.name, 'Zone3-Pot16');
+  // Solenoid 65 (0x20:17) has no recorded route: the physical pot stays unknown.
+  assert.deepEqual(byNumber.get(65).pots, []);
+});
+
+test('solenoid numbers are never invented for unlabelled outputs', async () => {
+  const { resolveOutputs } = await import('./hold-policy.mjs');
+  const outputs = resolveOutputs({ boards: [32], valves: [{ relayAddress: '0x20', address: '26' }, { relayAddress: '0x20', address: '27' }], labels: [{ solenoid_number: 74, relay_address: 32, channel: 26, status: 'confirmed', source: 'field' }], pots: [], pairings: [] });
+  assert.deepEqual(outputs.map((o) => [o.key, o.solenoidNumber]), [['0x20:26', 74], ['0x20:27', null]]);
+});
+
+test('a solenoid destination must be a configured output; a pot destination uses only its recorded route', async () => {
+  const { resolveOutputs, resolveDestination } = await import('./hold-policy.mjs');
+  const pots = resolvePots(routes, boards, live);
+  const outputs = resolveOutputs({ boards, valves: [], labels: [], pots, pairings: live });
+  assert.equal(resolveDestination({ kind: 'solenoid', relayAddress: 32, channel: 49 }, { pots, outputs, boards, role: 'researcher' }).ok, false);
+  assert.equal(resolveDestination({ kind: 'solenoid', relayAddress: 40, channel: 1 }, { pots, outputs, boards, role: 'researcher' }).ok, false);
+  const direct = resolveDestination({ kind: 'solenoid', relayAddress: 32, channel: 17 }, { pots, outputs, boards, role: 'researcher' });
+  assert.deepEqual([direct.ok, direct.relayAddress, direct.channel, direct.potNumber, direct.routeStatus], [true, 32, 17, null, 'unknown']);
+  const pot = resolveDestination({ kind: 'pot', potNumber: 16 }, { pots, outputs, boards, role: 'researcher' });
+  assert.deepEqual([pot.ok, pot.relayAddress, pot.channel], [true, 36, 16]);
+  assert.equal(resolveDestination({ kind: 'pot', potNumber: 2 }, { pots, outputs, boards, role: 'admin' }).ok, false);
+  assert.equal(resolveDestination({ kind: 'pot', potNumber: 86 }, { pots, outputs, boards, role: 'admin' }).ok, false);
+});
+
+test('verified JWT claims are read without an Auth round trip and fail closed', async () => {
+  const { verifiedClaims } = await import('./hold-policy.mjs');
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const token = (claims) => `${encode({ alg: 'HS256' })}.${encode(claims)}.signature`;
+  const sub = '0f0e0d0c-0b0a-4908-8706-050403020100';
+  assert.deepEqual(verifiedClaims(token({ sub, role: 'authenticated', exp: 2_000 }), 1_000), { sub, exp: 2_000 });
+  assert.equal(verifiedClaims(token({ sub, role: 'authenticated', exp: 999 }), 1_000), null);
+  assert.equal(verifiedClaims(token({ sub, role: 'anon', exp: 2_000 }), 1_000), null);
+  assert.equal(verifiedClaims(token({ sub: 'not-a-uuid', role: 'authenticated', exp: 2_000 }), 1_000), null);
+  assert.equal(verifiedClaims('garbage', 1_000), null);
+});
+
+test('heartbeat caches expire and stay bounded', async () => {
+  const { ttlCache } = await import('./hold-policy.mjs');
+  let now = 0;
+  const cache = ttlCache(5_000, 2, () => now);
+  cache.set('a', 1); cache.set('b', 2); cache.set('c', 3);
+  assert.equal(cache.get('a'), undefined);
+  assert.equal(cache.get('c'), 3);
+  now = 5_001;
+  assert.equal(cache.get('c'), undefined);
+});

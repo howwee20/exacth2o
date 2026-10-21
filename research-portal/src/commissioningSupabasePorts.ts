@@ -2,7 +2,8 @@ import { pairingsFromDeviceConfigState } from "./portalData";
 // Must stay "./supabase": the offline Applications demo swaps exactly that module.
 import { supabase } from "./supabase";
 import { withSupabaseTimeout } from "./supabaseTimeout";
-import type { CommandSnapshot, CommissioningPorts, IntakeProbe, PulseTicket, Reading } from "./commissioning/types";
+import { createTelemetryReader, type TelemetryRow } from "./commissioning/telemetry";
+import type { CommandSnapshot, CommissioningPorts, IntakeProbe, ManualIntervention, PulseTicket } from "./commissioning/types";
 
 // REAL HARDWARE adapter. This is the only commissioning file that talks to the
 // backend, and it uses exactly the paths the portal already uses:
@@ -14,6 +15,8 @@ import type { CommandSnapshot, CommissioningPorts, IntakeProbe, PulseTicket, Rea
 
 const timeoutMs = 20_000;
 const livePrefix = "live-device:%";
+// PostgREST returns at most this many rows per request on this project.
+export const telemetryPageSize = 1000;
 
 async function functionError(error: unknown): Promise<{ status: number | null; message: string }> {
   let status: number | null = null;
@@ -35,8 +38,38 @@ async function functionError(error: unknown): Promise<{ status: number | null; m
   return { status, message };
 }
 
+/** One page of live readings for the given sensors, in keyset order. */
+async function fetchTelemetryPage(projectId: string, deviceId: string, request: Parameters<Parameters<typeof createTelemetryReader>[0]>[0]): Promise<TelemetryRow[]> {
+  const column = request.order === "recorded" ? "device_recorded_at" : "server_received_at";
+  let query = supabase
+    .from("sensor_readings")
+    .select("id,sensor_key,calibrated_value,device_recorded_at,server_received_at")
+    .eq("project_id", projectId)
+    .eq("device_id", deviceId)
+    .like("event_id", livePrefix)
+    .in("sensor_key", request.sensorKeys)
+    .gte(column, request.since)
+    .order(column, { ascending: true })
+    .order("id", { ascending: true })
+    .limit(request.limit);
+  if (request.after) {
+    query = query.or(`${column}.gt.${request.after.at},and(${column}.eq.${request.after.at},id.gt.${request.after.id})`);
+  }
+  const result = await withSupabaseTimeout(query, timeoutMs, "Sensor readings");
+  if (result.error) throw new Error(result.error.message);
+  const rows: TelemetryRow[] = [];
+  for (const row of (result.data ?? []) as Array<Record<string, unknown>>) {
+    const id = Number(row.id);
+    const vwc = Number(row.calibrated_value);
+    if (typeof row.sensor_key !== "string" || !Number.isFinite(id) || typeof row.device_recorded_at !== "string") continue;
+    rows.push({ id, sensorKey: row.sensor_key, recordedAt: row.device_recorded_at, receivedAt: String(row.server_received_at ?? row.device_recorded_at), vwc });
+  }
+  return rows;
+}
+
 export function createSupabasePorts(input: { projectId: string; deviceId: string }): CommissioningPorts {
   const { projectId, deviceId } = input;
+  const telemetry = createTelemetryReader((request) => fetchTelemetryPage(projectId, deviceId, request), { pageSize: telemetryPageSize });
 
   const findByClientRequestId = async (clientRequestId: string) => {
     const lookup = await withSupabaseTimeout(
@@ -96,32 +129,42 @@ export function createSupabasePorts(input: { projectId: string; deviceId: string
       };
     },
 
-    readReadings: async (sensorKeys, sinceMs) => {
-      if (sensorKeys.length === 0) return [];
+    readReadings: (sensorKeys, sinceMs) => telemetry.read(sensorKeys, sinceMs),
+
+    readManualInterventions: async (sinceMs): Promise<ManualIntervention[]> => {
+      const since = new Date(sinceMs).toISOString();
       const result = await withSupabaseTimeout(
         supabase
-          .from("sensor_readings")
-          .select("sensor_key,calibrated_value,device_recorded_at")
+          .from("manual_hold_sessions")
+          .select("id,started_at,ended_at,status,destination_kind,pot_number,solenoid_number,relay_address,channel")
           .eq("project_id", projectId)
           .eq("device_id", deviceId)
-          .like("event_id", livePrefix)
-          .in("sensor_key", sensorKeys)
-          .gte("device_recorded_at", new Date(sinceMs).toISOString())
-          .order("device_recorded_at", { ascending: true })
-          .limit(5000),
+          .or(`started_at.gte.${since},ended_at.is.null,ended_at.gte.${since}`)
+          .order("started_at", { ascending: false })
+          .limit(50),
         timeoutMs,
-        "Sensor readings",
+        "Manual watering records",
       );
       if (result.error) throw new Error(result.error.message);
-      const readings: Reading[] = [];
-      for (const row of (result.data ?? []) as Array<Record<string, unknown>>) {
-        const atMs = typeof row.device_recorded_at === "string" ? Date.parse(row.device_recorded_at) : NaN;
-        const vwc = Number(row.calibrated_value);
-        if (typeof row.sensor_key === "string" && Number.isFinite(atMs) && Number.isFinite(vwc)) {
-          readings.push({ sensorKey: row.sensor_key, atMs, vwc });
-        }
-      }
-      return readings;
+      return ((result.data ?? []) as Array<Record<string, unknown>>)
+        // A start the controller refused never opened a valve.
+        .filter((row) => row.status !== "refused")
+        .map((row) => {
+          const relay = Number(row.relay_address);
+          const output = Number.isInteger(relay) ? `0x${relay.toString(16)}:${row.channel}` : "an output";
+          const label = row.destination_kind === "pot" && row.pot_number != null
+            ? `pot ${row.pot_number}`
+            : row.solenoid_number != null ? `solenoid ${row.solenoid_number}` : output;
+          const ended = typeof row.ended_at === "string" ? Date.parse(row.ended_at) : NaN;
+          return {
+            id: String(row.id),
+            startedAtMs: Date.parse(String(row.started_at)),
+            // An "unconfirmed" stop is treated as still open until the record closes.
+            endedAtMs: Number.isFinite(ended) && row.status !== "unconfirmed" ? ended : null,
+            label,
+          };
+        })
+        .filter((item) => Number.isFinite(item.startedAtMs));
     },
 
     countActiveWateringCommands: async () => {

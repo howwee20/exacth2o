@@ -56,10 +56,14 @@ const forbiddenPortalCopy = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "RD_WORKER_TOKEN",
 ];
+// Settings → Autocalibrate: the real-valve confirmation, the safety checks, and the
+// separate facts a result must pass through before it is relied on.
 const requiredCommissioningCopy = [
-  "REAL HARDWARE",
-  "Run preflight",
-  "Physical validation",
+  "Open real valves",
+  "Run safety checks",
+  "Controller-verified",
+  "Delivery confirmed",
+  "Hold to water",
 ];
 const forbiddenApplicationsCopy = [
   "Hover or click a run",

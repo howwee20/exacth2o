@@ -678,7 +678,7 @@ test("readiness reports executor mode and required live configuration", async ()
   );
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     device_token: "device-token",
-    executor_version: "exacth2o-control-executor/0.4.0",
+    executor_version: "exacth2o-control-executor/0.5.0",
     executor_dry_run: false,
     executor_manual_water_enabled: false,
     executor_sync_ready: true,
@@ -686,4 +686,156 @@ test("readiness reports executor mode and required live configuration", async ()
     executor_controller_state: "RUNNING",
     executor_last_error: null,
   });
+});
+
+// ---------------------------------------------------------------- atomic topology commands
+
+function topologyFixture({ count = 100, failRemap = null } = {}) {
+  const calls = [];
+  const sensors = Array.from({ length: count }, (_, index) => ({ id: index + 1, boardSerialId: index < 50 ? "D30GQN2D" : "D30GQN2E", address: String.fromCharCode(48 + (index % 50)) }));
+  const valves = Array.from({ length: count }, (_, index) => ({ id: 1001 + index, relayAddress: ["0x24", "0x20", "0x26"][Math.floor(index / 48)], address: String((index % 48) + 1) }));
+  let pairings = Array.from({ length: count }, (_, index) => ({
+    name: `Zone${Math.floor(index / 25) + 1}-Pot${index + 1}`, sensorId: index + 1, valveId: 1001 + index, groupId: 1 + (index % 2),
+    WTCPercentLimit: -999999, ValveOpenTime: 2000 + index, MeasurementInterval: 60000, calibrationId: index % 3 ? 4 : null,
+  }));
+  const sensorKey = (sensor) => `${sensor.boardSerialId}:${sensor.address}`;
+  const valveKey = (valve) => `${valve.relayAddress}:${valve.address}`;
+  return {
+    calls,
+    sensorKey: (id) => sensorKey(sensors[id - 1]),
+    valveKey: (id) => valveKey(valves[id - 1001]),
+    pairings: () => pairings,
+    api: {
+      async get(path) {
+        calls.push(["GET", path]);
+        if (path === "/system") return { state: "STOPPED" };
+        if (path === "/pairings") return pairings.map((row) => ({ ...row }));
+        if (path === "/sensors") return sensors;
+        if (path === "/valves") return valves;
+        if (path === "/groups") return [{ id: 1, name: "A" }, { id: 2, name: "B" }];
+        if (path === "/calibrations") return [{ id: 4, name: "Cal" }];
+        throw new Error(`Unexpected GET ${path}`);
+      },
+      async post(path, body) {
+        calls.push(["POST", path, body]);
+        if (path === "/pairings/remap") {
+          const apply = () => {
+            for (const change of body.changes) {
+              const row = pairings.find((item) => item.sensorId === change.sensorId && item.valveId === change.fromValveId);
+              pairings = pairings.filter((item) => item !== row).concat({ ...row, valveId: change.toValveId, _moved: true });
+            }
+            pairings = pairings.map(({ _moved, ...row }) => row);
+          };
+          if (failRemap === "lost_reply_after_commit") { apply(); throw new IndeterminateMutationError("POST /pairings/remap timed out"); }
+          if (failRemap === "lost_reply_before_commit") throw new IndeterminateMutationError("POST /pairings/remap timed out");
+          apply();
+          return { ok: true, applied: body.changes.length };
+        }
+        if (path === "/pairings/settings") {
+          for (const entry of body.pairings) {
+            pairings = pairings.map((row) => (row.sensorId === entry.sensorId && row.valveId === entry.valveId
+              ? { ...row, WTCPercentLimit: entry.WTCPercentLimit, ValveOpenTime: entry.ValveOpenTime, MeasurementInterval: entry.MeasurementInterval } : row));
+          }
+          return { ok: true, applied: body.pairings.length };
+        }
+        throw new Error(`Unexpected POST ${path}`);
+      },
+    },
+  };
+}
+
+function cycleChanges(fixture) {
+  return fixture.pairings().map((row, index, all) => ({
+    pairing_name: row.name,
+    sensor_key: fixture.sensorKey(row.sensorId),
+    from_valve_key: fixture.valveKey(row.valveId),
+    to_valve_key: fixture.valveKey(all[(index + 1) % all.length].valveId),
+  }));
+}
+
+test("remap_pairing_valves applies a 100-pot cycle through one atomic controller call and verifies readback", async () => {
+  const fixture = topologyFixture();
+  const result = await executeCommand({ id: commandId, command_type: "remap_pairing_valves", payload: { remap_id: "run-1", changes: cycleChanges(fixture) } }, { api: fixture.api, dryRun: false });
+  assert.equal(result.applied, 100);
+  assert.equal(fixture.calls.filter(([method, path]) => method === "POST" && path === "/pairings/remap").length, 1);
+  const moved = fixture.pairings().find((row) => row.sensorId === 100);
+  assert.equal(moved.valveId, 1001);
+  assert.equal(moved.ValveOpenTime, 2099);
+  assert.equal(moved.calibrationId, null);
+  const calibrated = fixture.pairings().find((row) => row.sensorId === 99);
+  assert.equal(calibrated.valveId, 1100);
+  assert.equal(calibrated.calibrationId, 4);
+});
+
+test("remap_pairing_valves refuses a stale plan before touching the controller", async () => {
+  const fixture = topologyFixture();
+  const changes = cycleChanges(fixture);
+  changes[3] = { ...changes[3], from_valve_key: fixture.valveKey(1050) };
+  await assert.rejects(
+    executeCommand({ id: commandId, command_type: "remap_pairing_valves", payload: { changes } }, { api: fixture.api, dryRun: false }),
+    /Configuration changed: Zone1-Pot4 is no longer on valve/,
+  );
+  assert.equal(fixture.calls.some(([method]) => method === "POST"), false);
+});
+
+test("a lost remap reply is resolved by readback instead of quarantining blindly", async () => {
+  const committed = topologyFixture({ failRemap: "lost_reply_after_commit" });
+  const result = await executeCommand({ id: commandId, command_type: "remap_pairing_valves", payload: { changes: cycleChanges(committed) } }, { api: committed.api, dryRun: false });
+  assert.equal(result.controller.recoveredByReadback, true);
+
+  const notCommitted = topologyFixture({ failRemap: "lost_reply_before_commit" });
+  await assert.rejects(
+    executeCommand({ id: commandId, command_type: "remap_pairing_valves", payload: { changes: cycleChanges(notCommitted) } }, { api: notCommitted.api, dryRun: false }),
+    (error) => !(error instanceof IndeterminateMutationError) && /did not apply/.test(error.message),
+  );
+});
+
+test("restore_pairing_settings restores 100 distinct recorded settings exactly", async () => {
+  const fixture = topologyFixture();
+  const pairings = fixture.pairings().map((row, index) => ({
+    pairing_name: row.name, sensor_key: fixture.sensorKey(row.sensorId), valve_key: fixture.valveKey(row.valveId),
+    target_vwc: index % 5 === 0 ? null : 12 + index % 40, valve_open_time_ms: index % 7 === 0 ? 0 : 1500 + index * 13, measurement_interval_ms: 30000 + index * 6000,
+  }));
+  const result = await executeCommand({ id: commandId, command_type: "restore_pairing_settings", payload: { pairings } }, { api: fixture.api, dryRun: false });
+  assert.equal(result.applied, 100);
+  for (const [index, row] of fixture.pairings().entries()) {
+    assert.equal(row.WTCPercentLimit, index % 5 === 0 ? -999999 : 12 + index % 40);
+    assert.equal(row.ValveOpenTime, index % 7 === 0 ? 0 : 1500 + index * 13);
+    assert.equal(row.MeasurementInterval, 30000 + index * 6000);
+  }
+});
+
+test("manual_water reports a pulse that manual troubleshooting interrupted early", async () => {
+  const calls = [];
+  const api = {
+    async get(path) {
+      calls.push(["GET", path]);
+      if (path === "/pairings") return [{ name: "Zone1-Pot1", sensorId: 1, valveId: 1001, Valve: { relayAddress: "0x24", address: "1" } }];
+      if (path === "/sensors" || path === "/groups" || path === "/calibrations") return [];
+      if (path === "/valves") return [{ id: 1001, relayAddress: "0x24", address: "1" }];
+      if (path.startsWith("/valves/pulse/")) return { status: "closed", interruptedBy: "preempted_by_manual_hold" };
+      throw new Error(`Unexpected GET ${path}`);
+    },
+    async post(path, body) { calls.push(["POST", path, body]); return { ok: true, pulseId: body.pulseId, status: "open" }; },
+  };
+  const result = await executeCommand(
+    { id: commandId, command_type: "manual_water", payload: { pairing_names: ["Zone1-Pot1"], duration_seconds: 0.01 } },
+    { api, dryRun: false, manualWaterEnabled: true, manualWaterMaxSeconds: 60, manualWaterMaxValveSeconds: 120 },
+  );
+  assert.equal(result.interrupted, "preempted_by_manual_hold");
+  assert.ok(calls.some(([method, path]) => method === "GET" && path.startsWith("/valves/pulse/")));
+});
+
+test("sensor keys that differ only by SDI-12 address case resolve to different probes", async () => {
+  const fixture = topologyFixture();
+  const upper = fixture.sensorKey(18); // D30GQN2D:A
+  const lower = fixture.sensorKey(50); // D30GQN2D:a
+  assert.notEqual(upper, lower);
+  assert.equal(upper.toLowerCase(), lower.toLowerCase());
+  const result = await executeCommand({ id: commandId, command_type: "restore_pairing_settings", payload: { pairings: [
+    { pairing_name: "Zone2-Pot50", sensor_key: lower, valve_key: fixture.valveKey(1050), target_vwc: 30, valve_open_time_ms: 3000, measurement_interval_ms: 600000 },
+  ] } }, { api: fixture.api, dryRun: false });
+  assert.equal(result.applied, 1);
+  assert.equal(fixture.pairings().find((row) => row.sensorId === 50).WTCPercentLimit, 30);
+  assert.equal(fixture.pairings().find((row) => row.sensorId === 18).WTCPercentLimit, -999999);
 });

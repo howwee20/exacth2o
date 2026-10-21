@@ -98,55 +98,91 @@ replace data only when complete, and responses for a previous session, project
 or device are discarded. `scripts/perf/portal-lab/` measures these behaviours
 against a counting mock.
 
-## Autocalibrate (real hardware commissioning)
+## Autocalibrate (Settings → Autocalibrate)
 
-Autocalibrate finds out which valve physically waters which sensor. It is
-production commissioning software: the operator selects pots, passes preflight,
-confirms, and the portal pulses **one real valve at a time** while watching every
-selected sensor. There is no simulated or demo mode in the product.
+Autocalibrate finds out which valve physically waters which pot, across the whole
+installation (all 100 pots, a zone, or any selection). It is the one place a
+researcher starts autocalibration: Settings → Autocalibrate, in installation and
+experiment settings, for project researchers and administrators. Links lead there:
+the home controller node ("Autocalibrate →"), Pairings ("Check with Autocalibrate"),
+the Overview tile, and `?view=controller&settings=autocalibrate` (any section can be
+linked with `settings=<section>`). Sensor calibration stays its own section.
 
-How it reaches hardware (`src/commissioning/`):
+Workflow (`src/autocalibrate/`, engine in `src/commissioning/`):
 
-- **Pulses** are ordinary `manual_water` commands for exactly one pairing, sent
-  through the authenticated `create-control-command` Edge Function
-  (`supabasePorts.ts`). Every existing gate stays in force and is not bypassed:
-  `CONTROL_COMMAND_INTAKE_ENABLED`, `MANUAL_WATER_INTAKE_ENABLED`, role policy, the
-  database one-at-a-time and 60 s cooldown rule, the executor's
-  `EXACTH2O_CONTROL_EXECUTOR_DRY_RUN` and `EXACTH2O_MANUAL_WATER_ENABLED` gates,
-  and the controller-owned `/valves/pulse` timer with its single-valve mutex. If
-  any gate is closed the first pulse is refused, nothing is watered, and the run
-  stops. The adapter only ever reads tables and invokes that one function.
-- **Safe commissioning state** is controller `RUNNING` with automatic watering
-  disabled on every selected pot. `STOPPED` pauses the controller's measurement
-  loop, so no response could be measured. "Prepare the pots" queues one reviewed
-  `bulk_update_pairings` (disable watering, measure every 60 s) and records the
-  previous settings so they can be restored.
-- **Orchestration** (`orchestrator.ts`): baselines, then per valve: interlocks,
-  one bounded pulse, wait for the command's final status, observe all selected
-  sensors, at most one longer retry, then flag. Interlocks are re-checked before
-  every pulse: stop/abort, run time, pulse and water budget, stale controller,
-  unsafe state, automatic watering re-enabled, conflicting watering command, silent
-  sensor, unsettled sensors, and any command failure or timeout. A failed command
-  is never retried. Leaving the screen aborts the run; nothing is scheduled ahead.
-- **Rehearsal** runs the same orchestration against the live controller and
-  sensors without sending any valve command. It cannot produce a mapping.
-- **Evidence** keeps three facts apart for every pulse: command requested,
-  controller acknowledged, measured sensor response. None is treated as proof
-  that water reached a pot; physical validation is always shown as pending.
-- **Applying** a reviewed mapping uses the existing reviewed settings batch
-  (`topologyPlan.ts` -> `onQueueSettingsPlan`): stop, `delete_pairing` +
-  `create_pairing` carrying the pot's settings and calibration, restore state,
-  with the config-hash precondition and executor readback. The previous topology
-  is stored in the run record and an exact rollback plan is offered after readback.
-- **Records**: each run's full log and evidence are kept in the browser and can be
-  downloaded as JSON. Each pulse's `operation_intent` carries the run ID, so it can
-  be matched to `project_control_commands` and the platform operation ledger.
+1. **Choose pots** on the aerial view (`product/AerialBench.tsx`, `aerialLayout.ts`):
+   the PicoGrid overhead composition (four rows of 25, zones as interlocking 13 + 12
+   blocks, nodes around the bench) when no bench layout is recorded, labelled
+   schematic; the recorded layout when there is one, with unplaced pots listed.
+   Tap/click, Space or Enter selects; arrow keys move; I opens a pot's details; zone
+   chips select a zone; phones get one zone at a time with 44 px targets. Pots that
+   cannot take part (no valve or sensor, a shared valve or sensor, a sensor that has
+   stopped reporting) are drawn hatched with the reason. Researchers can mark
+   known-correct reference pots (or use bench-confirmed ones). A selection never
+   uses a pot's number or position as a hardware address: every pot carries its own
+   pairing's sensor and valve keys.
+2. **Prepare**: the server records every selected pot's settings (immutable
+   `commissioning_sessions.original_snapshot`; pots an earlier session left
+   sensing-only carry their real originals forward), then one reviewed
+   `bulk_update_pairings` turns automatic watering off and measures every 60 s.
+   Controller readback confirms it.
+3. **Check and start**: rehearsal or real valves, safety checks (valid 5 minutes or
+   until anything changes), typed confirmation `OPEN <n> REAL VALVES`.
+4. **Run**: one bounded pulse at a time through `create-control-command`
+   (`manual_water`, one pairing), every selected sensor watched on every pulse, so
+   one response matrix covers the whole selection (crossings across zones, swaps and
+   cycles of any length). The run is owned by this browser tab (`runStore.ts`): it
+   continues while the operator uses other pages, a floating bar shows progress and
+   **Stop** everywhere, and closing or reloading the tab stops it before its next
+   pulse. One screen holds a run at a time (`claim_commissioning_run`); it renews
+   that hold every 30 s and immediately before every pulse, so a screen that slept
+   while another resumed cannot send a pulse, and "Ask that screen to stop" works
+   from any other screen. Checkpoints of the evidence are saved every 2 minutes;
+   an interrupted run resumes from them with fresh baselines.
+5. **Review and apply**: matches, swaps and cycles (applied only as complete
+   groups), unresolved valves and unreached pots with advice, weak-evidence matches,
+   reference-pot checks. One `remap_pairing_valves` command moves every approved
+   pot in a single controller transaction; readback must show it before pot records
+   (`hardware_bindings`) move, marked software-only. Rollback is one command, verified
+   the same way.
+6. **Delivery at the bench**: operators record pots they watched being watered
+   (`confirm_autocalibration_delivery`). The four facts stay separate: proposed,
+   approved, controller-verified, delivery confirmed.
+7. **Restore**: one `restore_pairing_settings` command returns each pot to its own
+   recorded target, pulse length and interval; unresolved, unapplied or externally
+   changed pots stay sensing-only (listed with the reason) unless released.
 
-`src/autocal/` (seeded bench simulator and engine) and
-`src/commissioning/testing/mockController.ts` are **internal test infrastructure
-only**. Tests fail if product code imports them, and `audit:portal-surface` fails
-the build if simulator copy appears in the shipped bundle. The Monday supervised
-test procedure is in `docs/autocalibration-commissioning-checklist.md`.
+Manual watering interrupts autocalibration: a hold in this tab stops the run before
+its next pulse (`controllerOwnership.ts`), a hold anywhere else is seen in
+`manual_hold_sessions`, and the controller refuses or cuts short timed pulses while
+manual control is active. Evidence overlapping manual watering is set aside and the
+run must be resumed after the pots settle.
+
+`src/autocal/` (seeded bench simulator) and `src/commissioning/testing/mockController.ts`
+are **test infrastructure only**; `audit:portal-surface` fails the build if simulator
+copy ships. The browser preview with a simulated 100-pot controller is
+`browser-tests/autocal-harness.html` (see Local run). The supervised hardware
+procedure is `docs/autocalibration-commissioning-checklist.md`.
+
+## Manual watering (troubleshooting)
+
+**Manual water** in the header (desktop and phone), on each pot page, in field mode,
+and in Autocalibrate's pot details opens one panel: **By solenoid** (any configured
+output, by its recorded solenoid number or board:channel, with its board, channel and
+associated pot when a recorded route knows it) or **By pot** (a physical pot through
+its recorded route). Every entry uses the same `HoldWaterControl`: press and hold to
+water, release to stop. Mouse, touch, pen, Space and Enter each own the hold they
+start (`holdInput.ts`); lost capture, blur, a hidden page, Escape or a changed
+destination end it.
+
+The controller owns the valve (`ManualHoldManager`): a session opens only on a start,
+is kept open by renewals every 0.5 s against a 2.5 s monotonic lease, and closes on
+release, on lease expiry (also with no network), on a continuous-on limit if one is
+configured, or when another operator takes over (closing the first hold before the
+next opens). There is no fixed 15-second cap. Status words are what the controller
+reports: Ready, Taking control, Opening, Controller: open, Stopping, Controller:
+closed, Unconfirmed, In use, Fault. A hold overrides targets, schedules and
+automatic-watering rules for that hold only; saved settings are unchanged.
 
 ## What this is not
 
@@ -198,6 +234,23 @@ cp .env.example .env.local
 # replace VITE_SUPABASE_ANON_KEY with the project anon key
 npm run dev
 ```
+
+Autocalibrate and manual watering against a simulated 100-pot controller (no
+network, no hardware: every Supabase and hold request is served inside the page by
+`browser-tests/fake-backend.ts`, and anything else is refused):
+
+```bash
+cd research-portal
+VITE_SUPABASE_URL=http://127.0.0.1:9/preview-blocked VITE_SUPABASE_ANON_KEY=preview-only npx vite --host 127.0.0.1 --port 5179
+```
+
+Then open `http://127.0.0.1:5179/browser-tests/autocal-harness.html`. The clock
+buttons (×1, ×60, ×600) run the simulated controller faster, so a ten-hour 100-pot
+run completes in about a minute; `?preset=issues` adds a silent sensor and a shared
+valve; `?role=viewer` shows the access refusal. `npx playwright test
+browser-tests/autocalibrate.spec.ts browser-tests/hold-control.spec.ts` runs the
+same flows in Chromium, Firefox and WebKit (`AUTOCAL_SCREENSHOT_DIR=<dir>` saves
+screenshots). Browser emulation is not a physical phone test.
 
 The portal uses snapshot mode automatically when no `live-device:%` rows are available.
 

@@ -9,4 +9,4 @@ class Handler(SimpleHTTPRequestHandler):
         if path != '/' and '.' not in path.rsplit('/', 1)[-1] and Path('.' + path + '.html').is_file():
             self.path = path + '.html'
         super().do_GET()
-ThreadingHTTPServer(('127.0.0.1',4899), Handler).serve_forever()
+ThreadingHTTPServer(('127.0.0.1',int(os.environ.get('EXACTH2O_PREVIEW_PORT', '4899'))), Handler).serve_forever()

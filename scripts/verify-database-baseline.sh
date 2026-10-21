@@ -672,6 +672,9 @@ psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/product_read_vie
 
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/control_authorization.sql" >/dev/null
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/manual_valve_routes.sql" >/dev/null
+# Full-scale autocalibration sessions, run ownership, binding reconciliation, bench
+# confirmation and hold-to-water records (rolled back).
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/autocalibration_manual_hold.sql" >/dev/null
 
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/sales_support_access.sql" >/dev/null
 

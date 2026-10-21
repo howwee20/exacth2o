@@ -137,6 +137,10 @@ export type BuildWorldOptions = {
   // Read-only copy of the currently configured pairings. When supplied, the
   // simulated installation uses these identities and treats them as recorded.
   mirror?: readonly MirrorPairing[];
+  // Explicit hidden hose layout: valve i waters pot hoseTargets[i]. Must be a
+  // permutation of 0..potCount-1. Used to test specific crossings (a swap across
+  // zones, a full cycle through every pot) instead of a random shuffle.
+  hoseTargets?: readonly number[];
 };
 
 const serialAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -207,9 +211,14 @@ export function buildWorld(options: BuildWorldOptions): SimWorld {
 
   // Hidden layout. A mirrored installation assumes the recorded pairings are
   // physically right (valve i waters sensor i) until a preset says otherwise.
-  const permutation = mirrored
+  const explicit = options.hoseTargets && options.hoseTargets.length === potCount
+    && new Set(options.hoseTargets).size === potCount
+    && options.hoseTargets.every((target) => Number.isInteger(target) && target >= 0 && target < potCount)
+    ? [...options.hoseTargets]
+    : null;
+  const permutation = explicit ?? (mirrored
     ? Array.from({ length: potCount }, (_, index) => index)
-    : rng.shuffle(Array.from({ length: potCount }, (_, index) => index));
+    : rng.shuffle(Array.from({ length: potCount }, (_, index) => index)));
   const valves: SimValve[] = permutation.map((potIndex, index) => ({
     index,
     id: mirrored ? mirrorRows[index].valveId : syntheticValveId(index),

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultGrouping, experimentFactors, parseGrouping, potGroups, potRangeText } from "./experimentFactors";
 import type { PortalExperiment, PortalExperimentAssignment } from "./experimentRegistry";
 import { homeExceptions, primaryExperimentException } from "./homeExceptions";
-import { parsePortalRoute, portalRouteSearch } from "./portalRoute";
+import { parsePortalRoute, portalRouteSearch, settingsSectionFromSearch } from "./portalRoute";
 import type { PairingRow, SensorReading } from "./types";
 import { availableMeasures, groupWaterline, median, potTraces, waterlineSegments } from "./waterline";
 
@@ -214,6 +214,18 @@ describe("portal routes", () => {
     expect(parsePortalRoute("?experiment=x&tab=nope")).toEqual({ view: "experiment", experiment: "x", tab: "pots", pot: null });
     expect(parsePortalRoute("?experiment=x&tab=pots")).toEqual(parsePortalRoute("?experiment=x"));
     expect(parsePortalRoute("?experiment=x&tab=overview")).toEqual({ view: "experiment", experiment: "x", tab: "overview", pot: null });
+  });
+
+  it("links straight to a Settings section, Autocalibrate included, and ignores anything else", () => {
+    expect(parsePortalRoute("?view=controller&settings=autocalibrate")).toEqual({ view: "controller" });
+    expect(settingsSectionFromSearch("?view=controller&settings=autocalibrate")).toBe("autocalibrate");
+    expect(settingsSectionFromSearch("?experiment=x&settings=pairings&project=p1")).toBe("pairings");
+    expect(settingsSectionFromSearch("?settings=assistant")).toBeNull();
+    expect(settingsSectionFromSearch("?settings=")).toBeNull();
+    expect(settingsSectionFromSearch("?view=controller")).toBeNull();
+    // The link keeps the project and the section; consuming it drops only the section.
+    expect(portalRouteSearch({ view: "controller" }, "?project=p1", { settings: "autocalibrate" })).toBe("?view=controller&project=p1&settings=autocalibrate");
+    expect(portalRouteSearch({ view: "controller" }, "?view=controller&project=p1&settings=autocalibrate", { settings: null })).toBe("?view=controller&project=p1");
   });
 
   it("sends retired Workbench links to Experiments", () => {

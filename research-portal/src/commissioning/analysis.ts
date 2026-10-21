@@ -9,6 +9,7 @@ import type {
   SelectedPot,
   SensorBaseline,
   SensorResponse,
+  UnclaimedSensor,
   UnresolvedValve,
 } from "./types";
 
@@ -31,7 +32,7 @@ export const minimumNoiseSigma = 0.05;
 
 export function summarizeBaseline(
   sensorKey: string,
-  readings: Reading[],
+  readings: readonly Reading[],
   config: Pick<CommissioningConfig, "baselineReadings" | "saturationVwc">,
 ): SensorBaseline {
   const own = readings
@@ -48,7 +49,10 @@ export function summarizeBaseline(
     medianVwc: values.length ? median(values) : null,
     noiseSigma: null,
     driftPerMinute: null,
-    cadenceSeconds: gaps.length ? median(gaps) : null,
+    // The current reporting rate, from the latest gaps: preparation switches pots to a
+    // faster interval, and the median of the whole look-back window (mostly the old,
+    // slow readings) would keep calling them too slow for many minutes after it.
+    cadenceSeconds: gaps.length ? median(gaps.slice(-4)) : null,
     lastAtMs: own.length ? own[own.length - 1].atMs : null,
   };
 
@@ -87,7 +91,7 @@ export function summarizeBaseline(
 // Compares the level just before a pulse with the settled level after it.
 export function measureResponse(input: {
   sensorKey: string;
-  readings: Reading[];
+  readings: readonly Reading[];
   requestedAtMs: number;
   pulseEndMs: number;
   noiseSigma: number;
@@ -121,8 +125,8 @@ export function measureResponse(input: {
 // Builds proposed mappings from the final evidence per valve. One-to-one across
 // the whole matrix, so no sensor can be proposed for two valves.
 export function proposeTopology(
-  pots: SelectedPot[],
-  evidence: PulseEvidence[],
+  pots: readonly SelectedPot[],
+  evidence: readonly PulseEvidence[],
   config: Pick<CommissioningConfig, "minZ" | "rivalZ" | "minDeltaVwc" | "ambiguousRatio" | "overshootLimitVwc" | "reviewConfidence">,
 ): { proposals: ProposedMapping[]; unresolved: UnresolvedValve[] } {
   const sensorKeys = pots.map((pot) => pot.sensorKey);
@@ -219,6 +223,10 @@ export function proposeTopology(
     });
     const confidence = pairConfidence({ deltaVwc: response.deltaVwc, z: response.z, rowRivalDeltaVwc, columnRivalDeltaVwc }, config);
     if (confidence < config.reviewConfidence) faults.push("low_confidence");
+    // A pot the researchers confirmed is a positive control. A proposal to move it, or
+    // to give its sensor to another valve, contradicts known-good wiring: review first.
+    const referenceSensor = pots.find((candidate) => candidate.sensorKey === proposedSensorKey)?.reference === true;
+    if ((pot.reference || referenceSensor) && proposedSensorKey !== pot.sensorKey) faults.push("reference_conflict");
 
     proposals.push({
       valveKey: pot.valveKey,
@@ -239,4 +247,24 @@ export function proposeTopology(
   });
 
   return { proposals, unresolved };
+}
+
+/**
+ * Selected sensors that no selected valve moved. Their water source is outside the
+ * selection, disconnected, or too weak to measure; no pairing is proposed for them.
+ */
+export function findUnclaimedSensors(pots: readonly SelectedPot[], evidence: readonly PulseEvidence[]): UnclaimedSensor[] {
+  const finalEvidence = new Map<string, PulseEvidence>();
+  evidence.forEach((item) => finalEvidence.set(item.valveKey, item));
+  const claimed = new Set<string>();
+  finalEvidence.forEach((item) => item.responses.filter((response) => response.detected).forEach((response) => claimed.add(response.sensorKey)));
+  const measured = new Set<string>();
+  finalEvidence.forEach((item) => item.responses.forEach((response) => measured.add(response.sensorKey)));
+  return pots
+    .filter((pot) => measured.has(pot.sensorKey) && !claimed.has(pot.sensorKey))
+    .map((pot) => ({
+      sensorKey: pot.sensorKey,
+      pairingName: pot.pairingName,
+      detail: "No selected valve raised this sensor. Its valve may be outside the selection (select its neighbours, its whole zone, or all pots), disconnected, or too weak to measure.",
+    }));
 }

@@ -2,7 +2,7 @@ import { PotInspector } from './product/PotInspector';
 import { DirectExperiment } from './product/DirectExperiment';
 import { SavedTraceViews } from "./product/SavedTraceViews";
 import { ExperimentHistory } from "./product/ExperimentHistory";
-import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Droplets, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
@@ -51,11 +51,14 @@ import { usePageClock } from "./pageClock";
 import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
 import { homeExceptions } from "./homeExceptions";
-import { type ExperimentTab, navigatePortal, type PortalRoute, stripAuthQuery, usePortalRoute } from "./portalRoute";
+import { type ExperimentTab, navigatePortal, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
 import { resolvePot } from "./potIdentity";
 import { readingsForPairings, valveEventsForPairings } from "./pairingHistory";
 import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
 import { FindPotDialog } from "./product/FindPotDialog";
+import type { ManualWaterTarget } from "./product/ManualWaterPanel";
+import { AutocalRunBanner } from "./autocalibrate/AutocalRunBanner";
+import { autocalRunStore } from "./autocalibrate/runStore";
 import { PortalLink } from "./product/PortalLink";
 import { ProductHeader } from "./product/ProductHeader";
 import { type InstallationState, QuietSpineHome } from "./product/QuietSpineHome";
@@ -85,6 +88,7 @@ const ExperimentExport = lazyFeature(() => import("./product/ExperimentExport").
 const AccountPage = lazyFeature(() => import("./product/AccountPage").then((module) => ({ default: module.AccountPage })));
 const RecordView = lazyFeature(() => import("./product/RecordView").then((module) => ({ default: module.RecordView })));
 const PotNotesSection = lazyFeature(() => import("./product/PotNotesSection").then((module) => ({ default: module.PotNotesSection })));
+const ManualWaterPanel = lazyFeature(() => import("./product/ManualWaterPanel").then((module) => ({ default: module.ManualWaterPanel })));
 const prefetchSettings = () => {
   void loadSettingsPanel().catch(() => undefined);
 };
@@ -240,6 +244,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     navigatePortal(view === "home" || view === "experiment" ? { view: "home" } : { view } as PortalRoute);
   }, []);
   const [findPotOpen, setFindPotOpen] = useState(initialFindPot);
+  const [manualWaterOpen, setManualWaterOpen] = useState(false);
+  const [manualWaterTarget, setManualWaterTarget] = useState<ManualWaterTarget>(null);
   // "At the bench" is a remembered choice on this device; the full portal stays one tap away.
   const [atBench, setAtBench] = useState(() => atBenchRemembered());
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
@@ -485,6 +491,27 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const benchDataNeeded = sessionReady && canReadProjectData && Boolean(activeProjectId && activeDeviceId) &&
     (atBench || route.view === "bench" || route.view === "pocket" || route.view === "pot" || (route.view === "experiment" && Boolean(route.pot)));
   const currentBench = benchData?.scope === benchScope ? benchData : null;
+
+  // An autocalibration run belongs to the project and controller it started on.
+  useEffect(() => {
+    if (activeProjectId && activeDeviceId) autocalRunStore.stopUnlessFor(activeProjectId, activeDeviceId);
+  }, [activeProjectId, activeDeviceId]);
+
+  // ?settings=<section> opens Settings at that section; Settings → Autocalibrate is
+  // ?view=controller&settings=autocalibrate. The parameter is consumed once.
+  useEffect(() => {
+    if (!sessionReady || !canUseExperimentSettings) return;
+    const requested = settingsSectionFromSearch(window.location.search);
+    if (!requested) return;
+    if (route.view !== "experiment" && route.view !== "controller") {
+      navigatePortal({ view: "controller" }, { replace: true, extra: { settings: requested } });
+      return;
+    }
+    setSettingsSection(requested);
+    prefetchSettings();
+    setSettingsOpen(true);
+    navigatePortal(route, { replace: true, extra: { settings: null } });
+  }, [sessionReady, canUseExperimentSettings, route]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine !== false);
@@ -1271,16 +1298,16 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const queueSettingsPlan: QueueSettingsPlan = async (plan, reviewedConfigHash) => {
       if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
         setControlError("Experiment settings access is required for portal controls.");
-        return;
+        return null;
       }
       if (!plan.commands.length || plan.questions.length) {
         setControlError("Resolve the request before applying settings.");
-        return;
+        return null;
       }
       for (const command of plan.commands) {
         if (!isAdmin && adminOnlyControlCommandTypes.has(command.command_type)) {
           setControlError("Administrator access is required for this controller command.");
-          return;
+          return null;
         }
       }
 
@@ -1290,7 +1317,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       if (directCommands.length) {
         if (plan.commands.length !== 1) {
           setControlError("System-state and export requests must be reviewed separately.");
-          return;
+          return null;
         }
         const direct = directCommands[0];
         if (direct.command_type === "export_data") {
@@ -1309,7 +1336,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             downloadJsonFile(dataType, synchronized[dataType] ?? []);
           }
           setControlNotice("Export ready");
-          return;
+          return null;
         }
         await sendSingleControlCommand(
           direct.command_type,
@@ -1319,7 +1346,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             operationIntent: plan.summary,
           },
         );
-        return;
+        return null;
       }
 
       setControlBusy(true);
@@ -1334,7 +1361,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       ) {
         setControlBusy(false);
         setControlError("Current controller state is unavailable or stale. Refresh and review again.");
-        return;
+        return null;
       }
 
       const requestKey = JSON.stringify([
@@ -1416,6 +1443,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           requestedAt: new Date().toISOString(),
           statuses: Object.fromEntries(commands.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
         });
+        return { batchId, commandIds: commands.map((command) => command.id) };
       } catch (nextError) {
         try {
           const reconciliation = await withSupabaseTimeout(
@@ -1442,6 +1470,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               requestedAt: new Date().toISOString(),
               statuses: Object.fromEntries(recorded.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
             });
+            return { batchId, commandIds: recorded.map((command) => command.id) };
           } else {
             setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
           }
@@ -1451,6 +1480,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       } finally {
         setControlBusy(false);
       }
+      return null;
   };
 
   const queueControlCommand: QueueControlCommand = async (commandType, payload, options) => {
@@ -1627,6 +1657,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   async function signOut() {
     const unsent = noteOutbox.waiting.length;
     if (unsent && !window.confirm(`${unsent} ${unsent === 1 ? "note has" : "notes have"} not reached the record yet. ${unsent === 1 ? "It stays" : "They stay"} on this device, visible only to this account, and ${unsent === 1 ? "sends" : "send"} when you sign in here again. Sign out?`)) return;
+    if (autocalRunStore.running && !window.confirm("An autocalibration run is in progress in this tab. Signing out stops it before its next pulse; its evidence so far is kept. Sign out?")) return;
+    autocalRunStore.stop("The operator signed out, so the run stopped before its next pulse.");
     await supabase.auth.signOut();
     navigatePortal({ view: "home" }, { replace: true });
     setError(null);
@@ -3090,12 +3122,32 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     </>}</DirectExperiment>
   );
 
+  const manualWaterAvailable = Boolean(canUseExperimentSettings && activeProjectId && activeDeviceId);
+  const openManualWater = (potNumber: number | null) => {
+    setManualWaterTarget(potNumber != null ? { mode: "pot", potNumber } : null);
+    setManualWaterOpen(true);
+  };
+  const manualWaterPanel = manualWaterAvailable && manualWaterOpen
+    ? <FeatureBoundary name="Manual water" fallback={null}><ManualWaterPanel open onClose={() => setManualWaterOpen(false)} projectId={activeProjectId} deviceId={activeDeviceId} controllerName="Controller" initial={manualWaterTarget} /></FeatureBoundary>
+    : null;
+  const openAutocalibrate = () => {
+    if (route.view !== "experiment" && route.view !== "controller") navigatePortal({ view: "controller" });
+    setSettingsSection("autocalibrate");
+    prefetchSettings();
+    setSettingsOpen(true);
+  };
   const productHeader = (
     <ProductHeader
         demo={isDemo}
       route={route}
       sections={productSections}
       onFindPot={() => setFindPotOpen(true)}
+      extra={manualWaterAvailable ? (
+        <button type="button" className="px-header-button" onClick={() => { setManualWaterTarget(null); setManualWaterOpen(true); }} aria-label="Manual water">
+          <Droplets size={14} aria-hidden="true" />
+          <span className="px-label-wide">Manual water</span>
+        </button>
+      ) : undefined}
       onOpenAccount={!isDemo ? () => navigatePortal({ view: "account" }) : undefined}
       atBench={atBench}
       onToggleAtBench={projectAccess ? () => {
@@ -3121,6 +3173,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       runtimeState={runtimeState}
       configState={configState}
       pairings={route.view === "controller" ? visiblePairings : sortedPairings}
+      installationPairings={visiblePairings}
+      experiments={availableExperiments}
       visiblePotCount={visiblePotCount}
       csvDownload={csvDownload}
       csvError={csvError}
@@ -3155,6 +3209,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const productShell = (content: ReactNode) => (
     <main className="px-shell">
       {productHeader}
+      <AutocalRunBanner onOpen={openAutocalibrate} />
       {content}
       {experimentBuilder}
       {archivingExperiment && canCreateExperiment ? <FeatureBoundary name="Archive experiment"><ArchiveExperimentDialog
@@ -3169,6 +3224,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         nowMs={clockNowMs} loadedWindowMs={rollingExperimentHistoryMs} initialNames={visibleWateringPairings.map(p=>p.name)} initialWindow={selectedVwcTimeBounds ?? undefined} onClose={() => setExportOpen(false)}
       /></FeatureBoundary> : null}
       {findPotDialog}
+      {manualWaterPanel}
       <HealthSelectedDetailDrawer
         detail={selectedWateringDetail}
         onClose={() => setSelectedWateringDetail(null)}
@@ -3300,6 +3356,15 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             outbox={noteOutbox}
           />
         </FeatureBoundary>
+        {manualWaterAvailable ? (
+          <section className="px-card px-pot-manual" aria-label="Manual watering">
+            <h2 className="px-section-title">Manual watering</h2>
+            <p className="px-muted">For troubleshooting: hold to water this pot through its recorded valve route, or test any solenoid directly. A hold overrides targets and schedules for that hold only.</p>
+            <button type="button" className="px-button" onClick={() => openManualWater(currentBench?.bindings.find((binding) => binding.pairingName === potName)?.potNumber ?? match.pairing.pot_number)}>
+              <Droplets size={14} aria-hidden="true" /> Water by hand…
+            </button>
+          </section>
+        ) : null}
       </PotPage></FeatureBoundary>
     );
   };
@@ -3332,8 +3397,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               rememberAtBench(false);
               navigatePortal(pocketPot ? { view: "pot", pot: pocketPot } : { view: "home" });
             }}
+            onManualWater={manualWaterAvailable ? openManualWater : undefined}
           />
         </FeatureBoundary>
+        <AutocalRunBanner onOpen={openAutocalibrate} />
+        {manualWaterPanel}
       </main>
     );
   }
@@ -3485,6 +3553,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }}
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
+        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }}>Installation settings →</PortalLink> : null}
+        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }} extra={{ settings: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
       </div> : undefined}
       machines={!isDemo ? <>

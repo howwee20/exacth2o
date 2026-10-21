@@ -1,4 +1,5 @@
-import { measureResponse, proposeTopology, summarizeBaseline } from "./analysis";
+import { findUnclaimedSensors, measureResponse, proposeTopology, summarizeBaseline } from "./analysis";
+import { ReadingStore } from "./readingStore";
 import type {
   CommandSnapshot,
   CommissioningConfig,
@@ -7,8 +8,9 @@ import type {
   CommissioningResult,
   LogEntry,
   LogKind,
+  ManualIntervention,
   PulseEvidence,
-  Reading,
+  RunInterruption,
   RunOutcome,
   SelectedPot,
   SensorBaseline,
@@ -19,22 +21,32 @@ import type {
 // Safety properties this module is responsible for (each has a test):
 //  - Exactly one valve is commanded at a time, and only through ports.requestPulse.
 //  - A dry run never calls ports.requestPulse.
-//  - A real run cannot start without the exact typed confirmation.
+//  - A real run cannot start without the exact confirmation phrase.
 //  - Interlocks are re-checked immediately before every pulse, and any command
-//    failure, stale controller, conflict, silent sensor, or exhausted budget
-//    stops the run. It never retries a failed command.
+//    failure, stale controller, conflict, silent sensor, manual watering, or
+//    exhausted budget stops the run. It never retries a failed command.
 //  - A silent valve is escalated at most once, inside the configured limits.
 //  - The run only ever produces a proposal. It has no way to change pairings.
 //  - Nothing is scheduled ahead of time: if this page closes, no further pulse
-//    is ever requested.
+//    is ever requested. A later session can resume from the recorded evidence;
+//    it collects fresh baselines first and never reuses contaminated evidence.
+//
+// Full scale: every pulse observes every selected sensor, so the response matrix
+// covers the whole selection (a swap across zones is found like any other). The
+// valve-time budget defaults to the selection's worst case, n x (pulse + retry).
 
 export const hardLimits = {
   minPots: 2,
-  maxPots: 20,
+  maxPots: 200,
   maxPulseSeconds: 10,
   maxEscalatedPulseSeconds: 15,
-  maxTotalValveSeconds: 300,
-  maxPulses: 40,
+  /** Per selected valve: one pulse and one retry at the longest allowed lengths. */
+  maxValveSecondsPerPot: 25,
+  maxPulsesPerPot: 2,
+  /** A browser-owned run never runs longer than this, whatever its size. */
+  maxRunSeconds: 48 * 3600,
+  /** Run-time allowance per selected valve (settling, observation, one retry). */
+  runSecondsPerPot: 15 * 60,
 } as const;
 
 export const defaultCommissioningConfig: CommissioningConfig = {
@@ -68,17 +80,34 @@ export const defaultCommissioningConfig: CommissioningConfig = {
   // arrive. Commissioning needs RUNNING (sensing) with automatic watering
   // disabled on every selected pot, which the interlock checks separately.
   safeControllerStates: ["RUNNING"],
+  readingRetentionSeconds: 2 * 3600,
+  manualSettleSeconds: 30 * 60,
 };
+
+/** Budgets sized to the selection: every valve can get its pulse and one retry. */
+export function configForSelection(potCount: number, overrides: Partial<CommissioningConfig> = {}): CommissioningConfig {
+  const base = { ...defaultCommissioningConfig, ...overrides };
+  const count = Math.max(1, potCount);
+  return {
+    ...base,
+    maxTotalValveSeconds: overrides.maxTotalValveSeconds ?? count * (base.pulseSeconds + base.escalatedPulseSeconds),
+    maxPulses: overrides.maxPulses ?? count * hardLimits.maxPulsesPerPot,
+    maxRunSeconds: overrides.maxRunSeconds ?? Math.min(hardLimits.maxRunSeconds, Math.max(2 * 3600, count * hardLimits.runSecondsPerPot)),
+  };
+}
 
 export function requiredConfirmation(pots: readonly SelectedPot[]) {
   return `OPEN ${pots.length} REAL VALVES`;
 }
 
+export const singlePotLimitation =
+  "One pot cannot reveal a crossed pairing: only its own sensor would be watched, so a hose that waters a different pot would go unseen. Select at least two pots; a whole zone or the whole installation is better.";
+
 export function validateSelection(pots: readonly SelectedPot[]) {
   const problems: string[] = [];
-  if (pots.length < hardLimits.minPots || pots.length > hardLimits.maxPots) {
-    problems.push(`Select between ${hardLimits.minPots} and ${hardLimits.maxPots} pots (selected ${pots.length}).`);
-  }
+  if (pots.length === 1) problems.push(singlePotLimitation);
+  else if (pots.length < hardLimits.minPots) problems.push(`Select at least ${hardLimits.minPots} pots.`);
+  else if (pots.length > hardLimits.maxPots) problems.push(`At most ${hardLimits.maxPots} pots can be checked in one run (selected ${pots.length}).`);
   const duplicates = (values: string[]) => Array.from(new Set(values.filter((value, index) => values.indexOf(value) !== index)));
   const blank = pots.filter((pot) => !pot.valveKey.trim() || !pot.sensorKey.trim() || !pot.pairingName.trim());
   if (blank.length) problems.push(`${blank.length} selected pot(s) are missing a valve, sensor, or pairing name.`);
@@ -91,27 +120,52 @@ export function validateSelection(pots: readonly SelectedPot[]) {
   return problems;
 }
 
-export function validateConfig(config: CommissioningConfig) {
+export function validateConfig(config: CommissioningConfig, potCount = 1) {
   const problems: string[] = [];
   const within = (value: number, min: number, max: number, label: string) => {
     if (!Number.isFinite(value) || value < min || value > max) problems.push(`${label} must be between ${min} and ${max}.`);
   };
+  const count = Math.max(1, potCount);
   within(config.pulseSeconds, 1, hardLimits.maxPulseSeconds, "Diagnostic pulse (sec)");
   within(config.escalatedPulseSeconds, config.pulseSeconds, hardLimits.maxEscalatedPulseSeconds, "Escalated pulse (sec)");
-  within(config.maxTotalValveSeconds, config.pulseSeconds, hardLimits.maxTotalValveSeconds, "Water budget (valve-seconds)");
-  within(config.maxPulses, 1, hardLimits.maxPulses, "Pulse budget");
+  // Budgets scale with the selection; small selections keep the long-standing 300 s / 40 pulse ceilings.
+  within(config.maxTotalValveSeconds, config.pulseSeconds, Math.max(300, count * hardLimits.maxValveSecondsPerPot), "Water budget (valve-seconds)");
+  within(config.maxPulses, 1, Math.max(40, count * hardLimits.maxPulsesPerPot), "Pulse budget");
+  within(config.maxRunSeconds, 60, hardLimits.maxRunSeconds, "Run time limit (sec)");
   return problems;
 }
 
 export type RunPhase = "idle" | "baseline" | "discovery" | "analysis" | "done";
 
+export type RunProgress = {
+  phase: RunPhase;
+  activeValveKey: string | null;
+  activePairingName: string | null;
+  activeStep: "settling" | "pulsing" | "observing" | "cooldown" | null;
+  total: number;
+  completed: number;
+  remaining: number;
+  pulsesRequested: number;
+  valveSecondsRequested: number;
+  maxPulses: number;
+  maxTotalValveSeconds: number;
+  elapsedSeconds: number;
+  maxRunSeconds: number;
+  usableBaselines: number;
+  segment: number;
+};
+
 class StopRun extends Error {
-  constructor(readonly outcome: RunOutcome, message: string) {
+  constructor(readonly outcome: RunOutcome, message: string, readonly interruption: RunInterruption | null = null) {
     super(message);
   }
 }
 
 const terminalStates = new Set(["succeeded", "failed", "canceled", "expired"]);
+
+const manualRefusal = /manual troubleshooting|manual watering just ended|preempted_by_manual_hold/i;
+
+const incompleteObservation = "The run stopped before this pulse's observation finished; the valve is measured again on resume.";
 
 export class CommissioningRun {
   readonly runId: string;
@@ -123,20 +177,33 @@ export class CommissioningRun {
   baselines: SensorBaseline[] = [];
   phase: RunPhase = "idle";
   activeValveKey: string | null = null;
+  activeStep: RunProgress["activeStep"] = null;
   pulsesRequested = 0;
   valveSecondsRequested = 0;
   result: CommissioningResult | null = null;
+  readonly segment: number;
 
   private readonly ports: CommissioningPorts;
   private readonly onUpdate: () => void;
   private readonly controller = new AbortController();
   private abortReason: string | null = null;
-  private readings: Reading[] = [];
+  private interruption: RunInterruption | null = null;
+  private readonly readings = new ReadingStore();
   private startedAtMs = 0;
   private lastPulseEndMs = 0;
   private commandInFlight = false;
+  private readonly completed = new Set<string>();
+  // Baselines use only readings after this time (later than the lookback when manual
+  // watering ended recently, so its rise and settling never enter a baseline).
+  private baselineFloorMs = 0
+  private readonly priorEvidence: PulseEvidence[];
+  private readonly priorLog: LogEntry[];
+  private readonly priorPulses: number;
+  private readonly priorValveSeconds: number;
   // Sensors that rose on the previous pulse are held to a stricter settle test.
   private recentResponders = new Set<string>();
+  // The acknowledged pulse whose observation is still in progress, if any.
+  private observing: PulseEvidence | null = null;
 
   constructor(input: {
     runId: string;
@@ -145,50 +212,145 @@ export class CommissioningRun {
     ports: CommissioningPorts;
     config?: Partial<CommissioningConfig>;
     onUpdate?: () => void;
+    /** A previous segment of the same run, to continue after an interruption. */
+    resumeFrom?: CommissioningResult | null;
   }) {
     this.runId = input.runId;
     this.mode = input.mode;
     this.pots = input.pots.map((pot) => ({ ...pot }));
     this.ports = input.ports;
-    this.config = { ...defaultCommissioningConfig, ...input.config };
+    this.config = { ...configForSelection(this.pots.length), ...input.config };
     this.onUpdate = input.onUpdate ?? (() => undefined);
+    const prior = input.resumeFrom ?? null;
+    this.segment = prior ? prior.segments + 1 : 1;
+    this.priorEvidence = prior ? prior.evidence.map((item) => ({ ...item })) : [];
+    this.priorLog = prior ? prior.log.slice() : [];
+    this.priorPulses = prior?.pulsesRequested ?? 0;
+    this.priorValveSeconds = prior?.valveSecondsRequested ?? 0;
+    this.pulsesRequested = this.priorPulses;
+    this.valveSecondsRequested = this.priorValveSeconds;
+    for (const valve of prior?.completedValves ?? []) {
+      if (this.pots.some((pot) => pot.valveKey === valve)) this.completed.add(valve);
+    }
+    // The server's manual-water cooldown runs from the previous segment's last pulse.
+    for (const item of this.priorEvidence) {
+      const at = Date.parse(item.acknowledgement.at ?? item.requestedAt);
+      if (Number.isFinite(at)) this.lastPulseEndMs = Math.max(this.lastPulseEndMs, at);
+    }
+    this.log.push(...this.priorLog);
   }
 
   get running() {
     return this.phase !== "idle" && this.phase !== "done";
   }
 
+  progress(): RunProgress {
+    const active = this.activeValveKey ? this.pots.find((pot) => pot.valveKey === this.activeValveKey) ?? null : null;
+    return {
+      phase: this.phase,
+      activeValveKey: this.activeValveKey,
+      activePairingName: active?.pairingName ?? null,
+      activeStep: this.activeStep,
+      total: this.pots.length,
+      completed: this.completed.size,
+      remaining: this.pots.length - this.completed.size,
+      pulsesRequested: this.pulsesRequested,
+      valveSecondsRequested: this.valveSecondsRequested,
+      maxPulses: this.config.maxPulses,
+      maxTotalValveSeconds: this.config.maxTotalValveSeconds,
+      elapsedSeconds: this.startedAtMs ? Math.round((this.ports.now() - this.startedAtMs) / 1000) : 0,
+      maxRunSeconds: this.config.maxRunSeconds,
+      usableBaselines: this.baselines.filter((item) => item.valid).length,
+      segment: this.segment,
+    };
+  }
+
+  /** Valves whose evidence is complete and usable so far. */
+  completedValves(): string[] {
+    return Array.from(this.completed);
+  }
+
+  /** Every pulse's evidence so far, earlier segments included (read-only view). */
+  evidenceSoFar(): readonly PulseEvidence[] {
+    return this.allEvidence();
+  }
+
+  /**
+   * A resumable record of the run so far, saved while it runs so the evidence survives
+   * if this screen closes. It reads as an interrupted run: it proposes nothing, and a
+   * pulse still being observed is marked incomplete so a resume measures it again.
+   */
+  checkpoint(): CommissioningResult {
+    const at = new Date(this.ports.now()).toISOString();
+    const evidence = this.allEvidence().map((item) => {
+      const copy: PulseEvidence = JSON.parse(JSON.stringify(item));
+      if (item === this.observing && !copy.invalidated) copy.invalidated = { reason: incompleteObservation, at };
+      return copy;
+    });
+    const reason = `Saved while the run was in progress (${this.completed.size} of ${this.pots.length} valves complete). If this record is all that remains, the screen running it closed and no pulse was requested after ${at}.`;
+    return {
+      runId: this.runId,
+      mode: this.mode,
+      outcome: "interrupted",
+      stopReason: reason,
+      startedAt: new Date(this.startedAtMs || this.ports.now()).toISOString(),
+      endedAt: at,
+      pots: this.pots,
+      baselines: this.baselines,
+      evidence,
+      proposals: [],
+      unresolved: [],
+      unclaimed: [],
+      pulsesRequested: this.pulsesRequested,
+      valveSecondsRequested: this.valveSecondsRequested,
+      log: this.log.slice(),
+      completedValves: Array.from(this.completed),
+      segments: this.segment,
+      interruption: { at, reason, source: "screen_closed" },
+    };
+  }
+
   // Stops the run. No further pulse is requested after this returns. A pulse the
   // controller has already accepted still ends on the controller's own deadline.
-  abort(reason = "Stopped by the operator.") {
+  abort(reason = "Stopped by the operator.", source: RunInterruption["source"] = "operator") {
     if (this.abortReason || this.phase === "done") return;
     this.abortReason = reason;
-    this.write("abort", reason, { commandInFlight: this.commandInFlight });
+    this.interruption = { at: new Date(this.ports.now()).toISOString(), reason, source };
+    this.write(source === "manual_watering" ? "interruption" : "abort", reason, { commandInFlight: this.commandInFlight, source });
     this.controller.abort();
     this.onUpdate();
   }
 
+  /** Manual watering began on this controller (seen locally or in the hold records). */
+  interruptForManualWatering(label: string) {
+    this.abort(`Manual watering (${label}) interrupted autocalibration. Evidence gathered so far is kept; readings after this point are not used. Resume collects fresh baselines.`, "manual_watering");
+  }
+
   async run(input: { confirmation?: string } = {}): Promise<CommissioningResult> {
     if (this.phase !== "idle") throw new Error("This commissioning run has already been started.");
-    const selectionProblems = [...validateSelection(this.pots), ...validateConfig(this.config)];
+    const selectionProblems = [...validateSelection(this.pots), ...validateConfig(this.config, this.pots.length)];
     if (selectionProblems.length) throw new Error(selectionProblems.join(" "));
     if (this.mode === "real" && input.confirmation !== requiredConfirmation(this.pots)) {
       throw new Error("The typed confirmation does not match. No valve was commanded.");
     }
 
     this.startedAtMs = this.ports.now();
-    this.write("run", this.mode === "real"
-      ? "REAL HARDWARE commissioning run started."
-      : "Dry run started. No valve command will be sent.", {
+    this.write("run", this.segment > 1
+      ? `Resumed: segment ${this.segment}. ${this.completed.size} of ${this.pots.length} valves already have usable evidence.`
+      : this.mode === "real"
+        ? "REAL HARDWARE commissioning run started."
+        : "Dry run started. No valve command will be sent.", {
       mode: this.mode,
       pots: this.pots,
       config: this.config,
+      segment: this.segment,
     });
-    if (this.mode === "real") this.write("operator", "Operator typed the hardware confirmation.", { confirmation: input.confirmation });
+    if (this.mode === "real") this.write("operator", "Operator confirmed the hardware run.", { confirmation: input.confirmation });
 
     let outcome: RunOutcome = "failed";
     let stopReason: string | null = null;
     try {
+      await this.establishBaselineFloor();
       await this.collectBaselines();
       await this.discover();
       outcome = this.mode === "dry_run" ? "dry_run_completed" : "completed";
@@ -196,28 +358,43 @@ export class CommissioningRun {
       if (error instanceof StopRun) {
         outcome = error.outcome;
         stopReason = error.message;
+        if (error.interruption) this.interruption = error.interruption;
       } else {
         outcome = this.abortReason ? "aborted" : "failed";
         stopReason = this.abortReason ?? (error instanceof Error ? error.message : String(error));
         if (!this.abortReason) this.write("error", `Unexpected error: ${stopReason}`);
       }
+      if (this.interruption?.source === "manual_watering") outcome = "interrupted";
+      else if (outcome === "aborted" && this.interruption) outcome = this.interruption.source === "operator" ? "aborted" : "interrupted";
     }
+    // A stop during an observation leaves that pulse half-measured. It is not evidence
+    // of "no response": it is set aside and the valve is measured again on resume.
+    if (this.observing && !this.observing.invalidated) {
+      this.observing.invalidated = { reason: incompleteObservation, at: new Date(this.ports.now()).toISOString() };
+      this.completed.delete(this.observing.valveKey);
+    }
+    this.observing = null;
 
     this.phase = "analysis";
     this.activeValveKey = null;
-    const { proposals, unresolved } = proposeTopology(this.pots, this.evidence, this.config);
+    this.activeStep = null;
+    const usable = this.allEvidence().filter((item) => !item.invalidated);
+    const { proposals, unresolved } = proposeTopology(this.pots, usable, this.config);
+    const unclaimed = findUnclaimedSensors(this.pots, usable);
     // Only a run that pulsed every selected valve yields a mapping. A partial
-    // matrix cannot rule out rival valves, so a dry run, an aborted run, or a run
-    // stopped by an interlock keeps its evidence but proposes nothing.
-    const keepProposals = outcome === "completed";
-    if (outcome === "completed" && (unresolved.length || proposals.some((item) => item.status === "needs_review"))) {
+    // matrix cannot rule out rival valves, so a dry run, an interrupted run, or a
+    // run stopped by an interlock keeps its evidence but proposes nothing.
+    const keepProposals = outcome === "completed" && this.completed.size === this.pots.length;
+    if (outcome === "completed" && !keepProposals) outcome = "stopped_by_interlock";
+    if (outcome === "completed" && (unresolved.length || unclaimed.length || proposals.some((item) => item.status === "needs_review"))) {
       outcome = "completed_with_findings";
     }
     this.write("decision", keepProposals
-      ? `Proposed ${proposals.length} mapping(s); ${unresolved.length} valve(s) unresolved. Active pairings are unchanged.`
-      : "No mapping is proposed for this run. Active pairings are unchanged.", {
+      ? `Proposed ${proposals.length} mapping(s); ${unresolved.length} valve(s) unresolved; ${unclaimed.length} sensor(s) unclaimed. Active pairings are unchanged.`
+      : `No mapping is proposed: ${this.completed.size} of ${this.pots.length} valves have usable evidence. Active pairings are unchanged.`, {
       proposals: keepProposals ? proposals : [],
       unresolved,
+      unclaimed,
     });
     this.write("run", `Run ended: ${outcome}.`, { stopReason, pulsesRequested: this.pulsesRequested, valveSecondsRequested: this.valveSecondsRequested });
 
@@ -231,15 +408,23 @@ export class CommissioningRun {
       endedAt: new Date(this.ports.now()).toISOString(),
       pots: this.pots,
       baselines: this.baselines,
-      evidence: this.evidence,
+      evidence: this.allEvidence(),
       proposals: keepProposals ? proposals : [],
       unresolved,
+      unclaimed: keepProposals ? unclaimed : [],
       pulsesRequested: this.pulsesRequested,
       valveSecondsRequested: this.valveSecondsRequested,
       log: this.log,
+      completedValves: Array.from(this.completed),
+      segments: this.segment,
+      interruption: this.interruption,
     };
     this.onUpdate();
     return this.result;
+  }
+
+  private allEvidence() {
+    return [...this.priorEvidence, ...this.evidence];
   }
 
   private write(kind: LogKind, message: string, data?: Record<string, unknown>) {
@@ -247,7 +432,7 @@ export class CommissioningRun {
   }
 
   private ensureNotAborted() {
-    if (this.abortReason) throw new StopRun("aborted", this.abortReason);
+    if (this.abortReason) throw new StopRun(this.interruption?.source === "manual_watering" ? "interrupted" : "aborted", this.abortReason, this.interruption);
   }
 
   private async pause(seconds: number) {
@@ -262,29 +447,87 @@ export class CommissioningRun {
 
   private async refreshReadings(sinceMs: number) {
     const incoming = await this.ports.readReadings(this.pots.map((pot) => pot.sensorKey), sinceMs);
-    const seen = new Set(this.readings.map((reading) => `${reading.sensorKey}|${reading.atMs}`));
-    incoming.forEach((reading) => {
-      const key = `${reading.sensorKey}|${reading.atMs}`;
-      if (!seen.has(key) && Number.isFinite(reading.vwc)) {
-        seen.add(key);
-        this.readings.push(reading);
+    this.readings.add(incoming);
+    // Keep only what a decision can still use: bounded memory at any run length.
+    this.readings.prune(this.ports.now() - this.config.readingRetentionSeconds * 1000);
+  }
+
+  private async manualSessions(sinceMs: number): Promise<ManualIntervention[]> {
+    if (!this.ports.readManualInterventions) return [];
+    try {
+      return await this.ports.readManualInterventions(sinceMs);
+    } catch (error) {
+      throw new StopRun("stopped_by_interlock", `Could not confirm that no manual watering is in progress (${error instanceof Error ? error.message : String(error)}).`);
+    }
+  }
+
+  /**
+   * Before baselines: refuse to start while manual watering is in progress, and when it
+   * ended recently, take baselines only from readings after the pots have settled.
+   */
+  private async establishBaselineFloor() {
+    const lookbackStart = this.startedAtMs - this.config.baselineLookbackSeconds * 1000;
+    this.baselineFloorMs = lookbackStart;
+    const sessions = await this.manualSessions(lookbackStart - this.config.manualSettleSeconds * 1000);
+    const open = sessions.find((session) => session.endedAtMs == null);
+    if (open) {
+      const reason = `Manual watering (${open.label}) is in progress. Autocalibration starts after it ends and the pots settle.`;
+      this.write("interruption", reason, { session: open });
+      throw new StopRun("interrupted", reason, { at: new Date(this.ports.now()).toISOString(), reason, source: "manual_watering" });
+    }
+    for (const session of sessions) {
+      const settled = (session.endedAtMs ?? session.startedAtMs) + this.config.manualSettleSeconds * 1000;
+      if (settled > this.baselineFloorMs) this.baselineFloorMs = settled;
+    }
+    if (this.baselineFloorMs > lookbackStart) {
+      this.invalidateAfter(Math.min(...sessions.map((session) => session.startedAtMs)), "Manual watering happened after this observation began.");
+      this.write("decision", `Manual watering ended recently; baselines use readings from ${new Date(this.baselineFloorMs).toISOString()} on, after the pots settle.`);
+    }
+  }
+
+  /** During the run: manual watering invalidates overlapping evidence and stops the run. */
+  private async checkManualInterventions() {
+    const sessions = await this.manualSessions(this.startedAtMs);
+    const started = sessions.filter((session) => session.startedAtMs >= this.startedAtMs || session.endedAtMs == null);
+    if (!started.length) return;
+    const first = started.sort((a, b) => a.startedAtMs - b.startedAtMs)[0];
+    this.invalidateAfter(first.startedAtMs, `Manual watering (${first.label}) overlapped this observation.`);
+    const reason = `Manual watering (${first.label}) started during the run. Evidence gathered before it is kept; resume after the pots settle.`;
+    const interruption: RunInterruption = { at: new Date(this.ports.now()).toISOString(), reason, source: "manual_watering" };
+    this.write("interruption", reason, { session: first });
+    throw new StopRun("interrupted", reason, interruption);
+  }
+
+  /** Evidence whose observation could include manual watering is excluded and re-measured on resume. */
+  private invalidateAfter(fromMs: number, reason: string) {
+    const at = new Date(this.ports.now()).toISOString();
+    const affected = (item: PulseEvidence) => Date.parse(item.requestedAt) + (item.observedSeconds + this.config.settleSkipSeconds) * 1000 >= fromMs;
+    for (const item of [...this.priorEvidence, ...this.evidence]) {
+      if (!item.invalidated && affected(item)) {
+        item.invalidated = { reason, at };
+        this.completed.delete(item.valveKey);
       }
-    });
+    }
   }
 
   private async collectBaselines() {
     this.phase = "baseline";
     this.onUpdate();
     const since = this.startedAtMs - this.config.baselineLookbackSeconds * 1000;
-    const deadline = this.startedAtMs + this.config.baselineTimeoutSeconds * 1000;
+    const deadline = Math.max(this.startedAtMs, this.baselineFloorMs) + this.config.baselineTimeoutSeconds * 1000;
     for (;;) {
       this.ensureNotAborted();
       await this.refreshReadings(since);
-      this.baselines = this.pots.map((pot) => summarizeBaseline(pot.sensorKey, this.readings, this.config));
+      this.baselines = this.pots.map((pot) => summarizeBaseline(
+        pot.sensorKey,
+        this.readings.forSensor(pot.sensorKey).filter((reading) => reading.atMs >= this.baselineFloorMs),
+        this.config,
+      ));
       this.onUpdate();
       const waiting = this.baselines.filter((item) => item.count < this.config.baselineReadings);
       if (waiting.length === 0 || this.ports.now() >= deadline || this.mode === "dry_run") break;
       await this.pause(this.config.pollSeconds);
+      await this.checkManualInterventions();
     }
 
     this.baselines.forEach((item) => this.write("baseline", item.valid
@@ -300,7 +543,7 @@ export class CommissioningRun {
   // Re-evaluated immediately before every single pulse.
   private async interlock(nextPulseSeconds: number): Promise<string | null> {
     const now = this.ports.now();
-    if (now - this.startedAtMs > this.config.maxRunSeconds * 1000) return "Run time limit reached.";
+    if (now - this.startedAtMs > this.config.maxRunSeconds * 1000) return `Run time limit of ${Math.round(this.config.maxRunSeconds / 3600)} h reached.`;
     if (this.pulsesRequested + 1 > this.config.maxPulses) return `Pulse budget of ${this.config.maxPulses} reached.`;
     if (this.valveSecondsRequested + nextPulseSeconds > this.config.maxTotalValveSeconds) {
       return `Water budget of ${this.config.maxTotalValveSeconds} valve-seconds would be exceeded.`;
@@ -336,10 +579,7 @@ export class CommissioningRun {
 
     const silent = this.baselines
       .filter((item) => item.valid)
-      .filter((item) => {
-        const last = Math.max(0, ...this.readings.filter((reading) => reading.sensorKey === item.sensorKey).map((reading) => reading.atMs));
-        return now - last > this.config.sensorSilenceSeconds * 1000;
-      });
+      .filter((item) => now - (this.readings.latestAt(item.sensorKey) ?? 0) > this.config.sensorSilenceSeconds * 1000);
     if (silent.length) return `Sensor(s) stopped reporting: ${silent.map((item) => item.sensorKey).join(", ")}.`;
     return null;
   }
@@ -347,30 +587,50 @@ export class CommissioningRun {
   private async discover() {
     this.phase = "discovery";
     for (const pot of this.pots) {
-      const first = await this.pulseAndObserve(pot, this.config.pulseSeconds, false);
-      if (first.responses.some((response) => response.detected)) continue;
+      if (this.completed.has(pot.valveKey)) continue;
+      // A resumed valve whose usable first pulse moved nothing goes straight to its one retry.
+      const earlier = this.priorEvidence.filter((item) => item.valveKey === pot.valveKey && !item.invalidated && item.acknowledgement.status === "succeeded");
+      const silentFirst = earlier.some((item) => !item.escalated && !item.responses.some((response) => response.detected));
+      if (!silentFirst) {
+        const first = await this.pulseAndObserve(pot, this.config.pulseSeconds, false);
+        if (first.responses.some((response) => response.detected)) {
+          this.completed.add(pot.valveKey);
+          continue;
+        }
+      }
       // One bounded escalation, then flag and move on. Never an open-ended retry.
       this.write("decision", `Valve ${pot.valveKey}: no selected sensor rose after ${this.config.pulseSeconds}s. Escalating once to ${this.config.escalatedPulseSeconds}s.`);
       const second = await this.pulseAndObserve(pot, this.config.escalatedPulseSeconds, true);
       if (!second.responses.some((response) => response.detected)) {
         this.write("decision", `Valve ${pot.valveKey}: still no response after the escalated pulse. Flagged as unresolved; it will not be pulsed again.`);
       }
+      this.completed.add(pot.valveKey);
     }
     this.activeValveKey = null;
+    this.activeStep = null;
   }
 
   private async pulseAndObserve(pot: SelectedPot, seconds: number, escalated: boolean): Promise<PulseEvidence> {
-    const step = `${pot.valveKey}${escalated ? ":escalated" : ""}`;
+    const step = `${pot.valveKey}${escalated ? ":escalated" : ""}${this.segment > 1 ? `:s${this.segment}` : ""}`;
     this.ensureNotAborted();
+    this.activeValveKey = pot.valveKey;
 
     if (this.mode === "real") {
       // Respect the server's manual-water cooldown instead of tripping it.
       const wait = this.lastPulseEndMs + this.config.cooldownSeconds * 1000 - this.ports.now();
-      if (wait > 0) await this.pause(wait / 1000);
+      if (wait > 0) {
+        this.activeStep = "cooldown";
+        this.onUpdate();
+        await this.pause(wait / 1000);
+      }
     }
     await this.refreshReadings(this.startedAtMs - this.config.baselineLookbackSeconds * 1000);
-    if (this.mode === "real") await this.waitUntilQuiet(pot);
+    if (this.mode === "real") {
+      this.activeStep = "settling";
+      await this.waitUntilQuiet(pot);
+    }
 
+    await this.checkManualInterventions();
     const blocked = await this.interlock(seconds);
     if (blocked) {
       this.write("interlock", `Interlock before valve ${pot.valveKey}: ${blocked}`, { step });
@@ -379,7 +639,7 @@ export class CommissioningRun {
     this.ensureNotAborted();
     if (this.commandInFlight) throw new StopRun("failed", "Internal guard: a valve command is already in flight.");
 
-    this.activeValveKey = pot.valveKey;
+    this.activeStep = "pulsing";
     const requestedAtMs = this.ports.now();
     const evidence: PulseEvidence = {
       valveKey: pot.valveKey,
@@ -394,6 +654,8 @@ export class CommissioningRun {
       responses: [],
       observedSeconds: 0,
       physicalDeliveryVerified: false,
+      segment: this.segment,
+      invalidated: null,
     };
     this.evidence.push(evidence);
     this.onUpdate();
@@ -421,7 +683,8 @@ export class CommissioningRun {
         evidence.acknowledgement = { status: "failed", at: new Date(this.ports.now()).toISOString(), error: message, controllerResult: null };
         this.write("error", `Valve ${pot.valveKey}: the pulse command did not complete. ${message}`, { step, commandId: evidence.commandId });
         // Fail closed: an unconfirmed command is never retried and ends the run.
-        throw new StopRun(this.abortReason ? "aborted" : "stopped_by_interlock", this.abortReason ?? `Command failure on valve ${pot.valveKey}: ${message}`);
+        if (manualRefusal.test(message)) this.raiseManualStop(evidence, message);
+        throw new StopRun(this.abortReason ? "aborted" : "stopped_by_interlock", this.abortReason ?? `Command failure on valve ${pot.valveKey}: ${message}`, this.interruption);
       } finally {
         this.commandInFlight = false;
         this.lastPulseEndMs = this.ports.now();
@@ -430,7 +693,13 @@ export class CommissioningRun {
       if (evidence.acknowledgement.status !== "succeeded") {
         const detail = evidence.acknowledgement.error ?? evidence.acknowledgement.status;
         this.write("command_ack", `Valve ${pot.valveKey}: the controller reported ${evidence.acknowledgement.status}. ${detail}`, { step, commandId: evidence.commandId });
+        if (manualRefusal.test(detail)) this.raiseManualStop(evidence, detail);
         throw new StopRun("stopped_by_interlock", `Command failure on valve ${pot.valveKey}: ${detail}`);
+      }
+      const interrupted = evidence.acknowledgement.controllerResult?.interrupted;
+      if (typeof interrupted === "string" && interrupted) {
+        // The controller cut this pulse short (an operator took manual control).
+        this.raiseManualStop(evidence, `The controller ended this pulse early (${interrupted}).`);
       }
       this.write("command_ack", `Valve ${pot.valveKey}: the controller acknowledged the pulse. This confirms the command, not that water reached a pot.`, {
         step,
@@ -439,27 +708,42 @@ export class CommissioningRun {
       });
     }
 
+    this.activeStep = "observing";
+    this.observing = evidence;
     await this.observe(pot, evidence, requestedAtMs);
+    this.observing = null;
     return evidence;
+  }
+
+  private raiseManualStop(evidence: PulseEvidence, detail: string): never {
+    const reason = `Manual troubleshooting took control of the controller: ${detail} Evidence gathered so far is kept; resume after the pots settle.`;
+    evidence.invalidated = { reason: "Manual watering overlapped this pulse.", at: new Date(this.ports.now()).toISOString() };
+    this.interruption = { at: new Date(this.ports.now()).toISOString(), reason, source: "manual_watering" };
+    this.write("interruption", reason, { step: evidence.step });
+    throw new StopRun("interrupted", reason, this.interruption);
   }
 
   // A pot that is still rising from the previous pulse would be misread as a
   // response to this valve. Wait (bounded) until every sensor has levelled off.
+  //
+  // Pots that responded to the previous pulse are the ones most likely to still be
+  // creeping up, so they must be flatter than the rest (range of the last three
+  // readings). Every other pot blocks only on a sustained rise: three readings that
+  // keep increasing by more than the quiet range. Testing every pot's noisy range
+  // instead (the original rule) cannot pass at full scale: with 100 sensors, some
+  // sensor's last three readings spread past four sigma by noise alone on almost
+  // every poll, so a 100-pot run timed out without anything rising.
   private unsettledSensors() {
     return this.baselines.filter((item) => item.valid).filter((item) => {
-      const recent = this.readings
-        .filter((reading) => reading.sensorKey === item.sensorKey)
-        .sort((a, b) => a.atMs - b.atMs)
-        .slice(-3)
-        .map((reading) => reading.vwc);
+      const recent = this.readings.forSensor(item.sensorKey).slice(-3).map((reading) => reading.vwc);
       if (recent.length < 3) return false;
       const sigma = item.noiseSigma ?? 0;
-      // A pot that just responded is the one most likely to still be creeping up,
-      // so it must be flatter than the rest before the next valve is pulsed.
-      const allowed = this.recentResponders.has(item.sensorKey)
-        ? Math.max(0.6 * this.config.quietRangeVwc, 2.5 * sigma)
-        : Math.max(this.config.quietRangeVwc, 4 * sigma);
-      return Math.max(...recent) - Math.min(...recent) > allowed;
+      if (this.recentResponders.has(item.sensorKey)) {
+        const allowed = Math.max(0.6 * this.config.quietRangeVwc, 2.5 * sigma);
+        return Math.max(...recent) - Math.min(...recent) > allowed;
+      }
+      const rising = recent[0] < recent[1] && recent[1] < recent[2];
+      return rising && recent[2] - recent[0] > Math.max(this.config.quietRangeVwc, 4 * sigma);
     });
   }
 
@@ -503,11 +787,11 @@ export class CommissioningRun {
     const window = this.mode === "real" ? this.config.maxObserveSeconds : this.config.dryRunObserveSeconds;
     const deadline = pulseEndMs + window * 1000;
     const sigma = new Map(this.baselines.map((item) => [item.sensorKey, item.noiseSigma ?? 0]));
-    const measure = () => this.pots
-      .filter((candidate) => this.baselines.find((item) => item.sensorKey === candidate.sensorKey)?.valid)
+    const validSensors = this.pots.filter((candidate) => this.baselines.find((item) => item.sensorKey === candidate.sensorKey)?.valid);
+    const measure = () => validSensors
       .map((candidate) => measureResponse({
         sensorKey: candidate.sensorKey,
-        readings: this.readings,
+        readings: this.readings.forSensor(candidate.sensorKey),
         requestedAtMs,
         pulseEndMs,
         noiseSigma: sigma.get(candidate.sensorKey) ?? 0,
@@ -520,11 +804,20 @@ export class CommissioningRun {
       evidence.responses = measure();
       evidence.observedSeconds = Math.round((this.ports.now() - pulseEndMs) / 1000);
       this.onUpdate();
-      const expected = this.baselines.filter((item) => item.valid).length;
-      const complete = evidence.responses.length === expected
-        && evidence.responses.every((response) => response.postCount >= this.config.minPostReadings);
+      // Complete once every sensor has its settled readings and none is still mid-rise.
+      // A strong rise whose last readings have not levelled off yet is not judged
+      // from the rising part: observation continues (within the window) until it
+      // plateaus, so a slower-wetting pot is not misread as "no response".
+      const stillRising = evidence.responses.some((response) => !response.detected
+        && response.postCount >= this.config.minPostReadings
+        && response.deltaVwc >= this.config.minDeltaVwc
+        && response.z >= this.config.minZ);
+      const complete = evidence.responses.length === validSensors.length
+        && evidence.responses.every((response) => response.postCount >= this.config.minPostReadings)
+        && !stillRising;
       if (complete || this.ports.now() >= deadline) break;
       await this.pause(this.config.pollSeconds);
+      await this.checkManualInterventions();
     }
 
     const responders = evidence.responses.filter((response) => response.detected);
@@ -533,7 +826,7 @@ export class CommissioningRun {
       ? `Valve ${pot.valveKey}: measured a rise on ${responders.map((response) => `${response.sensorKey} (+${response.deltaVwc.toFixed(1)}%)`).join(", ")} over ${evidence.observedSeconds}s.`
       : `Valve ${pot.valveKey}: no selected sensor rose within ${evidence.observedSeconds}s.`, {
       step: evidence.step,
-      responses: evidence.responses,
+      responses: evidence.responses.filter((response) => response.detected || response.deltaVwc >= this.config.minDeltaVwc * 0.5),
     });
   }
 }
