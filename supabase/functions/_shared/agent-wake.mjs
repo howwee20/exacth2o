@@ -1,6 +1,6 @@
 // Wake a held agent request when Postgres reports work for its device.
 // Triggers send '<agent>:<device_id>' on exacth2o_agent_wake (see migration
-// 20261021030000). A notification is only a hint: callers re-read the durable
+// 20261021043151). A notification is only a hint: callers re-read the durable
 // queue with expiry and revision filters, so a lost, duplicated or reordered
 // notification can delay work but can never create, replay or reorder it.
 // Any listener failure degrades to the previous bounded re-check behavior.

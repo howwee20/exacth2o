@@ -1,6 +1,6 @@
--- Rollback for 20261021030000_agent_wake_and_attention.sql,
--- 20261021031000_gate_cron_edge_invocations.sql and
--- 20261021033000_edge_usage_monitor.sql.
+-- Rollback for 20261021043151_agent_wake_and_attention.sql,
+-- 20261021043212_gate_cron_edge_invocations.sql and
+-- 20261021043233_edge_usage_monitor.sql.
 --
 -- Order matters: first redeploy the previous gas-mixer-agent,
 -- gas-mixer-native-agent and lighting-native-agent Edge Functions (they read
