@@ -7,6 +7,14 @@ import { ManualHoldManager } from '../services/ManualHoldManager'
 import { ValveArbiter } from '../services/ValveArbiter'
 import { MachineState } from '../types'
 
+const managers: ManualHoldManager[] = []
+afterEach(async () => {
+  for (const manager of managers.splice(0)) {
+    await manager.stopAll('released')
+    await manager.flush()
+  }
+})
+
 // One controller with three valve boards (0x20, 0x24, 0x26) and 48 channels each,
 // an automatic pulse in progress, and a hold manager wired to the real StateMachine
 // callbacks. Relay writes are recorded instead of reaching I2C.
@@ -63,6 +71,7 @@ function controller(options: { inventory?: Array<{ relayAddress: string; address
     write: async (name, body) => { storage.set(name, body) },
     read: async (name) => storage.get(name) ?? null,
   })
+  managers.push(machine.manualHoldManager)
   const startAutomatic = () => {
     activeAutomatic = { pairId: '712-1625', relayAddress: 0x20, address: 3, startedAt: Date.now() }
     machine.openValvePairId = '712-1625'
