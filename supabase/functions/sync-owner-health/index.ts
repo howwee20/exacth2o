@@ -13,6 +13,7 @@ import {
   semanticDedupeValveEvents,
 } from "./rd-evidence-policy.mjs";
 import { uptimeSecondsFromSources } from "./uptime-policy.mjs";
+import { acquireLeaseWithin, leaseWaitMs } from "./lease-policy.mjs";
 import { healthSyncInstallation } from "../_shared/installation-config.mjs";
 
 const healthSync = healthSyncInstallation(Deno.env.toObject());
@@ -1351,14 +1352,14 @@ serve(async (request) => {
     : "scheduled_watchdog";
   let includeHistory = syncRequest.include_history === true;
   const leaseHolder = crypto.randomUUID();
-  const { data: leaseAcquired, error: leaseError } = await admin.rpc(
-    "acquire_device_ingest_lease",
-    {
+  const { data: leaseAcquired, error: leaseError } = await acquireLeaseWithin(
+    () => admin.rpc("acquire_device_ingest_lease", {
       lease_project_id: healthSyncProjectId,
       lease_device_id: healthSyncDeviceId,
       lease_holder: leaseHolder,
       lease_seconds: 300,
-    },
+    }),
+    { waitMs: leaseWaitMs(source) },
   );
 
   if (leaseError) {
@@ -1428,7 +1429,9 @@ serve(async (request) => {
             )
             .eq("project_id", healthSyncProjectId)
             .eq("device_id", healthSyncDeviceId)
-            .order("created_at", { ascending: false })
+            // Served by (project_id, device_id, captured_at desc); snapshots
+            // are written in capture order, so this is the newest row.
+            .order("captured_at", { ascending: false })
             .limit(1)
             .maybeSingle(),
           admin
