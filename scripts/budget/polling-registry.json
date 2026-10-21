@@ -1,0 +1,89 @@
+{
+  "purpose": "Every recurring timer in the portal that can reach Supabase. A new or extra scheduleVisiblePolling/setInterval call fails scripts/budget/edge-budget-model.test.mjs until it is registered here with its cadence and cost, and the Edge budget model is updated if it invokes an Edge Function.",
+  "portal": {
+    "research-portal/src/App.tsx": {
+      "scheduleVisiblePolling": 6,
+      "setInterval": 0,
+      "cadence": "readings/valve/device-sync/health every 5 min, sales-support 2 min (admins), tracked settings commands 15 s while pending",
+      "edge": false
+    },
+    "research-portal/src/ChamberControlView.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 1,
+      "cadence": "gas_mixer_remote_status every 15 s; 15 s session-end check (no request) while a live view is open",
+      "edge": false
+    },
+    "research-portal/src/ChamberSchedules.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "chamber_schedule_overview every 5 s while a schedule is enabled or running, else 15 s",
+      "edge": false
+    },
+    "research-portal/src/GasMixerNativeControl.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "1 s tick; gas_mixer_native_status every 1 s only while a command awaits receipt, else 5 s",
+      "edge": false
+    },
+    "research-portal/src/LightingNativeControl.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "1 s tick; lighting_native_status every 1 s only while a command awaits receipt, else 5 s",
+      "edge": false
+    },
+    "research-portal/src/WalkerObservationView.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "walker_live_observation_status every 60 s",
+      "edge": false
+    },
+    "research-portal/src/WebsiteAnalyticsTile.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "website-analytics every 5 min while the admin home is visible",
+      "edge": true
+    },
+    "research-portal/src/analytics/WebsiteAnalyticsWorkspace.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "website-analytics report every 5 min while the workspace is visible",
+      "edge": true
+    },
+    "research-portal/src/health/SystemHealthView.tsx": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "30 s clock re-render, no request",
+      "edge": false
+    },
+    "research-portal/src/HoldWaterControl.tsx": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "100 ms elapsed-time display while watering, no request",
+      "edge": false
+    },
+    "research-portal/src/holdSession.ts": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "manual-hold renew every 400 ms while a hold button is pressed (max 15 s)",
+      "edge": true
+    },
+    "research-portal/src/pageClock.ts": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "30 s page clock, no request",
+      "edge": false
+    },
+    "research-portal/src/product/useNoteOutbox.ts": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "15 s outbox check; requests only while unsent notes exist (backoff to 5 min)",
+      "edge": false
+    },
+    "research-portal/src/walker/WalkerExperimentView.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "walker live snapshot every 60 s",
+      "edge": false
+    }
+  }
+}

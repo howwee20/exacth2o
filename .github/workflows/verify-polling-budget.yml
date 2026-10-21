@@ -5,7 +5,11 @@ on:
     branches: [ej-supabase-research-portal]
     paths:
       - 'supabase/functions/_shared/agent-polling*'
+      - 'supabase/functions/_shared/agent-wake*'
       - 'supabase/functions/_shared/gas-mixer-native-policy*'
+      - 'supabase/migrations/**'
+      - 'scripts/budget/**'
+      - 'research-portal/src/**'
       - 'controller-release/matt-balena-release-4174753/health/**'
       - 'controller-release/matt-health-reporting-20261020/**'
       - 'supabase/functions/*-agent/**'
@@ -16,7 +20,11 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/_shared/agent-polling*'
+      - 'supabase/functions/_shared/agent-wake*'
       - 'supabase/functions/_shared/gas-mixer-native-policy*'
+      - 'supabase/migrations/**'
+      - 'scripts/budget/**'
+      - 'research-portal/src/**'
       - 'controller-release/matt-balena-release-4174753/health/**'
       - 'controller-release/matt-health-reporting-20261020/**'
       - 'supabase/functions/*-agent/**'
@@ -42,7 +50,8 @@ jobs:
           python-version: '3.12'
       - name: Verify bounded polling, quota assumptions and unchanged command policy
         run: |
-          node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
+          node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/agent-wake.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
+          node --test scripts/budget/edge-budget-model.test.mjs
           python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
           python3 -m unittest discover -s controller-release/matt-balena-release-4174753/health -p 'test_*.py'
           python3 -m unittest discover -s controller-release/matt-health-reporting-20261020 -p 'test_*.py'

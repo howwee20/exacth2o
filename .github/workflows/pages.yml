@@ -8,10 +8,46 @@ on:
 permissions:
   contents: read
 
-# Publishing serves the committed, locally built release directly.
-# Verification workflows run only when manually requested and never gate publishing.
+# Publishing serves the committed, locally built release, but only after this
+# exact commit passes fast, deterministic checks: portal lint and unit tests, a
+# rebuild that must reproduce every committed artifact byte for byte, and the
+# chamber-agent, polling-budget and native-bridge tests. A failing check stops
+# publication. The slower cross-browser and database suites stay manual
+# (verify.yml / verify-artifacts.yml), as chosen on 2026-10-15.
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: research-portal/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --prefix research-portal
+      - name: Portal lint and unit tests
+        run: |
+          npm run lint --prefix research-portal
+          npm test --prefix research-portal
+      - name: Rebuild and require the committed release
+        run: |
+          node scripts/build-product-release.mjs
+          npm run audit:portal-surface --prefix research-portal
+          git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
+          test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
+      - name: Chamber agents, polling budget and installed-client compatibility
+        run: |
+          node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/agent-wake.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
+          node --test scripts/budget/edge-budget-model.test.mjs
+          python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
+          python3 -m unittest discover -s scripts -p 'test_supabase_usage_audit.py'
+
   deploy:
+    needs: verify
     permissions:
       contents: read
       pages: write
