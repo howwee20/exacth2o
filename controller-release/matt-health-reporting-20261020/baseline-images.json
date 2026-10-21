@@ -1,0 +1,50 @@
+[
+  {
+    "id": 17558714,
+    "service_name": "api_svc",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/738328c64488e00a2390a448fdf6ff6b",
+    "content_hash": "sha256:22362cf7c76ffee5e51afaa598cdc240f3c1f485f91e1b06fd36b5e2b232b505"
+  },
+  {
+    "id": 17558719,
+    "service_name": "control_executor",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/a8a3e95dca58069d4279e1f2e0b883b2",
+    "content_hash": "sha256:84452bb930f665b643e314c480555d4976baec4e7d023831d7394a9b5c05a738"
+  },
+  {
+    "id": 17558715,
+    "service_name": "cron_svc",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/303c5d888eb0bcebddcb4c53a1b6bdad",
+    "content_hash": "sha256:d3c24e2a959a1153ccef9a5c61ecf6abd1a24e11ca6e1a46e878e59f7b052074"
+  },
+  {
+    "id": 17558718,
+    "service_name": "database_svc",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/8b4eeceb864e8088e71bde7d6a5e26af",
+    "content_hash": "sha256:11298cca2b7de077f33d45865a561d5e56f524f7c6245a983ad8a99b74cd95b7"
+  },
+  {
+    "id": 17558717,
+    "service_name": "health_svc",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/b01b16293a9deada1458dc8e3230ed07",
+    "content_hash": "sha256:d82b0a3a80fba61ae0511d47c0b23a6acad03bffd96545c562e699c88b6faab8"
+  },
+  {
+    "id": 17558716,
+    "service_name": "redis_svc",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/041062999b2b95e0e49348aeb6c42338",
+    "content_hash": "sha256:1e7f5340948c5493edc32d133f82a1850433ec93296be347f7f59fec757a707a"
+  },
+  {
+    "id": 17558720,
+    "service_name": "supabase_publisher",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/32d2026d7240806bba96e42c63134fe4",
+    "content_hash": "sha256:af190a0e33e8cc44a44fe642ba60f212efc89003ac51c7d86b39f59dda49b21b"
+  },
+  {
+    "id": 17558713,
+    "service_name": "ui_svc",
+    "is_stored_at__image_location": "registry2.balena-cloud.com/v2/544d5a2501ec402ed28afdcc69968b7a",
+    "content_hash": "sha256:aa8a6af1fd1c9c6be2b61480c429b39cba7aed668d07694d34ec2d545e9c9f7e"
+  }
+]

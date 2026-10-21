@@ -7,6 +7,7 @@ on:
       - 'supabase/functions/_shared/agent-polling*'
       - 'supabase/functions/_shared/gas-mixer-native-policy*'
       - 'controller-release/matt-balena-release-4174753/health/**'
+      - 'controller-release/matt-health-reporting-20261020/**'
       - 'supabase/functions/*-agent/**'
       - 'controller-release/gas-mixer*/**'
       - 'controller-release/lighting-bridge/**'
@@ -17,6 +18,7 @@ on:
       - 'supabase/functions/_shared/agent-polling*'
       - 'supabase/functions/_shared/gas-mixer-native-policy*'
       - 'controller-release/matt-balena-release-4174753/health/**'
+      - 'controller-release/matt-health-reporting-20261020/**'
       - 'supabase/functions/*-agent/**'
       - 'controller-release/gas-mixer*/**'
       - 'controller-release/lighting-bridge/**'
@@ -43,4 +45,5 @@ jobs:
           node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
           python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
           python3 -m unittest discover -s controller-release/matt-balena-release-4174753/health -p 'test_*.py'
+          python3 -m unittest discover -s controller-release/matt-health-reporting-20261020 -p 'test_*.py'
           python3 -m unittest discover -s scripts -p 'test_supabase_usage_audit.py'

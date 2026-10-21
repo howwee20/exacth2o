@@ -8,6 +8,14 @@ spec.loader.exec_module(audit)
 
 
 class UsageAuditTests(unittest.TestCase):
+    def test_preflights_are_excluded_but_failed_posts_still_count(self):
+        report = audit.summarize([
+            {"path": "/functions/v1/agent", "method": "OPTIONS", "status": "200", "calls": 1000},
+            {"path": "/functions/v1/agent", "method": "POST", "status": "503", "calls": 5},
+        ], 1)
+        self.assertEqual(report["calls_in_window"], 5)
+        self.assertEqual(report["http_errors_by_function"]["agent"], 5)
+
     def test_failed_requests_are_charged_and_push_rate_over_budget(self):
         report = audit.summarize([
             {"path": "/functions/v1/agent", "status": "200", "calls": 2000},

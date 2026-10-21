@@ -19,9 +19,10 @@ import urllib.request
 INCLUDED_CALLS = 2_000_000
 EXPECTED_AGENTS = {"gas-mixer-agent", "gas-mixer-native-agent", "lighting-native-agent"}
 QUERY = """select log_attributes['request.pathname'] as path,
+log_attributes['request.method'] as method,
 log_attributes['response.status_code'] as status, count() as calls
 from logs where source='function_edge_logs'
-group by path,status order by calls desc limit 1000"""
+group by path,method,status order by calls desc limit 1000"""
 
 
 def summarize(rows, hours):
@@ -30,12 +31,16 @@ def summarize(rows, hours):
     by_function = {}
     errors = {}
     for row in rows:
+        # Supabase excludes CORS preflights from billed invocations.
+        # https://supabase.com/docs/guides/platform/manage-your-usage/edge-function-invocations
+        if str(row.get("method", "")).upper() == "OPTIONS":
+            continue
         name = row["path"].rsplit("/", 1)[-1]
         calls = int(row["calls"])
         if calls < 0:
             raise ValueError("Invalid negative count")
         by_function[name] = by_function.get(name, 0) + calls
-        # Failed requests and preflights also consume invocation quota.
+        # Failed non-preflight requests still consume invocation quota.
         if int(row["status"] or 0) >= 400:
             errors[name] = errors.get(name, 0) + calls
     total = sum(by_function.values())

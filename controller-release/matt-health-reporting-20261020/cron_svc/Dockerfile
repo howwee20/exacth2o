@@ -1,0 +1,1 @@
+FROM registry2.balena-cloud.com/v2/303c5d888eb0bcebddcb4c53a1b6bdad@sha256:d3c24e2a959a1153ccef9a5c61ecf6abd1a24e11ca6e1a46e878e59f7b052074
