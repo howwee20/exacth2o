@@ -64,7 +64,7 @@
     "research-portal/src/holdSession.ts": {
       "scheduleVisiblePolling": 0,
       "setInterval": 1,
-      "cadence": "manual-hold renew every 400 ms while a hold button is pressed (max 15 s)",
+      "cadence": "manual-hold renew every 500 ms only during a deliberate hold; duration is operator-controlled (120 renew calls per held minute), stops on release or interruption",
       "edge": true
     },
     "research-portal/src/pageClock.ts": {
@@ -83,6 +83,18 @@
       "scheduleVisiblePolling": 1,
       "setInterval": 0,
       "cadence": "walker live snapshot every 60 s",
+      "edge": false
+    },
+    "research-portal/src/autocalibrate/AutocalibrateWorkspace.tsx": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 3,
+      "cadence": "5 min readings refresh; 15 s display clock; active remote run record every 8 s, other active record every 30 s; database only",
+      "edge": false
+    },
+    "research-portal/src/autocalibrate/useBatchTracker.ts": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "4 s command status/readback while a settings batch is unsettled, stops after 8 min; database only",
       "edge": false
     }
   }

@@ -91,8 +91,12 @@ describe('independent valve watchdog', () => {
     expect(h.watchdog.state.acknowledged).toBe(true)
     await h.tickAt(3_250)
     expect(h.events.at(-1)).toBe('reset-low')
-    // Operator reconciles: fault cleared, nothing owns the output.
+    // A restart loses the in-memory fault but must NOT count as reconciliation.
     h.set({ owner: null, arbiter: { fault: null } })
+    await h.tickAt(3_400)
+    expect(h.events.at(-1)).toBe('reset-low')
+    // Operator reconciles: explicit acknowledgement, fault cleared, nothing open.
+    h.set({ owner: null, arbiter: { fault: null }, watchdogReconciled: true })
     await h.tickAt(3_500)
     expect(h.events.at(-1)).toBe('reset-high')
     expect(h.watchdog.state.tripped).toBe(false)
@@ -101,5 +105,27 @@ describe('independent valve watchdog', () => {
   it('a watchdog restart keeps a persisted lockout asserted from the first moment', () => {
     const h = harness({ tripped: true, reason: 'earlier trip', trippedAtWall: '2026-10-21T15:00:00Z', acknowledged: true })
     expect(h.events).toEqual(['reset-low'])
+  })
+})
+
+
+describe('watchdog observation gaps', () => {
+  it('fails closed if cron dies after an idle poll before an opening is observed', async () => {
+    const h = harness()
+    await h.tickAt(0)
+    h.set(new Error('cron crashed between polls'))
+    await h.tickAt(250)
+    await h.tickAt(5_500)
+    expect(h.watchdog.state.tripped).toBe(true)
+    expect(h.events).toEqual(['reset-low'])
+  })
+  it('allows controller startup but does not wait forever without a status', async () => {
+    const h = harness()
+    h.set(new Error('not started'))
+    await h.tickAt(0)
+    await h.tickAt(179_000)
+    expect(h.events).toEqual([])
+    await h.tickAt(180_250)
+    expect(h.watchdog.state.tripped).toBe(true)
   })
 })

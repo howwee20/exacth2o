@@ -17,6 +17,7 @@
 export type OwnerKind = 'automatic' | 'pulse' | 'hold'
 
 export type ArbiterStatus = {
+  watchdogReconciled?: boolean
   owner: { key: string; kind: OwnerKind | null; deadlineInMs: number | null } | null
   arbiter?: { fault?: { reason: string; source: string } | null }
 }
@@ -50,6 +51,8 @@ export class ValveWatchdog {
   state: WatchdogState
   private tracked: { key: string; kind: OwnerKind | null; deadlineMono: number } | null = null
   private firstOverdueMono: number | null = null
+  private missingSince: number | null = null
+  private hasSeenStatus = false
   private readonly holdGraceMs: number
   private readonly pulseGraceMs: number
   private readonly automaticGraceMs: number
@@ -101,7 +104,7 @@ export class ValveWatchdog {
         }
         return
       }
-      if (!fault && !status.owner) {
+      if (!fault && !status.owner && status.watchdogReconciled === true) {
         // cron acknowledged the trip and an operator reconciled it after checking every outlet.
         this.io.releaseReset()
         this.io.log('Valve watchdog released after reconciliation.')
@@ -113,6 +116,8 @@ export class ValveWatchdog {
     }
 
     if (status) {
+      this.hasSeenStatus = true
+      this.missingSince = null
       const owner = status.owner
       if (!owner) {
         this.tracked = null
@@ -139,6 +144,15 @@ export class ValveWatchdog {
       return
     }
 
+    // A crash can occur between the last idle poll and the next poll after OPEN.
+    // Missing telemetry is not proof that the outputs are closed. Give initial
+    // controller startup three minutes; after a healthy poll, fail closed in 5 s
+    // even if the watchdog never observed the opening.
+    this.missingSince ??= now
+    if (!this.tracked && now - this.missingSince > (this.hasSeenStatus ? 5_000 : 180_000)) {
+      this.trip('cron_svc unresponsive; valve ownership cannot be established')
+      return
+    }
     // cron did not answer.
     if (this.tracked && now > this.tracked.deadlineMono + this.grace(this.tracked.kind)) {
       this.trip(`cron_svc unresponsive while ${this.tracked.kind ?? 'an'} output ${this.tracked.key} was open past its deadline`)

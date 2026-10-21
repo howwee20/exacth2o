@@ -45,6 +45,7 @@ class StateMachine {
   private wateringPulseLedger: WateringPulseLedger
   // The single arbitration policy every opening path consults before taking openValvePairId.
   private arbiter: ValveArbiter
+  private watchdogReconciled = false
   private valveInventory: { at: number; keys: Set<string> } | null = null
 
   constructor(apiURL: string, standardDelayTime: number = DEFAULT_TIMING.STANDARD_DELAY) {
@@ -1019,6 +1020,7 @@ class StateMachine {
       owner: owner ? { key: owner, kind, deadlineInMs } : null,
       holds: this.manualHoldManager.snapshot(),
       arbiter: this.arbiter.snapshot(),
+      watchdogReconciled: this.watchdogReconciled,
     }
   }
 
@@ -1038,6 +1040,7 @@ class StateMachine {
 
   /** The independent watchdog forced every output off. Nothing opens until reconciled. */
   recordWatchdogTrip(reason: string) {
+    this.watchdogReconciled = false
     this.arbiter.recordFault(`valve watchdog: ${reason}`, 'watchdog')
   }
 
@@ -1052,6 +1055,7 @@ class StateMachine {
     this.lastValveClosedAt = Date.now()
     this.arbiter.clearFault()
     this.manualHoldManager.reconcileFault()
+    this.watchdogReconciled = true
     try {
       await this.apiService.postData(API_ENDPOINTS.LOGS, { level: 'warn', message: `Valve fault reconciled: ${note.slice(0, 300)}`, source: 'StateMachine' })
     } catch (error) {
