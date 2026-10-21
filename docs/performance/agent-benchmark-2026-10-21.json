@@ -1533,6 +1533,29 @@
    "p99": 5350,
    "max": 6155
   },
+  "edge_1h_after_deploy_2026-10-21T04:41Z": {
+   "total": 485,
+   "lighting-native-agent": 338,
+   "receive-walker-telemetry": 118,
+   "sync-owner-health": 29,
+   "assistant-automation-runner": 0,
+   "http_errors": 0,
+   "projected_31_days": 360840,
+   "note": "mixer offline; same device state as the 2026-10-21T01:13Z hour; before-deploy comparison hour 03:00-04:00Z had 759"
+  },
+  "lighting_execution_ms_1h_after_deploy": {
+   "p50": 9144,
+   "p95": 9286,
+   "max": 9703,
+   "over_12s": 0
+  },
+  "usage_monitor_first_reading_2026-10-21T05:07Z": {
+   "window_s": 2067,
+   "estimated_calls": 290,
+   "logged_calls": 273,
+   "projected_31_days": 375779,
+   "status": "ok"
+  },
   "gateway_requests_1h": 5064,
   "command_history_30_days": {
    "gas_native": {
