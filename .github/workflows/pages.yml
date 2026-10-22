@@ -22,13 +22,15 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: research-portal/package-lock.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: npm ci --prefix research-portal
+      - name: Audit portal dependencies, including development tools
+        run: npm audit --prefix research-portal
       - name: Portal lint and unit tests
         run: |
           npm run lint --prefix research-portal
