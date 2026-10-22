@@ -4,6 +4,8 @@ import {
   notificationRetryState,
   resendPayload,
   retryDelaySeconds,
+  UnverifiedDestinationError,
+  verifiedDestination,
 } from "./notification-policy.mjs";
 import { constantTimeSecretMatch } from "../_shared/secret-compare.mjs";
 
@@ -48,6 +50,8 @@ Deno.serve(async (request) => {
   let failed = 0;
   for (const notification of notifications ?? []) {
     try {
+      const { data: owner } = await admin.auth.admin.getUserById(notification.user_id);
+      verifiedDestination(notification, owner?.user ?? null);
       const delivery = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -93,7 +97,10 @@ Deno.serve(async (request) => {
       await admin
         .from("notification_outbox")
         .update({
-          status: notificationRetryState(notification.attempt_count),
+          // An unverified destination is never retried: nothing was or will be sent.
+          status: error instanceof UnverifiedDestinationError
+            ? "canceled"
+            : notificationRetryState(notification.attempt_count),
           next_attempt_at: nextAttemptAt,
           lease_until: null,
           last_error: message,

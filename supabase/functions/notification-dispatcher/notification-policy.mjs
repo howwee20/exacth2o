@@ -22,6 +22,26 @@ export function notificationConfiguration(env) {
   return { ready: true, provider, from, apiKey };
 }
 
+export class UnverifiedDestinationError extends Error {
+  constructor() {
+    super("Notification destination is not the account's confirmed email.");
+    this.name = "UnverifiedDestinationError";
+  }
+}
+
+/**
+ * Email is delivered only to the confirmed sign-in address of the account that owns the
+ * preference. set_notification_preference accepts any well-formed address, so without
+ * this check a project member could route project mail (with text they influence) from
+ * the company sender to any third party.
+ */
+export function verifiedDestination(notification, account) {
+  const destination = String(notification?.destination || "").trim().toLowerCase();
+  const confirmed = account?.email_confirmed_at ? String(account.email || "").trim().toLowerCase() : "";
+  if (!destination || !confirmed || destination !== confirmed) throw new UnverifiedDestinationError();
+  return destination;
+}
+
 export function resendPayload(notification, from) {
   const to = String(notification?.destination || "").trim();
   if (!to || !to.includes("@")) throw new Error("Notification destination is invalid.");
