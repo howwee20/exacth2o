@@ -8,7 +8,7 @@ Production: https://exacth2o.com · Portal: https://exacth2o.com/portal · Demo:
 1. Install portal dependencies with `npm ci --prefix research-portal`.
 2. Build the assembled release with `node scripts/build-product-release.mjs`.
 3. Review and commit source plus generated `portal-app`, `demo-app`, `applications-demo-app`, `portal.html`, `demo.html`, and `site-metrics.js`.
-4. Push to `ej-supabase-research-portal`. The Publish workflow first verifies that exact commit (portal lint and unit tests, a rebuild that must reproduce every committed artifact, chamber-agent, polling-budget and native-bridge tests) and deploys to GitHub Pages only if every check passes. The slower database and cross-browser suites run on demand (`verify.yml`, `verify-artifacts.yml`).
+4. Push to `ej-supabase-research-portal`. The Publish workflow first verifies that exact commit (portal lint and unit tests, a rebuild that must reproduce every committed artifact, chamber-agent, polling-budget and native-bridge tests) and deploys to GitHub Pages only if every check passes. Pull requests into `ej-supabase-research-portal` run the same verification without deploying, and a manual run deploys only from `ej-supabase-research-portal`. The slower database and cross-browser suites run on demand (`verify.yml`, `verify-artifacts.yml`).
 5. Verify the deployed commit, demo navigation and refresh, and the affected real portal screens.
 
 ## Checks when changing software
