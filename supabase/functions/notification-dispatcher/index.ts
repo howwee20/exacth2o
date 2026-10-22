@@ -5,6 +5,7 @@ import {
   resendPayload,
   retryDelaySeconds,
 } from "./notification-policy.mjs";
+import { constantTimeSecretMatch } from "../_shared/secret-compare.mjs";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -21,7 +22,7 @@ Deno.serve(async (request) => {
 
   const dispatcherSecret = Deno.env.get("NOTIFICATION_DISPATCHER_SECRET") || "";
   const suppliedSecret = request.headers.get("x-exacth2o-notification-secret") || "";
-  if (!dispatcherSecret || suppliedSecret !== dispatcherSecret) {
+  if (!dispatcherSecret || !constantTimeSecretMatch(suppliedSecret, dispatcherSecret)) {
     return json({ error: "Unauthorized" }, 401);
   }
 

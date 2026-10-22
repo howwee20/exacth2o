@@ -15,6 +15,7 @@ import {
 import { uptimeSecondsFromSources } from "./uptime-policy.mjs";
 import { acquireLeaseWithin, leaseWaitMs } from "./lease-policy.mjs";
 import { healthSyncInstallation } from "../_shared/installation-config.mjs";
+import { anySecretMatches } from "../_shared/secret-compare.mjs";
 
 const healthSync = healthSyncInstallation(Deno.env.toObject());
 const healthSyncProjectId = healthSync?.projectId ?? "";
@@ -191,9 +192,7 @@ function hasSyncSecret(request: Request) {
     cleanSecret(request.headers.get("x-sync-owner-health-secret")),
     bearerToken(request),
   ].filter(Boolean);
-  return acceptedSecrets.some((acceptedSecret) =>
-    suppliedSecrets.includes(acceptedSecret)
-  );
+  return anySecretMatches(suppliedSecrets, acceptedSecrets);
 }
 
 function basicAuthHeader(username: string, password: string) {
