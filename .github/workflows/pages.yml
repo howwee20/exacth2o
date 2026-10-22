@@ -3,6 +3,8 @@ name: Publish exactH2O website
 on:
   push:
     branches: [ej-supabase-research-portal]
+  pull_request:
+    branches: [ej-supabase-research-portal]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +14,9 @@ permissions:
 # exact commit passes fast, deterministic checks: portal lint and unit tests, a
 # rebuild that must reproduce every committed artifact byte for byte, and the
 # chamber-agent, polling-budget and native-bridge tests. A failing check stops
-# publication. The slower cross-browser and database suites stay manual
+# publication. Pull requests into the publishing branch run the same checks
+# without deploying, and only the publishing branch itself is ever deployed.
+# The slower cross-browser and database suites stay manual
 # (verify.yml / verify-artifacts.yml), as chosen on 2026-10-15.
 jobs:
   verify:
@@ -22,13 +26,15 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: research-portal/package-lock.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: npm ci --prefix research-portal
+      - name: Audit portal dependencies, including development tools
+        run: npm audit --prefix research-portal
       - name: Portal lint and unit tests
         run: |
           npm run lint --prefix research-portal
@@ -48,6 +54,7 @@ jobs:
 
   deploy:
     needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/ej-supabase-research-portal'
     permissions:
       contents: read
       pages: write

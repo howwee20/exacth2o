@@ -214,10 +214,12 @@ Then open `http://127.0.0.1:8123/portal.html`.
 The build writes browser-ready assets to `../portal-app/`, and the website's
 root `portal.html` loads those assets directly.
 
-Production CI installs locked dependencies; runs frontend lint, unit tests, strict
-type checking/build, command-policy tests, executor safety tests, Deno Edge Function
-checks, and dependency audits; then fails when the committed `portal-app/` bundle
-differs from the build output. Stable React, Supabase, and icon dependencies are
+Production CI uses Node.js 24 LTS, installs locked dependencies, audits all portal dependencies,
+including development tools; runs frontend lint, unit tests, strict type
+checking/build, the portal surface audit, and selected agent/bridge tests; then
+fails when committed release files differ from the build output. The broader
+command-policy, executor safety, and Deno Edge Function checks run in the manual
+release-verification workflow. Stable React, Supabase, and icon dependencies are
 emitted as cacheable hashed chunks, and the entry is content-hashed too
 (`assets/portal-<hash>.js`). Lazily loaded feature chunks import the entry by file name, so
 the page must load it under exactly that URL; a `?v=` query on the entry would execute the
