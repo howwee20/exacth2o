@@ -44,6 +44,7 @@ import {
   assistantTools,
   compareExperimentAggregates,
   experimentArchiveDecision,
+  experimentsVisibleToRole,
   normalizeAssistantConversation,
   proposalFromFunctionCall,
   resolveExactExperimentCatalog,
@@ -244,21 +245,22 @@ Deno.serve(async (request) => {
     const { data: experimentRows, error: experimentError } = await admin
       .from("experiments")
       .select(
-        "id,project_id,slug,name,description,mode,status,watering_state,started_at,ended_at,current_revision_id,created_by,created_at,updated_at",
+        "id,project_id,slug,name,description,mode,status,watering_state,started_at,ended_at,current_revision_id,created_by,created_at,updated_at,visible_to_roles",
       )
       .eq("project_id", projectId)
       .neq("status", "archived");
     if (experimentError) {
       return response({ error: "Experiment records are unavailable." }, 503, origin);
     }
+    const visibleRows = experimentsVisibleToRole(experimentRows, access.role);
     const experiment = resolveExactExperimentCatalog(
-      experimentRows ?? [],
+      visibleRows,
       requestedExperiment,
     );
     if (!experiment) {
       return response({
         error: "Use the exact experiment name or slug.",
-        available_experiments: (experimentRows ?? []).map((item) => item.name),
+        available_experiments: visibleRows.map((item) => item.name),
       }, 404, origin);
     }
     const requestedExperimentId = clean(body.experiment_id, 80);
@@ -442,20 +444,21 @@ Deno.serve(async (request) => {
     const { data: experimentRows, error: experimentError } = await admin
       .from("experiments")
       .select(
-        "id,project_id,slug,name,mode,status,watering_state,current_revision_id,created_by,updated_at",
+        "id,project_id,slug,name,mode,status,watering_state,current_revision_id,created_by,updated_at,visible_to_roles",
       )
       .eq("project_id", projectId);
     if (experimentError) {
       return response({ error: "Experiment records are unavailable." }, 503, origin);
     }
+    const visibleRows = experimentsVisibleToRole(experimentRows, access.role);
     const experiment = resolveExactExperimentCatalog(
-      experimentRows ?? [],
+      visibleRows,
       requestedExperiment,
     );
     if (!experiment) {
       return response({
         error: "Use the exact experiment name or slug.",
-        available_experiments: (experimentRows ?? []).map((item) => item.name),
+        available_experiments: visibleRows.map((item) => item.name),
       }, 404, origin);
     }
     const { data: revision, error: revisionError } = await admin

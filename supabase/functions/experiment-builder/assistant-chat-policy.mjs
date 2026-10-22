@@ -736,6 +736,19 @@ export function proposalFromFunctionCall(call) {
   return null;
 }
 
+/**
+ * Experiments the caller's portal role may see, mirroring the experiments RLS policy
+ * (admins see all; others only rows whose visible_to_roles include their role). Used
+ * before resolving names that were read with the service role, so names and ids of
+ * hidden experiments are neither listed nor resolvable.
+ */
+export function experimentsVisibleToRole(rows, role) {
+  return (Array.isArray(rows) ? rows : []).filter((row) =>
+    role === "admin" ||
+    (Array.isArray(row?.visible_to_roles) && row.visible_to_roles.includes(role))
+  );
+}
+
 export function resolveExactExperimentCatalog(rows, requestedName) {
   const experiments = Array.isArray(rows) ? rows.map(record) : [];
   const query = text(requestedName, 160).toLowerCase();
