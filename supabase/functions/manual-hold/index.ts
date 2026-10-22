@@ -11,6 +11,7 @@ import {
   routeLabel,
   ttlCache,
   verifiedClaims,
+  verifiedIdentityCache,
 } from "./hold-policy.mjs";
 
 // Hold-to-water troubleshooting for every configured valve output. The server owns the
@@ -20,8 +21,9 @@ import {
 // pairings, targets, schedules, calibration or any saved setting.
 //
 // Paths, in priority order:
-//   stop    - signed-in owner only; no route, role or gate checks, so it always works
-//   renew   - verified JWT claims + short-lived cached role/gate checks, no Auth call
+//   stop    - signed-in owner only; no Auth call, route, role or gate checks, so it always works
+//   renew   - Auth-verified token (cached per isolate for up to a minute) + short-lived
+//             cached role/gate checks
 //   start   - full checks: Auth, role, intake gate, quarantine, fresh route resolution
 //   takeover- start that first closes another operator's session (explicit, audited)
 const origins = new Set(["https://exacth2o.com", "https://www.exacth2o.com", "http://127.0.0.1:4899", "http://127.0.0.1:4740", "http://127.0.0.1:4741"]);
@@ -40,6 +42,8 @@ const roleCache = ttlCache(5_000);
 const gateCache = ttlCache(5_000);
 const sessionRoutes = ttlCache(15 * 60_000, 200);
 const inventoryCache = ttlCache(5_000, 20);
+// Tokens Supabase Auth accepted, remembered briefly so heartbeats rarely need a round trip.
+const identities = verifiedIdentityCache({ maxAgeMs: 60_000 });
 
 async function loadInventory(admin: SupabaseClient, projectId: string, deviceId: string, fresh = false) {
   const cacheKey = `${projectId}:${deviceId}`;
@@ -142,17 +146,24 @@ serve(async (request) => {
       return reply({ error: "Invalid hold request" }, 400);
     }
 
-    // Identity. The gateway verified this JWT; renew, stop and status read its claims
-    // directly so a heartbeat needs no Auth round trip. Every other action calls Auth.
+    // Identity. stop reads the claims of the token the gateway verified, so nothing, not
+    // even an Auth outage, can delay closing a valve; a stop can only end a hold. Every
+    // other action, including the renew heartbeat that keeps a valve open, is verified by
+    // Supabase Auth here whatever the gateway's verify_jwt setting: renew and status reuse
+    // a token Auth accepted within the last minute (per isolate), the rest ask afresh.
     let userId: string;
-    if (action === "renew" || action === "stop" || action === "status") {
+    if (action === "stop") {
       const claims = verifiedClaims(jwt);
       if (!claims) return reply({ error: "Sign in to use manual watering" }, 401);
       userId = claims.sub;
     } else {
-      const { data: { user }, error } = await admin.auth.getUser(jwt);
-      if (error || !user) return reply({ error: "Sign in to use manual watering" }, 401);
-      userId = user.id;
+      const heartbeat = action === "renew" || action === "status";
+      const verifiedUserId = await identities.identify(jwt, async (token) => {
+        const { data: { user }, error } = await admin.auth.getUser(token);
+        return error || !user ? null : user.id;
+      }, { fresh: !heartbeat });
+      if (!verifiedUserId) return reply({ error: "Sign in to use manual watering" }, 401);
+      userId = verifiedUserId;
     }
 
     // Stop first: no role, route or gate checks can block closing a valve.

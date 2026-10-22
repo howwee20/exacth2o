@@ -202,9 +202,10 @@ export function resolveDestination(destination, { pots, outputs, boards, role, t
 }
 
 /**
- * Claims from a JWT that the Supabase gateway already verified (verify_jwt = true).
- * Used on the renewal and stop paths so a heartbeat needs no Auth round trip; the
- * start path still calls Auth. Returns null for anything malformed or expired.
+ * Decodes a JWT payload WITHOUT checking its signature. Only the stop path uses it as an
+ * identity, relying on the gateway's verify_jwt = true, because a stop can only end a
+ * hold. Everywhere else it is a cheap shape/expiry pre-filter in front of
+ * verifiedIdentityCache. Returns null for anything malformed or expired.
  */
 export function verifiedClaims(jwt, nowSeconds = Math.floor(Date.now() / 1000)) {
   const parts = String(jwt || "").split(".");
@@ -218,6 +219,39 @@ export function verifiedClaims(jwt, nowSeconds = Math.floor(Date.now() / 1000)) 
   } catch {
     return null;
   }
+}
+
+/**
+ * Identity for every hold action except stop, verified in code by Supabase Auth and remembered
+ * briefly per isolate so a 500 ms heartbeat rarely needs an Auth round trip. A token is
+ * remembered only after `verify` (Auth) accepted it for the same subject, never past its
+ * own exp and never longer than maxAgeMs. A forged or revoked token is never trusted
+ * from its payload alone.
+ *
+ * @param {{ maxAgeMs?: number, maxEntries?: number, now?: () => number }} [options]
+ */
+export function verifiedIdentityCache({ maxAgeMs = 60_000, maxEntries = 500, now = () => Date.now() } = {}) {
+  const entries = new Map();
+  return {
+    /**
+     * @param {string} jwt
+     * @param {(jwt: string) => Promise<string | null>} verify resolves the Auth user id, or null
+     * @param {{ fresh?: boolean }} [options] fresh: always ask Auth (start, takeover, admin actions)
+     * @returns {Promise<string | null>}
+     */
+    async identify(jwt, verify, { fresh = false } = {}) {
+      const claims = verifiedClaims(jwt, Math.floor(now() / 1000));
+      if (!claims) return null;
+      const cached = entries.get(jwt);
+      if (!fresh && cached && cached.until > now()) return cached.userId;
+      entries.delete(jwt);
+      const userId = await verify(jwt);
+      if (typeof userId !== "string" || userId !== claims.sub) return null;
+      if (entries.size >= maxEntries) entries.delete(entries.keys().next().value);
+      entries.set(jwt, { userId, until: Math.min(now() + maxAgeMs, claims.exp * 1000) });
+      return userId;
+    },
+  };
 }
 
 /** Small TTL cache for per-heartbeat checks (role, intake gate). Bounded in size. */
