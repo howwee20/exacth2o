@@ -166,3 +166,43 @@ test('heartbeat caches expire and stay bounded', async () => {
   now = 5_001;
   assert.equal(cache.get('c'), undefined);
 });
+
+test('renew and status identities come only from tokens Auth accepted for the same subject', async () => {
+  const { verifiedIdentityCache } = await import('./hold-policy.mjs');
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const token = (claims) => `${encode({ alg: 'ES256' })}.${encode(claims)}.signature`;
+  const sub = '0f0e0d0c-0b0a-4908-8706-050403020100';
+  let now = 1_000_000;
+  const identities = verifiedIdentityCache({ maxAgeMs: 60_000, now: () => now });
+  const jwt = token({ sub, role: 'authenticated', exp: 4_000 });
+  let calls = 0;
+  const reject = async () => { calls += 1; return null; };
+  assert.equal(await identities.identify(jwt, reject), null);
+  assert.equal(await identities.identify(jwt, reject), null);
+  assert.equal(calls, 2, 'a token Auth rejected is never remembered');
+  assert.equal(await identities.identify(jwt, async () => '11111111-2222-4333-8444-555555555555'), null,
+    'Auth must confirm the subject the token names');
+  calls = 0;
+  const accept = async () => { calls += 1; return sub; };
+  assert.equal(await identities.identify(jwt, accept), sub);
+  assert.equal(await identities.identify(jwt, accept), sub);
+  assert.equal(calls, 1, 'a heartbeat reuses an identity Auth accepted');
+  assert.equal(await identities.identify(jwt, accept, { fresh: true }), sub);
+  assert.equal(calls, 2, 'start, takeover and admin actions always ask Auth');
+  now += 60_001;
+  assert.equal(await identities.identify(jwt, accept), sub);
+  assert.equal(calls, 3, 'an accepted identity is remembered for at most a minute');
+  now = 4_000_000;
+  assert.equal(await identities.identify(jwt, accept), null, 'an expired token is refused before Auth is asked');
+  assert.equal(calls, 3);
+});
+
+test('only stop takes its identity from claims the gateway verified', async () => {
+  const { readFileSync } = await import('node:fs');
+  const handler = readFileSync(new URL('./index.ts', import.meta.url), 'utf8');
+  assert.equal(handler.match(/verifiedClaims\(/g)?.length, 1);
+  const stopStart = handler.indexOf('if (action === "stop") {');
+  assert.ok(stopStart > 0);
+  assert.match(handler.slice(stopStart, handler.indexOf('} else {', stopStart)), /verifiedClaims\(jwt\)/);
+  assert.match(handler, /identities\.identify\(jwt,/);
+});

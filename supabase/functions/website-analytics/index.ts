@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { publicIntakeProjectId } from "../_shared/installation-config.mjs";
 import {
+  analyticsAccessAllowed,
   buildReportQueries,
   parseReportRequest,
   parseRows,
@@ -41,11 +42,19 @@ serve(async (request) => {
   try {
     const { data: identity, error: authError } = await user.auth.getUser();
     if (authError || !identity.user) return reply({ error: "Sign in required" }, 401);
-    // Same persisted admin role as the portal; never trust a role in the request.
-    const { data: access, error: accessError } = await service.from("portal_access").select("id")
-      .eq("user_id", identity.user.id).eq("role", "admin").eq("access_scope", "project").limit(1);
-    if (accessError) return reply({ error: "Unable to check access" }, 503);
-    if (!access?.length) return reply({ error: "Admin access required" }, 403);
+    // Persisted roles only, never a role in the request. Company analytics are limited to
+    // admins of the public intake project who are on its Sales & Support roster, not to
+    // an admin of any tenant project.
+    const [{ data: adminRows, error: accessError }, { data: staffRows, error: staffError }] = await Promise.all([
+      service.from("portal_access").select("project_id,role")
+        .eq("user_id", identity.user.id).eq("role", "admin").eq("access_scope", "project"),
+      service.from("sales_support_staff").select("project_id").eq("user_id", identity.user.id),
+    ]);
+    if (accessError || staffError) return reply({ error: "Unable to check access" }, 503);
+    const intakeProjectId = publicIntakeProjectId(Deno.env.toObject());
+    if (!analyticsAccessAllowed({ intakeProjectId, adminRows, staffRows })) {
+      return reply({ error: "Admin access required" }, 403);
+    }
 
     // Only a report name, a date range and a device filter are read from the body, and only from fixed lists.
     let body: unknown = {};
