@@ -1,4 +1,4 @@
-import { Search, Settings as SettingsIcon } from "lucide-react";
+import { Search, UserRound } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import exactH2OLogo from "../assets/exacth2o-logo.jpeg";
 import { type PortalRoute } from "../portalRoute";
@@ -76,7 +76,7 @@ export function ProductHeader({
         }} onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false;
         }}>
-          <summary><SettingsIcon size={15} aria-hidden="true" /><span className="px-label-wide">Account</span></summary>
+          <summary aria-label="Profile menu" title="Profile menu"><UserRound size={18} aria-hidden="true" /></summary>
           <div className="px-menu-panel">
             {onOpenAccount ? <button type="button" onClick={(event) => {
               event.currentTarget.closest("details")?.removeAttribute("open");

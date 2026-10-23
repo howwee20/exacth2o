@@ -214,7 +214,7 @@ export function QuietSpineHome({
       {catalogError ? (
         <p className="px-notice" role="status">The experiment list could not be refreshed: {catalogError}. Showing the last list loaded.</p>
       ) : null}
-      <div className={`px-home-grid ${tools ? "" : "is-single"}`}>
+      <div className="px-home-grid is-single">
         <div>
           {leading}
           {ordered.length ? (

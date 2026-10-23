@@ -3142,12 +3142,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       route={route}
       sections={productSections}
       onFindPot={() => setFindPotOpen(true)}
-      extra={manualWaterAvailable ? (
-        <button type="button" className="px-header-button" onClick={() => { setManualWaterTarget(null); setManualWaterOpen(true); }} aria-label="Manual water">
-          <Droplets size={14} aria-hidden="true" />
-          <span className="px-label-wide">Manual water</span>
-        </button>
-      ) : undefined}
       onOpenAccount={!isDemo ? () => navigatePortal({ view: "account" }) : undefined}
       atBench={atBench}
       onToggleAtBench={projectAccess ? () => {
@@ -3553,7 +3547,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }}
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }}>Installation settings →</PortalLink> : null}
         {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }} extra={{ settings: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
       </div> : undefined}

@@ -444,7 +444,7 @@ function BenchConfirmation({ ctx, result }: { ctx: WorkspaceContext; result: Com
     <details className="settings-card ac-step ac-bench">
       <summary><strong>Confirm delivery at the bench</strong> · {confirmedCount} of {result.pots.length} confirmed</summary>
       <p className="settings-muted">
-        Open each valve by hand (Manual water → By solenoid, or a pot's details here) and watch the water reach the pot. Then tick the pots you watched. This records an operator's
+        Open each valve from Find pot or a pot's details here and watch the water reach the pot. Then tick the pots you watched. This records an operator's
         bench confirmation, kept apart from the measurement and the controller readback.
       </p>
       <div className="ac-chip-grid">
