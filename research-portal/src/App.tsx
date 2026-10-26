@@ -307,14 +307,21 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     valveEventsRef.current = valveEvents;
   }, [valveEvents]);
 
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    // Installation tools open over a transient controller route. Back returns
+    // straight to Experiments; experiment settings keep their original graph.
+    if (route.view === "controller") navigatePortal({ view: "home" }, { replace: true });
+  }, [route.view]);
+
   useEffect(() => {
     if (!settingsOpen) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSettingsOpen(false);
+      if (event.key === "Escape") closeSettings();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen]);
+  }, [closeSettings, settingsOpen]);
 
   const availableExperiments = useMemo(
     () => mergePortalExperiments(
@@ -2655,7 +2662,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           : {}),
       }
     : undefined;
-  const productSections = { bench: true };
   const recordAvailable = true;
   const visiblePairings = visibleExperimentPairings(data.pairings);
   const currentPairingReadings = readingsForPairings(data.readings, visiblePairings);
@@ -3122,8 +3128,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const productHeader = (
     <ProductHeader
         demo={isDemo}
-      route={route}
-      sections={productSections}
       onFindPot={() => setFindPotOpen(true)}
       onOpenAccount={!isDemo ? () => navigatePortal({ view: "account" }) : undefined}
       atBench={atBench}
@@ -3162,7 +3166,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       controlError={controlError}
       assistantInitialPrompt={settingsAssistantPrompt}
       operatorEmail={portalAccess.email ?? null}
-      onClose={() => setSettingsOpen(false)}
+      onClose={closeSettings}
       onSectionChange={setSettingsSection}
       onPrepareCsvDownload={prepareCsvDownload}
       onDownloadPairingsCsv={downloadPairingsCsv}

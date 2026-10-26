@@ -68,6 +68,7 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
   await page.goto('/demo?experiment=experiment-2');
   const presets = page.getByRole('group', { name: 'Time range', exact: true });
   await expect(presets).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Portal', exact: true })).toHaveCount(0);
   await expect(page.locator('summary').filter({ hasText: /^History$/ })).toHaveCount(0);
   await expect(page.getByText('Experiment details', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Measurement status' })).toHaveCount(0);
@@ -87,4 +88,13 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
   await page.getByText('More', { exact: true }).click();
   await page.getByRole('link', { name: 'Back to traces', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Individual', exact: true })).toBeVisible();
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.getByRole('button', { name: 'Export', exact: true }).first().click();
+    await expect(page.getByRole('dialog', { name: 'Export experiment' })).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+  await page.getByRole('link', { name: 'Experiments', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Experiments', exact: true })).toBeVisible();
 });

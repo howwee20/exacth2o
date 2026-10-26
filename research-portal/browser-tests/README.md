@@ -1,6 +1,6 @@
 # Responsive acceptance
 
-The production Pages workflow runs these checks in Chromium, Firefox and WebKit before deploying. Six viewport sizes cover 320 to 3440 pixels, including a short laptop and phone viewport. Each engine checks 14 routes at each size, dialog fit, text enlargement, the homepage opening and simulator order, deferred measurement loading, saved comparison restoration, the compact export header, provenance and the mobile Applications embed.
+The production Pages workflow runs three selected Chromium smoke checks via `npm run test:release:browser`, alongside seven focused data/control checks. This full suite runs separately through the manual `responsive.yml` workflow. Six viewport sizes cover 320 to 3440 pixels, including a short laptop and phone viewport. Each engine checks 14 routes at each size, dialog fit, text enlargement, the homepage opening and simulator order, deferred measurement loading, saved comparison restoration, the compact export header, provenance and the mobile Applications embed.
 
 Twenty-seven versioned screenshots cover Home, Traces and Sign in at phone, laptop and ultrawide sizes in all three engines. Time, locale and motion are fixed for reproducibility. View failed image differences and interaction traces in the `responsive-review` Actions artifact.
 

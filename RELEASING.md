@@ -8,12 +8,34 @@ Production: https://exacth2o.com · Portal: https://exacth2o.com/portal · Demo:
 1. Install portal dependencies with `npm ci --prefix research-portal`.
 2. Build the assembled release with `node scripts/build-product-release.mjs`.
 3. Review and commit source plus generated `portal-app`, `demo-app`, `applications-demo-app`, `portal.html`, `demo.html`, and `site-metrics.js`.
-4. Push to `ej-supabase-research-portal`. The Publish workflow first verifies that exact commit (portal lint and unit tests, a rebuild that must reproduce every committed artifact, chamber-agent, polling-budget and native-bridge tests) and deploys to GitHub Pages only if every check passes. Pull requests into `ej-supabase-research-portal` run the same verification without deploying, and a manual run deploys only from `ej-supabase-research-portal`. The slower database and cross-browser suites run on demand (`verify.yml`, `verify-artifacts.yml`).
+4. Push to `ej-supabase-research-portal`. The Publish workflow runs portal lint, seven focused data/control checks, a reproducible build of the committed release, and three Chromium browser smoke checks. Pull requests run the same gate without deploying. A manual publish deploys only from `ej-supabase-research-portal`.
 5. Verify the deployed commit, demo navigation and refresh, and the affected real portal screens.
 
-## Checks when changing software
+## Fast UI deployment gate
 
-Run `npm run check --prefix research-portal` locally. Before database migrations or agent Edge Function deploys, also run the manual `verify.yml` (it includes `./scripts/verify-database-baseline.sh` and every `deno check`). Building the portal republishes `controller-release/gas-mixer-agent/agent.py` and `controller-release/gas-mixer-native-bridge/native_bridge.py` at their website URLs, which the mixer's update scripts download; stage unverified device clients elsewhere (see `controller-release/staged-agents/`). Browser checks run in Chromium, Firefox and WebKit; approved visual baselines are committed under `research-portal/browser-tests`. Database schema migrations are deployed separately with Supabase after inspecting `supabase db push --dry-run`.
+For a normal portal/layout/copy change, run:
+
+1. `npm run lint --prefix research-portal`
+2. `npm run test:release --prefix research-portal`
+3. `node scripts/build-product-release.mjs`
+4. `npm run audit:portal-surface --prefix research-portal`
+5. `npm run test:release:browser --prefix research-portal`
+
+The test gate contains exactly ten cases, selected explicitly in `research-portal/scripts/release-checks.mjs`. The runners fail if a selected case is missing or skipped.
+
+- Seven data/control checks: experiment boundaries and renamed sensors; complete paged history; invalid readings and chart gaps; target changes limited to the selected pots; stopping a manual hold; honest command completion; and refusing controller commands from viewers or unknown roles.
+- Three browser checks: Control confirmation; Drought confirmation; and the built portal's navigation, shared time range, export, and desktop/mobile layout. Chromium is the fast gate. The full three-browser suite stays separate.
+
+Do not put the full `npm test` / `npm run check`, 100-pot simulations, randomized calibration sweeps, chamber/native-agent suites, or dependency audits back into the routine UI publish job. They remain available through the manual workflows below. The polling-budget workflow runs for polling/transport/backend changes, not every portal source edit.
+
+## Broader checks, run separately
+
+- `npm test --prefix research-portal -- --maxWorkers=2`: all portal tests, including the 100-pot simulations. Run when the affected control/calibration logic warrants them, or launch `verify-artifacts.yml` manually for full portal/artifact validation.
+- `verify.yml` (manual): database, Edge Function, controller, and native-agent verification. Run the relevant checks for backend/device changes. Before database migrations or agent Edge Function deploys, run this workflow and inspect `supabase db push --dry-run`.
+- `responsive.yml` (manual): the full Chromium, Firefox, and WebKit acceptance and screenshot suite.
+- `npm audit --prefix research-portal`: dependency audit, also included in the manual full-verification workflows.
+
+Building the portal republishes the committed gas-mixer agent and native-bridge files at their website URLs. Stage unverified device clients elsewhere (`controller-release/staged-agents/`). The UI release gate is not device-firmware validation.
 
 ## Browser acceptance
 

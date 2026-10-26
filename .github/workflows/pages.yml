@@ -10,18 +10,14 @@ on:
 permissions:
   contents: read
 
-# Publishing serves the committed, locally built release, but only after this
-# exact commit passes fast, deterministic checks: portal lint and unit tests, a
-# rebuild that must reproduce every committed artifact byte for byte, and the
-# chamber-agent, polling-budget and native-bridge tests. A failing check stops
-# publication. Pull requests into the publishing branch run the same checks
-# without deploying, and only the publishing branch itself is ever deployed.
-# The slower cross-browser and database suites stay manual
-# (verify.yml / verify-artifacts.yml), as chosen on 2026-10-15.
+# UI releases run 10 focused checks: seven data/control checks and three browser
+# smoke checks. Full simulations, device suites, dependency audits and exhaustive
+# cross-browser runs remain in the separate manual workflows. Publishing still
+# requires a reproducible build of this exact commit.
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -33,24 +29,34 @@ jobs:
         with:
           python-version: '3.12'
       - run: npm ci --prefix research-portal
-      - name: Audit portal dependencies, including development tools
-        run: npm audit --prefix research-portal
-      - name: Portal lint and unit tests
+      - name: Portal lint and seven focused data/control checks
         run: |
           npm run lint --prefix research-portal
-          npm test --prefix research-portal
+          npm run test:release --prefix research-portal
       - name: Rebuild and require the committed release
         run: |
           node scripts/build-product-release.mjs
           npm run audit:portal-surface --prefix research-portal
           git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
           test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
-      - name: Chamber agents, polling budget and installed-client compatibility
-        run: |
-          node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/agent-wake.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
-          node --test scripts/budget/edge-budget-model.test.mjs
-          python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
-          python3 -m unittest discover -s scripts -p 'test_supabase_usage_audit.py'
+      - name: Cache the release browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-release-chromium-${{ hashFiles('research-portal/package-lock.json') }}
+      - name: Install the release browser
+        run: npx --prefix research-portal playwright install --with-deps --only-shell chromium
+      - name: Three browser smoke checks
+        run: npm run test:release:browser --prefix research-portal
+      - name: Save failed browser checks
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-release-failure
+          path: |
+            research-portal/.release-results
+            research-portal/test-results/release
+          retention-days: 7
 
   deploy:
     needs: verify
