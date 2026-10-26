@@ -22,7 +22,7 @@ import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
 import { chartSeries, compareGroup, describeVwcReading, formatVwcReading, latestPoint } from "./charts/chartSeries";
 import { experimentIsCompleted, groupTarget, pairingTargetText, targetLinesForPairings } from "./experimentMeasurement";
-import { formatAge, formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
+import { formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
 import { controllerPresence } from "./settingsPresentation";
 import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
@@ -80,7 +80,6 @@ const WebsiteAnalyticsWorkspace = lazyFeature(() => import("./analytics/WebsiteA
 // Experiment, pot and trend views load when first opened; the home and header stay in the entry.
 const WaterlineOverview = lazyFeature(() => import("./product/WaterlineOverview").then((module) => ({ default: module.WaterlineOverview })));
 const PotPage = lazyFeature(() => import("./product/PotPage").then((module) => ({ default: module.PotPage })));
-const PotsTable = lazyFeature(() => import("./product/PotsTable").then((module) => ({ default: module.PotsTable })));
 const TrendsView = lazyFeature(() => import("./product/TrendsView").then((module) => ({ default: module.TrendsView })));
 const BenchView = lazyFeature(() => import("./product/BenchView").then((module) => ({ default: module.BenchView })));
 const PocketView = lazyFeature(() => import("./product/PocketView").then((module) => ({ default: module.PocketView })));
@@ -196,12 +195,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [loginError, setLoginError] = useState<string | null>(() => new URLSearchParams(window.location.hash.slice(1)).has("error") ? "This access link has expired or is invalid. Request a fresh password reset below." : null);
   const [selectedMode] = useState<DataMode>("auto");
   const [experimentGraphMode, setExperimentGraphMode] = useState<ExperimentGraphMode>("vwc");
-  const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
   const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
   const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   const [graphExpanded, setGraphExpanded] = useState(false);
+  const [potsPanelOpen, setPotsPanelOpen] = useState(false);
   useEffect(() => {
     if (!graphExpanded) return;
     const previous = document.body.style.overflow;
@@ -560,13 +559,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   if (uiExperimentId !== selectedExperimentId) {
     setUiExperimentId(selectedExperimentId);
     setExperimentGraphMode("vwc");
-    setPotPreset("all");
     setHiddenPots(new Set());
     setSelectedExperimentGraphGroupId("");
     setSelectedSeriesName(null);
     setSelectedWateringDetail(null);
     setTimeWindow(fullTimeWindow);
     setGraphExpanded(false);
+    setPotsPanelOpen(false);
   }
 
   const openExperiment = useCallback((experimentId: ExperimentId) => {
@@ -1683,7 +1682,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
 
   function applyPotPreset(preset: Exclude<PotPreset, "custom">) {
-    setPotPreset(preset);
     setHiddenPots(() => {
       if (preset === "all") return new Set();
       const hidden = new Set<string>();
@@ -1704,7 +1702,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (!group) return;
     const includedPairings = new Set(group.pairingNames);
     setSelectedExperimentGraphGroupId(groupId);
-    setPotPreset("custom");
     setSelectedSeriesName(null);
     setHiddenPots(new Set(
       sortedPairings
@@ -1716,7 +1713,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
 
   function togglePot(name: string) {
-    setPotPreset("custom");
     setSelectedSeriesName(name);
     setHiddenPots((current) => {
       const allNames = sortedPairings.map((pairing) => pairing.name);
@@ -1737,7 +1733,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
 
   function setGroupVisibility(pairings: PairingRow[], visible: boolean) {
-    setPotPreset("custom");
     setHiddenPots((current) => {
       const next = new Set(current);
       for (const pairing of pairings) {
@@ -2900,7 +2895,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             ) : null}
             <div className="chart-tools">
               {direct.viewToggle}
-              <span className="px-chart-caption"><span>{visibleWateringPairings.length} / {sortedPairings.length} visible</span></span>
               <div className="chart-view-toggle" aria-label="Graph view">
                 <button
                   type="button"
@@ -2998,18 +2992,24 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         {!showExperimentGraphOverview ? (
           <aside
             ref={controlPanelRef}
-            className="control-panel"
+            className={`control-panel px-pots-panel ${potsPanelOpen ? "is-open" : ""}`}
             style={controlPanelStyle}
+            aria-label="Pots"
           >
+          <div className="px-trace-heading">
+            <h2>Pots</h2>
+            <button className="px-pots-disclosure" type="button" aria-expanded={potsPanelOpen} aria-controls="experiment-pots" onClick={() => setPotsPanelOpen(!potsPanelOpen)}>Pots <span aria-hidden="true">{potsPanelOpen ? "▴" : "▾"}</span></button>
+            <span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span>
+          </div>
+          <div className="px-pots-body" id="experiment-pots">
           <section className="px-trace-controls">
-            <div className="px-trace-heading"><h2>Visible traces</h2><span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span></div>
-            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
-              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
-              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
-              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setPotPreset("custom"); setSelectedSeriesName(null); }} />
             <div className="px-trace-actions">
               <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
               <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
+            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
+              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
+              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
+              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setSelectedSeriesName(null); }} />
             </div>
             {graphExpanded ? (
               <div
@@ -3021,13 +3021,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               </div>
             ) : null}
             {selectedExperimentGraphGroups.length > 1 ? <div className="preset-buttons research-presets">
-              <button
-                type="button"
-                className={`preset-filter preset-all ${potPreset === "all" ? "is-selected" : ""}`}
-                onClick={() => applyPotPreset("all")}
-              >
-                All
-              </button>
               {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${selectedExperimentGraphGroupId === group.id ? "is-selected" : ""}`} onClick={() => openExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
             </div> : null}
           </section>
@@ -3069,7 +3062,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                       completed: experimentIsCompleted(selectedExperiment, clockNowMs),
                       nowMs: clockNowMs,
                     });
-                    const showAge = latest != null && potFreshness.state !== "current" && potFreshness.state !== "historical";
                     return (
                       <div className="px-trace-row" key={pairing.name}>
                       <button
@@ -3077,15 +3069,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                         className={`pot-toggle ${direct.affected.has(pairing.name) ? "is-target-selected" : ""} ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
                         onClick={() => togglePot(pairing.name)}
                         aria-pressed={visible}
-                        aria-label={`Pot ${pairing.pot_number}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings in the last 72 hours"}`}
-                        title={latest ? `${formatMeasurementTime(latest.timestampMs)} · ${potFreshness.detail}` : "No readings in the last 72 hours"}
+                        aria-label={`Pot ${pairing.pot_number}${potTreatment ? `, ${levelLabel(potTreatment)}` : ""}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings available"}`}
+                        title={`${potTreatment ? `${levelLabel(potTreatment)} · ` : ""}${latest ? `${formatMeasurementTime(latest.timestampMs)} · ${potFreshness.detail}` : "No readings available"}`}
                       >
                         <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
                         <span className="pot-reading">
-                          <b>Pot {pairing.pot_number}</b>
+                          <b>{pairing.pot_number}</b>
                           <strong>{formatVwcReading(latestValue)}</strong>
                           {!treatment && potTreatment ? <span className="pot-treatment">{levelLabel(potTreatment)}</span> : null}
-                          {showAge ? <span className="pot-age">{formatAge(potFreshness.ageMs)}</span> : null}
                         </span>
                       </button>
                       <PortalLink className="px-trace-detail" to={{view: "experiment", experiment: selectedExperiment.id, tab: "pots", pot: pairing.name}} aria-label={`Inspect Pot ${pairing.pot_number}`} title={`Open Pot ${pairing.pot_number} details`}>↗</PortalLink>
@@ -3096,6 +3087,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               </section>
             );
           })}
+          </div>
           {graphExpanded ? (
             <button
               type="button"
@@ -3451,13 +3443,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             {experimentArchive.loading ? <p className="px-loaded-range" role="status">Loading experiment data… {experimentArchive.progress.toLocaleString()} readings</p> : null}
             {experimentArchive.error ? <p className="px-notice is-bad" role="alert">Full experiment data could not be loaded. The graph shows the available readings. <button className="px-button is-small" onClick={experimentArchive.retry}>Retry</button></p> : null}
             <div className="px-pot-chart" aria-label="Individual pot traces">{potsTabContent}</div>
-            <details className="px-details px-pot-readings"><summary>Pot readings</summary><FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
-              experiment={routeExperiment}
-              pairings={sortedPairings}
-              readings={experimentReadings}
-              nowMs={clockNowMs}
-              asOfMs={lastGoodCheckAt}
-            /></FeatureBoundary></details>
           </div>
         )}
         {route.pot ? <PotInspector onClose={()=>navigatePortal({view:"experiment",experiment:routeExperiment.id,tab,pot:null})}>{renderPotPage(route.pot,routeExperiment)}</PotInspector> : null}

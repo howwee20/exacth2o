@@ -73,6 +73,8 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
   await expect(page.getByText('Experiment details', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Measurement status' })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Experiment sections' })).toHaveCount(0);
+  await expect(page.getByText('Pot readings', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Visible traces', { exact: true })).toHaveCount(0);
   await presets.getByRole('button', { name: '3d', exact: true }).click();
   await expect(presets.getByRole('button', { name: '3d', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Groups', exact: true }).click();
@@ -90,10 +92,31 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
   await expect(page.getByRole('button', { name: 'Individual', exact: true })).toBeVisible();
   for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
+    const pots = page.getByRole('complementary', { name: 'Pots', exact: true });
+    if (viewport.width < 1000) {
+      const toggle = pots.getByRole('button', { name: 'Pots', exact: true });
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(pots.getByRole('button', { name: 'Show all', exact: true })).toBeHidden();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    } else {
+      await expect(pots.getByRole('heading', { name: 'Pots', exact: true })).toBeVisible();
+    }
+    await expect(pots.locator('.px-trace-row')).toHaveCount(24);
+    expect(await pots.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    await expect(pots.getByRole('combobox', { name: 'Comparison view' })).toBeHidden();
+    await pots.getByText('Comparisons', { exact: true }).click();
+    await expect(pots.getByRole('combobox', { name: 'Comparison view' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pots.getByRole('combobox', { name: 'Comparison view' })).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.getByRole('button', { name: 'Export', exact: true }).first().click();
     await expect(page.getByRole('dialog', { name: 'Export experiment' })).toBeVisible();
     await page.keyboard.press('Escape');
+    if (viewport.width < 1000) {
+      await pots.getByRole('button', { name: 'Pots', exact: true }).click();
+      await expect(pots.getByRole('button', { name: 'Show all', exact: true })).toBeHidden();
+    }
   }
   await page.getByRole('link', { name: 'Experiments', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Experiments', exact: true })).toBeVisible();

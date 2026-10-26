@@ -1100,7 +1100,6 @@
 .px-pot-chart .dashboard-main:not(.is-expanded) { min-height: 0; }
 .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart,
 .px-pot-chart .dashboard-main:not(.is-expanded) .research-watering-activity { min-height: clamp(420px, calc(100dvh - 390px), 760px); }
-.px-pot-readings { margin-top: 24px; }
 @media (max-width: 700px) { .px-pot-chart .pot-toggle { min-height: 44px; } }
 .px-machine-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; width: 100%; padding: 17px 20px; border: 1px solid var(--px-rule-strong); border-radius: var(--px-radius); background: #fff; color: var(--px-text); font-family: var(--px-sans); text-align: left; cursor: pointer; }
 .px-machine-card:hover { border-color: var(--px-water); }
@@ -1266,15 +1265,27 @@
 .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart { min-height: clamp(360px, calc(100dvh - 385px), 1400px); }
 .px-pot-chart .chart-bottom-controls { padding: 12px 18px; border-top: 1px solid var(--px-rule); }
 .px-pot-chart .time-range-labels { flex-wrap: wrap; gap: 6px 12px; font: 400 12px/1.5 var(--px-sans); color: var(--px-muted); }
-.px-pot-chart .control-panel { border-color: var(--px-rule); border-radius: 10px; box-shadow: none; gap: 18px; padding: 16px; }
-.px-pot-chart .control-panel:not([style]) { position: sticky; top: 82px; max-height: max(480px, calc(100dvh - 110px)); scrollbar-gutter: stable; }
+.px-pot-chart .control-panel { border-color: var(--px-rule); border-radius: 10px; box-shadow: none; gap: 10px; padding: 12px; }
+.px-pot-chart .control-panel:not([style]) { position: sticky; top: 82px; max-height: none; overflow: visible; }
+.px-pots-body { display: grid; gap: 12px; min-width: 0; }
+.px-pots-disclosure { display: none; }
+.px-pot-chart .px-pots-panel .pot-group > div:not(.pot-group-head) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; }
+.px-pots-panel .pot-group { gap: 6px; }
+.px-pots-panel .pot-group-head { gap: 6px; }
+.px-pot-chart .px-pots-panel .pot-toggle { min-height: 38px; grid-template-columns: 7px minmax(0, 1fr); gap: 5px; padding: 4px 6px; }
+.px-pot-chart .px-pots-panel .pot-reading { gap: 1px 4px; }
+.px-pot-chart .px-pots-panel .pot-reading b, .px-pot-chart .px-pots-panel .pot-reading strong { font-size: 12px; }
+.px-pot-chart .px-pots-panel .pot-treatment { font-size: 10px; line-height: 1.2; }
+.px-pots-panel .px-trace-row { grid-template-columns: minmax(0, 1fr) 24px; gap: 3px; }
+.px-pots-panel .px-trace-detail { font-size: 15px; border-radius: 5px; }
+.px-pot-chart .px-pots-panel .group-toggle { width: 24px; height: 24px; flex-basis: 24px; }
 .px-trace-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .px-trace-heading h2 { margin: 0; font: 600 15px/1.4 var(--px-sans); }
 .px-trace-heading > span { color: var(--px-muted); font: 400 12px/1.4 var(--px-mono); }
 .px-trace-controls p { color: var(--px-muted); font-size: 12px; line-height: 1.6; margin: 6px 0 12px; }
-.px-trace-actions { display: flex; gap: 8px; }
-.px-trace-actions button { flex: 1; }
-.px-trace-controls .research-presets { margin-top: 12px; }
+.px-trace-actions { display: flex; gap: 6px; align-items: flex-start; }
+.px-trace-actions > button { flex: 1; padding: 6px; font-size: 11px; white-space: nowrap; }
+.px-trace-controls .research-presets { margin-top: 8px; }
 .px-trace-row { display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 6px; align-items: stretch; }
 .px-pot-chart .pot-toggle { width: 100%; min-height: 46px; border: 1px solid var(--px-rule); border-radius: 7px; opacity: 1; color: var(--px-muted); background: var(--px-paper); transition: border-color .15s, background .15s; }
 .px-pot-chart .pot-toggle.is-on { border-color: #a6baaf; background: #fff; color: var(--px-ink); }
@@ -1312,13 +1323,19 @@
 .px-notice, .px-empty { line-height: 1.6; overflow-wrap: anywhere; }
 .px-shell :focus-visible { outline-color: #2456d6; }
 @media (min-width: 1000px) {
-  .px-pot-chart .dashboard-main:not(.is-expanded) { grid-template-columns: minmax(0, 1fr) clamp(290px, 20vw, 360px); }
+  .px-pot-chart .dashboard-main:not(.is-expanded) { grid-template-columns: minmax(0, 1fr) clamp(290px, 23vw, 340px); }
   .px-pot-chart .dashboard-main:not(.is-expanded) .control-panel { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 2200px) { .px-experiment-page { padding-top: 32px; gap: 20px; } }
 @media (max-width: 999px) {
   .px-pot-chart .dashboard-main:not(.is-expanded) { grid-template-columns: minmax(0, 1fr); }
-  .px-pot-chart .control-panel:not([style]) { position: relative; top: auto; max-height: none; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .px-pot-chart .control-panel:not([style]) { position: relative; top: auto; max-height: none; grid-template-columns: minmax(0, 1fr); }
+  .px-pots-panel .px-trace-heading h2 { display: none; }
+  .px-pots-panel .px-pots-disclosure { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--px-ink); font: 600 15px/1.4 var(--px-sans); cursor: pointer; }
+  .px-pots-panel:not(.is-open) .px-pots-body { display: none; }
+  .px-pot-chart .px-pots-panel .pot-toggle, .px-pots-panel .px-trace-detail, .px-pots-panel .px-trace-actions > button, .px-pots-panel .px-comparison-menu > summary { min-height: 44px; }
+  .px-pots-panel .px-trace-row { grid-template-columns: minmax(0, 1fr) 36px; }
+  .px-pot-chart .px-pots-panel .group-toggle { width: 40px; height: 40px; flex-basis: 40px; }
   .px-trace-controls { grid-column: 1 / -1; }
   .px-trace-actions { max-width: 360px; }
 }
@@ -1349,7 +1366,6 @@
 .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart { min-height: clamp(360px, calc(100dvh - 520px), 1400px); }
 @media (max-width: 999px) { .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart { min-height: clamp(320px, 48dvh, 480px); } }
 .px-pot-chart .chart-card { align-self: start; }
-@media (min-width: 1000px) { .px-pot-chart .control-panel:not([style]) { max-height: clamp(480px, calc(100dvh - 390px), 1500px); } }
 
 /* Short viewports include high browser zoom: let the header scroll out of the reading area. */
 @media (max-height: 540px) {
@@ -1396,14 +1412,21 @@
 .px-export-dialog > header { gap: 12px; }
 .px-export-dialog > header > div { min-width: 0; }
 .px-export-dialog > header > button { flex-shrink: 0; }
-.px-trace-controls .px-trace-actions { margin-top: 12px; }
 @media (max-width: 480px) {
   .px-export-dialog .px-toolbar > label { width: 100%; }
   .px-export-dialog .px-toolbar select { width: 100%; }
 }
 
-/* Small, browser-local comparison controls beside the existing trace filters. */
-.px-saved-views { display:grid; gap:8px; min-width:0; }
+/* Comparison controls stay tucked away until needed. */
+.px-comparison-menu { position: relative; flex-shrink: 0; }
+.px-comparison-menu > summary { display: flex; align-items: center; min-height: 30px; padding: 6px; border: 1px solid var(--px-rule); border-radius: 6px; background: #fff; cursor: pointer; list-style: none; font-size: 11px; }
+.px-comparison-menu > summary::-webkit-details-marker { display: none; }
+.px-comparison-menu > summary::after { content: "▾"; margin-left: 5px; }
+.px-comparison-menu[open] > summary { border-color: var(--px-water); }
+.px-saved-views { position:absolute; z-index:30; top:calc(100% + 6px); right:0; width:min(290px,calc(100vw - 56px)); display:grid; gap:8px; padding:12px; border:1px solid var(--px-rule); border-radius:8px; background:#fff; box-shadow:0 6px 20px #0e1a1420; }
+.is-expanded .px-saved-views { position:static; width:auto; margin-top:6px; }
+.is-expanded .px-comparison-menu[open] { flex:1; min-width:0; }
+.is-expanded .px-comparison-menu[open] .px-saved-view-row { flex-wrap:wrap; }
 .px-saved-view-row { display:flex; gap:6px; min-width:0; }
 .px-saved-view-row select { min-width:0; flex:1; width:100%; border:1px solid var(--px-line); border-radius:6px; background:white; color:var(--px-ink); padding:7px; font:inherit; font-size:12px; }
 .px-saved-view-row .px-button { flex-shrink:0; padding:6px 8px; }

@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 
+async function openComparisons(page: Page) {
+  const toggle = page.getByRole('button', {name:'Pots',exact:true});
+  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await page.getByText('Comparisons', {exact:true}).click();
+}
+
 test.beforeEach(async ({page}) => { await page.clock.setFixedTime(new Date('2026-10-13T20:00:00Z')); });
 const sizes = [{width:320,height:568},{width:390,height:844},{width:768,height:1024},{width:1366,height:768},{width:1920,height:1080},{width:3440,height:1440}];
 for (const size of sizes) test(`page fit ${size.width}`, async ({page}, info) => {
@@ -10,6 +16,7 @@ for (const size of sizes) test(`page fit ${size.width}`, async ({page}, info) =>
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     const close = page.getByRole('button',{name:'Export',exact:true});
     if (route==='/demo?experiment=experiment-2') {
+      await openComparisons(page);
       await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
       await expect(page.getByText('Toggle a pot to compare. Open its details with the arrow.')).toHaveCount(0);
       await close.click();
@@ -22,6 +29,7 @@ for (const size of sizes) test(`page fit ${size.width}`, async ({page}, info) =>
     }
   }
   await page.goto('/demo?experiment=experiment-2');
+  await openComparisons(page);
   await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
   await page.evaluate(() => document.documentElement.style.fontSize='200%');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -32,7 +40,7 @@ for (const size of [sizes[1], sizes[3], sizes[5]]) test(`visual baseline ${size.
   for (const [name,route] of [['home','/'],['traces','/demo?experiment=experiment-2'],['sign-in','/portal']]) {
     await page.goto(route);
     await expect(page.locator(name==='sign-in' ? 'h2' : 'h1').first()).toBeVisible();
-    if(name==='traces') await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
+    if(name==='traces') await expect(page.getByRole('complementary',{name:'Pots',exact:true})).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await expect(page).toHaveScreenshot(`${name}-${size.width}.png`, {animations:'disabled',maxDiffPixelRatio:0.015});
   }
@@ -52,6 +60,7 @@ test('deferred data and saved comparisons', async ({page}) => {
   await expect(page.getByRole('heading',{name:'Experiments',exact:true})).toBeVisible();
   expect(loaded.some(url => /\/App-[^/]+\.js/.test(url))).toBe(false);
   await page.getByRole('link',{name:'Recovery after drought 24 pots',exact:true}).click();
+  await openComparisons(page);
   await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
   expect(loaded.some(url => /\/App-[^/]+\.js/.test(url))).toBe(true);
   await page.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Early vs delayed recovery'});
@@ -60,6 +69,7 @@ test('deferred data and saved comparisons', async ({page}) => {
   await page.getByRole('textbox',{name:'View name'}).fill('Recovery review');
   await page.getByRole('button',{name:'Save',exact:true}).click();
   await page.reload();
+  await openComparisons(page);
   await page.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Recovery review'});
   await expect(page.locator('.px-trace-heading')).toContainText('12 of 24');
   await page.getByRole('button',{name:'Remove saved view'}).click();
@@ -83,6 +93,9 @@ test('mobile Applications embed loads the current release and closes', async ({p
   const frame=page.frameLocator('iframe.portal-demo-frame');
   await frame.getByRole('link',{name:'Crop comparison 24 pots',exact:true}).click();
   await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeVisible();
+  const potsToggle = frame.getByRole('button',{name:'Pots',exact:true});
+  if (await potsToggle.isVisible()) await potsToggle.click();
+  await frame.getByText('Comparisons',{exact:true}).click();
   await frame.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Crop water use'});
   await expect(frame.locator('.px-trace-heading')).toContainText('3 of 24');
   await page.getByRole('button',{name:'Close experiment',exact:true}).click();
