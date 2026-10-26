@@ -1,7 +1,8 @@
 import { PotInspector } from './product/PotInspector';
 import { DirectExperiment } from './product/DirectExperiment';
 import { SavedTraceViews } from "./product/SavedTraceViews";
-import { ExperimentHistory } from "./product/ExperimentHistory";
+import { useExperimentReadings } from "./useExperimentReadings";
+import { experimentTraceReadings } from "./experimentTraceReadings";
 import { AlertTriangle, ArrowRight, Droplets, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
@@ -28,7 +29,7 @@ import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, tracked
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups, experimentSidebarGroups } from "./experimentPresentation";
 import { levelLabel } from "./experimentFactors";
-import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
+import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, hasSalesSupportAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
@@ -341,9 +342,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
   );
+  const experimentArchive = useExperimentReadings(selectedExperiment, portalAccess?.projectId ?? "", portalAccess?.deviceId ?? "",
+    sessionReady && route.view === "experiment" && route.tab !== "record" && document.documentElement.dataset.portalMode !== "demo");
   const experimentReadings = useMemo(
-    () => readingsForExperiment(data.readings, selectedExperiment),
-    [data.readings, selectedExperiment],
+    () => experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
+    [data.readings, experimentArchive.readings, selectedExperiment],
   );
   const series = useMemo(
     () => chartSeries(sortedPairings, experimentReadings, selectedExperiment),
@@ -357,7 +360,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       return a.name.localeCompare(b.name);
     });
   }, [series, selectedSeriesName]);
-  const timeBounds = useMemo(() => timeBoundsForSeries(series), [series]);
+  const timeBounds = useMemo(() => {
+    const loaded = timeBoundsForSeries(series);
+    if (!loaded) return null;
+    const start = selectedExperiment.startedAt ? Date.parse(selectedExperiment.startedAt) : loaded.startMs;
+    const end = selectedExperiment.endedAt ? Date.parse(selectedExperiment.endedAt) : loaded.endMs;
+    return { startMs: Number.isFinite(start) ? Math.min(start, loaded.startMs) : loaded.startMs,
+      endMs: Number.isFinite(end) ? Math.max(end, loaded.endMs) : loaded.endMs };
+  }, [series, selectedExperiment.startedAt, selectedExperiment.endedAt]);
   const timeFilteredSeries = useMemo(
     () => filterSeriesByTime(chartDisplaySeries, timeBounds, timeWindow),
     [chartDisplaySeries, timeBounds, timeWindow],
@@ -380,15 +390,18 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => sortedPairings.filter((pairing) => !hiddenPots.has(pairing.name)),
     [hiddenPots, sortedPairings],
   );
+  const fullExperimentValveEvents = useMemo(() => [...new Map(
+    [...experimentArchive.valveEvents, ...valveEvents].map((event) => [event.event_id || event.id, event]),
+  ).values()], [experimentArchive.valveEvents, valveEvents]);
   const experimentWateringEvents = useMemo(
     () => resolveHealthWateringEvents(
       valveEventsToHealthWateringEvents(
-        valveEventsForExperiment(valveEvents, selectedExperiment),
+        valveEventsForExperiment(fullExperimentValveEvents, selectedExperiment),
         sortedPairings,
       ),
       sortedPairings,
     ),
-    [selectedExperiment, sortedPairings, valveEvents],
+    [selectedExperiment, sortedPairings, fullExperimentValveEvents],
   );
   const selectPot = useCallback((name: string) => {setSelectedSeriesName(name);navigatePortal({view:"experiment",experiment:selectedExperiment.id,tab:"pots",pot:name});}, [selectedExperiment.id]);
   const groupVisibleNameSets = useMemo(
@@ -2818,7 +2831,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         ref={dashboardMainRef}
         className={`dashboard-main ${direct.groups ? "is-direct-groups" : ""} ${graphExpanded ? "is-expanded" : ""} ${showExperimentGraphOverview ? "is-experiment-overview" : ""}`}
       >
-        {direct.groups ? <WaterlineOverview leading={direct.viewToggle} experiment={selectedExperiment} pairings={sortedPairings.filter(p=>chartVisibleNames.has(p.name))} readings={experimentReadings} valveEvents={valveEventsForExperiment(valveEvents,selectedExperiment)} nowMs={clockNowMs} asOfMs={lastGoodCheckAt} loadedWindowMs={rollingExperimentHistoryMs} dataSourceLabel={dataSourceLabel} windowOverride={selectedVwcTimeBounds ?? undefined}/> : showExperimentGraphOverview ? (
+        {direct.groups ? <section><WaterlineOverview leading={direct.viewToggle} experiment={selectedExperiment} pairings={sortedPairings.filter(p=>chartVisibleNames.has(p.name))} readings={experimentReadings} valveEvents={valveEventsForExperiment(fullExperimentValveEvents,selectedExperiment)} nowMs={clockNowMs} asOfMs={lastGoodCheckAt} loadedWindowMs={rollingExperimentHistoryMs} dataSourceLabel={dataSourceLabel} windowOverride={selectedVwcTimeBounds ?? undefined}/><div className="chart-bottom-controls"><TimeRangeControl bounds={timeBounds} value={timeWindow} onChange={setTimeWindow}/></div></section> : showExperimentGraphOverview ? (
           <section className="experiment-graph-overview">
             <div className="experiment-graph-toolbar">
               <div className="chart-view-toggle" aria-label="Graph view">
@@ -2971,6 +2984,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               {experimentGraphMode === "watering" ? (
                 <ResearchWateringActivity
                   events={experimentWateringEvents}
+                  windowOverride={selectedVwcTimeBounds ?? undefined}
                   pairings={visibleWateringPairings}
                   onSelectDetail={setSelectedWateringDetail}
                 />
@@ -2994,15 +3008,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                 />
               )}
             </section>
-            {experimentGraphMode !== "watering" ? (
-              <div className="chart-bottom-controls">
+            <div className="chart-bottom-controls">
                 <TimeRangeControl
                   bounds={timeBounds}
                   value={timeWindow}
                   onChange={setTimeWindow}
                 />
               </div>
-            ) : null}
           </section>
         )}
 
@@ -3478,8 +3490,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           /></FeatureBoundary>
         ) : (
           <div className="px-pots-tab">
-            <ExperimentHistory key={routeExperiment.id} experiment={routeExperiment} pairings={sortedPairings} projectId={activeProjectId} deviceId={activeDeviceId} nowMs={clockNowMs}/>
-            <p className="px-loaded-range">Loaded: {timeBounds ? `${formatMeasurementTime(timeBounds.startMs)}–${formatMeasurementTime(timeBounds.endMs)}` : "No readings"}</p>
+            {experimentArchive.loading ? <p className="px-loaded-range" role="status">Loading experiment data… {experimentArchive.progress.toLocaleString()} readings</p> : null}
+            {experimentArchive.error ? <p className="px-notice is-bad" role="alert">Full experiment data could not be loaded. The graph shows the available readings. <button className="px-button is-small" onClick={experimentArchive.retry}>Retry</button></p> : null}
             <div className="px-pot-chart" aria-label="Individual pot traces">{potsTabContent}</div>
             <details className="px-details px-pot-readings"><summary>Pot readings</summary><FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
               experiment={routeExperiment}

@@ -8,6 +8,7 @@ import type { PairingRow } from '../types';
 import { readDirectCommands } from '../directExperimentClient';
 import { clampTarget, commandOutcome, pillOffsets, potRanges, targetDraft, targetGroups, targetLabel, type TargetGroup } from './directExperimentModel';
 import { TargetBand, TargetPill, TargetPopover, type TargetGeometry } from './TargetControl';
+import { TargetConfirmation, type TargetReview } from './TargetConfirmation';
 
 export type DirectChartState = {
   groups: boolean;
@@ -36,6 +37,8 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
   const [popover, setPopover] = useState(false);
   const [flash, setFlash] = useState<{ value: number; text: string } | null>(null);
   const [labelStatus, setLabelStatus] = useState('');
+  const [confirmation, setConfirmation] = useState<TargetReview | null>(null);
+  const applying = useRef(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { if (!flash) return undefined; const timer = window.setTimeout(() => setFlash(null), 4000); return () => window.clearTimeout(timer); }, [flash]);
@@ -93,18 +96,33 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
       reviewedConfigHash: checked.config_hash, experimentId: experiment.databaseId, expectedRevisionId: experiment.currentRevisionId});
   }
 
-  async function apply() {
+  function reviewTarget() {
     if (!edit || busy || !changed) return;
+    const group = groups.find((item) => item.key === edit.anchor);
+    const label = group?.treatments?.length === 1 && group.treatments[0] ? group.treatments[0] : 'moisture';
+    setPopover(false);
+    setConfirmation({ label, names: [...names], previous: names.map(current), value: edit.value });
+  }
+
+  async function apply(review: TargetReview) {
+    if (!edit || busy || !changed || applying.current) return;
+    setConfirmation(null);
+    if (review.value !== edit.value || review.names.join('|') !== names.join('|') || review.previous.some((value, i) => value !== current(review.names[i]))) {
+      setEdit({ ...edit, phase: 'failed', message: 'Targets changed while you were reviewing. Check the values and confirm again.' });
+      return;
+    }
     const value = edit.value, scope = new Set(names);
     let draft: ExperimentDraft;
     try { draft = targetDraft(experiment, effectivePairings, names, value); }
     catch (error) { setEdit({ ...edit, phase: 'failed', message: error instanceof Error ? error.message : 'Could not apply.' }); return; }
+    applying.current = true;
     setPopover(false);
     setEdit({ ...edit, phase: 'applying', message: 'Applying…' });
     if (demo) {
       setDemoTargets(old => ({ ...old, ...Object.fromEntries(names.map(n => [n, value])) }));
       setEdit(null);
       setFlash({ value, text: 'Applied · demo only' });
+      applying.current = false;
       return;
     }
     try {
@@ -127,6 +145,8 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
     } catch (error) {
       await onRefresh().catch(() => undefined);
       if (mounted.current) setEdit(old => old && { ...old, phase: 'failed', message: error instanceof Error ? error.message : 'Could not apply.' });
+    } finally {
+      applying.current = false;
     }
   }
 
@@ -188,7 +208,7 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
             onCancel={cancel} onOpen={() => { begin(group); setPopover(true); }} />
           {editing ? <Cluster edit={edit!} changed={changed} scopeLabel={scopeLabel(edit!, names)}
             applyLabel={`Apply ${edit!.value}% target to ${count(names.length)}`}
-            onApply={() => void apply()} onCancel={cancel} onScope={() => setPopover(open => !open)}
+            onApply={reviewTarget} onCancel={cancel} onScope={() => setPopover(open => !open)}
             onRecord={() => navigatePortal({ view: 'experiment', experiment: experiment.id, tab: 'record', pot: null })} /> : null}
           {!edit && flash && flash.value === group.value ? <span className="px-tstatus is-good" role="status">✓ {flash.text}</span> : null}
           {editing && popover ? <TargetPopover up={y - geometry.top > (geometry.bottom - geometry.top) / 2} onClose={closePopover}>
@@ -208,7 +228,10 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
   </div>;
 
   return <>{children({ groups: groupsView, viewToggle, affected: edit ? affected : new Set(), lines, targetLayer, freezeScale: dragging,
-    extraTargetValues: edit && !dragging ? [edit.value] : [] })}</>;
+    extraTargetValues: edit && !dragging ? [edit.value] : [] })}
+    {confirmation ? <TargetConfirmation review={confirmation} pots={potRanges(confirmation.names.map(potNumber))} demo={demo}
+      onCancel={() => { setConfirmation(null); cancel(); }} onConfirm={() => void apply(confirmation)} /> : null}
+  </>;
 }
 
 function Cluster({ edit, changed, scopeLabel, applyLabel, onApply, onCancel, onScope, onRecord }: {

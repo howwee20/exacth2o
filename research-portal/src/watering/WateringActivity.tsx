@@ -4,7 +4,7 @@ import { HealthChartControls, healthChartWindow } from "../health/healthHistory"
 import { healthAgeText, healthFirstText, healthNumber, healthString, healthTimestampMs } from "../healthValues";
 import { formatHealthInteger, formatSettingsTimestamp } from "../portalFormat";
 import { colorForPairing, plantGroupForPairing, plantGroupLabel, treatmentForPairing, treatmentLabel } from "../portalPresentation";
-import { type HealthSelectedDetail, type HealthWateringEvent } from "../portalTypes";
+import { type HealthSelectedDetail, type HealthWateringEvent, type TimeBounds } from "../portalTypes";
 import { type PairingRow } from "../types";
 import { buildWateringPairingIndex, pairingLabel, recentWateringEvents, resolveWateringEventPairing, wateringAxisLabel, wateringEventLabel, wateringEventsLastDay } from "../wateringEvents";
 
@@ -12,10 +12,12 @@ export function HealthWateringChart({
   events,
   pairings,
   onSelectDetail,
+  windowOverride,
 }: {
   events: HealthWateringEvent[];
   pairings: PairingRow[];
   onSelectDetail?: (detail: HealthSelectedDetail) => void;
+  windowOverride?: TimeBounds;
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
   // A wider viewBox prevents the row chart from ballooning vertically on wide
@@ -34,10 +36,11 @@ export function HealthWateringChart({
   const padTop = 26;
   const padBottom = 36;
   const times = events.map((event) => healthTimestampMs(event.t)).filter((value): value is number => value != null);
-  const windowInfo = useMemo(
+  const inferredWindow = useMemo(
     () => healthChartWindow(times, windowOffset),
     [times, windowOffset],
   );
+  const windowInfo = windowOverride ? { ...inferredWindow, ...windowOverride } : inferredWindow;
   const minTime = windowInfo.startMs;
   const maxTime = windowInfo.endMs;
   const labels = rowLabels.length ? rowLabels : [{ key: "Valve", label: "Valve" }];
@@ -65,11 +68,11 @@ export function HealthWateringChart({
 
   return (
     <div className="portal-health-chart">
-      <HealthChartControls
+      {!windowOverride ? <HealthChartControls
         windowOffset={windowOffset}
         maxOffset={windowInfo.maxOffset}
         onChange={setWindowOffset}
-      />
+      /> : null}
       <div className="health-chart-legend">
         <span><i className="series" />Marker color matches VWC line</span>
         <span><i className="secondary" />{visibleEvents.length} shown</span>
@@ -152,14 +155,19 @@ export function ResearchWateringActivity({
   events,
   pairings,
   onSelectDetail,
+  windowOverride,
 }: {
   events: HealthWateringEvent[];
   pairings: PairingRow[];
   onSelectDetail: (detail: HealthSelectedDetail) => void;
+  windowOverride?: TimeBounds;
 }) {
   const visibleEvents = useMemo(
-    () => events.filter((event) => wateringEventMatchesPairings(event, pairings)),
-    [events, pairings],
+    () => events.filter((event) => {
+      const at = healthTimestampMs(event.t);
+      return wateringEventMatchesPairings(event, pairings) && (!windowOverride || (at != null && at >= windowOverride.startMs && at <= windowOverride.endMs));
+    }),
+    [events, pairings, windowOverride],
   );
   const visibleEvents24h = wateringEventsLastDay(visibleEvents);
   const latestWatering = visibleEvents[visibleEvents.length - 1] ?? null;
@@ -169,7 +177,7 @@ export function ResearchWateringActivity({
   return (
     <section className="research-watering-activity" aria-label="Watering activity">
       <div className="health-mini-grid research-watering-summary">
-        <HealthMiniFact label="Openings · 24 h" value={formatHealthInteger(visibleEvents24h.length)} />
+        <HealthMiniFact label={windowOverride ? "Openings in range" : "Openings · 24 h"} value={formatHealthInteger(windowOverride ? visibleEvents.length : visibleEvents24h.length)} />
         <HealthMiniFact label="Latest opening" value={latestWateringTime} />
         <HealthMiniFact label="Visible pots" value={String(pairings.length)} />
         <HealthMiniFact label="Loaded events" value={String(visibleEvents.length)} />
@@ -178,6 +186,7 @@ export function ResearchWateringActivity({
         events={visibleEvents}
         pairings={pairings}
         onSelectDetail={onSelectDetail}
+        windowOverride={windowOverride}
       />
       {shownWateringEvents.length ? (
         <div className="health-event-list research-watering-list">
