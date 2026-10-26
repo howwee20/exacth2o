@@ -209,7 +209,7 @@ export function WaterlineOverview({
   };
 
   return (
-    <section className="px-waterline" aria-label="Overview">
+    <section className="px-waterline" aria-label={leading ? "Group traces" : "Overview"}>
       <div className="px-toolbar">
         {leading}
         {factors.length ? (
@@ -237,13 +237,13 @@ export function WaterlineOverview({
               {choice.label}
             </button>
           ))}
-        </div> : <span className="px-muted px-small">Using the selected graph dates</span>}
-        <label className="px-select">
+        </div> : null}
+        {!leading ? <label className="px-select">
           <input type="checkbox" checked={showPots} onChange={(event) => setPortalQuery({ pots: event.target.checked ? "1" : null })} />
           Show individual pots
-        </label>
-        <span className="px-spacer" />
-        <span className="px-muted px-small">{reportingTotal} of {totalPots} pots reporting{asOfMs ? ` · checked ${formatMeasurementTime(asOfMs)}` : ""}</span>
+        </label> : null}
+        {!leading ? <><span className="px-spacer" />
+        <span className="px-muted px-small">{reportingTotal} of {totalPots} pots reporting{asOfMs ? ` · checked ${formatMeasurementTime(asOfMs)}` : ""}</span></> : null}
       </div>
 
       {lines.map((line) => {
@@ -259,7 +259,7 @@ export function WaterlineOverview({
           <article key={line.group.id} className="px-wl-group" aria-label={line.group.label}>
             <header className="px-wl-head">
               <h2 className="px-wl-name"><GroupGlyph group={line.group} />{line.group.label}</h2>
-              <span className={`px-wl-caps ${coverageWarn ? "is-warn" : ""}`}>{line.reporting} of {line.potTotal} pots reporting</span>
+              {coverageWarn ? <span className="px-wl-caps is-warn">{line.reporting} of {line.potTotal} pots reporting</span> : null}
               {target?.text ? <span className={`px-wl-caps ${target.planMismatch ? "is-warn" : ""}`}>{target.text}</span> : null}
               <span className="px-wl-now">
                 {line.latest ? (
@@ -281,7 +281,7 @@ export function WaterlineOverview({
               yDomain={yDomain}
               height={190}
               stepMs={line.bucketMs}
-              ariaLabel={`${line.group.label}: ${info.label} over the last ${span.label}.`}
+              ariaLabel={`${line.group.label}: ${info.label}${windowOverride ? ", selected time range" : ` over the last ${span.label}`}.`}
               description={line.latest
                 ? `Median now ${formatMeasureValue(line.latest.median, measure)} across ${line.latest.pots} reporting pots, range ${formatMeasureValue(line.latest.low, measure)} to ${formatMeasureValue(line.latest.high, measure)}. ${line.reporting} of ${line.potTotal} pots reporting.${target?.text ? ` ${target.text}.` : ""}`
                 : `No current reading for this group. ${line.reporting} of ${line.potTotal} pots reporting.`}

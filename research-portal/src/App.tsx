@@ -21,8 +21,7 @@ import { SensorCanvasChart } from "./charts/SensorCanvasChart";
 import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
 import { chartSeries, compareGroup, describeVwcReading, formatVwcReading, latestPoint } from "./charts/chartSeries";
-import { MeasurementStatusBar } from "./experiment/MeasurementStatus";
-import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, pairingTargetText, targetLinesForPairings, withReportingCoverage } from "./experimentMeasurement";
+import { experimentIsCompleted, groupTarget, pairingTargetText, targetLinesForPairings } from "./experimentMeasurement";
 import { formatAge, formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
 import { controllerPresence } from "./settingsPresentation";
 import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
@@ -52,7 +51,7 @@ import { usePageClock } from "./pageClock";
 import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
 import { homeExceptions } from "./homeExceptions";
-import { type ExperimentTab, navigatePortal, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
+import { navigatePortal, setPortalQuery, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
 import { resolvePot } from "./potIdentity";
 import { readingsForPairings, valveEventsForPairings } from "./pairingHistory";
 import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
@@ -444,13 +443,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     (item: ChartSeries) => pairingTargetText(pairingByName.get(item.name), selectedExperiment),
     [pairingByName, selectedExperiment],
   );
-  const latestMeasuredAt = useMemo(
-    () => series.reduce<number | null>((latest, item) => {
-      const point = latestPoint(item);
-      return point && (latest == null || point.timestampMs > latest) ? point.timestampMs : latest;
-    }, null),
-    [series],
-  );
   const controllerOffline = runtimeState
     ? controllerPresence({
       stateFreshUntil: runtimeState.state_fresh_until,
@@ -459,18 +451,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
     }, clockNowMs).status === "offline"
     : false;
-  const reportingPotCount = series.filter((item) => measurementFreshness({
-    measuredAt: latestPoint(item)?.timestampMs,
-    expectedIntervalMs: item.expectedIntervalMs,
-    nowMs: clockNowMs,
-  }).state === "current").length;
-  const experimentStatusFreshness = withReportingCoverage(experimentFreshness({
-    experiment: selectedExperiment,
-    pairings: sortedPairings,
-    latestMeasuredAt,
-    controllerOffline,
-    nowMs: clockNowMs,
-  }), { reporting: reportingPotCount, total: series.length });
 
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
@@ -2808,7 +2788,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
 
   const potsTabContent = (
-    <DirectExperiment key={selectedExperiment.id} experiment={selectedExperiment} pairings={sortedPairings} projectId={activeProjectId} inventoryUpdatedAt={configState?.updated_at ?? null} canEdit={canUseExperimentSettings} demo={isDemo} onRefresh={async()=>{await loadExperimentCatalog();await loadDeviceSyncState();}}>{direct => <>
+    <DirectExperiment key={selectedExperiment.id} groupsView={route.view === "experiment" && route.tab === "overview"} onGroupsViewChange={(groups) => setPortalQuery({ tab: groups ? "overview" : null })} experiment={selectedExperiment} pairings={sortedPairings} projectId={activeProjectId} inventoryUpdatedAt={configState?.updated_at ?? null} canEdit={canUseExperimentSettings} demo={isDemo} onRefresh={async()=>{await loadExperimentCatalog();await loadDeviceSyncState();}}>{direct => <>
 
       {error && !data.readings.length ? (
         <div className="banner error" role="alert">
@@ -2817,15 +2797,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         </div>
       ) : null}
 
-      <MeasurementStatusBar
-        freshness={experimentStatusFreshness}
-        checkedAt={data.lastCheckedAt}
-        refreshing={loading && series.some((item) => item.points.length > 0)}
-        reportingPots={reportingPotCount}
-        totalPots={sortedPairings.length}
-        fetchError={data.readings.length ? error : null}
-        progress={experimentProgressText(selectedExperiment, clockNowMs)}
-      />
 
       <section
         ref={dashboardMainRef}
@@ -3446,39 +3417,22 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (!routeExperiment) {
       return productShell(<ExperimentNotFound id={route.experiment} loading={!catalogReady || accessLoading} />);
     }
-    const experimentTabs: ExperimentTab[] = recordAvailable ? ["pots", "overview", "record"] : ["pots", "overview"];
-    const tab: ExperimentTab = experimentTabs.includes(route.tab) ? route.tab : "pots";
+    const tab = route.tab === "record" && !recordAvailable ? "pots" : route.tab;
     return productShell(
       <ExperimentPage
         experiment={routeExperiment}
         tab={tab}
-        readingStatus={experimentStatusFreshness.detail}
         onExport={() => setExportOpen(true)}
-        nowMs={clockNowMs}
         exceptions={portalExceptions}
-        tabs={experimentTabs}
-        secondaryActions={canUseExperimentSettings ? <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate experiment</button> : null}
-        actions={<>
-          <button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button>
-          {canUseExperimentSettings ? <>
-            <button className="px-button is-small" onClick={() => { setEditingExperiment(routeExperiment);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Edit experiment</button>
-            <button className="px-button is-small" onClick={() => { setSettingsSection("overview");prefetchSettings();setSettingsOpen(true); }}>Settings</button>
-
-          </> : null}
-        </>}
+        recordAvailable={recordAvailable}
+        secondaryActions={canUseExperimentSettings ? <>
+          <button onClick={() => { setEditingExperiment(routeExperiment);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Edit experiment</button>
+          <button onClick={() => { setSettingsSection("overview");prefetchSettings();setSettingsOpen(true); }}>Settings</button>
+          <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate experiment</button>
+        </> : null}
+        actions={<button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button>}
       >
-        {tab === "overview" ? (
-          <FeatureBoundary name="Overview" fallback={<FeatureLoading name="Overview" />}><WaterlineOverview
-            experiment={routeExperiment}
-            pairings={sortedPairings}
-            readings={experimentReadings}
-            valveEvents={valveEventsForExperiment(valveEvents, routeExperiment)}
-            nowMs={clockNowMs}
-            asOfMs={lastGoodCheckAt}
-            loadedWindowMs={rollingExperimentHistoryMs}
-            dataSourceLabel={dataSourceLabel}
-          /></FeatureBoundary>
-        ) : tab === "record" ? (
+        {tab === "record" ? (
           <FeatureBoundary name="Record" fallback={<FeatureLoading name="Record" />}><RecordView
             key={`${portalAccess.userId}:${activeProjectId}:${activeDeviceId}:${routeExperiment.id}`}
             experiment={routeExperiment}

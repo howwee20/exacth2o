@@ -1,5 +1,5 @@
 .demo-account-mark{position:absolute;z-index:3;pointer-events:none;transform:translateX(-50%);font:600 10px/1 "DM Mono","SFMono-Regular",Menlo,monospace;letter-spacing:.2em;text-transform:uppercase;color:#b9dcc7;text-align:center}
 
 /* The monitor-only demo account: the production product without installation tools or editing. */
-.px-tools,.px-menu{display:none!important}
+.px-tools,.px-menu:not(.px-more-actions){display:none!important}
 .px-home-grid{grid-template-columns:minmax(0,720px);justify-content:center}

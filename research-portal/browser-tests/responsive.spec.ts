@@ -70,9 +70,8 @@ test('deferred data and saved comparisons', async ({page}) => {
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.goto('/demo?experiment=experiment-1');
-  await page.getByText('Experiment details',{exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Data source',exact:true})).toBeVisible();
-  await expect(page.locator('.px-source-note')).toContainText('measurement values and intervals are unchanged');
+  await expect(page.getByText('Experiment details',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('navigation',{name:'Experiment sections'})).toHaveCount(0);
 });
 
 test('mobile Applications embed loads the current release and closes', async ({page}) => {

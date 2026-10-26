@@ -2,7 +2,7 @@
    stay out of the public preview; everything else is the production product. */
 body{margin:0;background:#f4f1eb}
 .px-header,.dashboard-header{display:none!important}
-.px-menu,.px-tools,.px-home-top .px-button.is-primary{display:none!important}
+.px-menu:not(.px-more-actions),.px-tools,.px-home-top .px-button.is-primary{display:none!important}
 .px-home{padding-top:44px;padding-bottom:28px}
 .px-page{padding-top:44px}
 .px-home-grid{grid-template-columns:minmax(0,720px);justify-content:center}

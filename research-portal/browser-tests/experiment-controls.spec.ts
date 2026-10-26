@@ -64,13 +64,27 @@ test('experiment loading pages past the server limit and can retry a failed read
   expect(pages).toBe(2);
 });
 
-test('assembled demo uses one graph with time pills and no History panel', async ({ page }) => {
+test('assembled demo has one quiet graph, with Groups sharing the time range and Record under More', async ({ page }) => {
   await page.goto('/demo?experiment=experiment-2');
   const presets = page.getByRole('group', { name: 'Time range', exact: true });
   await expect(presets).toBeVisible();
   await expect(page.locator('summary').filter({ hasText: /^History$/ })).toHaveCount(0);
+  await expect(page.getByText('Experiment details', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Measurement status' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Experiment sections' })).toHaveCount(0);
   await presets.getByRole('button', { name: '3d', exact: true }).click();
   await expect(presets.getByRole('button', { name: '3d', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Groups', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Groups', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Time range', exact: true }).getByRole('button', { name: '3d', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Individual', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Individual', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await presets.getByRole('button', { name: 'Entire experiment', exact: true }).click();
   await expect(presets.getByRole('button', { name: 'Entire experiment', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByText('More', { exact: true }).click();
+  await page.getByRole('link', { name: 'Record', exact: true }).click();
+  await expect(page).toHaveURL(/tab=record/);
+  await page.getByText('More', { exact: true }).click();
+  await page.getByRole('link', { name: 'Back to traces', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Individual', exact: true })).toBeVisible();
 });

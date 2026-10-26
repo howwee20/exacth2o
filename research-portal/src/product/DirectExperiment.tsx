@@ -25,13 +25,16 @@ type Edit = { anchor: string; scope: string; custom: string[]; value: number; ph
 
 const pillWidth = (label: string) => label.length * 7 + 24;
 
-export function DirectExperiment({experiment, pairings, projectId, inventoryUpdatedAt, canEdit, demo, onRefresh, children}: {
+export function DirectExperiment({experiment, pairings, projectId, inventoryUpdatedAt, canEdit, demo, onRefresh, groupsView: controlledGroupsView, onGroupsViewChange, children}: {
   experiment: PortalExperiment; pairings: PairingRow[]; projectId: string; inventoryUpdatedAt: string | null;
   canEdit: boolean; demo: boolean; onRefresh: () => Promise<unknown>; children: (state: DirectChartState) => ReactNode;
+  groupsView?: boolean; onGroupsViewChange?: (groups: boolean) => void;
 }) {
   const [demoTargets, setDemoTargets] = useState<Record<string, number>>({});
   const effectivePairings = useMemo(() => demo ? pairings.map(p => ({...p, wtc_percent_limit: demoTargets[p.name] ?? p.wtc_percent_limit})) : pairings, [demo, demoTargets, pairings]);
-  const [groupsView, setGroupsView] = useState(false);
+  const [localGroupsView, setLocalGroupsView] = useState(false);
+  const groupsView = controlledGroupsView ?? localGroupsView;
+  const setGroupsView = onGroupsViewChange ?? setLocalGroupsView;
   const [edit, setEdit] = useState<Edit | null>(null);
   const [dragging, setDragging] = useState(false);
   const [popover, setPopover] = useState(false);
