@@ -1,7 +1,7 @@
 import { PotInspector } from './product/PotInspector';
 import { DirectExperiment } from './product/DirectExperiment';
 import { SavedTraceViews } from "./product/SavedTraceViews";
-import { useExperimentReadings } from "./useExperimentReadings";
+import { clearExperimentArchives, useExperimentReadings } from "./useExperimentReadings";
 import { experimentTraceReadings } from "./experimentTraceReadings";
 import { AlertTriangle, ArrowRight, Droplets, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -348,7 +348,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     [sortedPairings],
   );
   const experimentArchive = useExperimentReadings(selectedExperiment, portalAccess?.projectId ?? "", portalAccess?.deviceId ?? "",
-    sessionReady && route.view === "experiment" && route.tab !== "record" && document.documentElement.dataset.portalMode !== "demo");
+    sessionReady && route.view === "experiment" && route.tab !== "record" && document.documentElement.dataset.portalMode !== "demo", portalAccess?.userId);
   const experimentReadings = useMemo(
     () => experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
     [data.readings, experimentArchive.readings, selectedExperiment],
@@ -2059,6 +2059,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       // Nothing from the previous account stays visible to the next one.
       setExperimentCatalog([]);
       websiteAnalyticsReportCache.clear();
+      clearExperimentArchives();
       return;
     }
     void loadPortalAccess();

@@ -146,9 +146,13 @@ export function readingsForExperiment(readings: SensorReading[], experiment: Por
     name,
     sensor_key: experiment.assignments?.find((item) => item.pairing_name === name)?.sensor_key_snapshot,
   }));
-  return alignPairingHistory(readings, identities, "sensor_key").filter((reading) =>
-    timestampBelongsToExperiment(reading.device_recorded_at, experiment)
-  );
+  // timestampBelongsToExperiment, with the experiment's bounds parsed once instead of per reading.
+  const startMs = experiment.startedAt ? Date.parse(experiment.startedAt) : null;
+  const endMs = experiment.endedAt ? Date.parse(experiment.endedAt) : null;
+  return alignPairingHistory(readings, identities, "sensor_key").filter((reading) => {
+    const timestampMs = Date.parse(reading.device_recorded_at);
+    return Number.isFinite(timestampMs) && !(startMs !== null && timestampMs < startMs) && !(endMs !== null && timestampMs >= endMs);
+  });
 }
 
 export function valveEventsForExperiment(events: ValveEvent[], experiment: PortalExperiment) {
