@@ -1,0 +1,12 @@
+-- set_notification_preference (SECURITY DEFINER) validates the channel, the e-mail
+-- destination format and the event-type allowlist (supabase/migrations/
+-- 20260724220000_create_platform_foundation_v1.sql:474-527), but the same migration also grants
+-- authenticated a table-level UPDATE on notification_preferences (:1057) with a policy that only
+-- checks ownership (:1016-1019). A signed-in member can therefore PATCH their row directly and
+-- set channel/destination/event_types without any of that validation; the dispatcher only
+-- requires an '@' (supabase/functions/notification-dispatcher/notification-policy.mjs:27-28).
+--
+-- The portal writes preferences only through the RPC (research-portal/src/accountClient.ts:19-25)
+-- and no Edge Function updates the table with a user JWT, so the direct grant is unused.
+revoke update on table public.notification_preferences from authenticated;
+-- The now-unused policy is left in place so the rollback is a single GRANT.
