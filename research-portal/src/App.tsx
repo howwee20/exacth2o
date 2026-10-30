@@ -2954,12 +2954,23 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               }
             >
               {experimentGraphMode === "watering" ? (
+                <>
+                <div className="chart-bottom-controls watering-time-controls">
+                  <TimeRangeControl bounds={timeBounds} value={timeWindow} onChange={setTimeWindow} />
+                </div>
                 <ResearchWateringActivity
                   events={experimentWateringEvents}
+                  experiment={selectedExperiment}
                   windowOverride={selectedVwcTimeBounds ?? undefined}
                   pairings={visibleWateringPairings}
                   onSelectDetail={setSelectedWateringDetail}
+                  onZoom={(bounds) => {
+                    if (!timeBounds) return;
+                    const span = Math.max(1, timeBounds.endMs - timeBounds.startMs);
+                    setTimeWindow({ start: (bounds.startMs - timeBounds.startMs) / span * 100, end: (bounds.endMs - timeBounds.startMs) / span * 100 });
+                  }}
                 />
+                </>
               ) : (
                 <SensorCanvasChart
                   series={timeFilteredSeries}
@@ -2980,13 +2991,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                 />
               )}
             </section>
-            <div className="chart-bottom-controls">
+            {experimentGraphMode !== "watering" ? <div className="chart-bottom-controls">
                 <TimeRangeControl
                   bounds={timeBounds}
                   value={timeWindow}
                   onChange={setTimeWindow}
                 />
-              </div>
+              </div> : null}
           </section>
         )}
 

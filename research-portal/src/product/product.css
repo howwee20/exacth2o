@@ -1099,7 +1099,7 @@
 .px-pot-chart .pot-toggle:focus-visible { outline: 2px solid var(--px-accent); outline-offset: 2px; }
 .px-pot-chart .dashboard-main:not(.is-expanded) { min-height: 0; }
 .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart,
-.px-pot-chart .dashboard-main:not(.is-expanded) .research-watering-activity { min-height: clamp(420px, calc(100dvh - 390px), 760px); }
+.px-pot-chart .dashboard-main:not(.is-expanded) .research-watering-activity { min-height: 0; }
 @media (max-width: 700px) { .px-pot-chart .pot-toggle { min-height: 44px; } }
 .px-machine-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; width: 100%; padding: 17px 20px; border: 1px solid var(--px-rule-strong); border-radius: var(--px-radius); background: #fff; color: var(--px-text); font-family: var(--px-sans); text-align: left; cursor: pointer; }
 .px-machine-card:hover { border-color: var(--px-water); }
@@ -1264,6 +1264,7 @@
 .px-pot-chart .canvas-chart canvas { position: absolute; inset: 0; }
 .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart { min-height: clamp(360px, calc(100dvh - 385px), 1400px); }
 .px-pot-chart .chart-bottom-controls { padding: 12px 18px; border-top: 1px solid var(--px-rule); }
+.px-pot-chart .watering-time-controls { border-top: 0; border-bottom: 1px solid var(--px-rule); }
 .px-pot-chart .time-range-labels { flex-wrap: wrap; gap: 6px 12px; font: 400 12px/1.5 var(--px-sans); color: var(--px-muted); }
 .px-pot-chart .control-panel { border-color: var(--px-rule); border-radius: 10px; box-shadow: none; gap: 10px; padding: 12px; }
 .px-pot-chart .control-panel:not([style]) { position: sticky; top: 82px; max-height: none; overflow: visible; }

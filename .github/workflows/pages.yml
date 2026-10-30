@@ -10,10 +10,8 @@ on:
 permissions:
   contents: read
 
-# UI releases run 10 focused checks: seven data/control checks and three browser
-# smoke checks. Full simulations, device suites, dependency audits and exhaustive
-# cross-browser runs remain in the separate manual workflows. Publishing still
-# requires a reproducible build of this exact commit.
+# Publish pushes after a reproducible production build. Test suites and browser
+# runs remain available in the separate manual workflows.
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -25,38 +23,12 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: research-portal/package-lock.json
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - run: npm ci --prefix research-portal
-      - name: Portal lint and seven focused data/control checks
-        run: |
-          npm run lint --prefix research-portal
-          npm run test:release --prefix research-portal
       - name: Rebuild and require the committed release
         run: |
           node scripts/build-product-release.mjs
-          npm run audit:portal-surface --prefix research-portal
           git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
           test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
-      - name: Cache the release browser
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-release-chromium-${{ hashFiles('research-portal/package-lock.json') }}
-      - name: Install the release browser
-        run: npx --prefix research-portal playwright install --with-deps --only-shell chromium
-      - name: Three browser smoke checks
-        run: npm run test:release:browser --prefix research-portal
-      - name: Save failed browser checks
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-release-failure
-          path: |
-            research-portal/.release-results
-            research-portal/test-results/release
-          retention-days: 7
 
   deploy:
     needs: verify

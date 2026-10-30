@@ -2,6 +2,7 @@ import type { TimeBounds, TimeWindow } from "../portalTypes";
 
 export const timeRangePresets = [
   { label: "Entire experiment", hours: null },
+  { label: "6h", hours: 6 },
   { label: "24h", hours: 24 },
   { label: "3d", hours: 72 },
   { label: "7d", hours: 168 },

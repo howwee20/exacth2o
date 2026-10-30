@@ -4262,15 +4262,14 @@ select {
 
 .research-watering-activity {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  min-height: calc(100vh - 96px);
-  padding: 76px 22px 18px;
+  gap: 16px;
+  min-height: 0;
+  padding: 16px 18px 18px;
   background: #ffffff;
 }
 
 .research-watering-summary {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .research-watering-activity .portal-health-chart {
@@ -4278,7 +4277,7 @@ select {
 }
 
 .research-watering-activity .portal-health-chart > svg {
-  min-height: 420px;
+  min-height: 0;
 }
 
 .research-watering-activity .health-chart-grid,
@@ -4359,12 +4358,55 @@ select {
 }
 
 .dashboard-main.is-expanded .research-watering-activity {
-  min-height: calc(100vh - 54px);
-  padding-top: 64px;
+  min-height: 0;
 }
 
 .dashboard-main.is-expanded .research-watering-activity .portal-health-chart > svg {
-  min-height: calc(100vh - 238px);
+  min-height: 0;
+}
+
+.watering-timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #475569;
+  font: 400 12px/1.5 var(--portal-sans, sans-serif);
+}
+
+.watering-timeline-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.watering-timeline-legend i { width: 7px; height: 7px; border-radius: 50%; background: #475569; }
+.watering-timeline-legend strong { margin-left: auto; color: #172033; font-weight: 600; }
+.watering-timeline-scroll { overflow-x: auto; }
+.watering-timeline-scroll svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.watering-marker { cursor: pointer; outline: none; }
+.watering-marker:hover, .watering-marker:focus-visible { filter: brightness(0.75); }
+.watering-marker:focus-visible > rect, .watering-marker:focus-visible > circle:last-child { stroke: #172033; stroke-width: 2; }
+.watering-marker-count { fill: #172033; font: 700 11px sans-serif; pointer-events: none; }
+.watering-event-log { border: 1px solid #dfe5ee; border-radius: 8px; overflow: hidden; }
+.watering-log-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; }
+.watering-log-heading h3 { margin: 0; color: #172033; font-size: 14px; font-weight: 600; }
+.watering-log-heading select { max-width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; color: #334155; background: #fff; font: inherit; font-size: 12px; }
+.watering-log-columns, .watering-log-row { display: grid; grid-template-columns: minmax(65px, 0.7fr) minmax(0, 2fr) auto; gap: 12px; align-items: center; padding: 10px 14px; }
+.watering-log-columns { color: #64748b; background: #f8fafc; font-size: 11px; border-block: 1px solid #e2e8f0; }
+.watering-log-row { width: 100%; text-align: left; border: 0; border-bottom: 1px solid #edf0f4; background: #fff; color: #334155; cursor: pointer; font: 400 12px/1.5 var(--portal-sans, sans-serif); font-variant-numeric: tabular-nums; }
+.watering-log-row strong { font-weight: 600; }
+.watering-log-row > span:last-child { white-space: nowrap; }
+.watering-log-row:hover, .watering-log-row:focus-visible { background: #edf7f3; outline: 2px solid #397d63; outline-offset: -2px; }
+.watering-log-pagination { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: #64748b; }
+.watering-log-pagination > span { margin-right: auto; }
+.watering-log-pagination button { padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; font: inherit; }
+.watering-log-pagination button:disabled { opacity: 0.45; cursor: default; }
+.watering-log-empty { padding: 10px 14px; color: #64748b; font-size: 13px; }
+
+@media (max-width: 600px) {
+  .research-watering-activity { padding: 12px; }
+  .research-watering-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .research-watering-summary > :last-child { grid-column: 1 / -1; }
+  .watering-timeline-legend strong { margin-left: 0; }
+  .watering-log-columns, .watering-log-row { gap: 8px; padding-inline: 10px; }
 }
 
 .dashboard-main.is-expanded .chart-tools {

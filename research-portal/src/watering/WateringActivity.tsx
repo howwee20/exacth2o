@@ -4,207 +4,184 @@ import { HealthChartControls, healthChartWindow } from "../health/healthHistory"
 import { healthAgeText, healthFirstText, healthNumber, healthString, healthTimestampMs } from "../healthValues";
 import { formatHealthInteger, formatSettingsTimestamp } from "../portalFormat";
 import { colorForPairing, plantGroupForPairing, plantGroupLabel, treatmentForPairing, treatmentLabel } from "../portalPresentation";
+import { type PortalExperiment } from "../experimentRegistry";
 import { type HealthSelectedDetail, type HealthWateringEvent, type TimeBounds } from "../portalTypes";
 import { type PairingRow } from "../types";
-import { buildWateringPairingIndex, pairingLabel, recentWateringEvents, resolveWateringEventPairing, wateringAxisLabel, wateringEventLabel, wateringEventsLastDay } from "../wateringEvents";
+import { buildWateringPairingIndex, pairingLabel, resolveWateringEventPairing, wateringAxisLabel, wateringEventLabel } from "../wateringEvents";
+import { wateringTimelineMarkers, wateringZoomBounds } from "./wateringTimeline";
 
-export function HealthWateringChart({
-  events,
-  pairings,
-  onSelectDetail,
-  windowOverride,
-}: {
+function eventTime(event: HealthWateringEvent) {
+  const time = healthTimestampMs(event.t);
+  return time == null ? "—" : new Date(time).toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit",
+  });
+}
+
+function eventDuration(event: HealthWateringEvent) {
+  const duration = healthNumber(event.valveOpenTimeMs);
+  return duration == null ? "—" : `${Number((duration / 1000).toFixed(2))} sec`;
+}
+
+function wateringDetail(event: HealthWateringEvent, pairings: PairingRow[], experiment?: PortalExperiment): HealthSelectedDetail {
+  const label = wateringEventLabel(event);
+  const pairing = resolveWateringEventPairing(event, buildWateringPairingIndex(pairings));
+  const record = event as Record<string, unknown>;
+  return {
+    title: label,
+    rows: [
+      { label: "Event", value: "Valve opened" },
+      { label: "Time", value: eventTime(event) },
+      { label: "Age", value: healthAgeText(event.t) },
+      { label: "Pot", value: label },
+      { label: "Plant", value: plantGroupLabel(pairing ? plantGroupForPairing(pairing, experiment) : "unknown") },
+      { label: "Treatment", value: treatmentLabel(pairing ? treatmentForPairing(pairing, experiment) : "unknown") },
+      { label: "Pairing", value: event.pairingName ?? healthString(event.pairing) ?? label },
+      { label: "Sensor", value: event.sensor ?? healthFirstText(record, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
+      { label: "Valve", value: event.valve ?? healthFirstText(record, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
+      { label: "Duration", value: eventDuration(event) },
+    ],
+  };
+}
+
+export function HealthWateringChart({ events, pairings, experiment, onSelectDetail, windowOverride, onZoom }: {
   events: HealthWateringEvent[];
   pairings: PairingRow[];
+  experiment?: PortalExperiment;
   onSelectDetail?: (detail: HealthSelectedDetail) => void;
   windowOverride?: TimeBounds;
+  onZoom?: (bounds: TimeBounds, pot: string) => void;
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
-  // A wider viewBox prevents the row chart from ballooning vertically on wide
-  // desktop canvases while leaving the VWC chart geometry entirely untouched.
   const width = 1040;
-  const pairingIndex = useMemo(() => buildWateringPairingIndex(pairings), [pairings]);
-  const rowLabels = useMemo(() => {
-    return pairings.map((pairing) => ({
-      key: pairingLabel(pairing),
-      label: wateringAxisLabel(pairing),
-    }));
-  }, [pairings]);
-  const height = Math.max(240, Math.min(520, 76 + Math.max(rowLabels.length, 1) * 19));
   const padLeft = 84;
   const padRight = 16;
   const padTop = 26;
-  const padBottom = 36;
-  const times = events.map((event) => healthTimestampMs(event.t)).filter((value): value is number => value != null);
-  const inferredWindow = useMemo(
-    () => healthChartWindow(times, windowOffset),
-    [times, windowOffset],
-  );
-  const windowInfo = windowOverride ? { ...inferredWindow, ...windowOverride } : inferredWindow;
-  const minTime = windowInfo.startMs;
-  const maxTime = windowInfo.endMs;
-  const labels = rowLabels.length ? rowLabels : [{ key: "Valve", label: "Valve" }];
-  const labelIndex = new Map(labels.map((row, index) => [row.key, index]));
-  const visibleEvents = events.filter((event) => {
-    const time = healthTimestampMs(event.t);
-    const label = wateringEventLabel(event);
-    return time != null && labelIndex.has(label) && time >= windowInfo.startMs && time <= windowInfo.endMs;
-  });
+  const padBottom = 38;
   const plotWidth = width - padLeft - padRight;
-  const plotHeight = height - padTop - padBottom;
-  const xFor = (time: number) => padLeft + ((time - minTime) / Math.max(maxTime - minTime, 1)) * plotWidth;
-  const yFor = (label: string) => labels.length === 1
-    ? padTop + plotHeight / 2
-    : padTop + ((labelIndex.get(label) ?? 0) / Math.max(labels.length - 1, 1)) * plotHeight;
-  const tickRows = labels.length <= 24
-    ? labels
-    : Array.from(new Set([labels[0], labels[Math.floor(labels.length / 2)], labels[labels.length - 1]].filter(Boolean)));
+  const pairingIndex = useMemo(() => buildWateringPairingIndex(pairings), [pairings]);
+  const labels = pairings.length ? pairings.map(pairing => ({ key: pairingLabel(pairing), label: wateringAxisLabel(pairing, experiment) })) : [{ key: "Valve", label: "Valve" }];
+  const height = Math.max(190, padTop + padBottom + labels.length * 28);
+  const times = useMemo(() => events.map(event => healthTimestampMs(event.t)).filter((time): time is number => time != null), [events]);
+  const inferredWindow = useMemo(() => healthChartWindow(times, windowOffset), [times, windowOffset]);
+  const windowInfo = windowOverride ? { ...inferredWindow, ...windowOverride } : inferredWindow;
+  const labelIndex = new Map(labels.map((row, index) => [row.key, index]));
+  const visibleEvents = events.filter(event => labelIndex.has(wateringEventLabel(event)));
+  const markers = wateringTimelineMarkers(visibleEvents, windowInfo, plotWidth);
+  const shownCount = markers.reduce((count, marker) => count + marker.events.length, 0);
+  const yFor = (label: string) => padTop + 14 + (labelIndex.get(label) ?? 0) * 28;
 
   useEffect(() => {
-    if (windowOffset > windowInfo.maxOffset) {
-      setWindowOffset(windowInfo.maxOffset);
-    }
+    if (windowOffset > windowInfo.maxOffset) setWindowOffset(windowInfo.maxOffset);
   }, [windowInfo.maxOffset, windowOffset]);
 
   return (
-    <div className="portal-health-chart">
-      {!windowOverride ? <HealthChartControls
-        windowOffset={windowOffset}
-        maxOffset={windowInfo.maxOffset}
-        onChange={setWindowOffset}
-      /> : null}
-      <div className="health-chart-legend">
-        <span><i className="series" />Marker color matches VWC line</span>
-        <span><i className="secondary" />{visibleEvents.length} shown</span>
+    <div className="portal-health-chart watering-timeline">
+      {!windowOverride ? <HealthChartControls windowOffset={windowOffset} maxOffset={windowInfo.maxOffset} onChange={setWindowOffset} /> : null}
+      <div className="watering-timeline-legend">
+        <span><i />One dot = one opening</span>
+        <span>Number = grouped openings{onZoom ? " · click to zoom" : ""}</span>
+        <strong>{formatHealthInteger(shownCount)} openings</strong>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by sensor or pot">
-        {tickRows.map((row) => (
-          <g key={row.key}>
+      <div className="watering-timeline-scroll">
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by pot. Numbered markers group nearby openings.">
+          {Array.from({ length: 5 }, (_, index) => {
+            const fraction = index / 4;
+            const x = padLeft + fraction * plotWidth;
+            return <g key={index}>
+              <line x1={x} y1={padTop} x2={x} y2={height - padBottom} className="health-chart-grid" />
+              <text x={x} y={height - 12} textAnchor={index === 0 ? "start" : index === 4 ? "end" : "middle"} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(windowInfo.startMs + fraction * (windowInfo.endMs - windowInfo.startMs)).toISOString())}</text>
+            </g>;
+          })}
+          {labels.map(row => <g key={row.key}>
             <line x1={padLeft} y1={yFor(row.key)} x2={width - padRight} y2={yFor(row.key)} className="health-chart-grid" />
-            <text x={padLeft - 8} y={yFor(row.key) + 4} textAnchor="end" className="health-chart-axis-text">{row.label}</text>
-          </g>
-        ))}
-        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} className="health-chart-axis" />
-        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} className="health-chart-axis" />
-        <text x={padLeft} y={16} className="health-chart-axis-title">Watering events</text>
-        {visibleEvents.map((event) => {
-          const time = healthTimestampMs(event.t) ?? minTime;
-          const label = wateringEventLabel(event);
-          const duration = healthNumber(event.valveOpenTimeMs);
-          const eventRecord = event as Record<string, unknown>;
-          const durationText = duration == null ? "--" : `${Math.round(duration / 1000)} sec`;
-          const pairingName = event.pairingName ?? healthString(event.pairing) ?? label;
-          const pairing = resolveWateringEventPairing(event, pairingIndex);
-          const treatment = pairing ? treatmentForPairing(pairing) : "unknown";
-          const plantGroup = pairing ? plantGroupForPairing(pairing) : "unknown";
-          const seriesColor = pairing ? colorForPairing(pairing) : "#64748b";
-          const openDetail = () => {
-            onSelectDetail?.({
-              title: label,
-              rows: [
-                { label: "Event", value: "Valve opened" },
-                { label: "Time", value: formatSettingsTimestamp(event.t) },
-                { label: "Age", value: healthAgeText(event.t) },
-                { label: "Pot", value: label },
-                { label: "Plant", value: plantGroupLabel(plantGroup) },
-                { label: "Treatment", value: treatmentLabel(treatment) },
-                { label: "Pairing", value: pairingName },
-                { label: "Sensor", value: event.sensor ?? healthFirstText(eventRecord, ["sensor", "sensorKey", "sensor_key", "sensorId", "sensor_id"]) },
-                { label: "Valve", value: event.valve ?? healthFirstText(eventRecord, ["valve", "valveKey", "valve_key", "valveId", "valve_id"]) },
-                { label: "Duration", value: durationText },
-              ],
-            });
-          };
-          return (
-            <circle
-              key={`${event.id ?? event.t}-${label}-${event.t}`}
-              cx={xFor(time)}
-              cy={yFor(label)}
-              r={4.4}
-              className="watering-event-dot"
-              style={{ fill: seriesColor, stroke: seriesColor }}
-              role="button"
-              tabIndex={0}
-              onClick={openDetail}
-              onKeyDown={(keyboardEvent) => {
-                if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                  keyboardEvent.preventDefault();
-                  openDetail();
-                }
-              }}
-            >
-              <title>{`${label} opened ${formatSettingsTimestamp(event.t)}${duration == null ? "" : ` for ${Math.round(duration / 1000)} sec`}`}</title>
-            </circle>
-          );
-        })}
-        {!visibleEvents.length ? <text x={width / 2} y={height / 2} textAnchor="middle" className="health-chart-empty">No valve fires in this window</text> : null}
-        <text x={padLeft} y={height - 12} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(minTime).toISOString())}</text>
-        <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
-        <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
-      </svg>
+            <text x={padLeft - 10} y={yFor(row.key) + 4} textAnchor="end" className="health-chart-axis-text">{row.label}</text>
+          </g>)}
+          {markers.map(marker => {
+            const event = marker.events[0];
+            const pairing = resolveWateringEventPairing(event, pairingIndex);
+            const color = pairing ? colorForPairing(pairing) : "#64748b";
+            const grouped = marker.events.length > 1;
+            const x = padLeft + marker.fraction * plotWidth;
+            const y = yFor(marker.label);
+            const description = grouped ? `${marker.label}: ${marker.events.length} openings. Click to zoom in.` : `${marker.label} opened ${eventTime(event)} for ${eventDuration(event)}. Click for details.`;
+            const activate = () => {
+              if (grouped && onZoom) onZoom(wateringZoomBounds(marker.events, windowInfo), marker.label);
+              else onSelectDetail?.(wateringDetail(event, pairings, experiment));
+            };
+            return <g key={marker.key} className={`watering-marker${grouped ? " is-grouped" : ""}`} role="button" tabIndex={0} aria-label={description} onClick={activate} onKeyDown={keyboardEvent => {
+              if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") { keyboardEvent.preventDefault(); activate(); }
+            }}>
+              <title>{description}</title>
+              {grouped ? <>
+                <rect x={x - 14} y={y - 9} width={28} height={18} rx={5} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={1.5} />
+                <text x={x} y={y + 4} textAnchor="middle" className="watering-marker-count">{marker.events.length > 999 ? "999+" : marker.events.length}</text>
+              </> : <>
+                <circle cx={x} cy={y} r={9} fill="transparent" />
+                <circle cx={x} cy={y} r={3.5} fill={color} stroke="white" strokeWidth={1} />
+              </>}
+            </g>;
+          })}
+          {!shownCount ? <text x={width / 2} y={height / 2} textAnchor="middle" className="health-chart-empty">No openings in this range</text> : null}
+        </svg>
+      </div>
     </div>
   );
 }
 
 export function wateringEventMatchesPairings(event: HealthWateringEvent, pairings: PairingRow[]) {
-  const visibleLabels = new Set(pairings.map(pairingLabel));
-  return visibleLabels.has(wateringEventLabel(event));
+  return pairings.some(pairing => pairingLabel(pairing) === wateringEventLabel(event));
 }
 
-export function ResearchWateringActivity({
-  events,
-  pairings,
-  onSelectDetail,
-  windowOverride,
-}: {
+const pageSize = 10;
+
+export function ResearchWateringActivity({ events, pairings, experiment, onSelectDetail, windowOverride, onZoom }: {
   events: HealthWateringEvent[];
   pairings: PairingRow[];
+  experiment?: PortalExperiment;
   onSelectDetail: (detail: HealthSelectedDetail) => void;
   windowOverride?: TimeBounds;
+  onZoom?: (bounds: TimeBounds) => void;
 }) {
-  const visibleEvents = useMemo(
-    () => events.filter((event) => {
-      const at = healthTimestampMs(event.t);
-      return wateringEventMatchesPairings(event, pairings) && (!windowOverride || (at != null && at >= windowOverride.startMs && at <= windowOverride.endMs));
-    }),
-    [events, pairings, windowOverride],
-  );
-  const visibleEvents24h = wateringEventsLastDay(visibleEvents);
-  const latestWatering = visibleEvents[visibleEvents.length - 1] ?? null;
-  const latestWateringTime = latestWatering ? formatSettingsTimestamp(latestWatering.t) : "none";
-  const shownWateringEvents = recentWateringEvents(visibleEvents, 8);
+  const [potFilter, setPotFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  const visibleEvents = useMemo(() => events.filter(event => {
+    const at = healthTimestampMs(event.t);
+    return wateringEventMatchesPairings(event, pairings) && at != null && (!windowOverride || (at >= windowOverride.startMs && at <= windowOverride.endMs));
+  }).sort((a, b) => (healthTimestampMs(a.t) ?? 0) - (healthTimestampMs(b.t) ?? 0)), [events, pairings, windowOverride]);
+  const activeFilter = pairings.some(pairing => pairingLabel(pairing) === potFilter) ? potFilter : "all";
+  const filteredEvents = visibleEvents.filter(event => activeFilter === "all" || wateringEventLabel(event) === activeFilter).slice().reverse();
+  const lastPage = Math.max(0, Math.ceil(filteredEvents.length / pageSize) - 1);
+  const currentPage = Math.min(page, lastPage);
+  const shownEvents = filteredEvents.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const latest = visibleEvents.at(-1);
 
   return (
     <section className="research-watering-activity" aria-label="Watering activity">
       <div className="health-mini-grid research-watering-summary">
-        <HealthMiniFact label={windowOverride ? "Openings in range" : "Openings · 24 h"} value={formatHealthInteger(windowOverride ? visibleEvents.length : visibleEvents24h.length)} />
-        <HealthMiniFact label="Latest opening" value={latestWateringTime} />
+        <HealthMiniFact label="Openings in range" value={formatHealthInteger(visibleEvents.length)} />
+        <HealthMiniFact label="Latest opening" value={latest ? formatSettingsTimestamp(latest.t) : "None"} />
         <HealthMiniFact label="Visible pots" value={String(pairings.length)} />
-        <HealthMiniFact label="Loaded events" value={String(visibleEvents.length)} />
       </div>
-      <HealthWateringChart
-        events={visibleEvents}
-        pairings={pairings}
-        onSelectDetail={onSelectDetail}
-        windowOverride={windowOverride}
-      />
-      {shownWateringEvents.length ? (
-        <div className="health-event-list research-watering-list">
-          {shownWateringEvents.slice().reverse().slice(0, 8).map((event) => {
-            const duration = healthNumber(event.valveOpenTimeMs);
-            return (
-              <div
-                className="health-event-row"
-                key={`${event.id ?? event.t}-${event.pairing ?? wateringEventLabel(event)}-${event.t}`}
-              >
-                <strong>{wateringEventLabel(event)}</strong>
-                <span>{formatSettingsTimestamp(event.t)}</span>
-                <em>{duration == null ? "--" : `${Math.round(duration / 1000)} sec`}</em>
-              </div>
-            );
-          })}
+      <HealthWateringChart events={visibleEvents} pairings={pairings} experiment={experiment} onSelectDetail={onSelectDetail} windowOverride={windowOverride} onZoom={onZoom ? (bounds, pot) => { setPotFilter(pot); setPage(0); onZoom(bounds); } : undefined} />
+      <div className="watering-event-log">
+        <div className="watering-log-heading">
+          <h3>Individual openings</h3>
+          <select aria-label="Filter watering events by pot" value={activeFilter} onChange={event => { setPotFilter(event.target.value); setPage(0); }}>
+            <option value="all">All visible pots</option>
+            {pairings.map(pairing => <option key={pairing.name} value={pairingLabel(pairing)}>{pairingLabel(pairing)}</option>)}
+          </select>
         </div>
-      ) : null}
+        <div className="watering-log-columns" aria-hidden="true"><span>Pot</span><span>Opened (local time)</span><span>Duration</span></div>
+        {shownEvents.map((event, index) => <button type="button" className="watering-log-row" key={`${event.id ?? event.t}-${wateringEventLabel(event)}-${index}`} onClick={() => onSelectDetail(wateringDetail(event, pairings, experiment))}>
+          <strong>{wateringEventLabel(event)}</strong><span>{eventTime(event)}</span><span>{eventDuration(event)} <span aria-hidden="true">↗</span></span>
+        </button>)}
+        {!shownEvents.length ? <p className="watering-log-empty">No openings in this range.</p> : null}
+        <div className="watering-log-pagination">
+          <span role="status">{filteredEvents.length ? `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, filteredEvents.length)} of ${formatHealthInteger(filteredEvents.length)}` : "0 openings"}</span>
+          <button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Newer</button>
+          <button type="button" disabled={currentPage >= lastPage} onClick={() => setPage(currentPage + 1)}>Older</button>
+        </div>
+      </div>
     </section>
   );
 }
