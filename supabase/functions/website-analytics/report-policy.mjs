@@ -33,6 +33,21 @@ export const funnelSteps = [
   ["submitted", "Quote accepted"],
 ];
 
+/**
+ * Company website analytics and accepted-inquiry counts belong to the company's own
+ * staff, not to every tenant administrator: the caller must be an admin of the public
+ * intake project AND on that project's Sales & Support roster (sales_support_staff),
+ * the same boundary quote_requests already enforces through RLS.
+ *
+ * @param {{ intakeProjectId: string | null, adminRows?: Array<{ project_id?: string, role?: string }> | null, staffRows?: Array<{ project_id?: string }> | null }} input
+ */
+export function analyticsAccessAllowed({ intakeProjectId, adminRows, staffRows }) {
+  if (!intakeProjectId) return false;
+  const admin = (adminRows ?? []).some((row) => row?.project_id === intakeProjectId && row?.role === "admin");
+  const staff = (staffRows ?? []).some((row) => row?.project_id === intakeProjectId);
+  return admin && staff;
+}
+
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const dayMs = 86_400_000;
 

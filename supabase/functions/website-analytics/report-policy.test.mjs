@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  analyticsAccessAllowed,
   buildReportQueries,
   comparison,
   maxReportRows,
@@ -216,4 +217,18 @@ test("server inquiry records are left out of device-filtered reports, and a fail
   const journeys = valid({ report: "journeys" });
   assert.equal(shapeReport(journeys, [], { secondary: null }).beforeQuote, null);
   assert.deepEqual(shapeReport(journeys, [], { secondary: [] }).beforeQuote, []);
+});
+
+test("company analytics need an intake-project admin who is on the Sales & Support roster", () => {
+  const intakeProjectId = "22222222-2222-4222-8222-222222222222";
+  const tenantProjectId = "33333333-3333-4333-8333-333333333333";
+  const intakeAdmin = [{ project_id: intakeProjectId, role: "admin" }];
+  const staff = [{ project_id: intakeProjectId }];
+  assert.equal(analyticsAccessAllowed({ intakeProjectId, adminRows: intakeAdmin, staffRows: staff }), true);
+  assert.equal(analyticsAccessAllowed({ intakeProjectId, adminRows: [{ project_id: tenantProjectId, role: "admin" }], staffRows: [] }), false,
+    "an admin of another tenant project");
+  assert.equal(analyticsAccessAllowed({ intakeProjectId, adminRows: intakeAdmin, staffRows: [] }), false, "not on the roster");
+  assert.equal(analyticsAccessAllowed({ intakeProjectId, adminRows: [{ project_id: tenantProjectId, role: "admin" }], staffRows: staff }), false,
+    "on the roster without intake admin access");
+  assert.equal(analyticsAccessAllowed({ intakeProjectId: null, adminRows: intakeAdmin, staffRows: staff }), false, "no intake project configured");
 });

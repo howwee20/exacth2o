@@ -68,18 +68,8 @@ function timestamp(value) {
   return new Date(value).toISOString();
 }
 
-export function constantTimeSecretMatch(supplied, expected) {
-  if (typeof supplied !== "string" || typeof expected !== "string") return false;
-  const encoder = new TextEncoder();
-  const left = encoder.encode(supplied);
-  const right = encoder.encode(expected);
-  let difference = left.length ^ right.length;
-  const length = Math.max(left.length, right.length);
-  for (let index = 0; index < length; index += 1) {
-    difference |= (left[index] ?? 0) ^ (right[index] ?? 0);
-  }
-  return difference === 0;
-}
+// Shared by every secret-authenticated function; re-exported here for existing imports.
+export { constantTimeSecretMatch } from "../_shared/secret-compare.mjs";
 
 export function parseWalkerTelemetryEnvelope(value) {
   const payload = record(value);

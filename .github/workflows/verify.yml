@@ -61,6 +61,7 @@ jobs:
           node --test supabase/functions/manual-hold/hold-policy.test.mjs
           node --test supabase/functions/accept-invite/invite-role-policy.test.mjs
           node --test supabase/functions/_shared/abuse-prevention.test.mjs
+          node --test supabase/functions/_shared/secret-compare.test.mjs
           node --test supabase/functions/_shared/installation-config.test.mjs
           node --test supabase/functions/_shared/operation-ledger.test.mjs
           node --test supabase/functions/_shared/gas-mixer-native-policy.test.mjs
