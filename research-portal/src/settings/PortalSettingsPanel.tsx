@@ -1,7 +1,6 @@
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, Lock, LogOut, Menu, Radar, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationStudio } from "../CalibrationStudio";
-import { AutocalibrateWorkspace } from "../autocalibrate/AutocalibrateWorkspace";
 import { SettingsAssistant } from "../SettingsAssistant";
 import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
@@ -26,10 +25,6 @@ export type PortalSettingsPanelProps = {
   runtimeState: DeviceRuntimeState | null;
   configState: DeviceConfigState | null;
   pairings: PairingRow[];
-  /** Every pairing on the controller, for Autocalibrate's view of the whole installation. */
-  installationPairings?: PairingRow[];
-  /** Experiments on this controller, offered as quick selections in Autocalibrate. */
-  experiments?: readonly PortalExperiment[];
   visiblePotCount: number;
   csvDownload: CsvDownload | null;
   csvError: string | null;
@@ -76,8 +71,6 @@ export function PortalSettingsPanel({
   runtimeState,
   configState,
   pairings,
-  installationPairings,
-  experiments = [],
   visiblePotCount,
   csvDownload,
   csvError,
@@ -759,31 +752,6 @@ export function PortalSettingsPanel({
               </form>
             </section>
           </div>
-        </>
-      );
-    }
-
-    if (activeSection === "autocalibrate") {
-      // Valve pulses go through the control-command service; pairing and settings changes
-      // through the same reviewed settings batch as the rest of Settings.
-      return (
-        <>
-          {commandStatusPanel}
-          <AutocalibrateWorkspace
-            projectId={projectId}
-            deviceId={data.latestState?.device_id ?? runtimeState?.device_id ?? configState?.device_id ?? null}
-            operator={operatorEmail}
-            portalRole={portalRole}
-            scope={scope}
-            experiment={experiment}
-            experiments={experiments}
-            pairings={installationPairings ?? pairings}
-            configHash={configState?.config_hash?.trim() || null}
-            controllerState={runtimeStateIsFresh(runtimeState) ? runtimeState?.controller_state ?? null : null}
-            controllerOnline={controllerIsLive}
-            controlBusy={controlBusy}
-            onQueueSettingsPlan={onQueueSettingsPlan}
-          />
         </>
       );
     }

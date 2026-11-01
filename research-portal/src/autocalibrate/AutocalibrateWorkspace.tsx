@@ -57,6 +57,7 @@ export type AutocalibrateWorkspaceProps = {
   controlBusy: boolean;
   onQueueSettingsPlan: QueueSettingsPlan;
   fieldMap?: readonly FieldMapRow[];
+  headingLevel?: 1 | 2;
 };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -71,7 +72,7 @@ const steps: Array<{ stage: WorkspaceStage; label: string }> = [
 const needsEvidence = new Set(["interrupted", "failed", "analyzed", "applying", "applied", "verified", "rolled_back", "restoring", "running", "prepared"]);
 
 /**
- * Settings → Autocalibrate: the one place a researcher starts autocalibration. Works on
+ * The autocalibration workspace. Works on
  * a direct link: it loads the bench layout, pot records, readings and any open session
  * itself, and every step continues from the server's record of the session.
  */
@@ -90,6 +91,7 @@ export function AutocalibrateWorkspace(props: AutocalibrateWorkspaceProps) {
 }
 
 function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
+  const Title = props.headingLevel === 1 ? 'h1' : 'h2';
   const { projectId, deviceId, pairings: controllerPairings, configHash, operator } = props;
   const fieldMap = useMemo(() => props.fieldMap ?? installationFieldMap(projectId, deviceId), [props.fieldMap, projectId, deviceId]);
   const pairings = useMemo(() => physicalPairings(controllerPairings, fieldMap), [controllerPairings, fieldMap]);
@@ -387,7 +389,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
     <div className="commission ac-workspace">
       <header className="ac-head">
         <div>
-          <h2 className="ac-title">Autocalibrate</h2>
+          <Title className="ac-title">Autocalibrate</Title>
           <p className="settings-muted">
             Choose pots. Measure their response. Review the results.
           </p>

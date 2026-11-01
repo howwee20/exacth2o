@@ -71,6 +71,7 @@ import { loadLatestBenchLayout, loadPotBindings, recordBenchLayout, type BenchLa
 // reach researchers' browsers unless opened.
 const loadSettingsPanel = () => import("./settings/PortalSettingsPanel").then((module) => ({ default: module.PortalSettingsPanel }));
 const PortalSettingsPanel = lazyFeature(loadSettingsPanel);
+const AutocalibratePage = lazyFeature(() => import("./autocalibrate/AutocalibratePage").then((module) => ({ default: module.AutocalibratePage })));
 const ArchiveExperimentDialog = lazyFeature(() => import("./product/ArchiveExperimentDialog").then((module) => ({ default: module.ArchiveExperimentDialog })));
 const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
 const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
@@ -236,7 +237,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const route = usePortalRoute();
   const portalView: PortalView = route.view === "experiment" || route.view === "pot"
     ? "experiment"
-    : route.view === "health" || route.view === "support" || route.view === "walker" || route.view === "chamber" || route.view === "analytics" || route.view === "controller" || route.view === "account"
+    : route.view === "health" || route.view === "support" || route.view === "walker" || route.view === "chamber" || route.view === "analytics" || route.view === "controller" || route.view === "account" || route.view === "autocalibrate"
       ? route.view
       : "home";
   const setPortalView = useCallback((view: PortalView) => {
@@ -496,11 +497,17 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (activeProjectId && activeDeviceId) autocalRunStore.stopUnlessFor(activeProjectId, activeDeviceId);
   }, [activeProjectId, activeDeviceId]);
 
-  // ?settings=<section> opens Settings at that section; Settings → Autocalibrate is
-  // ?view=controller&settings=autocalibrate. The parameter is consumed once.
+  // Settings links open the requested section. Old Autocalibrate links now resolve
+  // to the dedicated page and retain a reloadable URL.
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return;
+    if (!sessionReady) return;
     const requested = settingsSectionFromSearch(window.location.search);
+    if (route.view === "autocalibrate") {
+      setSettingsOpen(false);
+      if (requested) navigatePortal({view: "autocalibrate"}, {replace: true});
+      return;
+    }
+    if (!canUseExperimentSettings) return;
     if (!requested) return;
     if (route.view !== "experiment" && route.view !== "controller") {
       navigatePortal({ view: "controller" }, { replace: true, extra: { settings: requested } });
@@ -3125,10 +3132,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     ? <FeatureBoundary name="Manual water" fallback={null}><ManualWaterPanel open onClose={() => setManualWaterOpen(false)} projectId={activeProjectId} deviceId={activeDeviceId} controllerName="Controller" initial={manualWaterTarget} /></FeatureBoundary>
     : null;
   const openAutocalibrate = () => {
-    if (route.view !== "experiment" && route.view !== "controller") navigatePortal({ view: "controller" });
-    setSettingsSection("autocalibrate");
-    prefetchSettings();
-    setSettingsOpen(true);
+    setSettingsOpen(false);
+    navigatePortal({ view: "autocalibrate" });
   };
   const productHeader = (
     <ProductHeader
@@ -3159,8 +3164,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       runtimeState={runtimeState}
       configState={configState}
       pairings={route.view === "controller" ? visiblePairings : sortedPairings}
-      installationPairings={visiblePairings}
-      experiments={availableExperiments}
       visiblePotCount={visiblePotCount}
       csvDownload={csvDownload}
       csvError={csvError}
@@ -3172,7 +3175,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       assistantInitialPrompt={settingsAssistantPrompt}
       operatorEmail={portalAccess.email ?? null}
       onClose={closeSettings}
-      onSectionChange={setSettingsSection}
+      onSectionChange={(section) => section === "autocalibrate" ? openAutocalibrate() : setSettingsSection(section)}
       onPrepareCsvDownload={prepareCsvDownload}
       onDownloadPairingsCsv={downloadPairingsCsv}
       onQueueCommand={queueControlCommand}
@@ -3220,6 +3223,24 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
   if (route.view === "account" && !isDemo) {
     return productShell(<FeatureBoundary name="Account"><AccountPage key={activeProjectId} access={portalAccess} /></FeatureBoundary>);
+  }
+  if (route.view === "autocalibrate" && canReadProjectData) {
+    return productShell(<FeatureBoundary name="Autocalibrate"><AutocalibratePage
+      projectId={activeProjectId}
+      deviceId={activeDeviceId || null}
+      operator={portalAccess.email ?? null}
+      portalRole={portalAccess.role}
+      experiment={selectedExperiment}
+      experiments={availableExperiments}
+      pairings={visiblePairings}
+      configHash={configState?.config_hash?.trim() || null}
+      controllerState={runtimeStateIsFresh(runtimeState) ? runtimeState?.controller_state ?? null : null}
+      controllerOnline={presence?.status === "online"}
+      controlBusy={controlBusy}
+      onQueueSettingsPlan={queueSettingsPlan}
+      error={controlError}
+      notice={controlNotice}
+    /></FeatureBoundary>);
   }
   if (route.view === "controller" && canReadProjectData) {
     return productShell(<section className="px-page">
@@ -3515,7 +3536,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }}
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }} extra={{ settings: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
+        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
       </div> : undefined}
       machines={!isDemo ? <>

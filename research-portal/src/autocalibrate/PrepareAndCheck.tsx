@@ -50,7 +50,7 @@ export function PrepareStep({ ctx }: { ctx: WorkspaceContext }) {
     setError(null);
     try {
       const queued = await ctx.queuePlan("prepare", buildPreparePlan(ctx.snapshot), { pairingNames: names }, "preparing");
-      if (!queued) setError("The change was not queued. See the message at the top of Settings, then try again.");
+      if (!queued) setError("The change was not queued. Check the message above, then try again.");
       setAck(false);
     } catch (nextError) {
       setError(messageOf(nextError));

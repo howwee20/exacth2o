@@ -72,7 +72,7 @@ Physical prechecks:
 - [ ] Pots are not freshly watered or saturated (below about 40% VWC).
 - [ ] Download "Pairings CSV" and photograph the bench labels before starting.
 
-In the portal (Settings → Autocalibrate, researcher or administrator):
+In the portal (Autocalibrate, researcher or administrator):
 
 1. Select pots on the overhead view: a zone, or **Select all 100**. Pots that cannot
    take part are hatched with the reason; fix or leave them. Mark pots whose wiring

@@ -1,8 +1,9 @@
-/* Settings → Autocalibrate. Builds on the Settings card, button and table styles and on
+/* Autocalibrate. Builds on the Settings card, button and table styles and on
    commissioning.css; the aerial view itself is styled in product/aerial.css. Every
    state is carried by text, shape or a glyph as well as colour. */
 
 .ac-workspace { gap: 16px; min-width: 0; }
+.px-page.ac-page { --settings-action: #356b8c; --settings-action-hover: #285874; width: min(1240px, 100%); }
 .ac-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .ac-title { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: #172033; }
 .ac-workspace .settings-card { min-height: 0; }

@@ -14,12 +14,13 @@ import type { SettingsSection } from "./portalTypes";
  *   /portal?view=pocket[&pot=<pot>][&note=1] At the bench
  *   /portal?view=health|support|walker|chamber|analytics
  *   /portal?view=controller[&settings=<section>]  Installation (and its Settings section)
+ *   /portal?view=autocalibrate                    Autocalibrate
  *
  * `project` is carried on every link so a copied URL resolves to the same project.
  */
 
 export type ExperimentTab = "overview" | "pots" | "record";
-export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account";
+export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account" | "autocalibrate";
 
 export type PortalRoute =
   | { view: "home" }
@@ -31,7 +32,7 @@ export type PortalRoute =
   | { view: "pocket"; pot: string | null; note: boolean }
   | { view: ToolView };
 
-const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics", "controller", "account"]);
+const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics", "controller", "account", "autocalibrate"]);
 const tabs = new Set<ExperimentTab>(["overview", "pots", "record"]);
 
 /** Keys that identify the account context and survive every navigation. */
@@ -48,7 +49,7 @@ const linkableSettings = new Set<SettingsSection>(["overview", "water", "pairing
 
 /**
  * The Settings section a link asks to open: `settings=<section>` on an experiment or
- * the installation (`?view=controller&settings=autocalibrate` is Settings → Autocalibrate).
+ * the installation. Legacy Autocalibrate settings links redirect to its dedicated page.
  */
 export function settingsSectionFromSearch(search: string): SettingsSection | null {
   const value = clean(new URLSearchParams(search).get("settings"));
@@ -60,6 +61,7 @@ export function parsePortalRoute(search: string): PortalRoute {
   const view = clean(params.get("view"));
   const experiment = clean(params.get("experiment"));
   const pot = clean(params.get("pot"));
+  if (params.get("settings") === "autocalibrate") return { view: "autocalibrate" };
   if (view && toolViews.has(view as ToolView)) return { view: view as ToolView };
   if (view === "trends") return { view: "trends" };
   if (view === "bench") return { view: "bench", pot };

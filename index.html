@@ -41,12 +41,11 @@
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css?v=20261014">
-<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
 <style>
 /* Opening: real equipment beside restrained type. */
 .cinema-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: min(740px, calc(100svh - 72px)); background: var(--bg-dark); color: #fff; overflow: hidden; }
 /* Left padding lines the copy up with the page column: 100% here is half the page. */
-.cinema-content { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 4rem clamp(1.5rem, 4vw, 4.5rem) 4rem max(var(--gutter), calc(100% - var(--content) / 2)); --ambient-color: 142 211 184; --ambient-opacity: .11; }
+.cinema-content { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 4rem clamp(1.5rem, 4vw, 4.5rem) 4rem max(var(--gutter), calc(100% - var(--content) / 2)); }
 .cinema-title { max-width: 10em; font-size: clamp(2.75rem, 4.5vw, 4.5rem); font-weight: 600; line-height: 1.06; letter-spacing: -.045em; }
 .cinema-title em { color: var(--mint); }
 .cinema-copy { max-width: 32rem; margin-top: 1.5rem; font-size: 1.1rem; line-height: 1.65; color: #c6d2cc; }
@@ -166,8 +165,18 @@
 .research-brief-meta { font-size: .875rem; line-height: 1.6; color: var(--muted); }
 .research-brief .text-link { flex: none; font-size: .9rem; }
 
+/* Compact footer and clearly labelled demonstration. */
+.one-pot-example-label { margin: 0; font-size: .8125rem; font-weight: 500; color: var(--muted); }
+.home-footer { display: flex; justify-content: space-between; align-items: center; gap: 2rem; padding: 2.5rem var(--gutter); }
+.home-footer .footer-brand { width: 168px; margin-left: -11px; }
+@media (max-width: 600px) {
+  .home-footer { align-items: flex-start; flex-direction: column; gap: 1.5rem; }
+  .home-footer .footer-details { align-items: flex-start; text-align: left; }
+  .home-footer .site-policy-links { justify-content: flex-start; }
+}
+
 /* Closing request */
-.cta-strip { overflow: hidden; padding: clamp(3.5rem, 6vw, 4.5rem) 1.5rem; text-align: center; background: #eef6fa; border-top: 1px solid #d9e8ef; --ambient-color: 38 125 184; --ambient-opacity: .28; }
+.cta-strip { overflow: hidden; padding: clamp(3.5rem, 6vw, 4.5rem) 1.5rem; text-align: center; background: var(--surface); border-top: 1px solid var(--rule); }
 .cta-strip h2 { margin-bottom: .75rem; font-size: 2rem; font-weight: 600; letter-spacing: -.03em; }
 .cta-strip p { margin-bottom: 2rem; font-size: 1rem; color: var(--muted); }
 
@@ -201,8 +210,6 @@
 </style>
 <script src="/site-navigation.js" defer></script>
 <script src="/one-pot-explainer.js?v=20261016-target-pill" defer></script>
-<script src="/site-ambient.js?v=20261015-2" defer></script>
-<script src="/site-brand-footer.js?v=20261014" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/">
@@ -239,9 +246,9 @@
 <main id="main-content">
 
 <section class="cinema-hero" aria-labelledby="cinema-title">
-  <div class="cinema-content" data-ambient>
-    <h1 class="cinema-title" id="cinema-title">Exactly the <em>Water</em><br>Your Plants Need</h1>
-    <p class="cinema-copy">Sensor-based irrigation for plant research and greenhouses. Monitor moisture, set targets, and review each pot’s history.</p>
+  <div class="cinema-content">
+    <h1 class="cinema-title" id="cinema-title">Automated irrigation<br>for plant research</h1>
+    <p class="cinema-copy">Set moisture targets for individual pots. ExactH2O uses sensor readings to control watering and records each pot’s moisture and irrigation history.</p>
     <div class="cinema-actions">
       <a class="cinema-button" href="#system">Explore the system</a>
       <a class="cinema-text-link" href="/quote">Request a quote</a>
@@ -257,11 +264,12 @@
     <div class="home-head">
       <div>
         <div class="section-label">How control works</div>
-        <h2 class="section-title" id="one-pot-title">One pot, your target</h2>
+        <h2 class="section-title" id="one-pot-title">How automatic watering works</h2>
       </div>
-      <p class="home-head-aside">Grab the target on the graph. See how watering responds over three simulated days.</p>
+      <p class="home-head-aside">Adjust the moisture target to see how watering responds.</p>
     </div>
     <div class="one-pot-card">
+      <p class="one-pot-example-label">Simulated example · three days</p>
       <div class="one-pot-controls">
         <label for="one-pot-target">Moisture target <strong id="one-pot-target-value">30%</strong></label>
         <input id="one-pot-target" type="range" min="15" max="40" step="1" value="30" aria-describedby="one-pot-result">
@@ -308,7 +316,6 @@
         <h2 class="section-title" id="system-title">Sensors, valves,<br>and a research portal.</h2>
       </div>
       <div class="home-head-aside">
-        <p>Moisture readings, irrigation history, and experiment records in one workspace.</p>
         <a class="text-link feature-link" href="/demo">Open demo <span aria-hidden="true">→</span></a>
       </div>
     </div>
@@ -317,22 +324,22 @@
         <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
           <img src="independent-irrigation-20261009-v2.jpg" alt="Valve manifold with individual irrigation lines" width="1086" height="1448" loading="lazy" decoding="async">
         </div>
-        <h3>Independent irrigation</h3>
-        <p>Set moisture thresholds for individual pots and record each valve opening.</p>
+        <h3>Individual pot control</h3>
+        <p>Set a moisture threshold for each pot and control its irrigation independently.</p>
       </article>
       <article class="feat-card">
         <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Enlarge the research portal preview">
           <img src="portal-preview-20261013.jpg" alt="ExactH2O research portal showing experiments and sensor readings" width="1728" height="940" loading="lazy" decoding="async">
         </div>
-        <h3>A complete experiment record</h3>
-        <p>Compare readings, review irrigation history, and export data from the portal.</p>
+        <h3>Experiment records</h3>
+        <p>View sensor readings and watering history, add field notes, and export your data.</p>
       </article>
       <article class="feat-card">
         <div class="feat-card-img" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
           <img src="sensor.avif?v=20260709-avif" alt="Soil moisture sensor installed beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
         </div>
-        <h3>Calibrated measurements</h3>
-        <p>Measure moisture, conductivity, and temperature with calibration for your growing media.</p>
+        <h3>Sensor measurements</h3>
+        <p>Measure moisture, temperature, and electrical conductivity. Calibrate moisture readings for your growing media.</p>
       </article>
     </div>
   </div>
@@ -345,7 +352,7 @@
     <div class="research-brief">
       <div>
         <p class="research-brief-label">Published research</p>
-        <h3 id="research-brief-title">Studying drought timing in switchgrass.</h3>
+        <h3 id="research-brief-title">Drought timing in switchgrass</h3>
         <p class="research-brief-meta">122 days · 4 watering treatments<br>Basyal et al., Journal of Experimental Botany, 2026</p>
       </div>
       <a class="text-link" href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study <span aria-hidden="true">↗</span></a>
@@ -353,29 +360,16 @@
   </section>
 </div>
 
-<section class="cta-strip" data-ambient="water" aria-labelledby="cta-title">
-  <h2 id="cta-title">Request a quote</h2>
-  <p>Plan a system for your facility.</p>
+<section class="cta-strip" aria-labelledby="cta-title">
+  <h2 id="cta-title">Discuss your setup</h2>
+  <p>Tell us about your growing setup, pot count, and irrigation requirements.</p>
   <a href="/quote" class="btn-primary">Request a quote</a>
 </section>
 
 </main>
 
-<footer>
-<div class="brand-finale" role="img" aria-label="ExactH2O">
-<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
-    <defs>
-      <pattern id="brand-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#a6b7ae"/></pattern>
-      <pattern id="brand-water-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#91e4d2"/></pattern>
-      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
-    </defs>
-    <g class="brand-finale-type">
-      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
-    </g>
-  </svg>
-  </div>
+<footer class="home-footer">
+  <a href="/" class="nav-logo footer-brand" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O" loading="lazy"></a>
   <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
     <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>

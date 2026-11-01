@@ -77,7 +77,7 @@ export function RestoreStep({ ctx, onBack }: { ctx: WorkspaceContext; onBack: ((
       }
       const plan = buildRestorePlan(scope.restore, currentValveKeys(ctx.pairings));
       const queued = await ctx.queuePlan("restore", plan, { pairingNames: scope.restore.map((pot) => pot.pairingName) }, "restoring");
-      if (!queued) setError("The restore was not queued. See the message at the top of Settings, then try again.");
+      if (!queued) setError("The restore was not queued. Check the message above, then try again.");
     } catch (nextError) {
       setError(messageOf(nextError));
     } finally {
