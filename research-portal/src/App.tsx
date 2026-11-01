@@ -1426,6 +1426,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               expected_controller_state: reviewedControllerState,
               batch_commands: batchCommands,
               operation_intent: plan.summary,
+              ...(/^Autocalibrat/i.test(plan.summary) ? { workflow: "autocalibration" } : {}),
             },
             signal,
           }),

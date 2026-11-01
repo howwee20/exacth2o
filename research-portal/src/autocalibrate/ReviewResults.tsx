@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { Download, Undo2 } from "lucide-react";
 import { buildRemapPlan, invertChanges, type ValveChange } from "../commissioning/topologyPlan";
 import type { CommissioningResult } from "../commissioning/types";
-import { AerialBench } from "../product/AerialBench";
+import { PhysicalPotMap } from './PhysicalPotMap';
+import { potAvailability } from './selection';
 import { StatusChip } from "../SettingsChrome";
 import { confidenceLevel } from "../topology/confidence";
 import type { PairingRow } from "../types";
@@ -180,8 +181,7 @@ function Review({ ctx, result }: { ctx: WorkspaceContext; result: CommissioningR
           <div><dt>Pots no valve reached</dt><dd>{counts.unclaimed}</dd></div>
         </dl>
         <p className="settings-muted">
-          A result means a sensor rose after a valve was commanded and the controller acknowledged it. Nothing has changed on the controller yet: the pairings stay as
-          they are until you approve and apply a change below, and even then physical delivery is confirmed only at the bench.
+          Results show which sensors responded to each pulse. Review changes below before applying them.
         </p>
         {references.length ? (
           referenceTrouble.length ? (
@@ -195,14 +195,7 @@ function Review({ ctx, result }: { ctx: WorkspaceContext; result: CommissioningR
             </div>
           ) : <p className="ac-notice is-ok">All {references.length} known-correct reference pots matched their recorded valves: the run's positive controls passed.</p>
         ) : null}
-        <AerialBench model={ctx.model} states={states} selected={selected} selectable={false} onInspect={ctx.inspect} label={`Results: ${counts.matched} match, ${counts.different} different, ${counts.unresolved} unresolved`} />
-        <ul className="ac-legend" aria-label="Legend">
-          <li><span className="ac-key is-matched" aria-hidden="true" />✓ Its recorded valve waters it</li>
-          <li><span className="ac-key is-changed" aria-hidden="true" />↔ A different valve waters it</li>
-          <li><span className="ac-key is-unresolved" aria-hidden="true" />? Unresolved or not reached</li>
-          <li><span className="ac-key is-failed" aria-hidden="true" />! Controller did not confirm the pulse</li>
-          <li>Select a pot for its evidence.</li>
-        </ul>
+        <PhysicalPotMap map={ctx.fieldMap ?? null} pairings={ctx.pairings} availability={potAvailability({pairings: ctx.pairings, lastReadingAt: null, nowMs: Date.now()})} states={states} selected={selected} />
       </section>
 
       <section className="settings-card ac-step" aria-labelledby="ac-changes-title">
@@ -301,10 +294,10 @@ function Review({ ctx, result }: { ctx: WorkspaceContext; result: CommissioningR
         {confirmed.length ? (
           <details className="ac-findings" open={weak.length > 0 && weak.length <= 20}>
             <summary><strong>Measured on their recorded valve</strong> · {confirmed.length}{weak.length ? ` (${weak.length} with weak or mixed evidence)` : ""}</summary>
-            <p className="settings-muted">These need no change. Their recorded pairing is consistent with the measurement; physical delivery is still confirmed at the bench.</p>
+            <p className="settings-muted">These measurements match the recorded valves.</p>
             {weak.length ? (
               <>
-                <p className="settings-muted">The evidence for these was weaker or mixed. Their pairings are not changed either way; check them at the bench before relying on them.</p>
+                <p className="settings-muted">Check these weaker results at the bench. Their pairings stay unchanged.</p>
                 <ul className="commission-plain">
                   {weak.map((proposal) => (
                     <li key={proposal.valveKey}>
@@ -329,19 +322,12 @@ function Review({ ctx, result }: { ctx: WorkspaceContext; result: CommissioningR
               {applyBatch?.readback === "verified" ? "Controller-verified" : applyBatch ? "In progress" : `${changes.length} approved`}
             </StatusChip>
           </div>
-          <ol className="ac-facts">
-            <li data-state={cycles.length ? "done" : "waiting"}><strong>Proposed</strong><span>measured by this run</span></li>
-            <li data-state={applyBatch || changes.length ? "done" : "waiting"}><strong>Approved</strong><span>{applyBatch ? `${applyBatch.changes?.length ?? 0} pots` : `${changes.length} pots selected above`}</span></li>
-            <li data-state={applyBatch?.readback === "verified" ? "done" : applyBatch ? "current" : "waiting"}><strong>Controller-verified</strong><span>the controller's own configuration read back</span></li>
-            <li data-state="waiting"><strong>Delivery confirmed</strong><span>an operator watches water reach each pot</span></li>
-          </ol>
           {!applyBatch || applyBatch.readback === "not_applied" ? (
             changes.length ? (
               <>
                 <p className="settings-muted">
-                  One controller command moves all {changes.length} pots to their measured valves in a single transaction, so a swap or a cycle never half-applies. Each pot keeps its name,
-                  group, settings and calibration; only its valve changes. The controller stops briefly, checks that its configuration still matches what you reviewed, applies
-                  the change and restarts. The previous valves are kept for rollback.
+                  Update the valves for these {changes.length} pots together. The controller briefly restarts, then reports the applied map.
+                  Previous valves remain available for rollback.
                 </p>
                 {[...preconditions, ...built.problems].map((problem) => <p className="settings-error-line" key={problem}>{problem}</p>)}
                 {built.plan && !preconditions.length ? (

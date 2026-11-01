@@ -16,7 +16,8 @@ import { SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import type { SettingsPlan } from "../settingsSpec";
 import type { PairingRow } from "../types";
 import { CheckStep, PrepareStep } from "./PrepareAndCheck";
-import { PotDetails } from "./PotDetails";
+import { PhysicalPotMap } from "./PhysicalPotMap";
+import { fieldSelectionBlockReason, installationFieldMap, physicalPairings, type FieldMapRow } from "./fieldMap";
 import { formatWhen, potName } from "./present";
 import { RestoreStep } from "./RestorePots";
 import { downloadJson, ReviewStep } from "./ReviewResults";
@@ -55,6 +56,7 @@ export type AutocalibrateWorkspaceProps = {
   controllerOnline: boolean;
   controlBusy: boolean;
   onQueueSettingsPlan: QueueSettingsPlan;
+  fieldMap?: readonly FieldMapRow[];
 };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -88,7 +90,9 @@ export function AutocalibrateWorkspace(props: AutocalibrateWorkspaceProps) {
 }
 
 function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
-  const { projectId, deviceId, pairings, configHash, operator } = props;
+  const { projectId, deviceId, pairings: controllerPairings, configHash, operator } = props;
+  const fieldMap = useMemo(() => props.fieldMap ?? installationFieldMap(projectId, deviceId), [props.fieldMap, projectId, deviceId]);
+  const pairings = useMemo(() => physicalPairings(controllerPairings, fieldMap), [controllerPairings, fieldMap]);
   const store = useMemo(() => createCommissioningStore({ projectId, deviceId }), [projectId, deviceId]);
   const readingsPorts = useMemo(() => createSupabasePorts({ projectId, deviceId }), [projectId, deviceId]);
   const runs = useAutocalRun();
@@ -232,7 +236,14 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
   // Readings checked more than ten minutes ago say nothing about the sensors now: a failed
   // or old check shows as "not checked", never as silent sensors.
   const readingsCurrent = readingsCheckedAt != null && nowMs - readingsCheckedAt < 10 * 60_000 ? lastReadingAt : null;
-  const availability = useMemo(() => potAvailability({ pairings, lastReadingAt: readingsCurrent, nowMs, heldBack }), [pairings, readingsCurrent, nowMs, heldBack]);
+  const availability = useMemo(() => {
+    const result = potAvailability({ pairings, lastReadingAt: readingsCurrent, nowMs, heldBack });
+    if (fieldMap) for (const pairing of pairings) {
+      const reason = fieldSelectionBlockReason([pairing], fieldMap);
+      if (reason) result.set(pairing.name, {...result.get(pairing.name)!, available: false, reason});
+    }
+    return result;
+  }, [pairings, readingsCurrent, nowMs, heldBack, fieldMap]);
   const confirmedNames = useMemo(() => confirmedReferences(pairings, bindings), [pairings, bindings]);
 
   // Experiment settings start with that experiment's pots selected.
@@ -290,6 +301,9 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
 
   const queuePlan = useCallback(async (kind: BatchKind, plan: SettingsPlan, extra: Partial<TrackedBatch> = {}, status?: SessionStatus) => {
     if (!configHash) throw new Error("The controller configuration copy is unavailable, so settings cannot be changed right now.");
+    const selection = sessionRef.current ? parseRecord(sessionRef.current).selection : [];
+    const scopeError = fieldSelectionBlockReason(selection.map(pot => ({valve_key: pot.valveKey})), fieldMap);
+    if (scopeError) throw new Error(scopeError);
     const queued = await props.onQueueSettingsPlan(plan, configHash);
     if (!queued) return null;
     const batch: TrackedBatch = {
@@ -298,13 +312,16 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
     };
     await update((record) => ({ record: withEvent(replaceBatch(record, batch), operator, `Queued: ${plan.summary}.`), ...(status ? { status } : {}) }));
     return batch;
-  }, [configHash, operator, props.onQueueSettingsPlan, update]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [configHash, operator, props.onQueueSettingsPlan, update, fieldMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createSession = async () => {
     setPreparing(true);
     setActionError(null);
     try {
       const pots = buildSelectedPots(pairings, selected, references);
+      if (pots.length < 2 || pots.some(pot => availability.get(pot.pairingName)?.available !== true)) throw new Error("Choose at least two ready pots.");
+      const scopeError = fieldSelectionBlockReason(pots.map(pot => ({valve_key: pot.valveKey})), fieldMap);
+      if (scopeError) throw new Error(scopeError);
       const names = pots.map((pot) => pot.pairingName);
       const { snapshot, carried } = carryForwardOriginals(snapshotPots(pairings, names), recent);
       const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
@@ -348,13 +365,15 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
 
   const snapshot = session ? parseSnapshot(session) : [];
   const record = session ? parseRecord(session) : null;
+  const fieldBlockReason = record ? fieldSelectionBlockReason(record.selection.map(pot => ({valve_key: pot.valveKey})), fieldMap) : null;
   const ctx: WorkspaceContext | null = session && record ? {
     projectId, deviceId, operator, role: props.portalRole, store, pairings, byName, potForSensor, model, bindings,
     configHash, controllerState: props.controllerState, controllerOnline: props.controllerOnline, controlBusy: props.controlBusy,
-    session, record, snapshot, result: runResult, resultLoading, resultError, loadResult, refresh, update, queuePlan,
+    session, record, snapshot, fieldMap, fieldBlockReason, result: runResult, resultLoading, resultError, loadResult, refresh, update, queuePlan,
     inspect: setInspected,
     showRestore: () => setRestoreView(true),
     openOutput: (valveKey) => {
+      if (fieldSelectionBlockReason([{valve_key: valveKey}], fieldMap)) return;
       const parsed = parseValveKey(valveKey);
       if (parsed) setManual({ mode: "solenoid", relayAddress: parsed.relayAddress, channel: parsed.channel });
     },
@@ -364,18 +383,13 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
   const lastClosed = recent.find((row) => !row.active && row.ended_at && nowMs - Date.parse(row.ended_at) < 6 * 3600_000) ?? null;
   const unsaved = finishedHere && !finishedHere.saved ? finishedHere : null;
 
-  const inspectedPairing = inspected ? byName.get(inspected) ?? null : null;
-  const recordedValve = inspected ? snapshot.find((pot) => pot.pairingName === inspected)?.valveKey ?? inspectedPairing?.valve_key ?? "" : "";
-  const evidence = live ? live.run.evidenceSoFar() : runResult?.evidence ?? [];
-
   return (
     <div className="commission ac-workspace">
       <header className="ac-head">
         <div>
           <h2 className="ac-title">Autocalibrate</h2>
           <p className="settings-muted">
-            Find which valve waters which pot across the whole installation: each selected valve is pulsed once, one at a time, while every selected sensor is watched.
-            Results are reviewed before anything changes, and each pot is restored to its own settings at the end.
+            Choose pots. Measure their response. Review the results.
           </p>
         </div>
         {session ? <StatusChip tone="info">Session {session.run_id.slice(-8)} · {session.pot_count} pots</StatusChip> : null}
@@ -394,7 +408,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
 
       {!props.controllerOnline ? <p className="ac-notice">The controller is offline or has not reported recently. Selection and review work; changes and runs wait until it reports again.</p> : null}
       {loadError ? <p className="settings-error-line" role="alert">Could not read autocalibration sessions: {loadError} <button type="button" className="ac-link" onClick={() => void load()}>Try again</button></p> : null}
-      {layoutError ? <p className="settings-muted">The recorded bench layout could not be read ({layoutError}); pots are drawn in the schematic arrangement.</p> : null}
+      {layoutError && !fieldMap ? <p className="settings-muted">Bench layout unavailable: {layoutError}</p> : null}
       {actionError ? <p className="settings-error-line" role="alert">{actionError}</p> : null}
       {unsaved ? (
         <div className="ac-interruption" role="alert">
@@ -409,7 +423,9 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
         </div>
       ) : null}
 
-      {!loaded ? <p className="settings-muted">Loading…</p> : !pairings.length ? (
+      {ctx && stage !== 'run' && stage !== 'review' ? <PhysicalPotMap map={fieldMap} pairings={pairings} availability={availability} selected={new Set(record?.selection.map(pot => pot.pairingName))} focusName={inspected} /> : null}
+      {fieldBlockReason ? <p className="settings-error-line" role="alert">{fieldBlockReason} This saved run cannot continue.</p> : null}
+      {!loaded ? <p className="settings-muted">Loading…</p> : !pairings.length && !fieldMap ? (
         <SettingsEmptyState title="No pairings reported">The controller has not reported any pairings, so there is nothing to calibrate yet.</SettingsEmptyState>
       ) : !ctx ? (
         <>
@@ -417,6 +433,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
           <SelectPots
             pairings={pairings}
             model={model}
+            fieldMap={fieldMap}
             availability={availability}
             selected={selected}
             onSelected={setSelected}
@@ -444,25 +461,6 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
               : stage === "restore" ? <RestoreStep ctx={ctx} onBack={restoreView && session?.status !== "restoring" ? () => setRestoreView(false) : null} />
                 : null}
 
-      {inspectedPairing ? (
-        <PotDetails
-          pairing={inspectedPairing}
-          onClose={() => setInspected(null)}
-          availability={availability.get(inspectedPairing.name)}
-          binding={bindings.find((binding) => binding.pairingName === inspectedPairing.name)}
-          original={snapshot.find((pot) => pot.pairingName === inspectedPairing.name)}
-          evidence={evidence}
-          proposal={runResult?.proposals.find((proposal) => proposal.valveKey === recordedValve)}
-          intoProposal={runResult?.proposals.find((proposal) => proposal.proposedSensorKey === inspectedPairing.sensor_key)}
-          unresolved={runResult?.unresolved.find((item) => item.valveKey === recordedValve)}
-          potForSensor={potForSensor}
-          onOpenOutput={ctx ? ctx.openOutput : (valveKey) => {
-            const parsed = parseValveKey(valveKey);
-            if (parsed) setManual({ mode: "solenoid", relayAddress: parsed.relayAddress, channel: parsed.channel });
-          }}
-          runInProgress={Boolean(live)}
-        />
-      ) : null}
       <ManualWaterPanel open={manual != null} onClose={() => setManual(null)} projectId={projectId} deviceId={deviceId} controllerName="Controller" initial={manual} />
     </div>
   );

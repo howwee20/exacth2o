@@ -21,79 +21,55 @@ async function shot(page: Page, info: TestInfo, name: string) {
 }
 
 const setSpeed = (page: Page, speed: number) => page.evaluate((value) => (window as unknown as { __setClockSpeed: (next: number) => void }).__setClockSpeed(value), speed);
-const overhead = (page: Page) => page.locator('.ax-overhead .ax-pot');
+const overhead = (page: Page) => page.locator('.ac-map-pot');
 
-test('the aerial view shows every pot; all 100, a zone, one pot and the keyboard all select', async ({ page }, info) => {
-  await page.setViewportSize({ width: 1366, height: 900 });
-  await page.goto(harness());
-  await expect(page.getByRole('heading', { name: 'Choose pots' })).toBeVisible();
+test('the saved field map has 100 pots and excludes unresolved and protected routes', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1366, height: 1000 });
+  await page.goto(harness('?field=1'));
   await expect(overhead(page)).toHaveCount(100);
-  await expect(page.getByText(/Pots 1–100 in the PicoGrid schematic arrangement/)).toBeVisible();
-  // The presentation composition: rows of 25, zone 1 interlocking with zone 2.
-  const row = async (pot: number) => Number(await page.locator(`.ax-overhead .ax-pot[data-pot="${pot}"]`).evaluate((node) => getComputedStyle(node).gridRowStart));
-  expect([await row(1), await row(13), await row(14), await row(26), await row(38), await row(51), await row(100)]).toEqual([1, 1, 2, 1, 2, 3, 4]);
-
-  await page.getByRole('button', { name: 'Select all 100' }).click();
-  await expect(page.getByText('100 of 100 selected')).toBeVisible();
-  await expect(page.locator('.ac-summary')).toContainText('Pots 1–100');
-  await shot(page, info, 'aerial-selection-all-100');
-
-  await page.getByRole('button', { name: /^Zone 2: 25 of 25 selected/ }).first().click();
-  await expect(page.getByText('75 of 100 selected')).toBeVisible();
+  for (const pot of [63, 87, 88, 89, 90]) {
+    await expect(page.locator(`.ac-map-pot[data-pot="${pot}"]`)).toHaveClass(/is-excluded/);
+    await expect(page.locator(`.ac-map-pot[data-pot="${pot}"]`)).toHaveAttribute('aria-disabled', 'true');
+  }
+  for (let pot = 65; pot <= 76; pot++) await expect(page.locator(`.ac-map-pot[data-pot="${pot}"]`)).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.ac-map-pot[data-pot="83"]')).toHaveAttribute('aria-label', /output 84, 0x20:36/);
+  await expect(page.locator('.ac-map-pot[data-pot="84"]')).toHaveAttribute('aria-label', /output 83, 0x20:35/);
+  await expect(page.locator('.ac-map-pot[data-pot="86"]')).toHaveAttribute('aria-label', /output 96, 0x20:48/);
+  await expect(page.locator('.ac-map-pot[data-pot="100"]')).toHaveAttribute('aria-label', /output 90, 0x20:42/);
+  await page.getByRole('button', { name: 'Select all ready (83)' }).click();
+  await expect(page.getByText('83 selected', { exact: true })).toBeVisible();
+  await expect(page.locator('.ac-map-pot.is-selected')).toHaveCount(83);
+  await expect(page.locator('.ac-map-pot.is-selected.is-protected, .ac-map-pot.is-selected.is-excluded')).toHaveCount(0);
+  await shot(page, info, 'field-map-selection');
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
-  await expect(page.getByText('0 of 100 selected')).toBeVisible();
-
-  const first = page.locator('.ax-overhead .ax-pot[data-pot="1"]');
-  await first.click();
+  const first = page.locator('.ac-map-pot[data-pot="1"]');
+  await first.press('Space');
   await expect(first).toHaveAttribute('aria-pressed', 'true');
-  await first.press('ArrowRight');
-  await expect(page.locator('.ax-overhead .ax-pot[data-pot="2"]')).toBeFocused();
-  await page.keyboard.press('Space');
-  await expect(page.locator('.ax-overhead .ax-pot[data-pot="2"]')).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('ArrowDown');
-  await expect(page.locator('.ax-overhead .ax-pot[data-pot="15"]')).toBeFocused();
-  await expect(page.getByText('2 of 100 selected')).toBeVisible();
-  // Details open from the keyboard too.
-  await page.keyboard.press('i');
-  await expect(page.getByRole('dialog', { name: /Pot 15/ })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: /Pot 15/ })).toContainText('Zone1-Pot15');
 });
 
-test('phone: one zone at a time with full-size touch targets', async ({ browser }, info) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
-  const page = await context.newPage();
-  await page.route('**/*.supabase.co/**', (route) => route.abort());
-  await page.goto(harness());
-  await expect(page.getByRole('heading', { name: 'Choose pots' })).toBeVisible();
-  await expect(page.locator('.ax-overhead')).toBeHidden();
-  const compact = page.locator('.ax-compact .ax-pot');
-  await expect(compact).toHaveCount(100);
-  const box = await compact.first().boundingBox();
+test('phone: the full pot map has readable touch targets and no horizontal overflow', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(harness('?field=1'));
+  await expect(overhead(page)).toHaveCount(100);
+  const box = await overhead(page).first().boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);
-  await compact.nth(0).tap();
-  await compact.nth(30).tap();
-  await expect(page.getByText('2 of 100 selected')).toBeVisible();
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await overhead(page).first().click();
+  await expect(page.getByText('1 selected', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-  await page.getByRole('button', { name: 'Select all 100' }).tap();
-  await expect(page.getByText('100 of 100 selected')).toBeVisible();
-  await shot(page, info, 'aerial-selection-phone');
-  await context.close();
+  await shot(page, info, 'field-map-phone');
 });
 
-test('pots that cannot take part are drawn as unavailable and say why', async ({ page }) => {
+test('unavailable sensors explain why they cannot be selected', async ({ page }) => {
   await page.goto(harness('?preset=issues'));
-  await expect(page.getByRole('heading', { name: 'Choose pots' })).toBeVisible();
-  const silent = page.locator('.ax-overhead .ax-pot[data-pot="47"]');
+  const silent = page.locator('.ac-map-pot[data-pot="47"]');
   await expect(silent).toHaveAttribute('aria-disabled', 'true');
-  await expect(silent).toHaveAttribute('aria-label', /unavailable: No reading from sensor/);
-  await expect(page.locator('.ax-overhead .ax-pot[data-pot="98"]')).toHaveAttribute('aria-label', /also configured on Zone4-Pot99/);
-  // Tapping an unavailable pot selects nothing (force: the control is aria-disabled on purpose).
+  await expect(silent).toHaveAttribute('aria-label', /No reading from sensor/);
+  await expect(page.locator('.ac-map-pot[data-pot="98"]')).toHaveAttribute('aria-label', /also configured on Zone4-Pot99/);
   await silent.click({ force: true });
-  await expect(page.getByText('0 of 100 selected')).toBeVisible();
-  await page.getByRole('button', { name: /Select all 97/ }).click();
-  await expect(page.getByText('97 of 100 selected')).toBeVisible();
-  await page.getByText('3 pots cannot take part right now').click();
-  await expect(page.locator('.ac-unavailable')).toContainText('Pot 47');
+  await expect(page.getByText('0 selected', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Select all ready (97)' }).click();
+  await expect(page.getByText('97 selected', { exact: true })).toBeVisible();
 });
 
 test('a viewer is told that operator access is required', async ({ page }) => {
@@ -107,8 +83,8 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   test.setTimeout(8 * 60_000);
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(harness());
-  await page.getByRole('button', { name: 'Select all 100' }).click();
-  await page.getByRole('button', { name: 'Continue with 100 pots' }).click();
+  await page.getByRole('button', { name: 'Select all ready (100)' }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Prepare 100 pots' })).toBeVisible();
   await page.getByText('I understand these 100 pots will not be watered automatically').click();
   await page.getByRole('button', { name: /Queue the change: prepare 100 pots/ }).click();
@@ -144,6 +120,7 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await expect(page.locator('.ac-cycles')).toContainText('Swap: Pot 31 ↔ Pot 32');
   await expect(page.locator('.ac-cycles')).toContainText(/Cycle of 3: Pot 55 → Pot 5[67] → Pot 5[67] → Pot 55/);
   await expect(page.getByText(/Unresolved valves \(1\)/)).toBeVisible();
+  for (const ack of await page.getByRole('checkbox', {name: /^I checked .* at the bench:/}).all()) await ack.check();
   for (let index = 0; index < 3; index += 1) await cycles.nth(index).locator('.ac-cycle-head input').check();
   await page.getByRole('textbox', { name: /Type APPLY 7 VALVE CHANGES/ }).fill('APPLY 7 VALVE CHANGES');
   await page.getByRole('button', { name: 'Queue the change: 7 pots' }).click();
@@ -168,7 +145,7 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   expect(restored.filter((pairing) => pairing.name !== 'Zone4-Pot80').every((pairing) => pairing.wtc_percent_limit >= 22 && pairing.measurement_interval_ms === 600_000)).toBe(true);
   expect(restored.find((pairing) => pairing.name === 'Zone4-Pot80')?.wtc_percent_limit).toBeLessThan(0);
   // Ready for another session: every pot can take part again.
-  await expect(page.getByRole('button', { name: 'Select all 100' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Select all ready (100)' })).toBeVisible();
   await shot(page, info, 'restored');
 });
 
@@ -176,8 +153,8 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   test.skip(browserName !== 'chromium', 'One engine is enough for the simulated run.');
   test.setTimeout(4 * 60_000);
   await page.goto(harness());
-  for (const pot of [1, 2, 3, 4, 5, 6]) await page.locator(`.ax-overhead .ax-pot[data-pot="${pot}"]`).click();
-  await page.getByRole('button', { name: 'Continue with 6 pots' }).click();
+  for (const pot of [1, 2, 3, 4, 5, 6]) await page.locator(`.ac-map-pot[data-pot="${pot}"]`).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByText('I understand these 6 pots will not be watered automatically').click();
   await page.getByRole('button', { name: /Queue the change: prepare 6 pots/ }).click();
   await setSpeed(page, 30);
@@ -218,14 +195,14 @@ test('partial live inventory and obsolete layout still show all 100 slots withou
   await page.goto(harness('?preset=partial'));
   await expect(overhead(page)).toHaveCount(100);
   await expect(page.locator('.ac-unplaced')).toHaveCount(0);
-  const missing = page.locator('.ax-overhead .ax-pot[data-pot="1"]');
+  const missing = page.locator('.ac-map-pot[data-pot="1"]');
   await expect(missing).toHaveAttribute('aria-disabled', 'true');
-  await expect(missing).toHaveAttribute('aria-label', /Not configured on the controller/);
+  await expect(missing).toHaveAttribute('aria-label', /sensor not linked/);
   await missing.click({ force: true });
-  await expect(page.getByText('0 of 2 selected')).toBeVisible();
-  await page.getByRole('button', { name: 'Select all 2', exact: true }).click();
-  await expect(page.getByText('2 of 2 selected')).toBeVisible();
-  await expect(page.locator('.ax-overhead .ax-pot[data-pot="65"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.ax-overhead .ax-pot[data-pot="100"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('0 selected', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Select all ready (2)', exact: true }).click();
+  await expect(page.getByText('2 selected', { exact: true })).toBeVisible();
+  await expect(page.locator('.ac-map-pot[data-pot="65"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.ac-map-pot[data-pot="100"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(missing).toHaveAttribute('aria-pressed', 'false');
 });

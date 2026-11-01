@@ -101,8 +101,8 @@ export function RestoreStep({ ctx, onBack }: { ctx: WorkspaceContext; onBack: ((
         </p>
       ) : null}
       <p className="settings-muted">
-        Each pot gets back its own target, pulse length and measurement interval exactly as recorded at {new Date(ctx.session.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })},
-        on the valve the controller now reports for it. One controller command restores them all; the controller's readback confirms each value.
+        Restore each pot’s target, pulse length and measurement interval saved at {new Date(ctx.session.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.
+        The controller will confirm the restored settings.
       </p>
       {scope.heldBack.length ? (
         <div className="ac-findings">

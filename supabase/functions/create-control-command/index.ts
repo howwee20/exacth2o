@@ -7,6 +7,7 @@ import {
 } from "./command-policy.mjs";
 import { controllerCommandTypes } from "../_shared/platform-capabilities.mjs";
 import { MAX_TOPOLOGY_PAYLOAD_BYTES, validateRemapPayload, validateRestorePayload } from "./topology-policy.mjs";
+import { assertAutocalibrationCommandsAllowed, isFieldInstallation } from '../_shared/installation-field-map.mjs';
 import {
   ensureApprovedOperation,
   markOperationFailed,
@@ -40,6 +41,7 @@ type ControlCommandPayload = {
   experiment_id?: string | null;
   operation_id?: string | null;
   operation_intent?: string | null;
+  workflow?: string | null;
   command_type?: CommandType;
   payload?: unknown;
   batch_commands?: Array<{
@@ -506,6 +508,14 @@ serve(async (request) => {
     return jsonResponse({ error: "Experiment settings access is required for portal controls" }, 403, origin);
   }
 
+  const autocalibrating = body.workflow === 'autocalibration' || /^Autocalibrat/i.test(operationIntent);
+  const guardAutocalibration = async (commands: Array<{command_type?: string; commandType?: string; payload: Record<string, unknown>}>) => {
+    if (!autocalibrating || !isFieldInstallation(projectId, deviceId)) return;
+    const {data, error} = await admin.from('device_config_state').select('pairings').eq('project_id', projectId).eq('device_id', deviceId).maybeSingle();
+    if (error || !Array.isArray(data?.pairings)) throw new Error('The current valve map could not be checked.');
+    assertAutocalibrationCommandsAllowed({projectId, deviceId, commands, pairings: data.pairings});
+  };
+
   if (isBatchRequest) {
     const expectedConfigHash = clean(body.expected_config_hash, 128);
     const expectedControllerState = clean(body.expected_controller_state, 24).toLowerCase();
@@ -562,6 +572,7 @@ serve(async (request) => {
           requires_confirmation: item.requiresConfirmation,
         });
       }
+      await guardAutocalibration(validatedBatch);
     } catch (error) {
       return jsonResponse({ error: errorMessage(error) }, 400, origin);
     }
@@ -649,6 +660,11 @@ serve(async (request) => {
   const accessDecision = commandAccessDecision(access.role, validated.commandType);
   if (!accessDecision.allowed) {
     return jsonResponse({ error: accessDecision.error }, accessDecision.status, origin);
+  }
+  try {
+    await guardAutocalibration([{commandType: validated.commandType, payload: validated.payload}]);
+  } catch (error) {
+    return jsonResponse({error: errorMessage(error)}, 409, origin);
   }
 
   const now = new Date().toISOString();

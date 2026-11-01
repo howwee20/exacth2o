@@ -1266,7 +1266,7 @@ export function PortalSettingsPanel({
           </div>
         </aside>
         <section className={`settings-content is-${activeSection}`}>
-          <header className="settings-content-header">
+          {activeSection !== "autocalibrate" ? <header className="settings-content-header">
             <div>
               <p className="settings-content-eyebrow">{scope === "installation" ? "Installation settings" : `${experiment.name} · Experiment settings`}</p>
               <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
@@ -1279,7 +1279,7 @@ export function PortalSettingsPanel({
             <div className="settings-content-actions">
               {scope === "installation" ? <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip> : null}
             </div>
-          </header>
+          </header> : null}
           <div className="settings-section-body">
             {renderSection()}
           </div>
