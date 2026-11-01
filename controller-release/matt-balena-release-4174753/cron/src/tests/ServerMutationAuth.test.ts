@@ -92,6 +92,29 @@ describe('cron mutation authentication', () => {
   })
 })
 
+describe('48-channel timed pulse boards', () => {
+  it('accepts the last configured channel and rejects channels outside the board', async () => {
+    const previous = process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET
+    process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET = 'isolated-pulse-test-secret'
+    const pulseManualValve = jest.fn(async () => ({ status: 'open' }))
+    const machine = { pulseManualValve } as unknown as StateMachine
+    const server = createServer(machine, { environment: 'test', port: 3000, apiURL: 'http://unused', pathPrefix: 'v1' })
+    const headers = { 'x-exacth2o-controller-secret': 'isolated-pulse-test-secret' }
+    const payload = { relayAddress: 36, address: 48, durationMilliseconds: 2000, pulseId: 'range-check', commandId: 'range-check' }
+    try {
+      expect((await server.inject({ method: 'POST', url: '/v1/valves/pulse', headers, payload })).statusCode).toBe(202)
+      for (const address of [0, 49]) {
+        expect((await server.inject({ method: 'POST', url: '/v1/valves/pulse', headers, payload: { ...payload, address } })).statusCode).toBe(400)
+      }
+      expect(pulseManualValve).toHaveBeenCalledTimes(1)
+    } finally {
+      await server.close()
+      if (previous === undefined) delete process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET
+      else process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET = previous
+    }
+  })
+})
+
 describe('manual hold authentication', () => {
   it('requires the dedicated server secret and validates the valve route', async () => {
     const previous=process.env.EXACTH2O_MANUAL_HOLD_SECRET;

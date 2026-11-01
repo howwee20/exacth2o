@@ -153,7 +153,7 @@ export function createServer(stateMachine: StateMachine, options: { environment:
     if (!Number.isInteger(relayAddress) || relayAddress < 0 || relayAddress > 0x7f) {
       return reply.status(400).send({ message: 'relayAddress is invalid' })
     }
-    if (!Number.isInteger(address) || address < 1 || address > 32) {
+    if (!Number.isInteger(address) || address < 1 || address > 48) {
       return reply.status(400).send({ message: 'address is invalid' })
     }
     if (!Number.isInteger(durationMilliseconds) || durationMilliseconds < 1 || durationMilliseconds > 60_000) {

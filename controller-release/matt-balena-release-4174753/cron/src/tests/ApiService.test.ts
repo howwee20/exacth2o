@@ -27,4 +27,21 @@ describe('ApiService mutation authentication', () => {
       }),
     )
   })
+
+  it('fetches valve inventory once when the hold requests no retries', async () => {
+    const valves = [{ relayAddress: '0x24', address: 1 }]
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => valves })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(new ApiService('http://api_svc:8888').fetchData('/v1/valves', { timeoutMs: 1500, retries: 0 })).resolves.toEqual(valves)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects unavailable inventory after one attempt when retries are disabled', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 503, statusText: 'Unavailable' })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(new ApiService('http://api_svc:8888').fetchData('/v1/valves', { timeoutMs: 1500, retries: 0 })).rejects.toThrow('503 Unavailable')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })

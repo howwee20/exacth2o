@@ -28,7 +28,8 @@ export class ApiService {
 
   async fetchData(endpoint: string, options?: {timeoutMs: number, retries: number}) {
     const url = `${this.apiURL}${endpoint}`
-    const retries = options?.retries ?? parsePositiveInt(process.env.API_FETCH_RETRIES, 1)
+    // A no-retry request still needs its initial attempt (manual holds use zero).
+    const retries = Math.max(1, options?.retries ?? parsePositiveInt(process.env.API_FETCH_RETRIES, 1))
     const retryDelayMs = parsePositiveInt(process.env.API_FETCH_RETRY_DELAY_MS, 2000)
     let lastError: unknown
 
