@@ -409,7 +409,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     ),
     [selectedExperiment, sortedPairings, fullExperimentValveEvents],
   );
-  const selectPot = useCallback((name: string) => {setSelectedSeriesName(name);navigatePortal({view:"experiment",experiment:selectedExperiment.id,tab:"pots",pot:name});}, [selectedExperiment.id]);
   const groupVisibleNameSets = useMemo(
     () => new Map(selectedExperimentGraphGroups.map((group) => [group.id, new Set(group.pairingNames)])),
     [selectedExperimentGraphGroups],
@@ -2985,7 +2984,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   visibleNames={chartVisibleNames}
                   selectedName={selectedSeriesName}
                   viewMode="traces"
-                  onSelectSeries={selectPot}
+                  onSelectSeries={setSelectedSeriesName}
                   loading={loading && !series.some((item) => item.points.length)}
                   xDomain={selectedVwcTimeBounds}
                   wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : undefined}
