@@ -1,0 +1,94 @@
+/* ---------------------------------------------------------------- notes */
+
+.px-note-form { display: grid; gap: 10px; }
+.px-note-label { font-weight: 600; }
+.px-note-form textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--px-rule-strong);
+  border-radius: 8px;
+  background: var(--px-white);
+  color: var(--px-ink);
+  font: 400 15px/1.45 var(--px-sans);
+  resize: vertical;
+}
+.px-note-form.is-large textarea { min-height: 160px; font-size: 17px; }
+.px-note-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.px-note-tags button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--px-rule-strong);
+  border-radius: 999px;
+  background: var(--px-white);
+  color: var(--px-ink);
+  font: 500 13px var(--px-sans);
+  cursor: pointer;
+}
+.px-note-tags button[aria-pressed="true"] { background: var(--px-ink); border-color: var(--px-ink); color: #fff; }
+.px-note-form.is-large .px-note-tags button { min-height: 44px; font-size: 14px; }
+.px-note-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.px-notes { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.px-note { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--px-rule); border-radius: 8px; background: var(--px-white); }
+.px-note.is-pending, .px-note.is-sending { border-style: dashed; border-color: var(--px-amber-line); background: var(--px-amber-soft); }
+.px-note.is-failed { border-color: var(--px-red-line); background: var(--px-red-soft); }
+.px-note.is-superseded .px-note-body { color: var(--px-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.px-note-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.px-note-tags-line { margin: 0; color: var(--px-water); font-size: 13px; font-weight: 600; }
+.px-note-meta { margin: 0; color: var(--px-muted); font-size: 12.5px; }
+.px-note.is-failed .px-note-meta b { color: var(--px-red); }
+.px-note.is-pending .px-note-meta b, .px-note.is-sending .px-note-meta b { color: var(--px-amber); }
+.px-link-button { justify-self: start; padding: 0; border: 0; background: none; color: var(--px-water); font: 600 13px var(--px-sans); cursor: pointer; }
+.px-link-button:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------- bench */
+
+.px-schematic-mark { display: inline-block; width: 16px; height: 10px; margin-right: 6px; border: 1.5px dashed var(--px-muted); border-radius: 2px; vertical-align: middle; }
+.px-benches { display: grid; gap: 16px; }
+.px-bench {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--px-rule-strong);
+  border-radius: 10px;
+  background-color: #f7f4ee;
+  background-image: linear-gradient(rgba(14, 26, 20, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 26, 20, 0.035) 1px, transparent 1px);
+  background-size: 23px 23px;
+  overflow-x: auto;
+}
+.px-bench-grid { display: grid; gap: 6px; min-width: min-content; }
+.px-bench-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  min-width: 44px;
+  min-height: 48px;
+  padding: 4px;
+  border: 1px solid var(--px-rule-strong);
+  border-radius: 8px;
+  background: var(--px-white);
+  color: var(--px-ink);
+  text-decoration: none;
+}
+.px-bench-cell b { font: 500 12px var(--px-mono); }
+.px-bench-cell:hover { border-color: var(--px-water); }
+.px-bench-cell.is-silent { border-style: dashed; border-color: #8a7f6c; background: repeating-linear-gradient(45deg, #fff, #fff 4px, #e3ddd0 4px, #e3ddd0 7px); }
+.px-bench-cell.is-dim { opacity: 0.25; }
+.px-bench-cell.is-match { outline: 3px solid var(--px-ink); outline-offset: 2px; }
+.px-bench-x { position: absolute; top: 1px; right: 4px; color: var(--px-amber); font-weight: 700; font-size: 13px; }
+.px-bench-board { font: 500 9.5px var(--px-mono); color: var(--px-muted); }
+.px-swatch-cell { display: inline-block; width: 18px; min-width: 18px; height: 14px; min-height: 14px; padding: 0; }
+.px-recorder { display: grid; gap: 10px; padding: 14px 16px; }
+.px-recorder input, .px-recorder select {
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--px-rule-strong);
+  border-radius: 6px;
+  background: var(--px-white);
+  color: var(--px-ink);
+  font: 500 13px var(--px-sans);
+}
+.px-recorder input[type="number"] { width: 72px; }

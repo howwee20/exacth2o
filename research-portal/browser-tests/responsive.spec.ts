@@ -14,12 +14,12 @@ for (const size of sizes) test(`page fit ${size.width}`, async ({page}, info) =>
     await page.goto(route);
     await expect(page.locator(route === '/portal' ? 'h2' : 'h1').first()).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-    const close = page.getByRole('button',{name:'Export',exact:true});
+    const exportButton = page.locator('.px-exp-head').getByRole('button',{name:'Export',exact:true});
     if (route==='/demo?experiment=experiment-2') {
       await openComparisons(page);
       await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
       await expect(page.getByText('Toggle a pot to compare. Open its details with the arrow.')).toHaveCount(0);
-      await close.click();
+      await exportButton.click();
       await expect(page.getByRole('dialog')).toBeVisible();
       expect(await page.getByRole('dialog').evaluate(el => el.getBoundingClientRect().right <= innerWidth + 1)).toBe(true);
       await page.keyboard.press('Escape');
