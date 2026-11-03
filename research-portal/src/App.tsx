@@ -544,11 +544,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setExperimentCatalog([]);
       return;
     }
+    const scope = scopeKeyRef.current;
     try {
       const catalog = await loadPortalExperimentCatalog(activeProjectId);
+      if (scope !== scopeKeyRef.current) return;
       setExperimentCatalog(catalog);
       setExperimentCatalogError(null);
     } catch (nextError) {
+      if (scope !== scopeKeyRef.current) return;
       setExperimentCatalogError(errorMessage(nextError));
     }
   }, [activeProjectId, canReadProjectData]);
@@ -582,7 +585,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     }
   }, [expirePortalSession]);
 
+  const [accessCheckError, setAccessCheckError] = useState<string | null>(null);
   const loadPortalAccess = useCallback(async () => {
+    setAccessCheckError(null);
     setAccessLoading(true);
     try {
       const queryAccess = async () => {
@@ -620,9 +625,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             check_device_id: "gas-mixer:b827eb548a44",
             check_capability: "remote_view",
           }), portalAccessTimeoutMs, "Gas mixer access",
-        );
-        if (mixerAccess.error) throw mixerAccess.error;
-        const gas_mixer_allowed = mixerAccess.data === true;
+        ).catch(() => null);
+        const gas_mixer_allowed = mixerAccess?.error == null && mixerAccess?.data === true;
         // A failed capability check hides only the inbox; research access remains usable.
         const supportAccess = accessRow.role === "admin" ? await withSupabaseTimeout(
           supabase.rpc("is_sales_support_staff", { check_project_id: accessRow.project_id }),
@@ -689,6 +693,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         expirePortalSession();
         return;
       }
+      setAccessCheckError("We could not check your portal access. Please retry.");
       setPortalAccess(null);
       setExperimentCatalog([]);
       setExperimentBuilderOpen(false);
@@ -706,6 +711,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setHealthError(null);
     }
 
+    const scope = scopeKeyRef.current;
     try {
       const response = await withSupabaseTimeout(
         supabase
@@ -720,11 +726,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         "Health snapshot",
       );
 
+      if (scope !== scopeKeyRef.current) return;
       if (response.error) throw response.error;
       const snapshots = (response.data ?? []) as DeviceHealthSnapshot[];
       setHealthHistory(snapshots);
       setHealthSnapshot(selectHealthSnapshot(snapshots));
     } catch (err) {
+      if (scope !== scopeKeyRef.current) return;
       if (!silent) setHealthError(errorMessage(err));
     }
   }, [activeDeviceId, activeProjectId, isAdmin]);
@@ -736,6 +744,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       return;
     }
 
+    const scope = scopeKeyRef.current;
     try {
       const [runtimeResponse, configResponse] = await Promise.all([
         withSupabaseTimeout(
@@ -760,6 +769,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         ),
       ]);
 
+      if (scope !== scopeKeyRef.current) return;
       if (!runtimeResponse.error) {
         setRuntimeState((runtimeResponse.data ?? null) as DeviceRuntimeState | null);
       }
@@ -922,6 +932,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const runPortalRefresh = useCallback(
     async ({ incremental }: RefreshOptions) => {
       if (!activeProjectId || !activeDeviceId) return;
+      const scope = scopeKeyRef.current;
       const token = loadTokenRef.current + 1;
       loadTokenRef.current = token;
       setError(null);
@@ -990,7 +1001,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           previous.latestIngestTime ??
           null;
 
-        if (token !== loadTokenRef.current) return;
+        if (token !== loadTokenRef.current || scope !== scopeKeyRef.current) return;
         const startedAtMs = Date.now();
 
         let pairingsData = pairingsFromDeviceConfigState(
@@ -1009,7 +1020,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             "Legacy pairings",
           );
           if (legacyPairings.error) throw legacyPairings.error;
-          if (token !== loadTokenRef.current) return;
+          if (token !== loadTokenRef.current || scope !== scopeKeyRef.current) return;
           pairingsData = (legacyPairings.data ?? []) as PairingRow[];
         }
         pairingsData = visibleExperimentPairings(pairingsData);
@@ -1035,7 +1046,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         }));
 
         const applyReadingsBatch = (incomingReadings: SensorReading[]) => {
-          if (token !== loadTokenRef.current || incomingReadings.length === 0) return;
+          if (token !== loadTokenRef.current || scope !== scopeKeyRef.current || incomingReadings.length === 0) return;
           setData((current) => readingsState(current, mergeRollingExperimentReadings(current.readings, incomingReadings), incomingReadings, nowIso, effectiveMode));
         };
 
@@ -1046,7 +1057,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           newerThan,
           reconcileInPlace ? undefined : applyReadingsBatch,
         );
-        if (reconcileInPlace && token === loadTokenRef.current) {
+        if (reconcileInPlace && token === loadTokenRef.current && scope === scopeKeyRef.current) {
           setData((current) => {
             // Keep realtime rows that arrived while the reconciliation was running.
             const arrivedDuring = current.readings.filter((reading) =>
@@ -1056,14 +1067,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             return readingsState(current, reconciled, fetched, nowIso, effectiveMode);
           });
         }
-        if (token === loadTokenRef.current) {
+        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
           // Only a completed check may make the home quiet; a failed one is stated, with the
           // time of the last good data.
           setLastSuccessfulCheckAt(Date.now());
           setRefreshFailedAt(null);
         }
       } catch (err) {
-        if (token === loadTokenRef.current) {
+        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
           if (isSessionAuthorizationError(err)) {
             expirePortalSession();
             return;
@@ -1072,7 +1083,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           setRefreshFailedAt(Date.now());
         }
       } finally {
-        if (token === loadTokenRef.current) {
+        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
           setLoading(false);
         }
       }
@@ -1128,6 +1139,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     }
   }, [activeDeviceId, activeProjectId]);
 
+  const runPortalRefreshRef = useRef(runPortalRefresh);
+  runPortalRefreshRef.current = runPortalRefresh;
+
   const refresh = useCallback(
     async (options: RefreshOptions) => {
       if (refreshInFlightRef.current) {
@@ -1149,7 +1163,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         while (nextOptions) {
           const currentOptions = nextOptions;
           nextOptions = null;
-          await runPortalRefresh(currentOptions);
+          await runPortalRefreshRef.current(currentOptions);
           nextOptions = pendingRefreshRef.current;
           pendingRefreshRef.current = null;
         }
@@ -1157,7 +1171,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         refreshInFlightRef.current = false;
       }
     },
-    [refreshLatestReadings, runPortalRefresh],
+    [refreshLatestReadings],
   );
 
   const sendSingleControlCommand = useCallback<QueueControlCommand>(
@@ -1190,7 +1204,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
             body: {
               project_id: activeProjectId,
-              device_id: dataRef.current.latestState?.device_id ?? activeDeviceId,
+              device_id: activeDeviceId,
               client_request_id: clientRequestId,
               command_type: commandType,
               payload,
@@ -1385,7 +1399,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
             body: {
               project_id: activeProjectId,
-              device_id: dataRef.current.latestState?.device_id ?? activeDeviceId,
+              device_id: activeDeviceId,
               client_request_id: commandIds[0],
               batch_id: batchId,
               expected_config_hash: reviewedConfigHash,
@@ -1851,6 +1865,16 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     // own loading reset, and the sign-in form shares that flag. Clear it here; the refresh for the
     // new scope, declared below, sets it again. A request being tracked belongs to the old scope.
     setLoading(false);
+    setData(initialLoadState);
+    dataRef.current = initialLoadState;
+    setValveEvents([]);
+    valveEventsRef.current = [];
+    setRuntimeState(null);
+    setConfigState(null);
+    setHealthSnapshot(null);
+    setHealthHistory([]);
+    setExperimentCatalog([]);
+    setExperimentCatalogError(null);
     setTrackedCommand(null);
     // Check outcomes belong to the previous account, project or device.
     setLastSuccessfulCheckAt(null);
@@ -2427,7 +2451,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         {portalHeader}
         <section className="portal-loading-screen" aria-live="polite">
           <ShieldCheck size={32} aria-hidden="true" />
-          <p>This account does not currently have portal access.</p>
+          <p>{accessCheckError ?? "This account does not currently have portal access."}</p>
+          {accessCheckError && <button className="header-action" type="button" onClick={() => void loadPortalAccess()}>Retry access check</button>}
           <button className="header-action" type="button" onClick={() => void signOut()}>
             Sign out
           </button>

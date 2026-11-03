@@ -1,3 +1,4 @@
+import {randomUUID} from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -54,9 +55,11 @@ function sensorKey(pairing) {
   return board && address ? `${board}:${address}` : null;
 }
 
-export function readingEvent(row, pairing, pairingHistory) {
+export function readingEvent(row, pairing, pairingHistory, identity = {}) {
   return {
-    event_id: `live-device:reading:${row.id}`,
+    event_id: identity.epoch && identity.epoch !== "legacy"
+      ? `live-device:reading:${identity.deviceId}:${identity.epoch}:${row.id}`
+      : `live-device:reading:${row.id}`,
     type: "sensor_reading",
     source_sensor_id: Number(row.sensorId),
     pairing_name: pairingNameAt(row, pairing, pairingHistory),
@@ -260,29 +263,21 @@ async function cursorRecordedAt(config, cursorId) {
   return reading.createdAt;
 }
 
-async function initializeState(config, state) {
+export async function initializeState(config, state) {
   let cursorId = legacyCursorId(state);
   if (cursorId <= 0) cursorId = config.bootstrapCursorId;
 
   if (cursorId <= 0) {
-    const latest = await localGet(config, "/readings?page=1&pageSize=1");
-    const latestRow = latest?.data?.[0];
-    cursorId = Number(latestRow?.id || 0);
-    return {
-      version: 2,
-      cursorId,
-      cursorRecordedAt: latestRow?.createdAt ?? null,
-      initializedAtLatest: true,
-      uploadedEvents: 0,
-      duplicateEvents: 0,
-    };
+    return {version: 3, epoch: state?.epoch || randomUUID(), cursorId: 0,
+      cursorRecordedAt: "1970-01-01T00:00:00.000Z", uploadedEvents: 0, duplicateEvents: 0};
   }
 
   return {
-    version: 2,
+    version: 3,
+    epoch: state.epoch || "legacy",
     cursorId,
     cursorRecordedAt:
-      state?.cursorRecordedAt || (await cursorRecordedAt(config, cursorId)),
+      state?.cursorRecordedAt || (await cursorRecordedAt(config, cursorId).catch(() => null)),
     migratedLegacyState: Array.isArray(state?.sentEventIds),
     uploadedEvents: Number(state?.uploadedEvents || 0),
     duplicateEvents: Number(state?.duplicateEvents || 0),
@@ -313,6 +308,9 @@ async function writeHealth(config, state, extra = {}) {
     latestKnownId: state.latestKnownId,
     pending: state.pending,
     consecutiveFailures: 0,
+    duplicateEvents: state.duplicateEvents,
+    lastPass: state.lastPass,
+    resetDetectedAt: state.resetDetectedAt ?? null,
     ...extra,
   });
 }
@@ -332,9 +330,6 @@ async function writeFailureHealth(config, state, error, consecutiveFailures) {
 
 export async function reconcileOnce(config, state, pairingHistory) {
   validateConfig(config);
-  if (!state.cursorRecordedAt && state.cursorId > 0) {
-    state.cursorRecordedAt = await cursorRecordedAt(config, state.cursorId);
-  }
   const [latestResponse, pairingsResponse] = await Promise.all([
     localGet(config, "/readings?page=1&pageSize=1"),
     localGet(config, "/pairings"),
@@ -343,6 +338,22 @@ export async function reconcileOnce(config, state, pairingHistory) {
   if (!snapshot) throw new Error("local readings endpoint returned no rows");
 
   state.latestKnownId = Number(snapshot.id);
+  if (state.cursorId > 0) {
+    // Compare the row at our durable cursor, not just the latest numeric ID.
+    // A restored database can already have grown beyond the old sequence.
+    const cursorResponse = await requestWithTimeout(config, `${config.apiBase}/readings/${state.cursorId}`);
+    if (!cursorResponse.ok && cursorResponse.status !== 404) throw new Error(`Cursor verification failed: ${cursorResponse.status}`);
+    const cursorRow = cursorResponse.ok ? await cursorResponse.json() : null;
+    const reset = !cursorRow || state.latestKnownId < state.cursorId ||
+      (state.cursorRecordedAt && Date.parse(cursorRow.createdAt) !== Date.parse(state.cursorRecordedAt));
+    if (reset) {
+      state.epoch = randomUUID();
+      state.cursorId = 0;
+      state.cursorRecordedAt = "1970-01-01T00:00:00.000Z";
+      state.resetDetectedAt = new Date().toISOString();
+      await writeJsonAtomic(config.statePath, state); // establish identity before sending
+    } else if (!state.cursorRecordedAt) state.cursorRecordedAt = cursorRow.createdAt;
+  }
   if (state.cursorId >= state.latestKnownId) {
     const result = await ingest(config, []);
     state.lastSuccessAt = new Date().toISOString();
@@ -399,7 +410,7 @@ export async function reconcileOnce(config, state, pairingHistory) {
   for (let offset = 0; offset < rows.length; offset += config.ingestBatchSize) {
     const batch = rows.slice(offset, offset + config.ingestBatchSize);
     const events = batch.map((row) =>
-      readingEvent(row, bySensorId.get(Number(row.sensorId)), pairingHistory),
+      readingEvent(row, bySensorId.get(Number(row.sensorId)), pairingHistory, {deviceId: config.deviceId, epoch: state.epoch}),
     );
     lastResult = await ingest(config, events);
     uploaded += Number(lastResult?.inserted_readings ?? events.length);

@@ -56,3 +56,7 @@ export const supabase={
 // The production request-scoped factory is replaced at the same adapter boundary. A token
 // never creates a network client in the demo; every operation stays on these local fixtures.
 export function portalClientWithToken(_accessToken:string){return supabase;}
+
+// No request URL or credential exists in the offline build.
+export const functionUrl = (_name: string): string => { throw new Error("Controller requests are unavailable in the offline demo"); };
+export const anonKey = "offline";

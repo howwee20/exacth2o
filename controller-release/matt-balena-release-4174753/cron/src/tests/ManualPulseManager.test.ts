@@ -105,3 +105,24 @@ describe('ManualPulseManager', () => {
     }
   })
 })
+
+
+test('a pulse preempted during persistence never reopens its route', async () => {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const events: string[] = []
+  const manager = new ManualPulseManager('/unused', () => { events.push('OPEN') }, () => { events.push('CLOSE') }, () => {})
+  const internals = manager as any
+  internals.loaded = true
+  let writes = 0
+  internals.persist = async () => { if (++writes === 1) await gate }
+  const pending = manager.pulse(request)
+  await Promise.resolve()
+  await Promise.resolve()
+  await manager.closeActive('preempted_by_manual_hold')
+  events.push('HOLD_OPEN')
+  release()
+  await pending
+  expect(events).toEqual(['CLOSE', 'HOLD_OPEN'])
+  expect(manager.hasActivePulse()).toBe(false)
+})

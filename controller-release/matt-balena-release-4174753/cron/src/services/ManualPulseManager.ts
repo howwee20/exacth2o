@@ -9,7 +9,7 @@ export interface ManualPulseRequest {
 }
 
 interface ManualPulseRecord extends ManualPulseRequest {
-  status: 'opening' | 'open' | 'closed' | 'failed' | 'recovered_closed'
+  status: 'opening' | 'open' | 'closing' | 'closed' | 'failed' | 'recovered_closed'
   startedAt: string
   closedAt?: string
   error?: string
@@ -152,19 +152,29 @@ export class ManualPulseManager {
     }
     this.state.active = active
     await this.persist()
+    // A hold may have preempted this request while persistence was in flight.
+    if (this.state.active !== active || active.status !== 'opening') return this.result(active, false)
 
     try {
       await this.openValve(active)
       active.status = 'open'
-      await this.persist()
+      // Closure must be armed before any fallible audit/state write.
       this.timer = setTimeout(() => {
         void this.closeActive().catch((error) => {
           console.error('Manual pulse close failed after fallback', error)
         })
       }, duration)
       this.timer.unref?.()
+      try {
+        await this.persist()
+      } catch (error) {
+        console.error('Pulse opened; state write failed, close timer remains armed:', error)
+      }
       return this.result(active, false)
     } catch (error: any) {
+      // An OPEN implementation may throw after touching hardware. Close before
+      // releasing ownership; if closure fails, retain the active record.
+      await this.closeWithFallback(active)
       active.status = 'failed'
       active.error = error?.message || String(error)
       active.closedAt = new Date().toISOString()
@@ -183,6 +193,7 @@ export class ManualPulseManager {
 
     const active = this.state.active
     if (interruptedBy) active.interruptedBy = interruptedBy
+    active.status = 'closing'
     try {
       await this.closeWithFallback(active)
       active.status = 'closed'

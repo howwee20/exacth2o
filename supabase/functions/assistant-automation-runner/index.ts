@@ -1,3 +1,4 @@
+import { checkFieldCommands } from '../_shared/field-command-policy.mjs';
 import { controlCommandIntakeEnabled } from "../create-control-command/command-policy.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -175,6 +176,7 @@ async function runSchedule(
     throw new Error("Controller configuration changed after review; review this schedule again.");
   }
   const commands = validatedScheduledCommands(schedule.approved_plan, config);
+  await checkFieldCommands(admin, projectId, deviceId, commands);
   const batchId = crypto.randomUUID();
 
   if (commands.length === 1 && commands[0].command_type === "update_system_state") {

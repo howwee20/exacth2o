@@ -1,3 +1,4 @@
+import { checkFieldCommands } from '../_shared/field-command-policy.mjs';
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
@@ -510,6 +511,7 @@ serve(async (request) => {
 
   const autocalibrating = body.workflow === 'autocalibration' || /^Autocalibrat/i.test(operationIntent);
   const guardAutocalibration = async (commands: Array<{command_type?: string; commandType?: string; payload: Record<string, unknown>}>) => {
+    await checkFieldCommands(admin, projectId, deviceId, commands);
     if (!autocalibrating || !isFieldInstallation(projectId, deviceId)) return;
     const {data, error} = await admin.from('device_config_state').select('pairings').eq('project_id', projectId).eq('device_id', deviceId).maybeSingle();
     if (error || !Array.isArray(data?.pairings)) throw new Error('The current valve map could not be checked.');

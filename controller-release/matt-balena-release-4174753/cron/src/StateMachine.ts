@@ -230,6 +230,8 @@ class StateMachine {
     this.valveWakeStopped = true
     if (this.valveWakeTimer) clearTimeout(this.valveWakeTimer)
     this.valveWakeTimer = undefined
+    // Close hardware before logs or queue shutdown can block.
+    this.valveService.closeAllValves()
     await this.manualHoldManager.stopAll()
     console.log('Stopping StateMachine event queue...')
     await this.apiService.postData(API_ENDPOINTS.LOGS, {
@@ -252,7 +254,6 @@ class StateMachine {
       message: `Closing all valves as part of stopping StateMachine`,
       source: 'StateMachine'
     })
-    this.valveService.closeAllValves()
     // STOPPED cancels the queued close transition. Retire its active marker
     // only after close-all succeeds; retain the per-pot pulse history/limits.
     const activePulse = this.wateringPulseLedger.activePulse()
@@ -660,21 +661,25 @@ class StateMachine {
         address,
         Date.now(),
       )
+      // Awaited ledger operations allow a hold/stop to acquire the controller.
+      // Recheck and acquire immediately before OPEN, without an intervening await.
+      const finalAdmission = this.arbiter ? this.arbiter.automaticOpen() : { allowed: true as const }
+      if (this.valveWakeStopped || !finalAdmission.allowed || (this.openValvePairId && this.openValvePairId !== pairId)) {
+        await this.wateringPulseLedger.completeActive(pairId)
+        pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.VALVE_CONFLICT_RETRY_DELAY
+        return 'DELAY'
+      }
       this.openValvePairId = pairId
       pairing.valveOpened = true
       pairing.nextTransitionTime = Date.now() + pairing.timingRules.valveOpenTime
-      await this.apiService.postData(API_ENDPOINTS.LOGS, {
-        level: 'info',
-        message: `Valve open phase: ${pairId}`,
-        source: 'StateMachine'
-      })
-      console.log(`Opening valve: ${pairId}`)
-
       this.operateAutomaticPulseValve(activePulse, 'OPEN')
+      void this.apiService.postData(API_ENDPOINTS.LOGS, {
+        level: 'info', message: `Valve open phase: ${pairId}`, source: 'StateMachine'
+      }).catch(error => console.error('Valve-open log failed:', error))
       recordValveOpen(pairing, Date.now(), DEFAULT_TIMING.WATERING_SETTLE_WINDOW)
       console.log(`Valve ${pairId} opened successfully`)
       try {
-        await this.apiService.postData(API_ENDPOINTS.LOGS, {
+        void this.apiService.postData(API_ENDPOINTS.LOGS, {
           level: 'info',
           message: `Opened Valve: ${pairId}; measured=${isFiniteNumber(pairing.WTCPercentMeasured) ? pairing.WTCPercentMeasured.toFixed(2) : 'unknown'} floor=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).floor.toFixed(2)} trigger=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).trigger.toFixed(2)} recovery=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).recoveryMax.toFixed(2)} pulseCount=${pairing.wateringWindowPulseCount}`,
           source: 'StateMachine'
@@ -720,11 +725,6 @@ class StateMachine {
     }
 
     pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.STANDARD_VALVE_CLOSE
-    await this.apiService.postData(API_ENDPOINTS.LOGS, {
-      level: 'info',
-      message: `Valve close phase: ${pairId}`,
-      source: 'StateMachine'
-    })
     console.log(`Closing valve: ${pairId}`)
 
     try {

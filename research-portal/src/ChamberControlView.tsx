@@ -31,7 +31,7 @@ import { GasMixerNativeControl } from "./GasMixerNativeControl";
 import { LightingNativeControl } from "./LightingNativeControl";
 import { ChamberSchedules } from "./ChamberSchedules";
 import { scheduleVisiblePolling } from "./visiblePolling";
-import { supabase } from "./supabase";
+import { supabase, functionUrl, anonKey } from "./supabase";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -243,12 +243,12 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
       const active = sessionRef.current;
       const token = accessTokenRef.current;
       if (!active || !token) return;
-      void fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gas-mixer-session`, {
+      void fetch(functionUrl("gas-mixer-session"), {
         method: "POST",
         keepalive: true,
         headers: {
           "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          apikey: anonKey,
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ action: "end_session", session_token: active.session_token }),

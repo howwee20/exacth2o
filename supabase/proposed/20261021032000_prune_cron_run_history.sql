@@ -1,3 +1,4 @@
+-- SUPERSEDED: do not apply. Production uses 20261103023000_cron_history_retention.sql (30 days).
 -- PROPOSED, NOT APPLIED: needs explicit approval because it deletes rows.
 --
 -- pg_cron never deletes cron.job_run_details. On 2026-10-21 it held 753,417

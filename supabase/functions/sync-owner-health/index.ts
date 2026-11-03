@@ -15,6 +15,7 @@ import {
 import { uptimeSecondsFromSources } from "./uptime-policy.mjs";
 import { acquireLeaseWithin, leaseWaitMs } from "./lease-policy.mjs";
 import { healthSyncInstallation } from "../_shared/installation-config.mjs";
+import { anySecretMatches } from "../_shared/secret-compare.mjs";
 
 const healthSync = healthSyncInstallation(Deno.env.toObject());
 const healthSyncProjectId = healthSync?.projectId ?? "";
@@ -191,9 +192,7 @@ function hasSyncSecret(request: Request) {
     cleanSecret(request.headers.get("x-sync-owner-health-secret")),
     bearerToken(request),
   ].filter(Boolean);
-  return acceptedSecrets.some((acceptedSecret) =>
-    suppliedSecrets.includes(acceptedSecret)
-  );
+  return anySecretMatches(suppliedSecrets, acceptedSecrets);
 }
 
 function basicAuthHeader(username: string, password: string) {
@@ -752,7 +751,7 @@ async function insertValveEventRows(
     for (const row of batch) {
       const { error: rowError } = await admin
         .from("valve_events")
-        .upsert(row, { onConflict: "event_id", ignoreDuplicates: true });
+        .upsert(row, { onConflict: "device_id,event_id", ignoreDuplicates: true });
 
       if (rowError) {
         return {
@@ -787,6 +786,7 @@ async function insertValveEventRows(
 async function selectExistingValveEventIds(
   admin: AdminClient,
   eventIds: string[],
+  deviceId: string,
 ) {
   const existingIds = new Set<string>();
   const batchSize = 50;
@@ -796,6 +796,7 @@ async function selectExistingValveEventIds(
     const { data: existing, error } = await admin
       .from("valve_events")
       .select("event_id")
+      .eq("device_id", deviceId)
       .in("event_id", batch);
 
     if (error) {
@@ -835,7 +836,7 @@ async function insertMissingValveEvents(
   }
 
   const eventIds = events.map((event) => event.event_id);
-  const existingResult = await selectExistingValveEventIds(admin, eventIds);
+  const existingResult = await selectExistingValveEventIds(admin, eventIds, healthSyncDeviceId);
   const selectError = existingResult.error;
 
   if (selectError) {

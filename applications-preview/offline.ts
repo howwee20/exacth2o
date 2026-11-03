@@ -17,3 +17,7 @@ export const supabase={
 
 // Request-scoped production writers stay inside this offline fixture adapter.
 export function portalClientWithToken(_accessToken:string){return supabase;}
+
+// No request URL or credential exists in the offline build.
+export const functionUrl = (_name: string): string => { throw new Error("Controller requests are unavailable in the offline demo"); };
+export const anonKey = "offline";

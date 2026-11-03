@@ -16,6 +16,7 @@ export class ApiService {
     console.log(`Posting data: ${url}`)
     return fetch(url, {
       method: 'POST',
+      signal: AbortSignal.timeout(1500),
       headers: {
         'Content-Type': 'application/json',
         'x-exacth2o-controller-secret': process.env.EXACTH2O_CONTROLLER_COMMAND_SECRET || '',

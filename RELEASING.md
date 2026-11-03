@@ -8,7 +8,7 @@ Production: https://exacth2o.com · Portal: https://exacth2o.com/portal · Demo:
 1. Install portal dependencies with `npm ci --prefix research-portal`.
 2. Build the assembled release with `node scripts/build-product-release.mjs`.
 3. Review and commit source plus generated `portal-app`, `demo-app`, `applications-demo-app`, `portal.html`, `demo.html`, and `site-metrics.js`.
-4. Push to `ej-supabase-research-portal`. The Publish workflow runs portal lint, seven focused data/control checks, a reproducible build of the committed release, and three Chromium browser smoke checks. Pull requests run the same gate without deploying. A manual publish deploys only from `ej-supabase-research-portal`.
+4. Push to `ej-supabase-research-portal`. The Publish workflow runs seven focused data/control checks, a canonical-map check, demo isolation assertions, and a reproducible build of the committed release. Pull requests run the same gate without deploying. A manual publish deploys only from `ej-supabase-research-portal`.
 5. Verify the deployed commit, demo navigation and refresh, and the affected real portal screens.
 
 ## Fast UI deployment gate
@@ -21,7 +21,7 @@ For a normal portal/layout/copy change, run:
 4. `npm run audit:portal-surface --prefix research-portal`
 5. `npm run test:release:browser --prefix research-portal`
 
-The test gate contains exactly ten cases, selected explicitly in `research-portal/scripts/release-checks.mjs`. The runners fail if a selected case is missing or skipped.
+Local acceptance contains ten cases, selected explicitly in `research-portal/scripts/release-checks.mjs`. The runners fail if a selected case is missing or skipped.
 
 - Seven data/control checks: experiment boundaries and renamed sensors; complete paged history; invalid readings and chart gaps; target changes limited to the selected pots; stopping a manual hold; honest command completion; and refusing controller commands from viewers or unknown roles.
 - Three browser checks: Control confirmation; Drought confirmation; and the built portal's navigation, shared time range, export, and desktop/mobile layout. Chromium is the fast gate. The full three-browser suite stays separate.

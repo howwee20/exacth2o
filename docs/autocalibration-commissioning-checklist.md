@@ -1,3 +1,5 @@
+> Field record 2026-11-01: 95 recorded routes; pots 63, 87, 88, 89, 90 remain unresolved and excluded. Pan pots 65–76 are protected from autocalibration. Confirm sensor location independently of valve destination. No live pulses until controller safety acceptance is complete.
+
 # Autocalibrate and hold-to-water: supervised hardware acceptance
 
 Software tests, the simulated 100-pot preview and the deployment prove the code
@@ -61,7 +63,7 @@ Hold-to-water, on one solenoid, outlet into a catch cup:
 - [ ] With automatic watering due on a pot, hold a different solenoid: the automatic
       pulse waits (the hold has priority) and the pot is watered after the settle
       time, not during the hold.
-- [ ] Every one of the 100 solenoids reached once by number from "Manual water → By
+- [ ] Every selected, verified and unprotected output reached once by number from "Manual water → By
       solenoid", and the printed label recorded where it was not yet confirmed.
 
 ## 2. Autocalibrate: supervised run
@@ -74,7 +76,7 @@ Physical prechecks:
 
 In the portal (Autocalibrate, researcher or administrator):
 
-1. Select pots on the overhead view: a zone, or **Select all 100**. Pots that cannot
+1. Select pots on the overhead view: a zone, or **Select only verified, unprotected pots**. Pots that cannot
    take part are hatched with the reason; fix or leave them. Mark pots whose wiring
    you have confirmed at the bench as known-correct references (positive controls).
 2. Continue: the server records each pot's settings. Queue the preparation change
@@ -82,7 +84,7 @@ In the portal (Autocalibrate, researcher or administrator):
 3. Wait a few minutes for 60 s readings, then run the safety checks. Run a
    **rehearsal** first (no valve command), then switch to **Open real valves**,
    check again, type the confirmation phrase and start. A first real run on one
-   zone (25 pots) before all 100 is sensible.
+   zone (25 pots) before a verified group is sensible.
 4. Stay reachable. The floating bar shows progress and Stop on every page; closing
    the tab stops the run before its next pulse.
 
