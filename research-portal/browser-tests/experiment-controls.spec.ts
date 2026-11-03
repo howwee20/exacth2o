@@ -118,6 +118,10 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
       await expect(pots.getByRole('button', { name: 'Show all', exact: true })).toBeHidden();
     }
   }
-  await page.getByRole('link', { name: 'Experiments', exact: true }).click();
+  await page.getByRole('link', { name: '← Experiments', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Experiments', exact: true })).toBeVisible();
+  const websiteHome = page.getByRole('link', { name: 'ExactH2O website home', exact: true });
+  await expect(websiteHome).toHaveAttribute('href', '/');
+  await websiteHome.click();
+  await expect(page).toHaveURL(new URL('/', page.url()).href);
 });

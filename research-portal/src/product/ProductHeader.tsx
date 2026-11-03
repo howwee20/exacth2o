@@ -1,11 +1,10 @@
 import { Search, UserRound } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import exactH2OLogo from "../assets/exacth2o-logo.jpeg";
-import { PortalLink } from "./PortalLink";
 import "./product.css";
 
 /**
- * One header for every product view. The logo returns to the default experiment list.
+ * One header for every product view. The logo returns to the public website.
  */
 export function ProductHeader({
   onFindPot,
@@ -38,9 +37,9 @@ export function ProductHeader({
 
   return (
     <header className="px-header">
-      <PortalLink className="dashboard-logo" to={{ view: "home" }} aria-label="Experiments">
+      <a className="dashboard-logo" href="/" aria-label="ExactH2O website home">
         <img src={exactH2OLogo} alt="ExactH2O" />
-      </PortalLink>
+      </a>
       <div className="px-header-actions">
         <button type="button" className="px-header-button" onClick={onFindPot} aria-keyshortcuts="/" aria-label="Find pot">
           <Search size={14} aria-hidden="true" />
