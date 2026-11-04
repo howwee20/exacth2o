@@ -8,7 +8,7 @@ import "./product.css";
 export function ExperimentNotFound({ id, loading }: { id: string; loading: boolean }) {
   return (
     <section className="px-page">
-      <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
       {loading ? (
         <p className="px-empty" role="status">Loading the experiment…</p>
       ) : (
@@ -68,7 +68,7 @@ export function ExperimentPage({
   const own = exceptions.filter((item) => item.scope !== "experiment" || item.experimentId === experiment.id);
   return (
     <section className={`px-page is-wide px-experiment-page ${tab !== "record" ? "is-traces" : ""}`} aria-label={experiment.name}>
-      <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
       {compact ? <div className="px-compact-experiment" style={{ top: headerHeight }} aria-label="Current experiment">
         <div><strong>{experiment.name}</strong></div>
         {onExport ? <button className="px-button is-small" onClick={onExport}>Export</button> : null}

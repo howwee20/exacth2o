@@ -9,10 +9,12 @@ body > nav {
   min-height: 54px;
   padding-inline: max(24px, calc((100% - 1060px) / 2));
   gap: 32px;
-  background: rgba(16, 31, 26, .95);
+  /* An opaque header avoids a separate backdrop-filter surface at Safari's
+     moving toolbar edge. Its position and dimensions stay in normal CSS. */
+  background: #101f1a;
   border-bottom: 1px solid rgba(255, 255, 255, .07);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .nav-logo { width: 142px; margin-left: -9px; }
 .nav-logo img { filter: none; }
@@ -67,3 +69,22 @@ body > nav {
   body > nav { min-height: 48px; padding-inline: 20px; }
   .nav-logo { width: 130px; }
 }
+
+/* Grow media and page columns together without stretching reading text. */
+@media (min-width:1800px) {
+  :root, body.public-page { --content:1440px; --wide-site-rail:1440px; }
+  body > nav { padding-inline:max(40px,calc((100% - var(--wide-site-rail))/2)); }
+  html body > footer.site-footer { padding-inline:max(40px,calc((100% - var(--wide-site-rail))/2)); }
+  .home-page .cinema-photo { max-width:1800px; }
+  .home-traces-chart-card { max-width:1200px; }
+  .portal-demo-stage { max-width:1680px; }
+}
+@media (min-width:2600px) {
+  :root, body.public-page { --content:1680px; --wide-site-rail:1680px; }
+  .home-page .cinema-photo { max-width:2160px; }
+  .home-traces-chart-card { max-width:1440px; }
+  .portal-demo-stage { max-width:2160px; }
+}
+
+.public-page a:focus-visible, .public-page button:focus-visible { outline:2px solid #0071e3; outline-offset:3px; }
+body > nav a:focus-visible, .mobile-menu :focus-visible { outline-color:#9dbfff; }

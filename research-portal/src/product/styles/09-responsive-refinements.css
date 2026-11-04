@@ -187,12 +187,17 @@
 .px-export-dialog input[type="datetime-local"] { max-width:100%; min-width:0; padding:7px; border:1px solid var(--px-rule-strong); border-radius:5px; font:inherit; }
 @media (min-width:1600px) {
  .px-page:not(.px-account-page) { max-width:1600px; }
- .px-page.is-wide { max-width:none; }
+ .px-page.is-wide { max-width:2400px; margin-inline:auto; }
  .px-home-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
  .px-home-grid.is-single { grid-template-columns:minmax(0,980px); justify-content:start; }
 }
 
-@media (min-width:1800px) { .px-home { width:min(1600px,100%); } }
+/* Wide workspaces retain useful chart proportions and centered tool panels. */
+@media (min-width:1600px) {
+ .px-shell .dashboard-shell, .px-shell .system-health-main, .px-shell .chamber-control-shell { max-width:2400px; margin-inline:auto; }
+ .px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart { height:clamp(420px,48dvh,720px); min-height:clamp(420px,48dvh,720px); }
+ .px-header { padding-inline:max(40px,calc((100% - 2400px)/2 + 64px)); }
+}
 
 .px-chart:has(.px-chart-zone) { padding-bottom:18px; }
 

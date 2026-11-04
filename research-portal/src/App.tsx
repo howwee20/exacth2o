@@ -2791,7 +2791,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
   if (route.view === "controller" && canReadProjectData) {
     return productShell(<section className="px-page">
-      <PortalLink className="px-crumb" to={{view:"home"}}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{view:"home"}}>← Home</PortalLink>
       <div className="px-exp-head-row"><h1 className="px-title">Installation</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
       <p className="px-subtitle">Shared sensing and irrigation for this installation</p>
       <dl className="px-facts px-card px-account-section">
