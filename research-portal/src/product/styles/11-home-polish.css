@@ -221,3 +221,5 @@
 .px-pot-chart .has-top-pots .px-comparison-menu[open] { position:static; flex:0 0 auto; }
 .px-pot-chart .has-top-pots .px-comparison-menu > summary { border-radius:999px; }
 .px-pot-chart .has-top-pots .px-saved-views { position:absolute; left:0; right:auto; top:calc(100% + 6px); width:min(290px,calc(100vw - 56px)); margin:0; }
+
+.px-pot-page .px-pot-grid.is-reading-only { grid-template-columns:minmax(0,1fr); }

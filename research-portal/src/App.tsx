@@ -7,7 +7,7 @@ import { DirectExperiment } from './product/DirectExperiment';
 import { SavedTraceViews } from "./product/SavedTraceViews";
 import { clearExperimentArchives, useExperimentReadings } from "./useExperimentReadings";
 import { experimentTraceReadings } from "./experimentTraceReadings";
-import { AlertTriangle, ArrowRight, Droplets, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
@@ -58,7 +58,7 @@ import { overlayTimeBounds } from "./wateringOverlay";
 import { homeExceptions } from "./homeExceptions";
 import { navigatePortal, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
 import { resolvePot } from "./potIdentity";
-import { readingsForPairings, valveEventsForPairings } from "./pairingHistory";
+import { readingsForPairings } from "./pairingHistory";
 import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
 import { FindPotDialog } from "./product/FindPotDialog";
 import type { ManualWaterTarget } from "./product/ManualWaterPanel";
@@ -91,7 +91,6 @@ const PocketView = lazyFeature(() => import("./product/PocketView").then((module
 const ExperimentExport = lazyFeature(() => import("./product/ExperimentExport").then((module) => ({ default: module.ExperimentExport })));
 const AccountPage = lazyFeature(() => import("./product/AccountPage").then((module) => ({ default: module.AccountPage })));
 const RecordView = lazyFeature(() => import("./product/RecordView").then((module) => ({ default: module.RecordView })));
-const PotNotesSection = lazyFeature(() => import("./product/PotNotesSection").then((module) => ({ default: module.PotNotesSection })));
 const ManualWaterPanel = lazyFeature(() => import("./product/ManualWaterPanel").then((module) => ({ default: module.ManualWaterPanel })));
 const prefetchSettings = () => {
   void loadSettingsPanel().catch(() => undefined);
@@ -2812,12 +2811,10 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         </section>
       );
     }
-    const potName = match.pairing.name;
     return (
       <FeatureBoundary name="Pot" fallback={<FeatureLoading name="Pot" />}><PotPage
         match={match}
         readings={readingsForPairings(data.readings, [match.pairing])}
-        valveEvents={valveEventsForPairings(valveEvents, [match.pairing])}
         nowMs={clockNowMs}
         asOfMs={lastGoodCheckAt}
         loadedWindowMs={rollingExperimentHistoryMs}
@@ -2826,31 +2823,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           : experimentContext
             ? { label: `${experimentContext.name} · Traces`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
             : { label: "Experiments", route: { view: "home" } }}
-      >
-        <FeatureBoundary name="Notes" fallback={<FeatureLoading name="Notes" />}>
-          <PotNotesSection
-            key={`${outboxScope?.userId}:${activeProjectId}:${activeDeviceId}:${potName}`}
-            userId={outboxScope?.userId ?? null}
-            projectId={activeProjectId}
-            deviceId={activeDeviceId}
-            pairingName={potName}
-            potNumber={match.pairing.pot_number}
-            experimentId={match.current?.databaseId ?? null}
-            binding={currentBench?.bindings.find((binding) => binding.pairingName === potName) ?? null}
-            canWrite={canWriteNotes}
-            outbox={noteOutbox}
-          />
-        </FeatureBoundary>
-        {manualWaterAvailable ? (
-          <section className="px-card px-pot-manual" aria-label="Manual watering">
-            <h2 className="px-section-title">Manual watering</h2>
-            <p className="px-muted">For troubleshooting: hold to water this pot through its recorded valve route, or test any solenoid directly. A hold overrides targets and schedules for that hold only.</p>
-            <button type="button" className="px-button" onClick={() => openManualWater(currentBench?.bindings.find((binding) => binding.pairingName === potName)?.potNumber ?? match.pairing.pot_number)}>
-              <Droplets size={14} aria-hidden="true" /> Water by hand…
-            </button>
-          </section>
-        ) : null}
-      </PotPage></FeatureBoundary>
+      /></FeatureBoundary>
     );
   };
 
