@@ -37,8 +37,8 @@
 .home-page .cinema-button:hover { background: var(--action-hover); border-color: var(--action-hover); color: #fff; }
 .home-page .cinema-text-link { gap: 5px; min-height: 44px; color: var(--action); font: 400 17px/1.25 var(--sans); text-decoration: none; }
 .home-page .cinema-text-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-.home-page .cinema-photo { width: 100%; max-width: 1512px; height: clamp(360px, 44vw, 610px); margin: 0 auto; border-radius: 4px; background: #e5e5e7; }
-.home-page .cinema-photo img { object-position: var(--desktop-position, 50% 50%); animation: none; }
+.home-page .cinema-photo { width: 100%; max-width: 1512px; height: clamp(420px, 82svh, 1000px); margin: 0 auto; border-radius: 4px; background: #fff; }
+.home-page .cinema-photo img { object-fit: contain; object-position: center; animation: none; }
 .home-page .cinema-photo::after { display: none; }
 .cinema-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
 .cinema-slide.is-active { opacity: 1; }
@@ -98,7 +98,7 @@
 .home-page .cta-strip p { max-width: 500px; margin: 22px auto 28px; font-size: 20px; line-height: 1.45; color: #6e6e73; }
 @media (max-width: 900px) {
   .home-page .cinema-content { padding-top: 52px; padding-bottom: 38px; }
-  .home-page .cinema-photo { height: 440px; }
+  .home-page .cinema-photo { height: min(80svh, 800px); min-height: 400px; }
   .home-page .home-head { margin-bottom: 36px; }
 }
 @media (max-width: 600px) {
@@ -109,8 +109,8 @@
   .home-page .cinema-actions { margin-top: 22px; gap: 18px; }
   .home-page .cinema-button, .home-page .cinema-text-link { font-size: 15px; }
   .home-page .cinema-button { padding: 11px 20px; min-height: 44px; }
-  .home-page .cinema-photo { height: 350px; }
-  .home-page .cinema-photo img { object-position: var(--mobile-position, 50% 50%); }
+  .home-page .cinema-photo { height: min(76svh, 620px); min-height: 360px; }
+  .home-page .cinema-photo img { object-position: center; }
   .home-page .home-section { padding: 64px 20px; }
   .home-page .section-label { font-size: 15px; }
   .home-page .section-title { font-size: 38px; }
