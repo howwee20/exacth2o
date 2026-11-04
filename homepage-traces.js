@@ -9,7 +9,8 @@
   const ns = 'http://www.w3.org/2000/svg';
   const windowHours = 72;
   let selected, endHour, plot, paths = [], points = [];
-  let activePot = -1, sampleHour = null;
+  let activePot = -1, sampleHour = null, locked = false, gesture = null;
+  const hiddenPots = new Set();
   const readout = root.querySelector('[data-trace-readout]');
   const legend = root.querySelector('[data-trace-pots]');
   let inView = false, paused = motion.matches, lastFrame = 0, animation = 0, lastPaint = 0;
@@ -76,6 +77,8 @@
     points = selected.pots.map(pot => node('circle', { r: 2.8, fill: pot.color, stroke: '#fff', 'stroke-width': 1 }));
     lines.append(...paths, ...points); svg.append(lines);
     svg.setAttribute('aria-label', `${selected.name}. ${selected.pots.length} colored pot moisture traces over a rolling three-day window. Values are from the public demo.`);
+    plot.cursor = node('line', { y1: plot.top, y2: plot.top + plot.height, stroke: '#86868b', 'stroke-dasharray': '3 4', visibility: 'hidden' });
+    svg.append(plot.cursor);
     plot.marker = node('circle', { r: 5, fill: '#fff', 'stroke-width': 2, visibility: 'hidden' });
     svg.append(plot.marker);
     drawFrame();
@@ -88,9 +91,11 @@
       const button = document.createElement('button');
       button.type = 'button'; button.textContent = `Pot ${pot.number}`;
       button.style.setProperty('--trace-color', pot.color);
-      button.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-pressed', 'true');
       button.addEventListener('click', () => {
-        activePot = activePot === index ? -1 : index; sampleHour = null; updateInspection();
+        if (hiddenPots.has(index)) hiddenPots.delete(index); else hiddenPots.add(index);
+        if (activePot === index) { activePot = -1; sampleHour = null; locked = false; }
+        updateInspection();
       });
       return button;
     }));
@@ -99,42 +104,80 @@
   function updateInspection() {
     if (!selected || !plot) return;
     paths.forEach((path, i) => {
-      path.setAttribute('opacity', activePot < 0 || i === activePot ? '1' : '.22');
+      path.setAttribute('visibility', hiddenPots.has(i) ? 'hidden' : 'visible');
       path.setAttribute('stroke-width', i === activePot ? '3' : '1.8');
-      points[i].setAttribute('opacity', activePot < 0 || i === activePot ? '1' : '.22');
-      legend.children[i]?.setAttribute('aria-pressed', String(i === activePot));
+      points[i].setAttribute('visibility', hiddenPots.has(i) ? 'hidden' : 'visible');
+      legend.children[i]?.setAttribute('aria-pressed', String(!hiddenPots.has(i)));
     });
     if (activePot < 0) {
-      readout.textContent = 'Select a trace or pot.';
-      plot.marker.setAttribute('visibility', 'hidden'); return;
+      readout.textContent = 'Drag to inspect. Click pots to compare.';
+      plot.marker.setAttribute('visibility', 'hidden'); plot.cursor.setAttribute('visibility', 'hidden'); return;
     }
     const index = Math.max(0, Math.min(selected.hours.length - 1, lowerBound(sampleHour ?? endHour) - 1));
     const pot = selected.pots[activePot], hour = selected.hours[index], value = pot.values[index];
     readout.textContent = `Pot ${pot.number} · ${value.toFixed(1)}% VWC · ${studyTime(hour)}`;
     plot.marker.setAttribute('cx', plot.left + (hour - (endHour - windowHours)) / windowHours * plot.width);
     plot.marker.setAttribute('cy', plot.top + (selected.max - value) / (selected.max - selected.min) * plot.height);
+    plot.cursor.setAttribute('x1', plot.marker.getAttribute('cx'));
+    plot.cursor.setAttribute('x2', plot.marker.getAttribute('cx'));
+    plot.cursor.setAttribute('visibility', hour >= endHour - windowHours && hour <= endHour ? 'visible' : 'hidden');
     plot.marker.setAttribute('stroke', pot.color);
     plot.marker.setAttribute('visibility', hour >= endHour - windowHours && hour <= endHour ? 'visible' : 'hidden');
   }
-  svg.addEventListener('click', event => {
+  function inspect(event, keepPot = false) {
     if (!plot) return;
     const rect = svg.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
     const hour = endHour - windowHours + Math.max(0, Math.min(1, (x - plot.left) / plot.width)) * windowHours;
     const index = Math.max(0, Math.min(selected.hours.length - 1, lowerBound(hour)));
-    activePot = selected.pots.reduce((best, pot, i) => {
-      const py = value => plot.top + (selected.max - value) / (selected.max - selected.min) * plot.height;
-      return Math.abs(py(pot.values[index]) - y) < Math.abs(py(selected.pots[best].values[index]) - y) ? i : best;
-    }, 0);
-    sampleHour = selected.hours[index] + .00001; updateInspection();
+    if (!keepPot || activePot < 0) {
+      let distance = Infinity;
+      activePot = -1;
+      selected.pots.forEach((pot, i) => {
+        if (hiddenPots.has(i)) return;
+        const py = plot.top + (selected.max - pot.values[index]) / (selected.max - selected.min) * plot.height;
+        if (Math.abs(py - y) < distance) { distance = Math.abs(py - y); activePot = i; }
+      });
+      if (distance > 24 && !gesture) activePot = -1;
+    }
+    sampleHour = selected.hours[index] + .00001;
+    updateInspection();
+  }
+  svg.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || !plot) return;
+    const previous = locked ? activePot : -1;
+    inspect(event);
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, previous, moved: false };
+    svg.setPointerCapture(event.pointerId);
+    svg.focus({ preventScroll: true });
+    lastFrame = 0;
   });
+  svg.addEventListener('pointermove', event => {
+    if (gesture) {
+      if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 4) gesture.moved = true;
+      inspect(event, true);
+    } else if (!locked && event.pointerType !== 'touch') inspect(event);
+  });
+  function finishGesture(event) {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    if (!gesture.moved && gesture.previous === activePot) { activePot = -1; sampleHour = null; }
+    locked = activePot >= 0;
+    gesture = null; lastFrame = 0;
+    if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+    updateInspection();
+  }
+  svg.addEventListener('pointerup', finishGesture);
+  svg.addEventListener('pointercancel', () => { gesture = null; locked = false; activePot = -1; sampleHour = null; lastFrame = 0; updateInspection(); });
+  svg.addEventListener('pointerleave', () => { if (!gesture && !locked) { activePot = -1; sampleHour = null; updateInspection(); } });
   svg.addEventListener('keydown', event => {
     if (!selected || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Escape'].includes(event.key)) return;
     event.preventDefault();
-    if (event.key === 'Escape') { activePot = -1; sampleHour = null; }
+    if (event.key === 'Escape') { activePot = -1; sampleHour = null; locked = false; }
     else {
-      if (activePot < 0) activePot = 0;
-      if (event.key === 'ArrowUp') activePot = (activePot + 1) % selected.pots.length;
-      if (event.key === 'ArrowDown') activePot = (activePot + selected.pots.length - 1) % selected.pots.length;
+      if (hiddenPots.size === selected.pots.length) return;
+      locked = true;
+      if (activePot < 0) activePot = selected.pots.findIndex((_, i) => !hiddenPots.has(i));
+      if (event.key === 'ArrowUp') do { activePot = (activePot + 1) % selected.pots.length; } while (hiddenPots.has(activePot));
+      if (event.key === 'ArrowDown') do { activePot = (activePot + selected.pots.length - 1) % selected.pots.length; } while (hiddenPots.has(activePot));
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') sampleHour = Math.max(endHour - windowHours, Math.min(endHour, (sampleHour ?? endHour) + (event.key === 'ArrowLeft' ? -1 : 1)));
     }
     updateInspection();
@@ -142,7 +185,7 @@
   function tick(now) {
     animation = 0;
     if (!selected || paused || !inView || document.hidden) { lastFrame = 0; return; }
-    if (lastFrame) endHour += Math.min((now - lastFrame) / 1000, .1); // One study hour per second.
+    if (lastFrame && !gesture && !locked) endHour += Math.min((now - lastFrame) / 1000, .1); // One study hour per second.
     lastFrame = now;
     if (endHour >= selected.hours.at(-1)) endHour = windowHours;
     if (now - lastPaint >= 50) { drawFrame(); lastPaint = now; }
