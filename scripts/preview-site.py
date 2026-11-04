@@ -4,6 +4,11 @@ from pathlib import Path
 import os
 os.chdir(Path(__file__).resolve().parent.parent)
 class Handler(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        # Local edits should appear immediately, including in already-open tabs.
+        self.send_header('Cache-Control', 'no-store')
+        super().end_headers()
+
     def do_GET(self):
         path = urlsplit(self.path).path
         if path != '/' and '.' not in path.rsplit('/', 1)[-1] and Path('.' + path + '.html').is_file():

@@ -60,15 +60,6 @@
 .feature-image-preview img { display: block; max-width: min(960px, 88vw); max-height: 84vh; object-fit: contain; border-radius: 14px; box-shadow: 0 28px 90px rgba(5, 13, 9, .38); transform: scale(.985); transition: transform .25s var(--ease); }
 .feature-image-preview.is-visible img { transform: none; }
 
-/* Compact footer and clearly labelled demonstration. */
-.home-footer { display: flex; justify-content: space-between; align-items: center; gap: 2rem; padding: 2.5rem var(--gutter); }
-.home-footer .footer-brand { width: 168px; margin-left: -11px; }
-@media (max-width: 600px) {
-  .home-footer { align-items: flex-start; flex-direction: column; gap: 1.5rem; }
-  .home-footer .footer-details { align-items: flex-start; text-align: left; }
-  .home-footer .site-policy-links { justify-content: flex-start; }
-}
-
 /* Closing request */
 .cta-strip { overflow: hidden; padding: clamp(3.5rem, 6vw, 4.5rem) 1.5rem; text-align: center; background: var(--surface); border-top: 1px solid var(--rule); }
 .cta-strip h2 { margin-bottom: .75rem; font-size: 2rem; font-weight: 600; letter-spacing: -.03em; }
@@ -111,6 +102,8 @@
 <link rel="stylesheet" href="/homepage.css?v=20261103-release1">
 <link rel="stylesheet" href="/site-typography.css?v=20261103-type1">
 <link rel="stylesheet" href="/site-components.css?v=20261103-components1">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261103-footer3">
+<script src="/site-brand-footer.js?v=20261103-footer2" defer></script>
 </head>
 <body class="public-page home-page">
 
@@ -210,8 +203,7 @@
 
 </main>
 
-<footer class="home-footer">
-  <a href="/" class="nav-logo footer-brand" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O" loading="lazy"></a>
+<footer class="site-footer">
   <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
     <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
@@ -221,6 +213,20 @@
       <span>MADE IN USA</span>
     </div>
   </div>
+  <a class="brand-finale" href="/" aria-label="ExactH2O home">
+<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="brand-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#c5cdc7"/></pattern>
+      <pattern id="brand-water-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#87b6a9"/></pattern>
+      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
+    </defs>
+    <g class="brand-finale-type">
+      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
+    </g>
+  </svg>
+  </a>
 </footer>
 
 <script>
