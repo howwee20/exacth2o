@@ -78,12 +78,11 @@ export function HealthWateringChart({ events, pairings, experiment, onSelectDeta
     <div className="portal-health-chart watering-timeline">
       {!windowOverride ? <HealthChartControls windowOffset={windowOffset} maxOffset={windowInfo.maxOffset} onChange={setWindowOffset} /> : null}
       <div className="watering-timeline-legend">
-        <span><i />One dot = one opening</span>
-        <span>Number = grouped openings{onZoom ? " · click to zoom" : ""}</span>
+        <span><i />Watering{onZoom ? " · click a dot for details or zoom" : ""}</span>
         <strong>{formatHealthInteger(shownCount)} openings</strong>
       </div>
       <div className="watering-timeline-scroll">
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by pot. Numbered markers group nearby openings.">
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Watering events by pot. Nearby openings share a dot; select it to zoom.">
           {Array.from({ length: 5 }, (_, index) => {
             const fraction = index / 4;
             const x = padLeft + fraction * plotWidth;
@@ -112,13 +111,8 @@ export function HealthWateringChart({ events, pairings, experiment, onSelectDeta
               if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") { keyboardEvent.preventDefault(); activate(); }
             }}>
               <title>{description}</title>
-              {grouped ? <>
-                <rect x={x - 14} y={y - 9} width={28} height={18} rx={5} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={1.5} />
-                <text x={x} y={y + 4} textAnchor="middle" className="watering-marker-count">{marker.events.length > 999 ? "999+" : marker.events.length}</text>
-              </> : <>
-                <circle cx={x} cy={y} r={9} fill="transparent" />
-                <circle cx={x} cy={y} r={3.5} fill={color} stroke="white" strokeWidth={1} />
-              </>}
+              <circle cx={x} cy={y} r={6} fill="transparent" />
+              <circle cx={x} cy={y} r={3} fill={color} stroke="white" strokeWidth={0.75} />
             </g>;
           })}
           {!shownCount ? <text x={width / 2} y={height / 2} textAnchor="middle" className="health-chart-empty">No openings in this range</text> : null}

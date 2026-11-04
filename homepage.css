@@ -132,3 +132,10 @@
 .homepage-trace-chart { cursor:crosshair; touch-action:pan-y; }
 .homepage-trace-chart:focus-visible { outline:2px solid #0071e3; outline-offset:3px; }
 @media(max-width:680px) { .trace-pot-legend button { min-height:44px; } .trace-chart-footer { flex-wrap:wrap; } }
+
+.home-traces-chart-card { position:relative; }
+.trace-tooltip { position:absolute; z-index:2; pointer-events:none; display:grid; gap:5px; min-width:152px; padding:12px 14px; border-left:4px solid var(--trace-color); border-radius:8px; background:rgba(255,255,255,.97); box-shadow:0 5px 24px #17203320; text-align:left; color:#1d1d1f; }
+.trace-tooltip[hidden] { display:none; }
+.trace-tooltip strong { font-size:13px; }
+.trace-tooltip span { font-size:12px; color:#6e6e73; }
+.trace-tooltip b { font-size:20px; font-variant-numeric:tabular-nums; }

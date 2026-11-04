@@ -13,6 +13,12 @@
   const hiddenPots = new Set();
   const readout = root.querySelector('[data-trace-readout]');
   const legend = root.querySelector('[data-trace-pots]');
+  const card = root.querySelector('.home-traces-chart-card');
+  const tooltip = document.createElement('div');
+  tooltip.className = 'trace-tooltip'; tooltip.hidden = true;
+  tooltip.setAttribute('role', 'tooltip');
+  const tipPot = document.createElement('strong'), tipTime = document.createElement('span'), tipValue = document.createElement('b');
+  tooltip.append(tipPot, tipTime, tipValue); card.append(tooltip);
   let inView = false, paused = motion.matches, lastFrame = 0, animation = 0, lastPaint = 0;
 
   function node(name, attrs = {}, text) {
@@ -110,18 +116,30 @@
       legend.children[i]?.setAttribute('aria-pressed', String(!hiddenPots.has(i)));
     });
     if (activePot < 0) {
-      readout.textContent = 'Drag to inspect. Click pots to compare.';
+      tooltip.hidden = true;
+      readout.textContent = 'Hover to inspect. Click to lock.';
       plot.marker.setAttribute('visibility', 'hidden'); plot.cursor.setAttribute('visibility', 'hidden'); return;
     }
     const index = Math.max(0, Math.min(selected.hours.length - 1, lowerBound(sampleHour ?? endHour) - 1));
     const pot = selected.pots[activePot], hour = selected.hours[index], value = pot.values[index];
-    readout.textContent = `Pot ${pot.number} · ${value.toFixed(1)}% VWC · ${studyTime(hour)}`;
+    readout.textContent = locked ? 'Click to resume.' : 'Click to lock.';
+    tipPot.textContent = `Pot ${pot.number}`;
+    tipTime.textContent = studyTime(hour);
+    tipValue.textContent = `${value.toFixed(1)}% VWC`;
+    tooltip.style.setProperty('--trace-color', pot.color);
+    tooltip.hidden = false;
     plot.marker.setAttribute('cx', plot.left + (hour - (endHour - windowHours)) / windowHours * plot.width);
     plot.marker.setAttribute('cy', plot.top + (selected.max - value) / (selected.max - selected.min) * plot.height);
     plot.cursor.setAttribute('x1', plot.marker.getAttribute('cx'));
     plot.cursor.setAttribute('x2', plot.marker.getAttribute('cx'));
     plot.cursor.setAttribute('visibility', hour >= endHour - windowHours && hour <= endHour ? 'visible' : 'hidden');
     plot.marker.setAttribute('stroke', pot.color);
+    const chartBox = svg.getBoundingClientRect(), cardBox = card.getBoundingClientRect();
+    const px = Number(plot.marker.getAttribute('cx')) + chartBox.left - cardBox.left;
+    const py = Number(plot.marker.getAttribute('cy')) + chartBox.top - cardBox.top;
+    const tipWidth = tooltip.offsetWidth, tipHeight = tooltip.offsetHeight;
+    tooltip.style.left = `${Math.max(8, Math.min(card.clientWidth - tipWidth - 8, px + tipWidth + 16 < card.clientWidth ? px + 16 : px - tipWidth - 16))}px`;
+    tooltip.style.top = `${Math.max(chartBox.top - cardBox.top, py - tipHeight - 14)}px`;
     plot.marker.setAttribute('visibility', hour >= endHour - windowHours && hour <= endHour ? 'visible' : 'hidden');
   }
   function inspect(event, keepPot = false) {
@@ -145,7 +163,7 @@
   svg.addEventListener('pointerdown', event => {
     if (event.button !== 0 || !plot) return;
     const previous = locked ? activePot : -1;
-    inspect(event);
+    inspect(event, locked);
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, previous, moved: false };
     svg.setPointerCapture(event.pointerId);
     svg.focus({ preventScroll: true });
@@ -155,11 +173,11 @@
     if (gesture) {
       if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 4) gesture.moved = true;
       inspect(event, true);
-    } else if (!locked && event.pointerType !== 'touch') inspect(event);
+    } else if (event.pointerType !== 'touch') inspect(event, locked);
   });
   function finishGesture(event) {
     if (!gesture || event.pointerId !== gesture.id) return;
-    if (!gesture.moved && gesture.previous === activePot) { activePot = -1; sampleHour = null; }
+    if (!gesture.moved && gesture.previous >= 0) { activePot = -1; sampleHour = null; }
     locked = activePot >= 0;
     gesture = null; lastFrame = 0;
     if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
@@ -192,7 +210,7 @@
     animation = requestAnimationFrame(tick);
   }
   function syncPlayback() {
-    root.dataset.playing = String(!paused);
+    root.dataset.playing = String(!paused && !locked);
     lastFrame = 0;
     if (animation) cancelAnimationFrame(animation);
     animation = 0;

@@ -11,7 +11,7 @@ export type WateringMarker = {
 
 /** Group only openings that cannot be shown separately at this chart width. */
 export function wateringTimelineMarkers(events: HealthWateringEvent[], bounds: TimeBounds, plotWidth: number): WateringMarker[] {
-  const columns = Math.max(1, Math.floor(plotWidth / 36));
+  const columns = Math.max(1, Math.floor(plotWidth / 12));
   const span = Math.max(1, bounds.endMs - bounds.startMs);
   const markers = new Map<string, WateringMarker>();
   for (const event of events) {
@@ -42,7 +42,7 @@ export function wateringTimelineMarkers(events: HealthWateringEvent[], bounds: T
       let previous = arranged.at(-1);
       // Openings on opposite sides of a bin boundary can still collide.
       while (previous && (marker.fraction - previous.fraction) * plotWidth <
-        (marker.events.length > 1 ? 14 : 4) + (previous.events.length > 1 ? 14 : 4) + 4) {
+        12) {
         arranged.pop();
         marker = { key: previous.key, label: marker.label, events: [...previous.events, ...marker.events], fraction: (previous.fraction + marker.fraction) / 2 };
         previous = arranged.at(-1);

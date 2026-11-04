@@ -18,9 +18,9 @@ describe("watering timeline", () => {
     const markers = wateringTimelineMarkers(events, bounds, 940).sort((a, b) => a.fraction - b.fraction);
     expect(markers.flatMap(marker => marker.events)).toHaveLength(1000);
     for (let index = 1; index < markers.length; index++) {
-      expect((markers[index].fraction - markers[index - 1].fraction) * 940).toBeGreaterThanOrEqual(32);
+      expect((markers[index].fraction - markers[index - 1].fraction) * 940).toBeGreaterThanOrEqual(12);
     }
-    expect(wateringTimelineMarkers([event(1 / 26 - 0.0001), event(1 / 26 + 0.0001)], bounds, 940)).toHaveLength(1);
+    expect(wateringTimelineMarkers([event(1 / 78 - 0.0001), event(1 / 78 + 0.0001)], bounds, 940)).toHaveLength(1);
   });
 
   it("zooms into the complete group while staying inside the selected range", () => {
