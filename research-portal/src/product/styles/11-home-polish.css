@@ -215,3 +215,9 @@
 @media(max-width:999px) {
  .px-pot-chart .has-top-pots .px-pots-panel:not(.is-open) .px-pots-body { display:none; }
 }
+/* Anchor saved views to the action row, not the narrow summary button. */
+.px-pot-chart .has-top-pots .px-trace-actions { position:relative; }
+.px-pot-chart .has-top-pots .px-comparison-menu,
+.px-pot-chart .has-top-pots .px-comparison-menu[open] { position:static; flex:0 0 auto; }
+.px-pot-chart .has-top-pots .px-comparison-menu > summary { border-radius:999px; }
+.px-pot-chart .has-top-pots .px-saved-views { position:absolute; left:0; right:auto; top:calc(100% + 6px); width:min(290px,calc(100vw - 56px)); margin:0; }
