@@ -11,8 +11,6 @@ import { TargetBand, TargetPill, TargetPopover, type TargetGeometry } from './Ta
 import { TargetConfirmation, type TargetReview } from './TargetConfirmation';
 
 export type DirectChartState = {
-  groups: boolean;
-  viewToggle: ReactNode;
   affected: Set<string>;
   lines: ChartTargetLine[];
   targetLayer?: (geometry: TargetGeometry) => ReactNode;
@@ -25,16 +23,12 @@ type Edit = { anchor: string; scope: string; custom: string[]; value: number; ph
 
 const pillWidth = (label: string) => label.length * 7 + 24;
 
-export function DirectExperiment({experiment, pairings, projectId, inventoryUpdatedAt, canEdit, demo, onRefresh, groupsView: controlledGroupsView, onGroupsViewChange, children}: {
+export function DirectExperiment({experiment, pairings, projectId, inventoryUpdatedAt, canEdit, demo, onRefresh, children}: {
   experiment: PortalExperiment; pairings: PairingRow[]; projectId: string; inventoryUpdatedAt: string | null;
   canEdit: boolean; demo: boolean; onRefresh: () => Promise<unknown>; children: (state: DirectChartState) => ReactNode;
-  groupsView?: boolean; onGroupsViewChange?: (groups: boolean) => void;
 }) {
   const [demoTargets, setDemoTargets] = useState<Record<string, number>>({});
   const effectivePairings = useMemo(() => demo ? pairings.map(p => ({...p, wtc_percent_limit: demoTargets[p.name] ?? p.wtc_percent_limit})) : pairings, [demo, demoTargets, pairings]);
-  const [localGroupsView, setLocalGroupsView] = useState(false);
-  const groupsView = controlledGroupsView ?? localGroupsView;
-  const setGroupsView = onGroupsViewChange ?? setLocalGroupsView;
   const [edit, setEdit] = useState<Edit | null>(null);
   const [dragging, setDragging] = useState(false);
   const [popover, setPopover] = useState(false);
@@ -225,12 +219,7 @@ export function DirectExperiment({experiment, pairings, projectId, inventoryUpda
     </>;
   } : undefined;
 
-  const viewToggle = <div className="chart-view-toggle px-view-toggle" role="group" aria-label="Plant view">
-    <button type="button" aria-pressed={!groupsView} className={!groupsView ? 'is-selected' : ''} onClick={() => setGroupsView(false)}>Individual</button>
-    <button type="button" aria-pressed={groupsView} className={groupsView ? 'is-selected' : ''} onClick={() => setGroupsView(true)}>Groups</button>
-  </div>;
-
-  return <>{children({ groups: groupsView, viewToggle, affected: edit ? affected : new Set(), lines, targetLayer, freezeScale: dragging,
+  return <>{children({ affected: edit ? affected : new Set(), lines, targetLayer, freezeScale: dragging,
     extraTargetValues: edit && !dragging ? [edit.value] : [] })}
     {confirmation ? <TargetConfirmation review={confirmation} pots={potRanges(confirmation.names.map(potNumber))} demo={demo}
       onCancel={() => { setConfirmation(null); cancel(); }} onConfirm={() => void apply(confirmation)} /> : null}

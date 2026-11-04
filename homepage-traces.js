@@ -9,6 +9,9 @@
   const ns = 'http://www.w3.org/2000/svg';
   const windowHours = 72;
   let selected, endHour, plot, paths = [], points = [];
+  let activePot = -1, sampleHour = null;
+  const readout = root.querySelector('[data-trace-readout]');
+  const legend = root.querySelector('[data-trace-pots]');
   let inView = false, paused = motion.matches, lastFrame = 0, animation = 0, lastPaint = 0;
 
   function node(name, attrs = {}, text) {
@@ -50,6 +53,7 @@
     }
     clock.textContent = studyTime(selected.hours[last]);
     svg.dataset.latestHour = selected.hours[last];
+    updateInspection();
   }
   function prepareChart() {
     if (!selected) return;
@@ -72,14 +76,69 @@
     points = selected.pots.map(pot => node('circle', { r: 2.8, fill: pot.color, stroke: '#fff', 'stroke-width': 1 }));
     lines.append(...paths, ...points); svg.append(lines);
     svg.setAttribute('aria-label', `${selected.name}. ${selected.pots.length} colored pot moisture traces over a rolling three-day window. Values are from the public demo.`);
+    plot.marker = node('circle', { r: 5, fill: '#fff', 'stroke-width': 2, visibility: 'hidden' });
+    svg.append(plot.marker);
     drawFrame();
   }
   function initialize(experiment) {
     selected = experiment;
     endHour = selected.initialHour;
-    provenance.textContent = `${selected.pots.length} pots · ${selected.kind.toLowerCase()} · accelerated replay`;
+    provenance.textContent = `${selected.pots.length} pots · Demo replay`;
+    legend.replaceChildren(...selected.pots.map((pot, index) => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = `Pot ${pot.number}`;
+      button.style.setProperty('--trace-color', pot.color);
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => {
+        activePot = activePot === index ? -1 : index; sampleHour = null; updateInspection();
+      });
+      return button;
+    }));
     prepareChart(); lastFrame = 0;
   }
+  function updateInspection() {
+    if (!selected || !plot) return;
+    paths.forEach((path, i) => {
+      path.setAttribute('opacity', activePot < 0 || i === activePot ? '1' : '.22');
+      path.setAttribute('stroke-width', i === activePot ? '3' : '1.8');
+      points[i].setAttribute('opacity', activePot < 0 || i === activePot ? '1' : '.22');
+      legend.children[i]?.setAttribute('aria-pressed', String(i === activePot));
+    });
+    if (activePot < 0) {
+      readout.textContent = 'Select a trace or pot.';
+      plot.marker.setAttribute('visibility', 'hidden'); return;
+    }
+    const index = Math.max(0, Math.min(selected.hours.length - 1, lowerBound(sampleHour ?? endHour) - 1));
+    const pot = selected.pots[activePot], hour = selected.hours[index], value = pot.values[index];
+    readout.textContent = `Pot ${pot.number} · ${value.toFixed(1)}% VWC · ${studyTime(hour)}`;
+    plot.marker.setAttribute('cx', plot.left + (hour - (endHour - windowHours)) / windowHours * plot.width);
+    plot.marker.setAttribute('cy', plot.top + (selected.max - value) / (selected.max - selected.min) * plot.height);
+    plot.marker.setAttribute('stroke', pot.color);
+    plot.marker.setAttribute('visibility', hour >= endHour - windowHours && hour <= endHour ? 'visible' : 'hidden');
+  }
+  svg.addEventListener('click', event => {
+    if (!plot) return;
+    const rect = svg.getBoundingClientRect(), x = event.clientX - rect.left, y = event.clientY - rect.top;
+    const hour = endHour - windowHours + Math.max(0, Math.min(1, (x - plot.left) / plot.width)) * windowHours;
+    const index = Math.max(0, Math.min(selected.hours.length - 1, lowerBound(hour)));
+    activePot = selected.pots.reduce((best, pot, i) => {
+      const py = value => plot.top + (selected.max - value) / (selected.max - selected.min) * plot.height;
+      return Math.abs(py(pot.values[index]) - y) < Math.abs(py(selected.pots[best].values[index]) - y) ? i : best;
+    }, 0);
+    sampleHour = selected.hours[index] + .00001; updateInspection();
+  });
+  svg.addEventListener('keydown', event => {
+    if (!selected || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Escape'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Escape') { activePot = -1; sampleHour = null; }
+    else {
+      if (activePot < 0) activePot = 0;
+      if (event.key === 'ArrowUp') activePot = (activePot + 1) % selected.pots.length;
+      if (event.key === 'ArrowDown') activePot = (activePot + selected.pots.length - 1) % selected.pots.length;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') sampleHour = Math.max(endHour - windowHours, Math.min(endHour, (sampleHour ?? endHour) + (event.key === 'ArrowLeft' ? -1 : 1)));
+    }
+    updateInspection();
+  });
   function tick(now) {
     animation = 0;
     if (!selected || paused || !inView || document.hidden) { lastFrame = 0; return; }

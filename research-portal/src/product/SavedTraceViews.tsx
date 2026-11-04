@@ -41,17 +41,17 @@ export function SavedTraceViews({ scope, experiment, names, visible, bounds, win
     catch { setNotice('This browser could not save the view.'); return false; }
   }
   return <details className="px-comparison-menu" ref={menu}>
-    <summary>Comparisons</summary>
+    <summary>Saved views</summary>
     <div className="px-saved-views">
     <div className="px-saved-view-row">
-      <select aria-label="Comparison view" value={selectionMatches ? selected : ''} onChange={event => {
+      <select aria-label="Saved view" value={selectionMatches ? selected : ''} onChange={event => {
         const id = event.target.value; const view = [...presets, ...saved].find(v => v.id === id);
         setSelected(id); setNotice(''); if (!view) return;
         const restored = restoreTraceView(view, names, bounds);
         if (restored.error || !restored.names || !restored.window) { setNotice(restored.error ?? 'View unavailable.'); return; }
         onApply(restored.names, restored.window); setNotice(restored.warning ?? '');
       }}>
-        <option value="">Comparison views</option>
+        <option value="">Choose a view</option>
         {presets.length ? <optgroup label="Suggested">{presets.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup> : null}
         {saved.length ? <optgroup label="Saved on this browser">{saved.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup> : null}
       </select>

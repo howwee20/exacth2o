@@ -198,3 +198,20 @@
 @media (max-width:760px) {
  .px-system-links a, .px-node-actions a, .px-system-text-button { min-height:44px; display:inline-flex; align-items:center; }
 }
+
+/* Trace selection stays above the plot, including in expanded view. */
+.px-pot-chart .dashboard-main.has-top-pots { display:flex; flex-direction:column; gap:12px; }
+.px-pot-chart .has-top-pots > .chart-card { width:100%; min-width:0; }
+.px-pot-chart .has-top-pots > .control-panel.px-pots-panel { display:flex; flex-direction:column; align-items:stretch; position:static; inset:auto; width:100%; max-width:none; min-width:0; max-height:none; overflow:visible; box-shadow:none; flex:none; }
+.px-pot-chart .has-top-pots .px-pots-body { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 20px; }
+.px-pot-chart .has-top-pots .px-trace-controls { flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.px-pot-chart .has-top-pots .research-presets { display:flex; flex-wrap:wrap; gap:6px; margin:0; }
+.px-pot-chart .has-top-pots .pot-group { flex:1 1 240px; min-width:0; }
+.px-pot-chart .has-top-pots .pot-group > div:not(.pot-group-head) { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:6px; }
+.px-pot-chart .has-top-pots .pot-toggle { border-radius:999px; }
+.px-pot-chart .has-top-pots.is-expanded { display:flex; overflow:auto; }
+.px-pot-chart .has-top-pots.is-expanded .chart-panel-main .canvas-chart { height:clamp(360px,60dvh,960px); min-height:360px; }
+.px-pot-chart .has-top-pots .px-comparison-menu { position:relative; }
+@media(max-width:999px) {
+ .px-pot-chart .has-top-pots .px-pots-panel:not(.is-open) .px-pots-body { display:none; }
+}

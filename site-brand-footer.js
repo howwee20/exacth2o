@@ -1,20 +1,12 @@
-// A fast arrival at the page bottom lifts the scanlines once, then lets them settle.
+// The footer fills once as it enters view, on short and long pages alike.
 (() => {
   const logo = document.querySelector('.brand-finale');
   const surface = logo?.querySelector('.brand-water-level');
   if (!surface) return;
   const empty = 'M600 250H1040V260H600Z';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let frame = 0, touchY = null;
-  let gestureAt = -Infinity, travel = 0, peakSpeed = 0;
-  let previousScroll = window.scrollY, previousTime = performance.now();
-  let wasAtBottom = atBottom();
-  function atBottom() {
-    const page = document.scrollingElement || document.documentElement;
-    const rect = logo.getBoundingClientRect();
-    return rect.top < window.innerHeight && rect.bottom > 0 &&
-      page.scrollHeight - window.innerHeight - window.scrollY <= 3;
-  }
+  let frame = 0, visible = false;
+  function atBottom() { return visible; }
   function settle() {
     cancelAnimationFrame(frame);
     frame = 0;
@@ -50,45 +42,11 @@
     }
     frame = requestAnimationFrame(draw);
   }
-  window.addEventListener('scroll', () => {
-    const now = performance.now(), y = window.scrollY;
-    const delta = y - previousScroll, elapsed = now - previousTime;
-    const bottom = atBottom(), arriving = bottom && !wasAtBottom;
-    previousScroll = y; previousTime = now; wasAtBottom = bottom;
-    if (delta <= 0 || elapsed > 160) { travel = 0; peakSpeed = 0; }
-    if (delta > 0) {
-      travel += delta;
-      peakSpeed = Math.max(peakSpeed, delta / Math.max(16, Math.min(elapsed, 100)));
-    }
-    // Preserve the gesture through continuous touch/trackpad momentum.
-    if (delta > 0 && now - gestureAt <= 180) gestureAt = now;
-    if (!bottom) { if (frame) settle(); return; }
-    // Use actual page travel, not wheel deltas: overscrolling an already stationary
-    // footer must never trigger a new fill. A slow arrival stays quiet as well.
-    if (!arriving || now - gestureAt > 180) return;
-    // Native smooth scrolling slows the last few pixels even after a fast swipe.
-    // Retain the speed of this uninterrupted downward gesture until it lands.
-    if (travel >= 90 && peakSpeed >= 1.2) play(Math.min(1, peakSpeed / 3));
-    travel = 0; peakSpeed = 0;
-  }, { passive: true });
-  // Passive input may arrive after the compositor has moved the page. Use the
-  // last processed scroll position so that the final wheel still counts.
-  window.addEventListener('wheel', event => {
-    if (!event.ctrlKey && event.deltaY > 0 && !wasAtBottom) gestureAt = performance.now();
-  }, { passive: true });
-  window.addEventListener('touchstart', event => { touchY = event.touches[0]?.clientY ?? null; }, { passive: true });
-  window.addEventListener('touchmove', event => {
-    const y = event.touches[0]?.clientY;
-    if (touchY !== null && y !== undefined && touchY > y && !wasAtBottom) gestureAt = performance.now();
-    touchY = y ?? null;
-  }, { passive: true });
-  for (const type of ['touchend', 'touchcancel']) window.addEventListener(type, () => { touchY = null; }, { passive: true });
-  window.addEventListener('keydown', () => { gestureAt = -Infinity; });
-  window.addEventListener('resize', () => {
-    previousScroll = window.scrollY; previousTime = performance.now();
-    wasAtBottom = atBottom(); travel = 0; peakSpeed = 0; gestureAt = -Infinity;
-    settle();
-  });
+  new IntersectionObserver(entries => {
+    const next = entries[0].isIntersecting && entries[0].intersectionRatio >= .6;
+    if (next && !visible) { visible = true; play(1); }
+    else if (!next) { visible = false; settle(); }
+  }, { threshold: .6 }).observe(logo);
   document.addEventListener('visibilitychange', () => { if (document.hidden) settle(); });
   reducedMotion.addEventListener('change', settle);
   window.addEventListener('pagehide', settle);
