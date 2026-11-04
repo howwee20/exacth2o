@@ -38,8 +38,29 @@
 .home-page .cinema-text-link { gap: 5px; min-height: 44px; color: var(--action); font: 400 17px/1.25 var(--sans); text-decoration: none; }
 .home-page .cinema-text-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .home-page .cinema-photo { width: 100%; max-width: 1512px; height: clamp(360px, 44vw, 610px); margin: 0 auto; border-radius: 4px; background: #e5e5e7; }
-.home-page .cinema-photo img { object-position: 50% 50%; animation: none; }
+.home-page .cinema-photo img { object-position: var(--desktop-position, 50% 50%); animation: none; }
 .home-page .cinema-photo::after { display: none; }
+.cinema-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
+.cinema-slide.is-active { opacity: 1; }
+.cinema-pause {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1;
+  min-height: 40px;
+  padding: 9px 15px;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 999px;
+  background: rgba(16,31,26,.78);
+  color: #fff;
+  font: 400 13px/1.3 var(--exact-font-sans);
+  cursor: pointer;
+}
+.cinema-pause:hover { background: #101f1a; }
+.cinema-pause:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .cinema-slide { transition: none; }
+}
 
 /* Product sections share a type scale and generous, consistent spacing. */
 .home-page .home-section { padding: clamp(64px, 6vw, 88px) max(24px, var(--gutter)); }
@@ -109,6 +130,7 @@
   .home-page .cinema-button, .home-page .cinema-text-link { font-size: 15px; }
   .home-page .cinema-button { padding: 11px 20px; min-height: 44px; }
   .home-page .cinema-photo { height: 350px; }
+  .home-page .cinema-photo img { object-position: var(--mobile-position, 50% 50%); }
   .home-page .home-section { padding: 64px 20px; }
   .home-page .section-label { font-size: 15px; }
   .home-page .section-title { font-size: 38px; }
