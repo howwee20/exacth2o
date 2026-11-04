@@ -115,28 +115,6 @@
   cursor: wait;
 }
 
-.experiment-corner-actions {
-  position: fixed;
-  top: 14px;
-  right: 28px;
-  z-index: 20;
-}
-
-.experiment-corner-actions .header-action {
-  border-color: rgba(14, 26, 20, 0.14);
-  background: rgba(255, 255, 255, 0.9);
-  color: rgba(14, 26, 20, 0.72);
-  box-shadow: 0 12px 30px rgba(14, 26, 20, 0.12);
-  backdrop-filter: blur(10px);
-}
-
-.experiment-corner-actions .header-action:hover,
-.experiment-corner-actions .header-action:focus-visible {
-  border-color: rgba(26, 107, 74, 0.28);
-  background: rgba(255, 255, 255, 0.98);
-  color: var(--portal-water);
-}
-
 .experiment-view-title {
   min-height: 46px;
   display: flex;

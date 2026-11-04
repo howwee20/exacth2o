@@ -3089,7 +3089,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       </div> : undefined}
       machines={!isDemo ? <>
         {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
-        {isAdmin || portalAccess.gasMixerAllowed ? <SystemSection name="Chamber" description="Gas mixer · Lighting" action={<button type="button" className="px-button" onClick={() => setPortalView("chamber")}>Open system</button>}><p className="px-system-description">Control and schedules</p></SystemSection> : null}
+        {isAdmin || portalAccess.gasMixerAllowed ? <SystemSection name="Chamber" defaultExpanded={false} description="Gas mixer · Lighting" action={<button type="button" className="px-button" onClick={() => setPortalView("chamber")}>Open system</button>}><p className="px-system-description">Control and schedules</p></SystemSection> : null}
       </> : undefined}
       tools={isDemo ? undefined : adminTools ?? (portalAccess.gasMixerAllowed ? <GasMixerResearcherTile onOpen={() => setPortalView("chamber")} /> : undefined)}
       recordAvailable={recordAvailable}

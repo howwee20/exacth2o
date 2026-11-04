@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Maximize2, Minimize2 } from "lucide-react";
+import { AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SensorCanvasChart } from "../charts/SensorCanvasChart";
 import { TimeRangeControl } from "../charts/TimeRangeControl";
@@ -16,6 +16,7 @@ import { type SensorReading } from "../types";
 import { isWalkerAccessDenied, toggleWalkerSensorSelection, walkerFreshness, type WalkerLiveSensor, type WalkerLiveSnapshot, walkerSensorsByBoard } from "../walkerObservation";
 import { loadWalkerLiveSnapshot } from "../walkerObservationClient";
 import { scopeWalkerSnapshot, type WalkerPortalExperiment } from "../walkerExperiments";
+import { PortalHomeButton } from "../product/PortalHomeButton";
 
 export const walkerLivePollMs = 60_000;
 
@@ -195,14 +196,7 @@ export function WalkerExperimentView({ onBack, experiment }: { onBack: () => voi
 
   return (
     <section className="dashboard-shell experiment-shell walker-experiment-shell">
-      <div className="experiment-corner-actions" aria-label="Machine actions">
-        <div className="header-actions">
-          <button className="header-action" type="button" onClick={onBack}>
-            <ArrowLeft size={14} />
-            Home
-          </button>
-        </div>
-      </div>
+      <PortalHomeButton onClick={onBack} />
 
       {error ? (
         <div className="banner error" role="alert">

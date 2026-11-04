@@ -497,11 +497,6 @@
   }
 }
 
-.walker-experiment-shell .experiment-corner-actions {
-  right: 128px;
-  z-index: 60;
-}
-
 .walker-experiment-shell .control-panel {
   position: sticky;
   top: 12px;
@@ -513,10 +508,6 @@
 }
 
 @media (max-width: 760px) {
-  .walker-experiment-shell .experiment-corner-actions {
-    right: 110px;
-  }
-
   .walker-experiment-shell .control-panel {
     position: relative;
     top: auto;

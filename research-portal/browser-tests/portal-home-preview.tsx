@@ -42,7 +42,7 @@ function Preview() {
           {walkerDrafts.length ? walkerDrafts.map((name,index)=><article className="px-local-draft" key={index}><strong>{name}</strong><span>Local draft</span></article>) : <p className="px-system-empty">No experiments yet.</p>}
           <div className="px-system-links"><a href="#walker">View readings →</a></div>
         </SystemSection>
-        <SystemSection name="Chamber" description="Gas mixer · Lighting" action={<button className="px-button" onClick={()=>preview('Chamber')}>Open system</button>}>
+        <SystemSection name="Chamber" defaultExpanded={false} description="Gas mixer · Lighting" action={<button className="px-button" onClick={()=>preview('Chamber')}>Open system</button>}>
           <p style={{margin:0,color:'var(--px-muted)'}}>Control and schedules</p>
         </SystemSection>
       </>}

@@ -3,6 +3,7 @@ import { usePortalQueryValue } from "../portalRoute";
 import { loadWalkerExperiment } from "../walkerExperimentClient";
 import type { WalkerPortalExperiment } from "../walkerExperiments";
 import { WalkerExperimentView } from "./WalkerExperimentView";
+import { PortalHomeButton } from "../product/PortalHomeButton";
 
 export function WalkerExperimentPage({ onBack }: { onBack: () => void }) {
   const id = usePortalQueryValue("study");
@@ -15,7 +16,7 @@ export function WalkerExperimentPage({ onBack }: { onBack: () => void }) {
     return () => { active = false; };
   }, [id]);
   if (id && (!record || record.id !== id)) return <section className="px-page">
-    <button type="button" className="px-button" onClick={onBack}>Home</button>
+    <PortalHomeButton onClick={onBack} />
     <p role={error ? "alert" : "status"}>{error ? "This Walker experiment is unavailable." : "Loading experiment…"}</p>
   </section>;
   return <WalkerExperimentView key={id ?? "all-readings"} experiment={id ? record : null} onBack={onBack} />;

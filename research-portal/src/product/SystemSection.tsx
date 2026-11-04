@@ -2,13 +2,14 @@ import { ChevronDown } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
 /** One system owns its experiments, status, and system-specific actions. */
-export function SystemSection({ name, description, action, children }: {
+export function SystemSection({ name, description, action, children, defaultExpanded = true }: {
   name: string;
   description?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const contentId = useId();
   return <section className="px-system-section" aria-label={name} data-expanded={expanded}>
     <header className="px-system-heading">
