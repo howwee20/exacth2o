@@ -32,7 +32,7 @@ jobs:
         run: |
           node scripts/build-product-release.mjs
           node scripts/assert-demo-offline.mjs
-          git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
+          git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js homepage-traces-data.json
           test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
 
 
@@ -69,6 +69,8 @@ jobs:
           mkdir -p site-dist/portal-app/assets
 
           cp site-metrics.js site-navigation.js one-pot-explainer.js site.css site-ambient.js site-ui.css site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
+          cp site-typography.css site-components.css homepage.css site-polish.css support-polish.css site-dist/
+          cp homepage-traces.js homepage-traces-data.json site-dist/
           cp software-tour.css software-tour.js site-dist/
           cp -R media site-dist/
           cp 404.html privacy.html terms.html data-access.html favicon.svg robots.txt sitemap.xml site-dist/

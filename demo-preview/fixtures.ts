@@ -175,7 +175,7 @@ const config = { project_id: 'sample', device_id: 'sample', device_name: 'Resear
   group_count: 3, config_hash: runtime.config_hash, endpoint_status: {}, raw_config: {}, get updated_at() { return stamp(Date.now()); } };
 export const storedReadings = readings;
 const recent = readings.filter(r => Date.parse(r.device_recorded_at) >= now - 72 * 3600000).slice(-50000);
-export const fixture = { ...base, runtime, config, experiments, valveEvents,
+export const fixture = { ...base, runtime, config, experiments, valveEvents, historyReadings: readings,
   health: { ...base.health, sensors_expected: pairings.length, sensors_current: pairings.length, sensors_stale: 0, stale_sensors: [],
     scheduler_jobs_loaded: pairings.length, watering_events_last_24h: runtime.watering_events_last_24h,
     watering_last_event: runtime.watering_last_event, watering_last_event_at: runtime.watering_last_event_at },

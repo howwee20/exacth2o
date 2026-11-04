@@ -17,6 +17,10 @@ export default defineConfig({root,base:'/demo-app/',publicDir:false,define:{"imp
  });
 }
 const groups = new Map<string, PortalExperimentAssignment[]>();`,'experiment graph groups');if(id===path.join(repo,'research-portal/src/WalkerObservationView.tsx'))return replaceRequired(code,'Walker Pi 5 Observation','Experiment 3','walker tile title');if(id===path.join(repo,'research-portal/src/settings/PortalSettingsPanel.tsx'))return replaceRequired(code,'{ label: "Checked at the bench", value: <span className="settings-empty-value">Not yet</span> }','{ label: "Pairing status", value: "Verified" }','demo pairing status');if(id===path.join(repo,'research-portal/src/walker/WalkerExperimentView.tsx'))return replaceRequired(replaceRequired(code,'<h1 className="experiment-view-title">Walker Pi 5</h1>','<h1 className="experiment-view-title">Experiment 3</h1>','demo walker title'),'nextSnapshot.sensors.map((sensor) => sensor.source_sensor_id)','nextSnapshot.sensors.filter((_, index) => index % 16 === 0).map((sensor) => sensor.source_sensor_id)','demo walker selection');if(id!==path.join(repo,'research-portal/src/App.tsx'))return;
+ // The real App's rolling live cache intentionally retains only recent readings.
+ // Demo mode disables the remote archive, so supply the complete local study here.
+ code=replaceRequired(code,'experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment)',
+   'experimentTraceReadings(fixture.historyReadings, data.readings, selectedExperiment)','complete demo experiment history');
  const source=ts.createSourceFile(id,code,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),edits=[];
  const app=source.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='App');
  const init={accessLoading:'false',email:'""',authMode:'"sign-in"',inviteToken:'null',sessionReady:'demoSession()',data:'fixture.data',portalAccess:'fixture.access',experimentCatalog:'fixture.experiments',healthSnapshot:'fixture.health',valveEvents:'fixture.valveEvents',runtimeState:'fixture.runtime',configState:'fixture.config'};

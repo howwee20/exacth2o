@@ -17,29 +17,6 @@
   }
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<style>
-/* Metric-matched fallback: text keeps its line breaks when the web font arrives (Instrument Sans ~ Arial x 1.03). */
-@font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
-.one-pot-plot-wrap { position: relative; }
-.one-pot-tcontrol { position: absolute; z-index: 3; display: flex; align-items: center; gap: 5px; transform: translateY(-50%); }
-.one-pot-pill { position: relative; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid #b9cdc1; border-radius: 13px; background: #fff; color: #173c2c; font: 600 12px/1 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 1px 2px rgba(16, 37, 28, .08); cursor: ns-resize; touch-action: none; user-select: none; -webkit-user-select: none; transition: border-color .15s var(--ease), background-color .15s var(--ease); }
-.one-pot-pill::before { content: ''; position: absolute; inset: -9px -8px; }
-.one-pot-pill:hover { border-color: #7fa58f; }
-.one-pot-pill.is-dragging, .one-pot-pill.is-preview { border-color: #2c7a57; background: #f3faf6; color: #10432f; }
-.one-pot-pill:focus-visible, .one-pot-tbtn:focus-visible { outline: 2px solid #2456d6; outline-offset: 2px; }
-.one-pot-tcluster { display: inline-flex; gap: 4px; }
-.one-pot-tcluster[hidden], .one-pot-tline[hidden] { display: none; }
-.one-pot-tbtn { position: relative; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid #c9d7cf; border-radius: 50%; background: #fff; color: #375a49; font: 600 13px/1 var(--sans); cursor: pointer; box-shadow: 0 1px 2px rgba(16, 37, 28, .08); }
-.one-pot-tbtn::before { content: ''; position: absolute; inset: -6px; }
-.one-pot-tbtn:hover { background: #eef4f0; }
-.one-pot-tbtn.is-apply { border-color: #1f7a55; background: #1f7a55; color: #fff; }
-.one-pot-tbtn.is-apply:hover { background: #19684a; }
-.one-pot-tband { position: absolute; z-index: 2; height: 14px; transform: translateY(-50%); cursor: ns-resize; touch-action: none; }
-.one-pot-tline { position: absolute; z-index: 1; border-top: 1.5px solid #2c7a57; pointer-events: none; }
-</style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css?v=20261014">
 <style>
 /* Opening: real equipment beside restrained type. */
@@ -66,79 +43,6 @@
 .home-head-aside { justify-self: end; max-width: 46ch; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
 .feature-link { margin-top: .9rem; font-size: .9rem; }
 
-/* How control works: deterministic illustration, never a live controller. */
-.one-pot { background: var(--surface); border-bottom: 1px solid var(--rule); scroll-margin-top: 72px; }
-.one-pot-inner { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 2rem; align-items: start; }
-.one-pot .home-head { grid-column: 1 / -1; margin-bottom: .5rem; }
-.one-pot-card, .one-pot-record { display: grid; gap: 1rem; padding: clamp(1rem, 2vw, 1.75rem); border: 1px solid var(--rule); border-radius: 10px; background: #fff; }
-.one-pot-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.4rem; }
-.one-pot-controls label { font: 600 .875rem/1.4 var(--sans); color: #3d4a43; }
-.one-pot-controls label strong { margin-left: .4rem; font: 500 1.625rem/1.2 var(--mono); color: var(--target-color); font-variant-numeric: tabular-nums; transition: color .3s var(--ease); }
-.one-pot-controls input[type="range"] { flex: 1 1 220px; min-width: 0; min-height: 40px; accent-color: var(--target-color, var(--water)); cursor: ew-resize; touch-action: pan-y; }
-.one-pot-presets { display: flex; flex-wrap: wrap; gap: .5rem; width: 100%; }
-.one-pot-presets button { min-height: 40px; padding: 0 .9rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--bg); color: var(--ink); font: 500 .85rem var(--sans); cursor: pointer; transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease); }
-.one-pot-presets button::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--preset-color); vertical-align: middle; }
-.one-pot-presets button:hover, .one-pot-presets button[aria-pressed="true"] { border-color: var(--preset-color); background: #fff; color: var(--preset-color); }
-.one-pot-presets button:focus-visible { outline: 2px solid var(--preset-color); outline-offset: 3px; }
-.one-pot-view-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.one-pot-view-actions button { min-height: 40px; padding: 0 .8rem; border: 1px solid #bdcec2; border-radius: 6px; background: #fff; color: #315b43; font: 600 .8125rem/1.3 var(--sans); cursor: pointer; transition: background .2s var(--ease), border-color .2s var(--ease); }
-.one-pot-view-actions button:hover, .one-pot-view-actions button[aria-pressed="true"] { background: #eaf3ed; border-color: #719b81; }
-.one-pot-view-actions > span { margin-left: auto; font: 400 .75rem var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.one-pot-chart { display: block; width: 100%; height: clamp(300px, 27vw, 390px); overflow: visible; }
-.record-chart { display: block; width: 100%; height: auto; }
-.one-pot-grid { stroke: rgba(14, 26, 20, .08); }
-.one-pot-axis { font-family: var(--mono); font-size: 11px; fill: #56645c; }
-.one-pot-line { fill: none; stroke: var(--target-color, var(--water)); stroke-width: 2.4; stroke-linejoin: round; }
-.one-pot-selected { stroke-width: 3.4; stroke-linecap: round; }
-.one-pot-area { fill-opacity: .075; }
-.one-pot-dry { fill: none; stroke: #727c74; stroke-width: 1.6; stroke-dasharray: 6 5; opacity: .85; }
-.one-pot-previous { fill: none; stroke-width: 1.8; stroke-dasharray: 2 5; }
-.one-pot-comparison { fill: none; stroke-width: 1.8; stroke-linejoin: round; opacity: .8; }
-.one-pot-comparison.is-entering { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: one-pot-enter 700ms ease-out var(--trace-delay, 0ms) forwards; }
-.one-pot-target { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 5 4; }
-.one-pot-target-label { font-family: var(--mono); font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 4px; }
-.one-pot-tick { stroke: #1f5f8b; stroke-width: 1.5; }
-.one-pot-opening { fill: #fff; stroke: #1f5f8b; stroke-width: 1.8; }
-.one-pot-water-shade { fill: #286995; opacity: .055; }
-.one-pot-water-event.is-new .one-pot-opening { animation: one-pot-water 480ms ease-out; transform-box: fill-box; transform-origin: center; }
-.one-pot-playhead { stroke: #284f3b; stroke-width: 1; stroke-dasharray: 3 3; }
-.one-pot-live-point { fill: var(--target-color); stroke: #fff; stroke-width: 2; }
-.one-pot-comparisons { display: flex; flex-wrap: wrap; gap: 7px 16px; font-size: .75rem; line-height: 1.6; color: #41594b; }
-.one-pot-comparisons[hidden] { display: none; }
-.one-pot-comparisons span::before, .one-pot-comparisons strong::before { content: ''; display: inline-block; width: 15px; margin-right: 5px; border-top: 2px solid var(--comparison-color, var(--target-color)); vertical-align: middle; }
-.one-pot-comparisons strong { color: var(--target-color); font-weight: 600; }
-.one-pot-comparisons .is-previous::before { border-top-style: dotted; }
-.one-pot-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px; font: 400 .75rem/1.6 var(--sans); color: #56645c; }
-.one-pot-legend span { display: inline-block; margin-right: .35rem; vertical-align: middle; }
-.one-pot-legend .key-line { width: 22px; border-top: 2px solid var(--target-color, var(--water)); }
-.one-pot-legend .key-dry { width: 22px; border-top: 1.6px dashed #727c74; }
-.one-pot-legend .key-target { width: 22px; border-top: 1px dashed var(--target-color, var(--ink)); }
-.one-pot-legend .key-tick { width: 2px; height: 10px; background: #1f5f8b; }
-.one-pot-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0; padding-top: 1rem; border-top: 1px solid var(--rule); }
-.one-pot-stats > div { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
-.one-pot-stats dt { font-size: .75rem; line-height: 1.5; color: var(--muted); }
-.one-pot-stats dd { margin: 6px 0 0; font: 500 clamp(19px, 2vw, 25px)/1.2 var(--mono); color: var(--target-color); font-variant-numeric: tabular-nums; }
-.one-pot-result { min-height: 2.8em; font-size: .875rem; line-height: 1.6; color: var(--ink); }
-.one-pot-fine { max-width: 62ch; font-size: .75rem; line-height: 1.6; color: #607168; }
-.one-pot-record { align-content: start; gap: .9rem; padding: 1.5rem; }
-.one-pot-record h3 { font-size: 1.25rem; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; }
-.one-pot-record p { color: #3d4a43; }
-.record-raw { fill: none; stroke: #8a9690; stroke-width: 1.2; stroke-dasharray: 4 3; }
-.record-marker { stroke: rgba(14, 26, 20, .25); stroke-dasharray: 2 3; }
-.record-dot { fill: #fff; stroke: var(--ink); stroke-width: 1.2; }
-.record-dot.is-C { stroke: #6d3f87; }
-.record-letter { font-family: var(--mono); font-size: 10px; font-weight: 500; fill: var(--ink); }
-.record-events { display: grid; gap: .55rem; list-style: none; font-size: .95rem; color: #3d4a43; }
-.record-events li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: .6rem; }
-.record-events b { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border: 1px solid var(--ink); border-radius: 50%; font: 500 .7rem var(--mono); color: var(--ink); }
-.record-key { font: 400 .72rem var(--mono); letter-spacing: .06em; text-transform: uppercase; color: #56645c; }
-.record-key span { display: inline-block; width: 22px; margin: 0 .35rem 0 .6rem; vertical-align: middle; }
-.record-key span:first-child { margin-left: 0; }
-.record-calibrated-key { border-top: 2px solid var(--target-color, var(--water)); }
-.record-raw-key { border-top: 1.5px dashed #8a9690; }
-@keyframes one-pot-enter { to { stroke-dashoffset: 0; } }
-@keyframes one-pot-water { from { opacity: .3; transform: scale(.3); } to { opacity: 1; transform: scale(1); } }
-
 /* The system */
 .features-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; }
 .feat-card { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
@@ -156,17 +60,7 @@
 .feature-image-preview img { display: block; max-width: min(960px, 88vw); max-height: 84vh; object-fit: contain; border-radius: 14px; box-shadow: 0 28px 90px rgba(5, 13, 9, .38); transform: scale(.985); transition: transform .25s var(--ease); }
 .feature-image-preview.is-visible img { transform: none; }
 
-/* Published research */
-.research-proof { max-width: var(--content); margin: 0 auto; padding: clamp(2.5rem, 5vw, 3.5rem) 0; border-top: 1px solid var(--rule); }
-.research-proof-wrap { padding: 0 var(--gutter) clamp(2.5rem, 5vw, 4rem); }
-.research-brief { display: flex; justify-content: space-between; align-items: center; gap: 2rem; }
-.research-brief-label { margin-bottom: .5rem; font-size: .8125rem; font-weight: 600; color: var(--water); }
-.research-brief h3 { margin-bottom: .5rem; font-size: 1.5rem; font-weight: 600; line-height: 1.25; letter-spacing: -.025em; }
-.research-brief-meta { font-size: .875rem; line-height: 1.6; color: var(--muted); }
-.research-brief .text-link { flex: none; font-size: .9rem; }
-
 /* Compact footer and clearly labelled demonstration. */
-.one-pot-example-label { margin: 0; font-size: .8125rem; font-weight: 500; color: var(--muted); }
 .home-footer { display: flex; justify-content: space-between; align-items: center; gap: 2rem; padding: 2.5rem var(--gutter); }
 .home-footer .footer-brand { width: 168px; margin-left: -11px; }
 @media (max-width: 600px) {
@@ -191,25 +85,19 @@
   .cinema-photo img { object-position: 58% 55%; }
   .home-head { grid-template-columns: 1fr; align-items: start; }
   .home-head-aside { justify-self: start; }
-  .one-pot-inner, .features-grid { grid-template-columns: minmax(0, 1fr); }
+  .features-grid { grid-template-columns: minmax(0, 1fr); }
   .features-grid { gap: 2.5rem; }
   .feat-card-img { max-height: 340px; }
-  .research-brief { flex-direction: column; align-items: flex-start; gap: 1rem; }
 }
 @media (max-width: 700px) {
   .cinema-content { padding-inline: 20px; }
   .cinema-actions { align-items: flex-start; }
   .cinema-button { min-width: 0; }
 }
-@media (max-width: 520px) {
-  .one-pot-view-actions > span { width: 100%; margin-left: 0; }
-  .one-pot-stats { gap: .5rem; }
-  .one-pot-stats dt { min-height: 3em; font-size: .6875rem; }
-  .one-pot-record { padding: 1.125rem; }
-}
+
 </style>
 <script src="/site-navigation.js" defer></script>
-<script src="/one-pot-explainer.js?v=20261016-target-pill" defer></script>
+<script src="/homepage-traces.js?v=20261103-simple1" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/">
@@ -219,8 +107,12 @@
 <meta property="og:url" content="https://exacth2o.com/">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site-polish.css?v=20261103-preview3">
+<link rel="stylesheet" href="/homepage.css?v=20261103-release1">
+<link rel="stylesheet" href="/site-typography.css?v=20261103-type1">
+<link rel="stylesheet" href="/site-components.css?v=20261103-components1">
 </head>
-<body>
+<body class="public-page home-page">
 
 <nav>
   <a href="/" class="nav-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
@@ -251,114 +143,64 @@
     <p class="cinema-copy">Set moisture targets for individual pots. ExactH2O uses sensor readings to control watering and records each pot’s moisture and irrigation history.</p>
     <div class="cinema-actions">
       <a class="cinema-button" href="#system">Explore the system</a>
-      <a class="cinema-text-link" href="/quote">Request a quote</a>
+      <a class="cinema-text-link" href="/quote">Request a quote <span aria-hidden="true">›</span></a>
     </div>
   </div>
   <div class="cinema-photo">
-    <img src="/hero-greenhouse-4209-1280w-20260913.webp" srcset="/hero-greenhouse-4209-1280w-20260913.webp 1280w, /hero-greenhouse-4209-20260913.webp 2200w" sizes="(max-width: 900px) 100vw, 50vw" width="2200" height="1650" fetchpriority="high" decoding="async" alt="Overhead view of research pots with color-coded irrigation rings">
+    <img src="/hero-greenhouse-4209-1280w-20260913.webp" srcset="/hero-greenhouse-4209-1280w-20260913.webp 1280w, /hero-greenhouse-4209-20260913.webp 2200w" sizes="calc(100vw - 48px)" width="2200" height="1650" fetchpriority="high" decoding="async" alt="Overhead view of research pots with color-coded irrigation rings">
   </div>
 </section>
 
-<section class="home-section one-pot" id="one-pot" aria-labelledby="one-pot-title">
-  <div class="home-inner one-pot-inner">
-    <div class="home-head">
-      <div>
-        <div class="section-label">How control works</div>
-        <h2 class="section-title" id="one-pot-title">How automatic watering works</h2>
-      </div>
-      <p class="home-head-aside">Adjust the moisture target to see how watering responds.</p>
-    </div>
-    <div class="one-pot-card">
-      <p class="one-pot-example-label">Simulated example · three days</p>
-      <div class="one-pot-controls">
-        <label for="one-pot-target">Moisture target <strong id="one-pot-target-value">30%</strong></label>
-        <input id="one-pot-target" type="range" min="15" max="40" step="1" value="30" aria-describedby="one-pot-result">
-        <div class="one-pot-presets" role="group" aria-label="Example targets">
-          <button type="button" data-one-pot-target="18">Dry-down · 18%</button>
-          <button type="button" data-one-pot-target="26">Deficit · 26%</button>
-          <button type="button" data-one-pot-target="36">Well-watered · 36%</button>
-        </div>
-      </div>
-      <div class="one-pot-view-actions">
-        <button id="one-pot-compare" type="button" aria-pressed="false" aria-controls="one-pot-chart one-pot-comparisons">Compare targets</button>
-        <button id="one-pot-replay" type="button" aria-pressed="false" aria-controls="one-pot-chart">Replay 3 days</button>
-        <span id="one-pot-progress" aria-hidden="true">Three days</span>
-      </div>
-      <svg id="one-pot-chart" class="one-pot-chart" role="img" aria-label="An irrigation example over three days"></svg>
-      <div id="one-pot-comparisons" class="one-pot-comparisons" aria-label="Comparison targets" hidden></div>
-      <p class="one-pot-legend"><span><span class="key-line"></span>your moisture trace</span><span><span class="key-dry"></span>without irrigation</span><span><span class="key-target"></span>target</span><span><span class="key-tick"></span>valve opening</span></p>
-      <dl class="one-pot-stats" aria-label="Simulation summary">
-        <div><dt>Valve openings</dt><dd id="one-pot-openings">—</dd></div>
-        <div><dt>Mean moisture</dt><dd id="one-pot-mean">—</dd></div>
-        <div><dt>Longest without watering</dt><dd id="one-pot-interval">—</dd></div>
-      </dl>
-      <p id="one-pot-result" class="one-pot-result" aria-live="polite">7 valve openings · 3 days</p>
-    </div>
-    <div class="one-pot-record">
-      <h3>Experiment record</h3>
-      <p>Targets, calibration, and field notes.</p>
-      <svg id="record-example" class="record-chart" role="img" aria-label="Example: calibrated moisture of one pot steps up when a new calibration is applied, while the raw sensor output is continuous."></svg>
-      <p class="record-key"><span class="record-calibrated-key"></span>calibrated<span class="record-raw-key"></span>raw (own scale)</p>
-      <ol class="record-events">
-        <li><b>T</b><span id="record-target-event">Target → 30% VWC</span></li>
-        <li><b>C</b><span>Calibration updated</span></li>
-        <li><b>N</b><span>Field note added</span></li>
-      </ol>
-    </div>
-  </div>
-</section>
 
 <section class="home-section features-strip" id="system" aria-labelledby="system-title">
   <div class="home-inner">
     <div class="home-head">
-      <div>
-        <div class="section-label">The system</div>
-        <h2 class="section-title" id="system-title">Sensors, valves,<br>and a research portal.</h2>
-      </div>
-      <div class="home-head-aside">
-        <a class="text-link feature-link" href="/demo">Open demo <span aria-hidden="true">→</span></a>
-      </div>
+      <p class="section-label">The system</p>
+      <h2 class="section-title" id="system-title">Sensors, valves,<br>and a research portal.</h2>
     </div>
     <div class="features-grid">
       <article class="feat-card">
-        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
-          <img src="independent-irrigation-20261009-v2.jpg" alt="Valve manifold with individual irrigation lines" width="1086" height="1448" loading="lazy" decoding="async">
-        </div>
         <h3>Individual pot control</h3>
         <p>Set a moisture threshold for each pot and control its irrigation independently.</p>
-      </article>
-      <article class="feat-card">
-        <div class="feat-card-img feat-card-img--dashboard" tabindex="0" aria-label="Enlarge the research portal preview">
-          <img src="portal-preview-20261013.jpg" alt="ExactH2O research portal showing experiments and sensor readings" width="1728" height="940" loading="lazy" decoding="async">
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
+          <img src="/independent-irrigation-20261009-v2.jpg" alt="ExactH2O irrigation manifold with separate colored lines running to research pots" width="1086" height="1448" loading="lazy" decoding="async">
         </div>
-        <h3>Experiment records</h3>
-        <p>View sensor readings and watering history, add field notes, and export your data.</p>
       </article>
-      <article class="feat-card">
-        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
-          <img src="sensor.avif?v=20260709-avif" alt="Soil moisture sensor installed beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
-        </div>
+      <article class="feat-card feat-card--sensor">
         <h3>Sensor measurements</h3>
         <p>Measure moisture, temperature, and electrical conductivity. Calibrate moisture readings for your growing media.</p>
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
+          <img src="/sensor.avif?v=20260709-avif" alt="A moisture sensor being placed in a research pot beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
+        </div>
       </article>
     </div>
   </div>
 </section>
 
-<div class="feature-image-preview" aria-hidden="true"><img src="" alt=""></div>
-
-<div class="research-proof-wrap">
-  <section class="research-proof" aria-labelledby="research-brief-title">
-    <div class="research-brief">
-      <div>
-        <p class="research-brief-label">Published research</p>
-        <h3 id="research-brief-title">Drought timing in switchgrass</h3>
-        <p class="research-brief-meta">122 days · 4 watering treatments<br>Basyal et al., Journal of Experimental Botany, 2026</p>
-      </div>
-      <a class="text-link" href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study <span aria-hidden="true">↗</span></a>
+<section class="home-section home-traces" id="one-pot" aria-labelledby="one-pot-title" data-homepage-traces aria-busy="true">
+  <div class="home-inner">
+    <div class="home-head">
+      <h2 class="section-title" id="one-pot-title">Experiment records</h2>
+      <p class="home-head-aside">View sensor readings and watering history, add field notes, and export your data.</p>
     </div>
-  </section>
-</div>
+    <div class="home-traces-chart-card">
+      <div class="trace-toolbar">
+        <div>
+          <h3>Drought response</h3>
+          <p class="trace-provenance" data-trace-provenance>Loading demo readings…</p>
+        </div>
+        <button type="button" class="trace-pause" data-trace-pause aria-pressed="false" disabled>Pause replay</button>
+      </div>
+      <div class="trace-chart-label"><span>Moisture (VWC)</span><span>72-hour window</span></div>
+      <svg id="homepage-trace-chart" class="homepage-trace-chart" role="img" aria-label="Colored moisture traces from the experiment demo"></svg>
+      <div class="trace-chart-footer"><span>Each line is one pot.</span><span data-trace-clock></span></div>
+    </div>
+    <a class="text-link trace-applications-link" href="/applications">Explore applications <span aria-hidden="true">›</span></a>
+    <p class="home-research-link"><span>Published research:</span> <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Drought timing in switchgrass <span aria-hidden="true">↗</span></a></p>
+  </div>
+</section>
+
+<div class="feature-image-preview" aria-hidden="true"><img src="" alt=""></div>
 
 <section class="cta-strip" aria-labelledby="cta-title">
   <h2 id="cta-title">Discuss your setup</h2>

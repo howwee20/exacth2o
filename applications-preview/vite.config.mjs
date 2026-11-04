@@ -16,6 +16,10 @@ export default defineConfig({root,base:'/applications-demo-app/',publicDir:false
  });
 }
 const groups = new Map<string, PortalExperimentAssignment[]>();`,'experiment graph groups');if(id===path.join(repo,'research-portal/src/WalkerObservationView.tsx'))return replaceRequired(code,'Walker Pi 5 Observation','Experiment 3','walker tile title');if(id!==path.join(repo,'research-portal/src/App.tsx'))return;
+ // The real App's rolling live cache intentionally retains only recent readings.
+ // Demo mode disables the remote archive, so supply the complete local study here.
+ code=replaceRequired(code,'experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment)',
+   'experimentTraceReadings(fixture.historyReadings, data.readings, selectedExperiment)','complete demo experiment history');
  const source=ts.createSourceFile(id,code,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),edits=[];
  const app=source.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='App');
  const init={accessLoading:'false',email:'""',authMode:'"sign-in"',inviteToken:'null',sessionReady:'true',data:'fixture.data',portalAccess:'fixture.access',experimentCatalog:'fixture.experiments',healthSnapshot:'fixture.health',valveEvents:'fixture.valveEvents',runtimeState:'fixture.runtime',configState:'fixture.config'};
