@@ -3,7 +3,6 @@
   const root = document.querySelector('[data-homepage-traces]');
   if (!root) return;
   const svg = root.querySelector('#homepage-trace-chart');
-  const pause = root.querySelector('[data-trace-pause]');
   const provenance = root.querySelector('[data-trace-provenance]');
   const clock = root.querySelector('[data-trace-clock]');
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -91,8 +90,6 @@
     animation = requestAnimationFrame(tick);
   }
   function syncPlayback() {
-    pause.textContent = paused ? 'Resume replay' : 'Pause replay';
-    pause.setAttribute('aria-pressed', String(paused));
     root.dataset.playing = String(!paused);
     lastFrame = 0;
     if (animation) cancelAnimationFrame(animation);
@@ -107,7 +104,6 @@
       return response.json();
     }).then(data => {
       initialize(data.experiment);
-      pause.disabled = false;
       root.setAttribute('aria-busy', 'false'); syncPlayback();
       new ResizeObserver(prepareChart).observe(svg);
     }).catch(() => {
@@ -116,7 +112,6 @@
     });
     return loading;
   }
-  pause.addEventListener('click', () => { paused = !paused; syncPlayback(); });
   motion.addEventListener('change', () => { paused = motion.matches; syncPlayback(); });
   document.addEventListener('visibilitychange', syncPlayback);
   new IntersectionObserver(entries => {

@@ -1,10 +1,11 @@
 import { Plus } from "lucide-react";
-import { type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { experimentIsCompleted, orderHomeExperiments } from "../experimentMeasurement";
 import { isCalibrationExperiment, isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
 import { type HomeException, primaryExperimentException } from "../homeExceptions";
 import { formatMeasurementTime } from "../measurementFreshness";
 import { PortalLink, useCopyRoute } from "./PortalLink";
+import { SystemSection } from "./SystemSection";
 import "./product.css";
 
 export type InstallationState =
@@ -135,21 +136,57 @@ function InstallationNode({ state, checking, healthLink }: { state: Installation
   if (state.status === "hidden") return null;
   const tone = state.status === "offline" ? "is-bad" : state.status === "unknown" ? "is-unknown" : "";
   return (
-    <div className={`px-node ${tone}`}>
-      <span className="px-node-mark" aria-hidden="true" />
-      <b>Controller</b>
-      {state.status === "offline" ? (
-        <span className="px-node-detail">
-          Offline{state.lastSeenAt ? ` since ${formatMeasurementTime(state.lastSeenAt)}` : ""}
-        </span>
-      ) : state.status === "unknown" ? (
-        <span className="px-node-detail">Controller status unavailable</span>
-      ) : checking ? (
-        <span className="px-node-detail">Checking readings…</span>
-      ) : <span className="px-node-detail">Online{state.lastSeenAt ? ` · seen ${formatMeasurementTime(state.lastSeenAt)}` : ""}</span>}
-      {healthLink}
+    <div className={`px-node ${tone}`} aria-label="System status">
+      {healthLink ?? <b>System health</b>}
+      <span className="px-node-status">
+        <span className="px-node-mark" aria-hidden="true" />
+        {state.status === "offline" ? (
+          <span className="px-node-detail">
+            Offline{state.lastSeenAt ? ` since ${formatMeasurementTime(state.lastSeenAt)}` : ""}
+          </span>
+        ) : state.status === "unknown" ? (
+          <span className="px-node-detail">Status unavailable</span>
+        ) : checking ? (
+          <span className="px-node-detail">Checking readings…</span>
+        ) : <span className="px-node-detail">Online{state.lastSeenAt ? ` · seen ${formatMeasurementTime(state.lastSeenAt)}` : ""}</span>}
+      </span>
     </div>
   );
+}
+
+/** Follow the actual card positions, including wrapped names and mobile status rows. */
+function ExperimentConnection({ count, online }: { count: number; online: boolean }) {
+  const ref = useRef<SVGSVGElement>(null);
+  const [geometry, setGeometry] = useState({ height: 1, path: "", branches: "" });
+  useLayoutEffect(() => {
+    const wrapper = ref.current?.parentElement;
+    if (!wrapper) return;
+    const items = [...wrapper.querySelectorAll<HTMLElement>(".px-spine > .px-spine-item")];
+    const measure = () => {
+      if (items.length < 2) return;
+      const box = wrapper.getBoundingClientRect();
+      const centers = items.map(item => {
+        const rect = item.getBoundingClientRect();
+        return rect.top - box.top + rect.height / 2;
+      });
+      const first = centers[0], last = centers[centers.length - 1];
+      setGeometry({
+        height: box.height,
+        path: `M24 ${first} H14 Q6 ${first} 6 ${first + 8} V${last - 8} Q6 ${last} 14 ${last} H24`,
+        branches: centers.slice(1, -1).map(y => `M6 ${y} H24`).join(" "),
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrapper);
+    items.forEach(item => observer.observe(item));
+    return () => observer.disconnect();
+  }, [count]);
+  return <svg ref={ref} className="px-system-connection" viewBox={`0 0 24 ${geometry.height}`} preserveAspectRatio="none" aria-hidden="true" data-online={online}>
+    <path className="px-system-connection-track" d={geometry.path} />
+    <path className="px-system-connection-track" d={geometry.branches} />
+    <path className="px-system-connection-pulse" d={geometry.path} pathLength="100" />
+  </svg>;
 }
 
 /**
@@ -173,6 +210,7 @@ export function QuietSpineHome({
   tools,
   leading,
   recordAvailable,
+  systemName,
 }: {
   experiments: readonly PortalExperiment[];
   exceptions: readonly HomeException[];
@@ -189,37 +227,20 @@ export function QuietSpineHome({
   tools?: ReactNode;
   leading?: ReactNode;
   recordAvailable: boolean;
+  systemName?: string;
 }) {
   const installationNotices = exceptions.filter((item) => item.scope !== "experiment");
   const ordered = orderHomeExperiments(experiments, nowMs);
   const active = ordered.filter((experiment) => !experimentIsCompleted(experiment, nowMs));
   const completed = ordered.filter((experiment) => experimentIsCompleted(experiment, nowMs));
-  return (
-    <section className="px-home" aria-label="Experiments">
-      <div className="px-home-top">
-        <div className="px-home-heading"><h1 className="px-title">Experiments</h1></div>
-        {canCreate ? (
-          <button type="button" className="px-button is-primary" onClick={onNewExperiment}>
-            <Plus size={16} aria-hidden="true" />
-            New experiment
-          </button>
-        ) : null}
-      </div>
-      {installationNotices.map((notice) => (
-        <p key={notice.kind} className={`px-notice ${notice.kind === "controller-offline" ? "is-bad" : ""}`} role="status">
-          <span className="px-notice-mark" aria-hidden="true">{notice.kind === "refresh-failed" ? "↻" : "!"}</span>
-          <span>{notice.sentence}</span>
-        </p>
-      ))}
-      {catalogError ? (
-        <p className="px-notice" role="status">The experiment list could not be refreshed: {catalogError}. Showing the last list loaded.</p>
-      ) : null}
-      <div className="px-home-grid is-single">
-        <div>
-          {leading}
+  const createAction = canCreate ? <button type="button" className="px-button is-primary" aria-label={`Create experiment${systemName ? ` on ${systemName}` : ""}`} onClick={onNewExperiment}>
+    <Plus size={16} aria-hidden="true" />Create experiment
+  </button> : null;
+  const records = <>
           {ordered.length ? (
             <div className="px-spine-wrap">
-            <ol className={`px-spine ${active.length && installation.status !== "hidden" ? "is-connected" : ""}`} aria-label="Experiments on this controller">
+            {active.length > 0 && installation.status !== "hidden" ? <ExperimentConnection key={active.map(experiment => experiment.id).join("|")} count={active.length} online={installation.status === "online"} /> : null}
+            <ol className={`px-spine ${active.length && installation.status !== "hidden" ? "is-connected" : ""}`} data-system-status={installation.status} aria-label="Experiments on this controller">
               {active.map((experiment) => (
                 <li className="px-spine-item" key={experiment.id}>
                   <ExperimentCard
@@ -262,7 +283,29 @@ export function QuietSpineHome({
               </ul>
             </details>
           ) : null}
-          {machines ? <section className="px-machines" aria-label="Machines"><h2>Machines</h2>{machines}</section> : null}
+  </>;
+  return (
+    <section className="px-home" aria-label={systemName ? "Your systems" : "Experiments"}>
+      {!systemName ? <div className="px-home-top">
+        <div className="px-home-heading"><h1 className="px-title">Experiments</h1></div>
+        {createAction}
+      </div> : null}
+      {installationNotices.map((notice) => (
+        <p key={notice.kind} className={`px-notice ${notice.kind === "controller-offline" ? "is-bad" : ""}`} role="status">
+          <span className="px-notice-mark" aria-hidden="true">{notice.kind === "refresh-failed" ? "↻" : "!"}</span>
+          <span>{notice.sentence}</span>
+        </p>
+      ))}
+      {catalogError ? (
+        <p className="px-notice" role="status">The experiment list could not be refreshed: {catalogError}. Showing the last list loaded.</p>
+      ) : null}
+      <div className="px-home-grid is-single">
+        <div className="px-system-list">
+          {leading}
+          {systemName ? <SystemSection name={systemName} action={createAction}>
+            {records}
+          </SystemSection> : records}
+          {machines ? <div className="px-additional-systems">{machines}</div> : null}
         </div>
         {tools ? <aside className="px-tools" aria-label="Installation tools"><details className="px-admin-tools"><summary>Administration</summary><div className="px-admin-tools-body">{tools}</div></details></aside> : null}
       </div>

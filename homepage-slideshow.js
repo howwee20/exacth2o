@@ -7,8 +7,6 @@
   if (!cinema) return;
   const photos = [...cinema.querySelectorAll('.cinema-slide')];
   let photoIndex = photos.findIndex(photo => photo.classList.contains('is-active')), rotationTimer = null, cinemaVisible = true;
-  const pauseButton = cinema.querySelector('.cinema-pause');
-  let paused = false;
   const ready = new Map();
   function prepare(index) {
     const photo = photos[(index + photos.length) % photos.length];
@@ -49,23 +47,18 @@
     const next = photoIndex + 1;
     prepare(next).then(ok => {
       advancing = false;
-      if (paused || document.hidden || !cinemaVisible) return;
+      if (document.hidden || !cinemaVisible) return;
       if (ok) showPhotograph(next);
       else { photoIndex = (next + photos.length) % photos.length; void prepare(photoIndex + 1); }
     });
   }
   function syncRotation() {
     clearInterval(rotationTimer);
-    const contentFocused = cinema.contains(document.activeElement) && document.activeElement !== pauseButton;
-    const label = paused ? 'Play photos' : 'Pause photos';
-    // Preserve the focused text node: WebKit cancels a click if focusin replaces it.
-    if (pauseButton.textContent !== label) pauseButton.textContent = label;
-    pauseButton.setAttribute('aria-pressed', String(paused));
-    if (!paused && cinemaVisible && !document.hidden && !contentFocused) {
+    const contentFocused = cinema.contains(document.activeElement);
+    if (cinemaVisible && !document.hidden && !contentFocused) {
       rotationTimer = setInterval(advance, 7000);
     }
   }
-  pauseButton.addEventListener('click', () => { paused = !paused; syncRotation(); });
   cinema.addEventListener('focusin', syncRotation);
   cinema.addEventListener('focusout', () => setTimeout(syncRotation, 0));
   document.addEventListener('visibilitychange', syncRotation);

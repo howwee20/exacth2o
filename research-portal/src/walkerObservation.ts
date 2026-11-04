@@ -27,7 +27,7 @@ export type WalkerLiveStatus = {
   device_name: string;
   observation_only: true;
   portal_control_available: false;
-  expected_sensor_count: 100;
+  expected_sensor_count: number;
   evidenced_sensor_count: number;
   current_sensor_count: number;
   stale_sensor_count: number;

@@ -10,6 +10,7 @@ import { AlertTriangle, ArrowRight, Droplets, Loader2, Mail, Maximize2, Minimize
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
+import { SystemSection } from "./product/SystemSection";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import { AuthScreen } from "./auth/AuthScreen";
@@ -79,7 +80,7 @@ const ArchiveExperimentDialog = lazyFeature(() => import("./product/ArchiveExper
 const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
 const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
 const SalesSupportView = lazyFeature(() => import("./support/SalesSupportView").then((module) => ({ default: module.SalesSupportView })));
-const WalkerExperimentView = lazyFeature(() => import("./walker/WalkerExperimentView").then((module) => ({ default: module.WalkerExperimentView })));
+const WalkerExperimentView = lazyFeature(() => import("./walker/WalkerExperimentPage").then((module) => ({ default: module.WalkerExperimentPage })));
 const WebsiteAnalyticsWorkspace = lazyFeature(() => import("./analytics/WebsiteAnalyticsWorkspace"));
 // Experiment, pot and trend views load when first opened; the home and header stay in the entry.
 const WaterlineOverview = lazyFeature(() => import("./product/WaterlineOverview").then((module) => ({ default: module.WaterlineOverview })));
@@ -3065,6 +3066,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   return productShell(
     <QuietSpineHome
       experiments={availableExperiments}
+      systemName={isDemo ? undefined : "Rhee Lab"}
       exceptions={portalExceptions}
       nowMs={clockNowMs}
       checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
@@ -3082,12 +3084,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }}
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
+        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
       </div> : undefined}
       machines={!isDemo ? <>
-        {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} /> : null}
-        {isAdmin || portalAccess.gasMixerAllowed ? <button className="px-machine-card" onClick={() => setPortalView("chamber")}><span className="px-exp-name">Chamber</span><span className="px-exp-count">Gas mixer · Lighting</span><span className="px-exp-mode">Control and schedules</span></button> : null}
+        {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
+        {isAdmin || portalAccess.gasMixerAllowed ? <SystemSection name="Chamber" description="Gas mixer · Lighting" action={<button type="button" className="px-button" onClick={() => setPortalView("chamber")}>Open system</button>}><p className="px-system-description">Control and schedules</p></SystemSection> : null}
       </> : undefined}
       tools={isDemo ? undefined : adminTools ?? (portalAccess.gasMixerAllowed ? <GasMixerResearcherTile onOpen={() => setPortalView("chamber")} /> : undefined)}
       recordAvailable={recordAvailable}

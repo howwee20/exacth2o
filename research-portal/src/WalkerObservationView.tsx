@@ -1,70 +1,59 @@
-import { AlertTriangle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { scheduleVisiblePolling } from "./visiblePolling";
-import {
-  isWalkerAccessDenied,
-  type WalkerLiveStatus,
-} from "./walkerObservation";
+import { isWalkerAccessDenied, type WalkerLiveStatus } from "./walkerObservation";
 import { loadWalkerLiveStatus } from "./walkerObservationClient";
+import { loadWalkerExperiments } from "./walkerExperimentClient";
+import type { WalkerPortalExperiment } from "./walkerExperiments";
+import { SystemSection } from "./product/SystemSection";
+import { WalkerCreateExperiment } from "./walker/WalkerCreateExperiment";
 
 const walkerStatusPollMs = 60_000;
 
-export function WalkerMachineTile({ onOpen }: { onOpen: () => void }) {
+export function WalkerMachineTile({ onOpen, onOpenExperiment }: { onOpen: () => void; onOpenExperiment: (id: string) => void }) {
   const [status, setStatus] = useState<WalkerLiveStatus | null>(null);
+  const [experiments, setExperiments] = useState<WalkerPortalExperiment[]>([]);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [catalogFailed, setCatalogFailed] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const refreshCatalog = useCallback(async () => {
+    try { setExperiments(await loadWalkerExperiments()); setCatalogFailed(false); }
+    catch { setCatalogFailed(true); }
+    finally { setLoading(false); }
+  }, []);
 
   useEffect(() => {
     let active = true;
     let request = 0;
-    const refresh = () => {
+    const refresh = async () => {
       const current = ++request;
-      return loadWalkerLiveStatus()
-        .then((nextStatus) => {
-          if (!active || current !== request) return;
-          setStatus(nextStatus);
-          setFailed(false);
-        })
-        .catch((error: { code?: string; message?: string }) => {
-          if (!active || current !== request) return;
-          if (isWalkerAccessDenied(error)) {
-            setVisible(false);
-          } else {
-            // A failed request says nothing about the sensors; keep the last status and say so.
-            setFailed(true);
-          }
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
+      const [nextStatus, nextCatalog] = await Promise.allSettled([loadWalkerLiveStatus(), loadWalkerExperiments()]);
+      if (!active || current !== request) return;
+      if (nextStatus.status === "fulfilled") { setStatus(nextStatus.value); setFailed(false); }
+      else if (isWalkerAccessDenied(nextStatus.reason)) setVisible(false);
+      else setFailed(true);
+      if (nextCatalog.status === "fulfilled") { setExperiments(nextCatalog.value); setCatalogFailed(false); }
+      else setCatalogFailed(true);
+      setLoading(false);
     };
     void refresh();
     const stop = scheduleVisiblePolling(refresh, walkerStatusPollMs);
-    return () => {
-      active = false;
-      stop();
-    };
+    return () => { active = false; stop(); };
   }, []);
 
-
   if (!visible) return null;
-  return (
-    <button
-      type="button"
-      className="px-machine-card"
-      onClick={onOpen}
-    >
-        <span className="px-exp-name">Walker Pi 5 Observation</span>
-        <span className="px-exp-count">
-          {loading && !status
-            ? "Checking sensor access..."
-            : status
-              ? `${status.expected_sensor_count} sensors`
-              : "Sensor status unavailable"}
-        </span>
-        <span className="px-exp-mode">VWC · sensing only</span>
-        {failed ? <span className="px-machine-error" title="The portal could not check Walker status. Open the machine to retry."><AlertTriangle size={12} />Check failed</span> : null}
-    </button>
-  );
+  return <>
+    <SystemSection name="Walker Pi" action={<button type="button" className="px-button is-primary" onClick={() => setCreating(true)} aria-label="Create experiment on Walker Pi"><Plus size={16} aria-hidden="true" />Create experiment</button>}>
+      {loading ? <p className="px-system-empty" role="status">Loading experiments…</p> : catalogFailed ? <p className="px-system-empty" role="alert">Could not load experiments. <button type="button" className="px-button" onClick={() => void refreshCatalog()}>Retry</button></p> : experiments.length ? experiments.map(experiment => <button key={experiment.id} type="button" className="px-walker-experiment" onClick={() => onOpenExperiment(experiment.id)}>
+        <strong>{experiment.name}</strong><span>{experiment.sensor_ids.length} sensors</span>
+      </button>) : <p className="px-system-empty">No experiments yet.</p>}
+      <div className="px-system-links">
+        <button type="button" className="px-system-text-button" onClick={onOpen}>View readings →</button>
+        {failed ? <span>Readings status unavailable</span> : status ? <span>{status.current_sensor_count ?? status.evidenced_sensor_count} of {status.expected_sensor_count} reporting</span> : null}
+      </div>
+    </SystemSection>
+    {creating ? <WalkerCreateExperiment onClose={() => setCreating(false)} onCreated={experiment => { setExperiments(current => [...current, experiment]); setCatalogFailed(false); setCreating(false); }} /> : null}
+  </>;
 }

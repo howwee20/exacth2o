@@ -15,7 +15,7 @@ export default defineConfig({root,base:'/applications-demo-app/',publicDir:false
  return {id:treatment,label:treatment === 'all' ? 'All pots' : treatment === 'control' ? 'Control' : 'Drought',crop:'',treatment,target:treatment === 'all' ? null : assignments[0]?.target_vwc_percent ?? null,pairingNames:assignments.map(a=>a.pairing_name),potNumbers:assignments.map(a=>a.pot_number)};
  });
 }
-const groups = new Map<string, PortalExperimentAssignment[]>();`,'experiment graph groups');if(id===path.join(repo,'research-portal/src/WalkerObservationView.tsx'))return replaceRequired(code,'Walker Pi 5 Observation','Experiment 3','walker tile title');if(id!==path.join(repo,'research-portal/src/App.tsx'))return;
+const groups = new Map<string, PortalExperimentAssignment[]>();`,'experiment graph groups');if(id===path.join(repo,'research-portal/src/WalkerObservationView.tsx'))return replaceRequired(code,'name="Walker Pi"','name="Experiment 3"','walker tile title');if(id!==path.join(repo,'research-portal/src/App.tsx'))return;
  // The real App's rolling live cache intentionally retains only recent readings.
  // Demo mode disables the remote archive, so supply the complete local study here.
  code=replaceRequired(code,'experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment)',
