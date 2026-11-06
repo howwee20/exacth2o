@@ -64,7 +64,7 @@ test('experiment loading pages past the server limit and can retry a failed read
   expect(pages).toBe(2);
 });
 
-test('assembled demo has one quiet graph, with Groups sharing the time range and Record under More', async ({ page }) => {
+test('assembled demo retains time range, saved views, Record, and responsive navigation', async ({ page }) => {
   await page.goto('/demo?experiment=experiment-2');
   const presets = page.getByRole('group', { name: 'Time range', exact: true });
   await expect(presets).toBeVisible();
@@ -77,11 +77,11 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
   await expect(page.getByText('Visible traces', { exact: true })).toHaveCount(0);
   await presets.getByRole('button', { name: '3d', exact: true }).click();
   await expect(presets.getByRole('button', { name: '3d', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Groups', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Groups', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Watering', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Watering', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('group', { name: 'Time range', exact: true }).getByRole('button', { name: '3d', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Individual', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Individual', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'VWC', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'VWC', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await presets.getByRole('button', { name: 'Entire experiment', exact: true }).click();
   await expect(presets.getByRole('button', { name: 'Entire experiment', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByText('More', { exact: true }).click();
@@ -89,7 +89,7 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
   await expect(page).toHaveURL(/tab=record/);
   await page.getByText('More', { exact: true }).click();
   await page.getByRole('link', { name: 'Back to traces', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Individual', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'VWC', exact: true })).toBeVisible();
   for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     const pots = page.getByRole('complementary', { name: 'Pots', exact: true });
@@ -104,11 +104,11 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
     }
     await expect(pots.locator('.px-trace-row')).toHaveCount(24);
     expect(await pots.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
-    await expect(pots.getByRole('combobox', { name: 'Comparison view' })).toBeHidden();
-    await pots.getByText('Comparisons', { exact: true }).click();
-    await expect(pots.getByRole('combobox', { name: 'Comparison view' })).toBeVisible();
+    await expect(pots.getByRole('combobox', { name: 'Saved view' })).toBeHidden();
+    await pots.getByText('Saved views', { exact: true }).click();
+    await expect(pots.getByRole('combobox', { name: 'Saved view' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(pots.getByRole('combobox', { name: 'Comparison view' })).toBeHidden();
+    await expect(pots.getByRole('combobox', { name: 'Saved view' })).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.getByRole('button', { name: 'Export', exact: true }).first().click();
     await expect(page.getByRole('dialog', { name: 'Export experiment' })).toBeVisible();
@@ -118,7 +118,7 @@ test('assembled demo has one quiet graph, with Groups sharing the time range and
       await expect(pots.getByRole('button', { name: 'Show all', exact: true })).toBeHidden();
     }
   }
-  await page.getByRole('link', { name: '← Experiments', exact: true }).click();
+  await page.getByRole('link', { name: '← Home', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Experiments', exact: true })).toBeVisible();
   const websiteHome = page.getByRole('link', { name: 'ExactH2O website home', exact: true });
   await expect(websiteHome).toHaveAttribute('href', '/');

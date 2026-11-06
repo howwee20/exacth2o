@@ -2,12 +2,11 @@ import { SettingsFrame } from "./SettingsFrame";
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Download, Lock, Radar } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationStudio } from "../CalibrationStudio";
-import { SettingsAssistant } from "../SettingsAssistant";
 import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
 import { type PortalRole } from "../portalAccess";
 import { boardConfigsFromPayload, formatIntervalFromMs, formatSecondsFromMs, formatSettingsTimestamp, formatTargetVwc, numberInputString, pairingGroupName, runtimeStateIsFresh, syncedCount } from "../portalFormat";
-import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type QueueSettingsPlan, type SettingsNavItem, type SettingsSection } from "../portalTypes";
+import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type SettingsNavItem, type SettingsSection } from "../portalTypes";
 import { downloadJsonFile } from "../readingsExport";
 import { type CommandProgress, type CommandStage } from "../commandLifecycle";
 import { controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
@@ -34,14 +33,12 @@ export type PortalSettingsPanelProps = {
   controlNotice: string | null;
   commandProgress: CommandProgress | null;
   controlError: string | null;
-  assistantInitialPrompt?: string;
   operatorEmail: string | null;
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
   onDownloadPairingsCsv: () => void;
   onQueueCommand: QueueControlCommand;
-  onQueueSettingsPlan: QueueSettingsPlan;
   onSignOut: () => void;
 };
 
@@ -80,13 +77,11 @@ export function PortalSettingsPanel({
   controlNotice,
   commandProgress,
   controlError,
-  assistantInitialPrompt,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
   onDownloadPairingsCsv,
   onQueueCommand,
-  onQueueSettingsPlan,
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
@@ -494,20 +489,6 @@ export function PortalSettingsPanel({
             </div>
           </details>
           {commandStatusPanel}
-        </>
-      );
-    }
-
-    if (activeSection === "assistant") {
-      return (
-        <>
-          {commandStatusPanel}
-          <SettingsAssistant
-            projectId={projectId}
-            initialPrompt={assistantInitialPrompt}
-            controlBusy={controlBusy}
-            onApply={onQueueSettingsPlan}
-          />
         </>
       );
     }

@@ -4,7 +4,6 @@ import { alignPairingHistory } from "./pairingHistory";
 
 export type ExperimentId = string;
 export type ExperimentMode = "controlled" | "observation" | "calibration";
-export type ExperimentPortalRole = "admin" | "researcher" | "viewer";
 
 export type PortalExperimentAssignment = {
   pot_id?: string | null;
@@ -70,16 +69,8 @@ const emptyExperiment: PortalExperiment = {
   assignments: [],
 };
 
-export function portalExperimentsForRole(role: ExperimentPortalRole | null | undefined) {
-  void role;
-  return [] as readonly PortalExperiment[];
-}
-
-export function mergePortalExperiments(
-  fallback: readonly PortalExperiment[],
-  catalog: readonly PortalExperiment[],
-) {
-  const merged = new Map(fallback.map((experiment) => [experiment.id, experiment]));
+export function deduplicateExperimentCatalog(catalog: readonly PortalExperiment[]) {
+  const merged = new Map<string, PortalExperiment>();
   for (const experiment of catalog) merged.set(experiment.id, experiment);
   return Array.from(merged.values());
 }

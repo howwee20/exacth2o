@@ -23,7 +23,7 @@ describe("mixer researcher screens", () => {
     expect(html).toContain("Secure view");
     expect(html).toContain("Request control");
     expect(html).toContain("Lights");
-    expect(html).toContain("Back");
+    expect(html).toMatch(/<button\b[^>]*class="px-home-button"[^>]*>[\s\S]*?Home<\/button>/);
     expect(html).not.toMatch(/New Experiment|Walker/);
   });
 });

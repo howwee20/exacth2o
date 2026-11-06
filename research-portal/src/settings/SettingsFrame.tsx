@@ -84,11 +84,9 @@ export function SettingsFrame({ scope, experiment, navOpen, setNavOpen, activeIt
           {activeSection !== "autocalibrate" ? <header className="settings-content-header">
             <div>
               <p className="settings-content-eyebrow">{scope === "installation" ? "Installation settings" : `${experiment.name} · Experiment settings`}</p>
-              <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
+              <h2>{activeItem.label}</h2>
               <p className="settings-content-lede">
-                {activeSection === "assistant"
-                  ? "Describe a settings change in plain language, then review it before anything is queued."
-                  : activeSection === "overview" ? (scope === "installation" ? "Status and configuration for every pot on this controller." : "The saved plan and records for this experiment.") : activeItem.description}
+                {activeSection === "overview" ? (scope === "installation" ? "Status and configuration for every pot on this controller." : "The saved plan and records for this experiment.") : activeItem.description}
               </p>
             </div>
             <div className="settings-content-actions">
