@@ -268,3 +268,30 @@ from public.create_project_invite('person@example.com');
 
 Send the returned `invite_url`. The raw token is only returned once; the database
 stores only its SHA-256 hash.
+
+## Maintaining the workspace
+
+`App.tsx` owns route selection and the visible workspace state. It delegates
+network behavior to explicit hooks. Keep a change in the module that owns it:
+
+| Module | Responsibility |
+| --- | --- |
+| `usePortalAuth.ts` | Sign-in, invitations and password recovery forms |
+| `usePortalAccess.ts` | Account capabilities and selected project/device |
+| `usePortalReadings.ts` | Incremental reads, reconciliation and realtime reading batches |
+| `useControllerStatus.ts` | Health, runtime/configuration and valve-event subscriptions |
+| `useControllerCommands.ts` | Reviewed commands, retry IDs and command progress |
+| `usePortalCsv.ts` | Loaded-reading and pairing CSV downloads |
+| `useSalesSupport.ts` | Support inbox data and its permission-scoped lifecycle |
+| `measurementPresentation.ts` | Displaying recorded plans beside applied controller targets |
+
+Hooks receive the current project/device scope and stable React setters or refs.
+Stale asynchronous responses are rejected against that scope. Preserve this
+check when adding a request. A reconnect is a reconciliation, not permission to
+clear an already loaded experiment or repeat a controller command.
+
+The public demos use these same modules with an offline backend. The preview
+build removes remote effects using the reviewed contracts in
+`applications-preview/offline-effects.json`. When an effect changes, inspect
+its behavior before updating the contract. Never bypass the contract check.
+Run the assembled release browser gate after changing hooks or routing.

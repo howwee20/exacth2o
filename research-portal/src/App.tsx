@@ -1,75 +1,75 @@
-import { toggleTraceSelection } from "./product/traceSelection";
-import { formatLoadedReadingsCsv, formatPairingsCsv } from "./portalCsv";
-import { useExpandedGraph } from "./charts/useExpandedGraph";
-import { ExperimentPotGroups } from "./product/ExperimentPotGroups";
-import { PotInspector } from './product/PotInspector';
-import { DirectExperiment } from './product/DirectExperiment';
-import { SavedTraceViews } from "./product/SavedTraceViews";
-import { clearExperimentArchives, useExperimentReadings } from "./useExperimentReadings";
-import { experimentTraceReadings } from "./experimentTraceReadings";
-import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
+import { AlertTriangle,ArrowRight,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
+import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
+import { ChamberControlView,GasMixerResearcherHome,GasMixerResearcherTile,GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
-import { SystemSection } from "./product/SystemSection";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import { AuthScreen } from "./auth/AuthScreen";
-import { usePortalAuth } from "./usePortalAuth";
-import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
 import {
-  authEventReload,
-  expiredPortalSessionNotice,
-  isSessionAuthorizationError,
-  type AuthReloadState,
+authEventReload,
+type AuthReloadState,
+expiredPortalSessionNotice
 } from "./authSession";
-import { SensorCanvasChart } from "./charts/SensorCanvasChart";
-import { TimeRangeControl } from "./charts/TimeRangeControl";
-import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
-import { chartSeries } from "./charts/chartSeries";
-import { pairingTargetText, targetLinesForPairings } from "./experimentMeasurement";
-import { formatMeasurementTime } from "./measurementFreshness";
-import { controllerPresence } from "./settingsPresentation";
-import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
-import { loadPortalExperimentCatalog } from "./experimentClient";
-import { experimentGraphGroups, experimentSidebarGroups } from "./experimentPresentation";
-import { levelLabel } from "./experimentFactors";
-import { deduplicateExperimentCatalog, type ExperimentId, isObservationOnlyExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, valveEventsForExperiment } from "./experimentRegistry";
-import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
-import { hasExperimentSettingsAccess, hasProjectDataReadAccess, hasSalesSupportAccess, parsePortalRole } from "./portalAccess";
-import { autoRefreshMs, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
-import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
-import { controlCommandLabel, errorMessage, functionErrorMessage, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
-import { orderedPairings, plantGroupForPairing, treatmentForPairing } from "./portalPresentation";
-import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectContext";
-import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime } from "./portalReadings";
-import { adminOnlyControlCommandTypes, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type LoadState, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
-import { dedupeReadingsForExport, downloadJsonFile } from "./readingsExport";
-import { type SettingsCommandDraft, stoppedSettingsCommandTypes } from "./settingsSpec";
-import { supabase } from "./supabase";
-import { withSupabaseTimeout } from "./supabaseTimeout";
-import { type LatestState, type PairingRow, type SensorReading, type ValveEvent } from "./types";
-import { ResearchWateringActivity } from "./watering/WateringActivity";
-import { mergeValveEventRows, resolveHealthWateringEvents, valveEventsToHealthWateringEvents, valveEventTimestampMs } from "./wateringEvents";
-import { createCoalescedTrigger, scheduleVisiblePolling } from "./visiblePolling";
-import { usePageClock } from "./pageClock";
-import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
-import { overlayTimeBounds } from "./wateringOverlay";
-import { homeExceptions } from "./homeExceptions";
-import { navigatePortal, type PortalRoute, settingsSectionFromSearch, usePortalRoute } from "./portalRoute";
-import { resolvePot } from "./potIdentity";
-import { readingsForPairings } from "./pairingHistory";
-import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
-import { FindPotDialog } from "./product/FindPotDialog";
-import type { ManualWaterTarget } from "./product/ManualWaterPanel";
 import { AutocalRunBanner } from "./autocalibrate/AutocalRunBanner";
 import { autocalRunStore } from "./autocalibrate/runStore";
+import { type BenchLayoutVersion,loadLatestBenchLayout,loadPotBindings,type PotBinding,recordBenchLayout } from "./benchClient";
+import { SensorCanvasChart } from "./charts/SensorCanvasChart";
+import { TimeRangeControl } from "./charts/TimeRangeControl";
+import { filterSeriesByTime,timeBoundsForSeries } from "./charts/chartGeometry";
+import { chartSeries } from "./charts/chartSeries";
+import { useExpandedGraph } from "./charts/useExpandedGraph";
+import { trackedCommandProgress } from "./commandLifecycle";
+import { loadPortalExperimentCatalog } from "./experimentClient";
+import { levelLabel } from "./experimentFactors";
+import { pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
+import { experimentGraphGroups,experimentSidebarGroups } from "./experimentPresentation";
+import { deduplicateExperimentCatalog,type ExperimentId,isObservationOnlyExperiment,pairingsForExperiment,type PortalExperiment,portalExperimentById,valveEventsForExperiment } from "./experimentRegistry";
+import { experimentTraceReadings } from "./experimentTraceReadings";
+import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
+import { homeExceptions } from "./homeExceptions";
+import { FeatureBoundary,FeatureLoading,lazyFeature } from "./lazyFeature";
+import { formatMeasurementTime } from "./measurementFreshness";
+import { usePageClock } from "./pageClock";
+import { readingsForPairings } from "./pairingHistory";
+import { hasExperimentSettingsAccess,hasProjectDataReadAccess,hasSalesSupportAccess } from "./portalAccess";
+import { fullTimeWindow,rememberEmailKey } from "./portalConstants";
+import { type DataMode,rollingExperimentHistoryMs,visibleExperimentPairings } from "./portalData";
+import { errorMessage,runtimeStateIsFresh } from "./portalFormat";
+import { orderedPairings,plantGroupForPairing,treatmentForPairing } from "./portalPresentation";
+import { navigatePortal,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
+import { initialSalesSupportData } from "./portalState";
+import { type ChartSeries,type DeviceConfigState,type DeviceHealthSnapshot,type DeviceRuntimeState,type ExperimentGraphMode,type HealthSelectedDetail,type LoadState,type PortalAccess,type PortalView,type PotPreset,type RefreshOptions,type SettingsSection,type TimeWindow } from "./portalTypes";
+import { resolvePot } from "./potIdentity";
+import { DirectExperiment } from './product/DirectExperiment';
+import { ExperimentNotFound,ExperimentPage } from "./product/ExperimentPage";
+import { ExperimentPotGroups } from "./product/ExperimentPotGroups";
+import { FindPotDialog } from "./product/FindPotDialog";
+import type { ManualWaterTarget } from "./product/ManualWaterPanel";
 import { PortalLink } from "./product/PortalLink";
+import { PotInspector } from './product/PotInspector';
 import { ProductHeader } from "./product/ProductHeader";
-import { type InstallationState, QuietSpineHome } from "./product/QuietSpineHome";
-import { atBenchRemembered, rememberAtBench } from "./product/pocketMode";
+import { type InstallationState,QuietSpineHome } from "./product/QuietSpineHome";
+import { SavedTraceViews } from "./product/SavedTraceViews";
+import { SystemSection } from "./product/SystemSection";
+import { atBenchRemembered,rememberAtBench } from "./product/pocketMode";
+import { toggleTraceSelection } from "./product/traceSelection";
 import { useNoteOutbox } from "./product/useNoteOutbox";
-import { loadLatestBenchLayout, loadPotBindings, recordBenchLayout, type BenchLayoutVersion, type PotBinding } from "./benchClient";
+import { controllerPresence } from "./settingsPresentation";
+import { supabase } from "./supabase";
+import { type PairingRow,type ValveEvent } from "./types";
+import { useControllerCommands } from "./useControllerCommands";
+import { useControllerStatus } from "./useControllerStatus";
+import { clearExperimentArchives,useExperimentReadings } from "./useExperimentReadings";
+import { usePortalAccess } from "./usePortalAccess";
+import { usePortalAuth } from "./usePortalAuth";
+import { usePortalCsv } from "./usePortalCsv";
+import { usePortalReadings } from "./usePortalReadings";
+import { useSalesSupport } from "./useSalesSupport";
+import { createCoalescedTrigger } from "./visiblePolling";
+import { ResearchWateringActivity } from "./watering/WateringActivity";
+import { resolveHealthWateringEvents,valveEventsToHealthWateringEvents } from "./wateringEvents";
+import { overlayTimeBounds } from "./wateringOverlay";
+import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
 
 
 // Features loaded on first use: the sign-in page and home stay small, and admin-only views never
@@ -97,45 +97,10 @@ const prefetchSettings = () => {
 };
 
 const clockTickMs = 30_000;
-/** Realtime readings arriving within this window are merged together. */
-const realtimeBatchMs = 400;
-/** Backstop polling for a tracked controller command, and how long to keep following it. */
-const trackedCommandPollMs = 15_000;
-const trackedCommandPollLimitMs = 15 * 60_000;
 /** Returning to the tab reconciles at most this often. */
 const returnReconcileSpacingMs = 30_000;
 /** After this long hidden, the return reconciliation reloads everything instead of the newest rows. */
 const longAbsenceFullReloadMs = 6 * 60 * 60_000;
-
-/**
- * Next loaded-readings state. lastNewDataAt moves only when a batch contains a
- * reading the portal did not already have; re-fetching overlapping rows is a
- * check, not new data.
- */
-function readingsState(
-  current: LoadState,
-  readings: SensorReading[],
-  incoming: SensorReading[],
-  nowIso: string,
-  effectiveMode: EffectiveMode,
-): LoadState {
-  const known = current.readings.length ? new Set(current.readings.map((reading) => reading.event_id || String(reading.id))) : null;
-  const hasNew = incoming.some((reading) => !known || !known.has(reading.event_id || String(reading.id)));
-  const loadedCounts = loadedReadingCounts(readings);
-  const latestLiveReading = newestByTime(
-    readings.filter((reading) => reading.event_id.startsWith("live-device:")),
-  );
-  return {
-    ...current,
-    readings,
-    totalImportedReadings: loadedCounts.imported,
-    totalLiveReadings: loadedCounts.live,
-    latestLiveReading: latestLiveReading ?? current.latestLiveReading,
-    lastCheckedAt: nowIso,
-    lastNewDataAt: hasNew ? nowIso : current.lastNewDataAt,
-    effectiveMode,
-  };
-}
 
 const initialLoadState: LoadState = {
   pairings: [],
@@ -150,20 +115,13 @@ const initialLoadState: LoadState = {
   effectiveMode: "snapshot",
 };
 
-const initialSalesSupportData: SalesSupportData = {
-  quotes: [],
-  threads: [],
-  messages: [],
-};
+
 
 export default function App({ initialFindPot = false }: { initialFindPot?: boolean } = {}) {
   const [sessionReady, setSessionReady] = useState(false);
   const [sessionRevision, setSessionRevision] = useState(0);
   const authReloadState = useRef<AuthReloadState>({ userId: null, tokenExpiresAtMs: null });
   const [loading, setLoading] = useState(false);
-  const [exportingCsv, setExportingCsv] = useState(false);
-  const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
-  const [csvError, setCsvError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const auth = usePortalAuth({
     setLoading,
@@ -185,11 +143,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [settingsMounted, setSettingsMounted] = useState(false);
   if (settingsOpen && !settingsMounted) setSettingsMounted(true);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("overview");
-  const [controlBusy, setControlBusy] = useState(false);
-  const [controlNotice, setControlNotice] = useState<string | null>(null);
-  // The most recent request to the controller, followed from request to execution.
-  const [trackedCommand, setTrackedCommand] = useState<TrackedCommand | null>(null);
-  const [controlError, setControlError] = useState<string | null>(null);
   const [data, setData] = useState<LoadState>(initialLoadState);
   const [portalAccess, setPortalAccess] = useState<PortalAccess>(null);
   const [accessLoading, setAccessLoading] = useState(true);
@@ -231,10 +184,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [configState, setConfigState] = useState<DeviceConfigState | null>(null);
   const [valveEvents, setValveEvents] = useState<ValveEvent[]>([]);
   const [healthError, setHealthError] = useState<string | null>(null);
-  const salesSupportLoadId = useRef(0);
-  const [salesSupportData, setSalesSupportData] = useState<SalesSupportData>(initialSalesSupportData);
-  const [salesSupportLoading, setSalesSupportLoading] = useState(false);
-  const [salesSupportError, setSalesSupportError] = useState<string | null>(null);
 
   const dataRef = useRef(data);
   const valveEventsRef = useRef(valveEvents);
@@ -247,12 +196,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const valveLoadInFlightRef = useRef<{ promise: Promise<void>; full: boolean; scope: string } | null>(null);
   const authRecoveryInFlightRef = useRef<Promise<boolean> | null>(null);
   const watchdogRefreshCountRef = useRef(0);
-  const controlRequestIdsRef = useRef(new Map<string, { id: string; createdAt: number }>());
-  const settingsBatchIdsRef = useRef(new Map<string, {
-    batchId: string;
-    commandIds: string[];
-    createdAt: number;
-  }>());
 
   useEffect(() => {
     dataRef.current = data;
@@ -472,20 +415,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     };
   }, [activeDeviceId, activeProjectId, benchData?.scope, benchDataNeeded, benchScope]);
 
-  const resetPortalSessionUi = useCallback(() => {
-    setSettingsOpen(false);
-    setExportOpen(false);
-    setSettingsSection("overview");
-    setControlBusy(false);
-    setControlNotice(null);
-    setControlError(null);
-    setCsvDownload(null);
-    setCsvError(null);
-    setTermsOpen(false);
-    setTermsAccepted(false);
-    setExperimentGraphMode("vwc");
-    setSelectedWateringDetail(null);
-  }, [setTermsAccepted, setTermsOpen]);
+
 
   if (uiExperimentId !== selectedExperimentId) {
     setUiExperimentId(selectedExperimentId);
@@ -548,905 +478,31 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       authRecoveryInFlightRef.current = null;
     }
   }, [expirePortalSession]);
+  const { accessCheckError, loadPortalAccess } = usePortalAccess({ setAccessLoading, recoverPortalSession, setPortalAccess, expirePortalSession, setExperimentCatalog, setExperimentBuilderOpen, setEditingExperiment, setExperimentCatalogError });
+  const { loadDeviceSyncState, loadValveEvents } = useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, setHealthError, scopeKeyRef, setHealthHistory, setHealthSnapshot, canUseExperimentSettings, setRuntimeState, setConfigState, canReadProjectData, setValveEvents, valveEventsRef, valveLoadInFlightRef, sessionReady, portalView, experimentGraphMode });
 
-  const [accessCheckError, setAccessCheckError] = useState<string | null>(null);
-  const loadPortalAccess = useCallback(async () => {
-    setAccessCheckError(null);
-    setAccessLoading(true);
-    try {
-      const queryAccess = async () => {
-        const userResponse = await withSupabaseTimeout(
-          supabase.auth.getUser(),
-          portalAccessTimeoutMs,
-          "Portal session",
-        );
-        if (userResponse.error) throw userResponse.error;
-        const userId = userResponse.data.user?.id ?? null;
-        if (!userId) throw { status: 401, message: "Portal session is unavailable" };
+  const { salesSupportData, setSalesSupportData, salesSupportLoading, setSalesSupportLoading, salesSupportError, setSalesSupportError, deleteQuoteRequest } = useSalesSupport({ canUseSalesSupport, activeProjectId, portalAccess, sessionReady });
+  const { runPortalRefresh, runPortalRefreshRef, refresh } = usePortalReadings({ activeProjectId, activeDeviceId, scopeKeyRef, loadTokenRef, setError, setLoading, dataRef, selectedMode, recoverPortalSession, setConfigState, setData, setLastSuccessfulCheckAt, setRefreshFailedAt, expirePortalSession, realtimeRefreshInFlightRef, refreshInFlightRef, pendingRefreshRef, sessionReady, canReadProjectData, watchdogRefreshCountRef });
 
-        const accessResponse = await withSupabaseTimeout(
-          supabase
-            .from("portal_access")
-            .select("project_id, role, email, created_at, access_scope")
-            .eq("user_id", userId)
-            .order("created_at", { ascending: true })
-            .limit(20),
-          portalAccessTimeoutMs,
-          "Portal access",
-        );
-        if (accessResponse.error) throw accessResponse.error;
-        const requestedProjectId = new URLSearchParams(window.location.search).get("project");
-        const accessRow = selectPortalAccessRow(
-          accessResponse.data ?? [],
-          requestedProjectId,
-        );
-        if (!accessRow) return { data: null };
-        const signedInUserId = userId;
-
-        const mixerAccess = await withSupabaseTimeout(
-          supabase.rpc("has_gas_mixer_native_access", {
-            check_project_id: "44444444-4444-4444-8444-444444444441",
-            check_device_id: "gas-mixer:b827eb548a44",
-            check_capability: "remote_view",
-          }), portalAccessTimeoutMs, "Gas mixer access",
-        ).catch(() => null);
-        const gas_mixer_allowed = mixerAccess?.error == null && mixerAccess?.data === true;
-        // A failed capability check hides only the inbox; research access remains usable.
-        const supportAccess = accessRow.role === "admin" ? await withSupabaseTimeout(
-          supabase.rpc("is_sales_support_staff", { check_project_id: accessRow.project_id }),
-          portalAccessTimeoutMs, "Sales & Support access",
-        ).catch(() => null) : null;
-        const sales_support_allowed = supportAccess?.error == null && supportAccess?.data === true;
-        if (accessRow.access_scope !== "project") {
-          return { data: { ...accessRow, device_id: null, gas_mixer_allowed, sales_support_allowed, user_id: signedInUserId } };
-        }
-
-        const deviceResponse = await withSupabaseTimeout(
-          supabase
-            .from("device_config_state")
-            .select("device_id, updated_at")
-            .eq("project_id", accessRow.project_id)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          portalAccessTimeoutMs,
-          "Project device",
-        );
-        if (deviceResponse.error) throw deviceResponse.error;
-        return {
-          data: {
-            ...accessRow,
-            gas_mixer_allowed,
-            sales_support_allowed,
-            user_id: signedInUserId,
-            device_id: selectProjectDevice(deviceResponse.data ? [deviceResponse.data] : []),
-          },
-        };
-      };
-
-      let response;
-      try {
-        response = await queryAccess();
-      } catch (err) {
-        if (!isSessionAuthorizationError(err) || !(await recoverPortalSession())) throw err;
-        response = await queryAccess();
-      }
-
-      const role = parsePortalRole(response.data?.role);
-      if (!role) {
-        setPortalAccess(null);
-        return;
-      }
-      const access: Exclude<PortalAccess, null> = {
-        role,
-        userId: response.data?.user_id ?? undefined,
-        email: response.data?.email ?? null,
-        projectId: response.data?.project_id ?? "",
-        deviceId: response.data?.device_id ?? null,
-        accessScope: response.data?.access_scope ?? "none",
-        gasMixerAllowed: response.data?.gas_mixer_allowed === true,
-        salesSupportAllowed: response.data?.sales_support_allowed === true,
-      };
-      if (!access.projectId) {
-        setPortalAccess(null);
-        return;
-      }
-      setPortalAccess(access);
-    } catch (err) {
-      if (isSessionAuthorizationError(err)) {
-        expirePortalSession();
-        return;
-      }
-      setAccessCheckError("We could not check your portal access. Please retry.");
-      setPortalAccess(null);
-      setExperimentCatalog([]);
-      setExperimentBuilderOpen(false);
-      setEditingExperiment(null);
-      setExperimentCatalogError(null);
-    } finally {
-      setAccessLoading(false);
-    }
-  }, [expirePortalSession, recoverPortalSession]);
-
-  const loadHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
-    if (!isAdmin || !activeProjectId || !activeDeviceId) return;
-    const silent = options.silent === true;
-    if (!silent) {
-      setHealthError(null);
-    }
-
-    const scope = scopeKeyRef.current;
-    try {
-      const response = await withSupabaseTimeout(
-        supabase
-          .from("device_health_snapshots")
-          .select(healthSnapshotSelectColumns)
-          .eq("project_id", activeProjectId)
-          .eq("device_id", activeDeviceId)
-          .eq("ingest_complete", true)
-          .order("captured_at", { ascending: false })
-          .limit(300),
-        supabaseQueryTimeoutMs,
-        "Health snapshot",
-      );
-
-      if (scope !== scopeKeyRef.current) return;
-      if (response.error) throw response.error;
-      const snapshots = (response.data ?? []) as DeviceHealthSnapshot[];
-      setHealthHistory(snapshots);
-      setHealthSnapshot(selectHealthSnapshot(snapshots));
-    } catch (err) {
-      if (scope !== scopeKeyRef.current) return;
-      if (!silent) setHealthError(errorMessage(err));
-    }
-  }, [activeDeviceId, activeProjectId, isAdmin]);
-
-  const loadDeviceSyncState = useCallback(async () => {
-    if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
-      setRuntimeState(null);
-      setConfigState(null);
-      return;
-    }
-
-    const scope = scopeKeyRef.current;
-    try {
-      const [runtimeResponse, configResponse] = await Promise.all([
-        withSupabaseTimeout(
-          supabase
-            .from("device_runtime_state")
-            .select("*")
-            .eq("project_id", activeProjectId)
-            .eq("device_id", activeDeviceId)
-            .maybeSingle(),
-          supabaseQueryTimeoutMs,
-          "Runtime state",
-        ),
-        withSupabaseTimeout(
-          supabase
-            .from("device_config_state")
-            .select("*")
-            .eq("project_id", activeProjectId)
-            .eq("device_id", activeDeviceId)
-            .maybeSingle(),
-          supabaseQueryTimeoutMs,
-          "Config state",
-        ),
-      ]);
-
-      if (scope !== scopeKeyRef.current) return;
-      if (!runtimeResponse.error) {
-        setRuntimeState((runtimeResponse.data ?? null) as DeviceRuntimeState | null);
-      }
-      if (!configResponse.error) {
-        setConfigState((configResponse.data ?? null) as DeviceConfigState | null);
-      }
-    } catch {
-      // Keep the last mirrored controller state visible while Supabase catches up.
-    }
-  }, [activeDeviceId, activeProjectId, canUseExperimentSettings]);
-
-  const loadValveEvents = useCallback((options: { incremental?: boolean; fresh?: boolean } = {}): Promise<void> => {
-    if (!canReadProjectData || !activeProjectId || !activeDeviceId) {
-      setValveEvents([]);
-      return Promise.resolve();
-    }
-    const scope = scopeKeyRef.current;
-    // Incremental only extends a timeline that exists; with nothing loaded (or a failed first load)
-    // it would fetch just the newest rows of the whole window and never backfill the rest.
-    const incremental = options.incremental === true && valveEventsRef.current.length > 0;
-    // Startup, the realtime subscription and tab return can all ask at once; share one request for
-    // the same scope. `fresh` asks for a query that starts after any request already running.
-    const inFlight = valveLoadInFlightRef.current;
-    if (inFlight && inFlight.scope === scope && (inFlight.full || incremental)) {
-      return options.fresh ? inFlight.promise.then(() => loadValveEventsRef.current({ incremental: true })) : inFlight.promise;
-    }
-    const query = async (fromIncremental: boolean) => {
-      const existing = valveEventsRef.current;
-      const newestExistingAt = existing.reduce(
-        (latest, event) => Math.max(latest, valveEventTimestampMs(event)),
-        0,
-      );
-      const sinceMs = fromIncremental && newestExistingAt > 0
-        ? newestExistingAt - incrementalCursorOverlapMs
-        : Date.now() - wateringHistoryMs;
-      const limit = fromIncremental ? incrementalValveEventRows : maxValveEventRows;
-      const response = await withSupabaseTimeout(
-        supabase
-          .from("valve_events")
-          .select("*")
-          .eq("project_id", activeProjectId)
-          .eq("device_id", activeDeviceId)
-          .gte("device_recorded_at", new Date(sinceMs).toISOString())
-          .order("device_recorded_at", { ascending: false })
-          .limit(limit),
-        supabaseQueryTimeoutMs,
-        "Valve events",
-      );
-      if (response.error) throw response.error;
-      const rows = (response.data ?? []) as ValveEvent[];
-      return { rows, filled: rows.length >= limit };
-    };
-    const promise = (async () => {
-      try {
-        let result = await query(incremental);
-        // A full page of newer rows means the gap may hold more: reload the whole window.
-        if (incremental && result.filled && scopeKeyRef.current === scope) result = await query(false);
-        if (scopeKeyRef.current !== scope) return;
-        setValveEvents((current) => mergeValveEventRows(current, result.rows));
-      } catch {
-        // Keep the last good watering timeline visible until Supabase recovers.
-      }
-    })().finally(() => {
-      if (valveLoadInFlightRef.current?.promise === promise) valveLoadInFlightRef.current = null;
-    });
-    valveLoadInFlightRef.current = { promise, full: !incremental, scope };
-    return promise;
-  }, [activeDeviceId, activeProjectId, canReadProjectData]);
-  const loadValveEventsRef = useRef(loadValveEvents);
-  useEffect(() => {
-    loadValveEventsRef.current = loadValveEvents;
-  }, [loadValveEvents]);
-
-  const loadSalesSupport = useCallback(async (options: { silent?: boolean } = {}) => {
-    const loadId = ++salesSupportLoadId.current;
-    if (!canUseSalesSupport || !activeProjectId) {
-      setSalesSupportData(initialSalesSupportData);
-      return;
-    }
-
-    const silent = options.silent === true;
-    if (!silent) {
-      setSalesSupportLoading(true);
-      setSalesSupportError(null);
-    }
-
-    try {
-      const [quotesResponse, threadsResponse, messagesResponse] = await Promise.all([
-        withSupabaseTimeout(
-          supabase
-            .from("quote_requests")
-            .select("id, project_id, created_at, updated_at, name, email, phone, organization, application, timeline, message, source_url, referrer, notification_email, notification_status, notification_error, status, priority")
-            .eq("project_id", activeProjectId)
-            .order("created_at", { ascending: false })
-            .limit(40),
-          supabaseQueryTimeoutMs,
-          "Quote requests",
-        ),
-        withSupabaseTimeout(
-          supabase
-            .from("support_threads")
-            .select("id, project_id, created_at, updated_at, last_message_at, source, status, priority, request_type, subject, customer_name, customer_email, customer_phone, customer_organization, quote_request_id, last_message_preview, last_message_from_email, last_message_subject, metadata")
-            .eq("project_id", activeProjectId)
-            .order("last_message_at", { ascending: false })
-            .limit(40),
-          supabaseQueryTimeoutMs,
-          "Support threads",
-        ),
-        withSupabaseTimeout(
-          supabase
-            .from("support_messages")
-            .select("id, thread_id, project_id, created_at, direction, channel, from_email, from_name, to_emails, subject, body_text, body_html, metadata")
-            .eq("project_id", activeProjectId)
-            .order("created_at", { ascending: false })
-            .limit(80),
-          supabaseQueryTimeoutMs,
-          "Support messages",
-        ),
-      ]);
-
-      if (quotesResponse.error) throw quotesResponse.error;
-      if (threadsResponse.error) throw threadsResponse.error;
-      if (messagesResponse.error) throw messagesResponse.error;
-
-      if (loadId !== salesSupportLoadId.current) return;
-      setSalesSupportData({
-        quotes: (quotesResponse.data ?? []) as QuoteRequestRow[],
-        threads: (threadsResponse.data ?? []) as SupportThreadRow[],
-        messages: (messagesResponse.data ?? []) as SupportMessageRow[],
-      });
-    } catch (err) {
-      if (loadId !== salesSupportLoadId.current) return;
-      if (!silent) setSalesSupportError(errorMessage(err));
-    } finally {
-      if (!silent && loadId === salesSupportLoadId.current) setSalesSupportLoading(false);
-    }
-  }, [activeProjectId, canUseSalesSupport]);
-
-  const deleteQuoteRequest = useCallback(async (quoteId: string) => {
-    if (!canUseSalesSupport || !activeProjectId) throw new Error("Sales & Support access is required to delete quotes.");
-    const { error } = await withSupabaseTimeout(
-      supabase.rpc("delete_quote_request", { p_project_id: activeProjectId, p_quote_id: quoteId }),
-      supabaseQueryTimeoutMs,
-      "Delete quote request",
-    );
-    if (error) throw error;
-    // Discard earlier queue reads so they cannot restore a just-deleted item.
-    salesSupportLoadId.current += 1;
-    setSalesSupportData((current) => {
-      const removedThreads = new Set(current.threads.filter((thread) => thread.quote_request_id === quoteId).map((thread) => thread.id));
-      return {
-        quotes: current.quotes.filter((quote) => quote.id !== quoteId),
-        threads: current.threads.filter((thread) => !removedThreads.has(thread.id)),
-        messages: current.messages.filter((message) => !removedThreads.has(message.thread_id)),
-      };
-    });
-    void loadSalesSupport({ silent: true });
-  }, [activeProjectId, canUseSalesSupport, loadSalesSupport]);
-
-  const runPortalRefresh = useCallback(
-    async ({ incremental }: RefreshOptions) => {
-      if (!activeProjectId || !activeDeviceId) return;
-      const scope = scopeKeyRef.current;
-      const token = loadTokenRef.current + 1;
-      loadTokenRef.current = token;
-      setError(null);
-      setLoading(!incremental || dataRef.current.readings.length === 0);
-      try {
-        const loadCoreData = async () => {
-          const results = await Promise.all([
-            withSupabaseTimeout(
-              supabase
-                .from("device_config_state")
-                .select("*")
-                .eq("project_id", activeProjectId)
-                .eq("device_id", activeDeviceId)
-                .maybeSingle(),
-              supabaseQueryTimeoutMs,
-              "Controller config",
-            ),
-            withSupabaseTimeout(
-              supabase
-                .from("latest_device_state")
-                .select("*")
-                .eq("device_id", activeDeviceId)
-                .limit(1)
-                .maybeSingle(),
-              supabaseQueryTimeoutMs,
-              "Latest device state",
-            ),
-            selectedMode === "auto"
-              ? withSupabaseTimeout(
-                supabase
-                  .from("sensor_readings")
-                  .select("id, server_received_at")
-                  .eq("project_id", activeProjectId)
-                  .eq("device_id", activeDeviceId)
-                  .like("event_id", livePrefix)
-
-                  .limit(1),
-                supabaseQueryTimeoutMs,
-                "Live reading availability",
-              )
-              : Promise.resolve({ data: null, error: null }),
-          ]);
-
-          for (const result of results) {
-            if (result.error) throw result.error;
-          }
-          return results;
-        };
-
-        let coreData;
-        try {
-          coreData = await loadCoreData();
-        } catch (err) {
-          if (!isSessionAuthorizationError(err) || !(await recoverPortalSession())) throw err;
-          coreData = await loadCoreData();
-        }
-        const [controllerConfig, latestState, liveAvailability] = coreData;
-
-        const previous = dataRef.current;
-        const effectiveMode = resolveEffectiveMode(selectedMode, Boolean(liveAvailability.data?.length));
-        const canIncrement = incremental && previous.effectiveMode === effectiveMode;
-        const newerThan = canIncrement ? incrementalReadingCursor(previous.readings) : null;
-        const nowIso = new Date().toISOString();
-        const latestIngestTime =
-          latestState.data?.updated_at ??
-          previous.latestIngestTime ??
-          null;
-
-        if (token !== loadTokenRef.current || scope !== scopeKeyRef.current) return;
-        const startedAtMs = Date.now();
-
-        let pairingsData = pairingsFromDeviceConfigState(
-          controllerConfig.data?.pairings,
-          controllerConfig.data?.groups,
-        );
-        if (pairingsData.length === 0) {
-          const legacyPairings = await withSupabaseTimeout(
-            supabase
-              .from("pairings")
-              .select("*")
-              .eq("project_id", activeProjectId)
-              .eq("device_id", activeDeviceId)
-              .limit(1000),
-            supabaseQueryTimeoutMs,
-            "Legacy pairings",
-          );
-          if (legacyPairings.error) throw legacyPairings.error;
-          if (token !== loadTokenRef.current || scope !== scopeKeyRef.current) return;
-          pairingsData = (legacyPairings.data ?? []) as PairingRow[];
-        }
-        pairingsData = visibleExperimentPairings(pairingsData);
-
-        if (controllerConfig.data) {
-          setConfigState(controllerConfig.data as DeviceConfigState);
-        }
-
-        // A full reconciliation of data already on screen is assembled off-screen and swapped
-        // in once complete, so the chart never empties and refills. Only a first load (or a
-        // switch between live and imported data) streams batches in as they arrive.
-        const reconcileInPlace = !canIncrement && previous.readings.length > 0;
-        setData((current) => ({
-          ...current,
-          pairings: pairingsData,
-          latestState: latestState.data ?? null,
-          latestIngestTime,
-          lastCheckedAt: nowIso,
-          effectiveMode,
-          readings: current.readings,
-          totalImportedReadings: current.totalImportedReadings,
-          totalLiveReadings: current.totalLiveReadings,
-        }));
-
-        const applyReadingsBatch = (incomingReadings: SensorReading[]) => {
-          if (token !== loadTokenRef.current || scope !== scopeKeyRef.current || incomingReadings.length === 0) return;
-          setData((current) => readingsState(current, mergeRollingExperimentReadings(current.readings, incomingReadings), incomingReadings, nowIso, effectiveMode));
-        };
-
-        const fetched = await fetchReadingsForMode(
-          activeProjectId,
-          activeDeviceId,
-          effectiveMode,
-          newerThan,
-          reconcileInPlace ? undefined : applyReadingsBatch,
-        );
-        if (reconcileInPlace && token === loadTokenRef.current && scope === scopeKeyRef.current) {
-          setData((current) => {
-            // Keep realtime rows that arrived while the reconciliation was running.
-            const arrivedDuring = current.readings.filter((reading) =>
-              Date.parse(reading.server_received_at) >= startedAtMs - incrementalCursorOverlapMs);
-            if (selectedMode === "auto" && fetched.length === 0) return {...current, effectiveMode: previous.effectiveMode};
-            const reconciled = mergeRollingExperimentReadings(fetched, arrivedDuring);
-            return readingsState(current, reconciled, fetched, nowIso, effectiveMode);
-          });
-        }
-        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
-          // Only a completed check may make the home quiet; a failed one is stated, with the
-          // time of the last good data.
-          setLastSuccessfulCheckAt(Date.now());
-          setRefreshFailedAt(null);
-        }
-      } catch (err) {
-        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
-          if (isSessionAuthorizationError(err)) {
-            expirePortalSession();
-            return;
-          }
-          setError(errorMessage(err));
-          setRefreshFailedAt(Date.now());
-        }
-      } finally {
-        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
-          setLoading(false);
-        }
-      }
-    },
-    [
-      activeDeviceId,
-      activeProjectId,
-      expirePortalSession,
-      recoverPortalSession,
-      selectedMode,
-    ],
-  );
-
-  const refreshLatestReadings = useCallback(async () => {
-    if (realtimeRefreshInFlightRef.current || !activeProjectId || !activeDeviceId) return;
-    const currentData = dataRef.current;
-    const newerThan = incrementalReadingCursor(currentData.readings);
-    if (!newerThan) return;
-
-    realtimeRefreshInFlightRef.current = true;
-    const scope = scopeKeyRef.current;
-    try {
-      const effectiveMode = currentData.effectiveMode;
-      const incomingReadings = await fetchReadingsForMode(
-        activeProjectId,
-        activeDeviceId,
-        effectiveMode,
-        newerThan,
-      );
-      const nowIso = new Date().toISOString();
-
-      if (scopeKeyRef.current !== scope) return;
-      setData((current) => {
-        if (!incomingReadings.length) {
-          return {
-            ...current,
-            lastCheckedAt: nowIso,
-          };
-        }
-        const next = readingsState(current, mergeRollingExperimentReadings(current.readings, incomingReadings), incomingReadings, nowIso, current.effectiveMode);
-        return {
-          ...next,
-          latestIngestTime:
-            next.latestLiveReading?.server_received_at ??
-            current.latestState?.updated_at ??
-            current.latestIngestTime,
-        };
-      });
-    } catch {
-      // Keep the visible chart stable and retry on the next realtime/poll tick.
-    } finally {
-      realtimeRefreshInFlightRef.current = false;
-    }
-  }, [activeDeviceId, activeProjectId]);
-
-  const runPortalRefreshRef = useRef(runPortalRefresh);
   runPortalRefreshRef.current = runPortalRefresh;
+  const { exportingCsv, csvDownload, setCsvDownload, csvError, setCsvError, prepareCsvDownload, downloadPairingsCsv } = usePortalCsv({ route, experimentReadings, data, pairingByName, selectedExperiment, sortedPairings });
+  const { controlBusy, setControlBusy, controlNotice, setControlNotice, trackedCommand, setTrackedCommand, controlError, setControlError, queueSettingsPlan, queueControlCommand } = useControllerCommands({ canUseExperimentSettings, activeProjectId, activeDeviceId, isAdmin, prepareCsvDownload, downloadPairingsCsv, configState, runtimeState, sessionReady, loadExperimentCatalog });
 
-  const refresh = useCallback(
-    async (options: RefreshOptions) => {
-      if (refreshInFlightRef.current) {
-        if (options.incremental) {
-          void refreshLatestReadings();
-          return;
-        }
-        const pending = pendingRefreshRef.current;
-        pendingRefreshRef.current = {
-          incremental: pending ? pending.incremental && options.incremental : options.incremental,
-        };
-        return;
-      }
 
-      refreshInFlightRef.current = true;
-      let nextOptions: RefreshOptions | null = options;
-
-      try {
-        while (nextOptions) {
-          const currentOptions = nextOptions;
-          nextOptions = null;
-          await runPortalRefreshRef.current(currentOptions);
-          nextOptions = pendingRefreshRef.current;
-          pendingRefreshRef.current = null;
-        }
-      } finally {
-        refreshInFlightRef.current = false;
-      }
-    },
-    [refreshLatestReadings],
-  );
-
-  const sendSingleControlCommand = useCallback<QueueControlCommand>(
-    async (commandType, payload, options) => {
-      if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
-        setControlError("Experiment settings access is required for portal controls.");
-        return;
-      }
-      if (!isAdmin && adminOnlyControlCommandTypes.has(commandType)) {
-        setControlError("Administrator access is required for this controller command.");
-        return;
-      }
-
-      setControlBusy(true);
-      setControlNotice(null);
-      setControlError(null);
-      setTrackedCommand(null);
-
-      const requestKey = JSON.stringify([commandType, payload, options?.confirm === true]);
-      const nowMs = Date.now();
-      for (const [key, entry] of controlRequestIdsRef.current) {
-        if (nowMs - entry.createdAt > 10 * 60 * 1000) controlRequestIdsRef.current.delete(key);
-      }
-      const existingRequest = controlRequestIdsRef.current.get(requestKey);
-      const clientRequestId = existingRequest?.id ?? crypto.randomUUID();
-      controlRequestIdsRef.current.set(requestKey, { id: clientRequestId, createdAt: nowMs });
-
-      try {
-        const response = await withSupabaseTimeout(
-          (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
-            body: {
-              project_id: activeProjectId,
-              device_id: activeDeviceId,
-              client_request_id: clientRequestId,
-              command_type: commandType,
-              payload,
-              confirm: options?.confirm === true,
-              operation_intent: options?.operationIntent,
-            },
-            signal,
-          }),
-          supabaseQueryTimeoutMs,
-          "Control command",
-        );
-
-        if (response.error) {
-          throw new Error(await functionErrorMessage(response.error));
-        }
-
-        controlRequestIdsRef.current.delete(requestKey);
-        const command = response.data?.command;
-        if (command?.id) {
-          setTrackedCommand({
-            ids: [command.id],
-            label: controlCommandLabel(commandType),
-            commandType,
-            requestedAt: command.requested_at ?? new Date().toISOString(),
-            statuses: { [command.id]: isCommandStatus(command.status) ? command.status : undefined },
-          });
-        } else {
-          setControlNotice(`${controlCommandLabel(commandType)} requested`);
-        }
-      } catch (err) {
-        try {
-          const reconciliation = await withSupabaseTimeout(
-            supabase
-              .from("project_control_commands")
-              .select("id,status,requested_at")
-              .eq("project_id", activeProjectId)
-              .eq("client_request_id", clientRequestId)
-              .maybeSingle(),
-            supabaseQueryTimeoutMs,
-            "Control command reconciliation",
-          );
-          if (!reconciliation.error && reconciliation.data?.id) {
-            controlRequestIdsRef.current.delete(requestKey);
-            const recorded = reconciliation.data as { id: string; status?: unknown; requested_at?: string };
-            setTrackedCommand({
-              ids: [recorded.id],
-              label: controlCommandLabel(commandType),
-              commandType,
-              requestedAt: recorded.requested_at ?? new Date().toISOString(),
-              statuses: { [recorded.id]: isCommandStatus(recorded.status) ? recorded.status : undefined },
-            });
-          } else {
-            setControlError(`${errorMessage(err)} Safe to retry; the same request ID will be reused.`);
-          }
-        } catch {
-          setControlError(`${errorMessage(err)} Safe to retry; the same request ID will be reused.`);
-        }
-      } finally {
-        setControlBusy(false);
-      }
-    },
-    [
-      activeDeviceId,
-      activeProjectId,
-      canUseExperimentSettings,
-      isAdmin,
-    ],
-  );
-
-  const queueSettingsPlan: QueueSettingsPlan = async (plan, reviewedConfigHash) => {
-      if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
-        setControlError("Experiment settings access is required for portal controls.");
-        return null;
-      }
-      if (!plan.commands.length || plan.questions.length) {
-        setControlError("Resolve the request before applying settings.");
-        return null;
-      }
-      for (const command of plan.commands) {
-        if (!isAdmin && adminOnlyControlCommandTypes.has(command.command_type)) {
-          setControlError("Administrator access is required for this controller command.");
-          return null;
-        }
-      }
-
-      const directCommands = plan.commands.filter(
-        (command) => !stoppedSettingsCommandTypes.has(command.command_type),
-      );
-      if (directCommands.length) {
-        if (plan.commands.length !== 1) {
-          setControlError("System-state and export requests must be reviewed separately.");
-          return null;
-        }
-        const direct = directCommands[0];
-        if (direct.command_type === "export_data") {
-          const dataType = String(direct.payload.data_type ?? "");
-          if (dataType === "readings") {
-            await prepareCsvDownload();
-          } else if (dataType === "pairings") {
-            downloadPairingsCsv();
-          } else {
-            const synchronized: Record<string, unknown> = {
-              groups: configState?.groups ?? [],
-              sensors: configState?.sensors ?? [],
-              valves: configState?.valves ?? [],
-              calibrations: configState?.calibrations ?? [],
-            };
-            downloadJsonFile(dataType, synchronized[dataType] ?? []);
-          }
-          setControlNotice("Export ready");
-          return null;
-        }
-        await sendSingleControlCommand(
-          direct.command_type,
-          direct.payload,
-          {
-            confirm: direct.command_type === "update_system_state",
-            operationIntent: plan.summary,
-          },
-        );
-        return null;
-      }
-
-      setControlBusy(true);
-      setControlNotice(null);
-      setControlError(null);
-      setTrackedCommand(null);
-
-      const reviewedControllerState = runtimeState?.controller_state?.trim().toLowerCase();
-      if (
-        !runtimeStateIsFresh(runtimeState) ||
-        (reviewedControllerState !== "running" && reviewedControllerState !== "stopped")
-      ) {
-        setControlBusy(false);
-        setControlError("Current controller state is unavailable or stale. Refresh and review again.");
-        return null;
-      }
-
-      const requestKey = JSON.stringify([
-        reviewedConfigHash,
-        reviewedControllerState,
-        plan.commands.map((command) => [command.command_type, command.payload]),
-      ]);
-      const nowMs = Date.now();
-      for (const [key, entry] of settingsBatchIdsRef.current) {
-        if (nowMs - entry.createdAt > 10 * 60 * 1000) settingsBatchIdsRef.current.delete(key);
-      }
-      const existing = settingsBatchIdsRef.current.get(requestKey);
-      const batchId = existing?.batchId ?? crypto.randomUUID();
-      const commandIds = existing?.commandIds ?? Array.from(
-        { length: plan.commands.length + 2 },
-        () => crypto.randomUUID(),
-      );
-      settingsBatchIdsRef.current.set(requestKey, { batchId, commandIds, createdAt: nowMs });
-      const batchTracking = {
-        label: "Reviewed settings",
-        commandType: settingsBatchCommandType,
-        stepLabels: [
-          "Stop controller",
-          ...plan.commands.map((command) => controlCommandLabel(command.command_type)),
-          reviewedControllerState === "running" ? "Restart controller" : "Leave controller stopped",
-        ],
-        restoresTo: reviewedControllerState,
-      };
-
-      const batchCommands = [
-        {
-          client_request_id: commandIds[0],
-          command_type: "update_system_state",
-          payload: { state: "stopped", reason: `Apply reviewed settings: ${plan.summary}` },
-          confirm: true,
-        },
-        ...plan.commands.map((command, index) => ({
-          client_request_id: commandIds[index + 1],
-          command_type: command.command_type,
-          payload: command.payload,
-          confirm: true,
-        })),
-        {
-          client_request_id: commandIds[commandIds.length - 1],
-          command_type: "update_system_state",
-          payload: {
-            state: reviewedControllerState,
-            reason: `Restore reviewed state after settings: ${plan.summary}`,
-          },
-          confirm: true,
-        },
-      ];
-
-      try {
-        const response = await withSupabaseTimeout(
-          (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
-            body: {
-              project_id: activeProjectId,
-              device_id: activeDeviceId,
-              client_request_id: commandIds[0],
-              batch_id: batchId,
-              expected_config_hash: reviewedConfigHash,
-              expected_controller_state: reviewedControllerState,
-              batch_commands: batchCommands,
-              operation_intent: plan.summary,
-              ...(/^Autocalibrat/i.test(plan.summary) ? { workflow: "autocalibration" } : {}),
-            },
-            signal,
-          }),
-          supabaseQueryTimeoutMs,
-          "Settings batch",
-        );
-        if (response.error) throw new Error(await functionErrorMessage(response.error));
-        if (!response.data?.commands?.length) throw new Error("The complete settings batch was not accepted.");
-        settingsBatchIdsRef.current.delete(requestKey);
-        const commands = response.data.commands;
-        setTrackedCommand({
-          ...batchTracking,
-          ids: commands.map((command) => command.id),
-          requestedAt: new Date().toISOString(),
-          statuses: Object.fromEntries(commands.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
-        });
-        return { batchId, commandIds: commands.map((command) => command.id) };
-      } catch (nextError) {
-        try {
-          const reconciliation = await withSupabaseTimeout(
-            supabase
-              .from("project_control_commands")
-              .select("id,status,client_request_id")
-              .eq("project_id", activeProjectId)
-              .eq("batch_id", batchId),
-            supabaseQueryTimeoutMs,
-            "Settings batch reconciliation",
-          );
-          if (
-            !reconciliation.error &&
-            (reconciliation.data?.length ?? 0) === batchCommands.length
-          ) {
-            settingsBatchIdsRef.current.delete(requestKey);
-            // Steps are tracked in execution order (stop, change(s), restore): the order the IDs were issued in.
-            const recorded = ((reconciliation.data ?? []) as Array<{ id: string; status?: unknown; client_request_id?: string }>)
-              .slice()
-              .sort((a, b) => commandIds.indexOf(a.client_request_id ?? "") - commandIds.indexOf(b.client_request_id ?? ""));
-            setTrackedCommand({
-              ...batchTracking,
-              ids: recorded.map((command) => command.id),
-              requestedAt: new Date().toISOString(),
-              statuses: Object.fromEntries(recorded.map((command) => [command.id, isCommandStatus(command.status) ? command.status : undefined])),
-            });
-            return { batchId, commandIds: recorded.map((command) => command.id) };
-          } else {
-            setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
-          }
-        } catch {
-          setControlError(`${errorMessage(nextError)} Safe to retry; the same batch IDs will be reused.`);
-        }
-      } finally {
-        setControlBusy(false);
-      }
-      return null;
-  };
-
-  const queueControlCommand: QueueControlCommand = async (commandType, payload, options) => {
-      if (stoppedSettingsCommandTypes.has(commandType as SettingsCommandDraft["command_type"])) {
-        const configHash = configState?.config_hash?.trim();
-        if (!configHash) {
-          setControlError("Current controller configuration is unavailable. Refresh and try again.");
-          return;
-        }
-        await queueSettingsPlan({
-          summary: controlCommandLabel(commandType),
-          commands: [{
-            command_type: commandType as SettingsCommandDraft["command_type"],
-            payload,
-            effect: controlCommandLabel(commandType),
-          }],
-          questions: [],
-        }, configHash);
-        return;
-      }
-      await sendSingleControlCommand(commandType, payload, options);
-  };
+  const resetPortalSessionUi = useCallback(() => {
+    setSettingsOpen(false);
+    setExportOpen(false);
+    setSettingsSection("overview");
+    setControlBusy(false);
+    setControlNotice(null);
+    setControlError(null);
+    setCsvDownload(null);
+    setCsvError(null);
+    setTermsOpen(false);
+    setTermsAccepted(false);
+    setExperimentGraphMode("vwc");
+    setSelectedWateringDetail(null);
+  }, [setControlBusy, setControlError, setControlNotice, setCsvDownload, setCsvError, setTermsAccepted, setTermsOpen]);
 
   async function signOut() {
     const unsent = noteOutbox.waiting.length;
@@ -1514,50 +570,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       return next;
     });
   }
-
-  async function prepareCsvDownload() {
-    setExportingCsv(true);
-    setCsvDownload(null);
-    setCsvError(null);
-
-    try {
-      const readings = dedupeReadingsForExport(route.view === "experiment" ? experimentReadings : data.readings);
-      if (readings.length === 0) {
-        throw new Error("Readings are still loading. Try again after the chart appears.");
-      }
-      const csv = formatLoadedReadingsCsv(readings, pairingByName, selectedExperiment);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      setCsvDownload({
-        url,
-        filename: `exacth2o-${route.view === "experiment" ? selectedExperiment.id : "installation"}-readings-loaded-${new Date().toISOString().slice(0, 10)}.csv`,
-        rowCount: readings.length,
-      });
-    } catch (err) {
-      setCsvError(errorMessage(err));
-    } finally {
-      setExportingCsv(false);
-    }
-  }
-
-  function downloadPairingsCsv() {
-    const csv = formatPairingsCsv(route.view === "controller" ? visibleExperimentPairings(data.pairings) : sortedPairings, selectedExperiment);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `exacth2o-pairings-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
-
-  useEffect(() => {
-    return () => {
-      if (csvDownload) URL.revokeObjectURL(csvDownload.url);
-    };
-  }, [csvDownload]);
 
   useEffect(() => {
     const rememberedEmail = window.localStorage.getItem(rememberEmailKey);
@@ -1670,7 +682,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     // Check outcomes belong to the previous account, project or device.
     setLastSuccessfulCheckAt(null);
     setRefreshFailedAt(null);
-  }, [scopeKey]);
+  }, [scopeKey, setTrackedCommand]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return;
@@ -1700,430 +712,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       return;
     }
     void loadPortalAccess();
-  }, [loadPortalAccess, sessionReady, sessionRevision]);
+  }, [loadPortalAccess, sessionReady, sessionRevision, setSalesSupportData]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData) return;
     void loadExperimentCatalog();
   }, [canReadProjectData, loadExperimentCatalog, sessionReady, sessionRevision]);
-
-  useEffect(() => {
-    if (!sessionReady || !isAdmin) return;
-    void loadHealthSnapshot();
-  }, [isAdmin, loadHealthSnapshot, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !canReadProjectData) return;
-    void loadValveEvents();
-  }, [
-    activeDeviceId,
-    activeProjectId,
-    canReadProjectData,
-    loadValveEvents,
-    sessionReady,
-  ]);
-
-  useEffect(() => {
-    if (
-      !sessionReady ||
-      !canReadProjectData ||
-      portalView !== "experiment" ||
-      experimentGraphMode === "vwc"
-    ) return;
-    void loadValveEvents();
-  }, [
-    canReadProjectData,
-    experimentGraphMode,
-    loadValveEvents,
-    portalView,
-    sessionReady,
-  ]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return;
-    void loadDeviceSyncState();
-  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
-
-  useEffect(() => {
-    // Discard in-flight responses and cached customer details across permission/project changes.
-    salesSupportLoadId.current += 1;
-    setSalesSupportData(initialSalesSupportData);
-    setSalesSupportError(null);
-    setSalesSupportLoading(false);
-  }, [activeProjectId, canUseSalesSupport, portalAccess?.userId]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseSalesSupport) return;
-    void loadSalesSupport();
-  }, [canUseSalesSupport, loadSalesSupport, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !isAdmin) return undefined;
-    return scheduleVisiblePolling(() => loadHealthSnapshot({ silent: true }), healthSnapshotPollMs);
-  }, [isAdmin, loadHealthSnapshot, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !canReadProjectData || !activeProjectId || !activeDeviceId) return undefined;
-    // Realtime inserts carry new events; this poll only backstops a dropped subscription.
-    return scheduleVisiblePolling(() => loadValveEvents({ incremental: true }), healthSnapshotPollMs, { catchUpOnVisible: false });
-  }, [
-    activeDeviceId,
-    activeProjectId,
-    canReadProjectData,
-    loadValveEvents,
-    sessionReady,
-  ]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return undefined;
-    // Controller state gates reviewed settings; it is refreshed immediately on return to the tab.
-    return scheduleVisiblePolling(loadDeviceSyncState, healthSnapshotPollMs);
-  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseSalesSupport) return undefined;
-    return scheduleVisiblePolling(() => loadSalesSupport({ silent: true }), supportPollMs);
-  }, [canUseSalesSupport, loadSalesSupport, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !canReadProjectData) return undefined;
-    // Visible-tab watchdog alongside realtime; the return-to-tab handler reconciles after hidden time.
-    return scheduleVisiblePolling(() => {
-      watchdogRefreshCountRef.current += 1;
-      const fullReconciliation =
-        watchdogRefreshCountRef.current % fullReconciliationEveryPolls === 0;
-      return refresh({ incremental: !fullReconciliation });
-    }, autoRefreshMs, { catchUpOnVisible: false });
-  }, [canReadProjectData, refresh, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !canReadProjectData) return undefined;
-
-    const shouldApplyReading = (reading: Partial<SensorReading> | null | undefined) => {
-      if (!reading || isIgnoredDiagnosticReading(reading)) return false;
-      const eventId = reading.event_id;
-      if (typeof eventId !== "string") return false;
-      if (selectedMode === "combined" || selectedMode === "auto") return true;
-      if (selectedMode === "live") return eventId.startsWith("live-device:");
-      return eventId.startsWith("balena-export-v2:");
-    };
-
-    // A controller reports every pot at once; apply each burst as one merge and one redraw.
-    let pendingRows: Array<SensorReading & { device_id?: string }> = [];
-    let flushTimer: number | null = null;
-    const scope = scopeKeyRef.current;
-    const flushRows = () => {
-      flushTimer = null;
-      const rows = pendingRows;
-      pendingRows = [];
-      if (!rows.length || scopeKeyRef.current !== scope) return;
-      const nowIso = new Date().toISOString();
-      const switchingToLive =
-        selectedMode === "auto" &&
-        rows.some((row) => row.event_id.startsWith("live-device:")) &&
-        dataRef.current.effectiveMode !== "live";
-      setData((current) => {
-        const hasLive = rows.some((row) => row.event_id.startsWith("live-device:"));
-        const accepted = selectedMode === "auto" && current.effectiveMode === "live"
-          ? rows.filter((row) => row.event_id.startsWith("live-device:"))
-          : rows;
-        if (!accepted.length) return current;
-        const effectiveMode = selectedMode === "auto" && hasLive ? "live" : current.effectiveMode;
-        const next = readingsState(current, mergeRollingExperimentReadings(current.readings, accepted), accepted, nowIso, effectiveMode);
-        const newestReceived = accepted.reduce<string | null>(
-          (latest, row) => (row.server_received_at && (!latest || row.server_received_at > latest) ? row.server_received_at : latest),
-          null,
-        );
-        return {
-          ...next,
-          latestIngestTime: newestReceived ?? current.latestIngestTime,
-        };
-      });
-      if (switchingToLive) void refresh({ incremental: false });
-    };
-
-    const channel = supabase
-      .channel(`exacth2o-dashboard-live-${activeProjectId}-${selectedMode}-${crypto.randomUUID()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "sensor_readings",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        (payload) => {
-          const row = payload.new as SensorReading & { device_id?: string };
-          if (row.device_id !== activeDeviceId || !shouldApplyReading(row)) return;
-          pendingRows.push(row);
-          flushTimer ??= window.setTimeout(flushRows, realtimeBatchMs);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "latest_device_state",
-          filter: `device_id=eq.${activeDeviceId}`,
-        },
-        (payload) => {
-          const row = payload.new as LatestState;
-          if (row.device_id !== activeDeviceId) return;
-          setData((current) => ({
-            ...current,
-            latestState: row,
-            latestIngestTime: row.updated_at ?? current.latestIngestTime,
-            lastCheckedAt: new Date().toISOString(),
-          }));
-        },
-      )
-      .subscribe();
-
-    return () => {
-      if (flushTimer != null) window.clearTimeout(flushTimer);
-      pendingRows = [];
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    activeDeviceId,
-    activeProjectId,
-    canReadProjectData,
-    refresh,
-    sessionReady,
-    selectedMode,
-  ]);
-
-  useEffect(() => {
-    if (!sessionReady || !isAdmin || !activeProjectId || !activeDeviceId) return undefined;
-
-    const channel = supabase
-      .channel(`exacth2o-health-live-${activeProjectId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "device_health_snapshots",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        (payload) => {
-          const row = payload.new as Partial<DeviceHealthSnapshot>;
-          if (row.device_id !== activeDeviceId || row.ingest_complete !== true) return;
-          setHealthHistory((current) => {
-            const next = row as DeviceHealthSnapshot;
-            const byId = new Map(current.map((item) => [item.id, item]));
-            byId.set(next.id, next);
-            return Array.from(byId.values())
-              .sort((left, right) => Date.parse(right.captured_at) - Date.parse(left.captured_at))
-              .slice(0, 300);
-          });
-          setHealthSnapshot((current) => selectHealthSnapshot([
-            row as DeviceHealthSnapshot,
-            ...(current ? [current] : []),
-          ]));
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [activeDeviceId, activeProjectId, isAdmin, loadHealthSnapshot, sessionReady]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings || !activeProjectId || !activeDeviceId) return undefined;
-
-    const channel = supabase
-      .channel(`exacth2o-device-sync-live-${activeProjectId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "device_runtime_state",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        (payload) => {
-          const row = payload.new as Partial<DeviceRuntimeState>;
-          if (row.device_id === activeDeviceId) {
-            setRuntimeState(row as DeviceRuntimeState);
-            return;
-          }
-          void loadDeviceSyncState();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "device_config_state",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        (payload) => {
-          const row = payload.new as Partial<DeviceConfigState>;
-          if (row.device_id === activeDeviceId) {
-            setConfigState(row as DeviceConfigState);
-            return;
-          }
-          void loadDeviceSyncState();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    activeDeviceId,
-    activeProjectId,
-    canUseExperimentSettings,
-    loadDeviceSyncState,
-    sessionReady,
-  ]);
-
-  const trackedCommandIds = trackedCommand?.ids.join(",") ?? "";
-  const trackedCommandSettled = trackedCommand
-    ? trackedCommand.trackingStopped === true || trackedCommandProgress(trackedCommand, true).terminal
-    : true;
-  useEffect(() => {
-    // Backstop for a missed realtime update: re-read the tracked commands until they finish.
-    if (!sessionReady || !activeProjectId || !trackedCommandIds || trackedCommandSettled) return undefined;
-    const ids = trackedCommandIds.split(",");
-    const startedAt = Date.now();
-    return scheduleVisiblePolling(async () => {
-      if (Date.now() - startedAt > trackedCommandPollLimitMs) {
-        // Say so rather than leaving an unfinished stage on screen indefinitely.
-        setTrackedCommand((current) => current && current.ids.join(",") === trackedCommandIds
-          ? { ...current, trackingStopped: true }
-          : current);
-        return;
-      }
-      const response = await withSupabaseTimeout(
-        supabase.from("project_control_commands").select("id,status").eq("project_id", activeProjectId).in("id", ids),
-        supabaseQueryTimeoutMs,
-        "Command status",
-      );
-      if (response.error || !response.data) return;
-      const rows = response.data as Array<{ id: string; status?: unknown }>;
-      setTrackedCommand((current) => {
-        if (!current || current.ids.join(",") !== trackedCommandIds) return current;
-        const statuses = { ...current.statuses };
-        for (const row of rows) if (isCommandStatus(row.status)) statuses[row.id] = row.status;
-        return { ...current, statuses };
-      });
-    }, trackedCommandPollMs);
-  }, [activeProjectId, sessionReady, trackedCommandIds, trackedCommandSettled]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings || !activeProjectId) return undefined;
-
-    const channel = supabase
-      .channel(`exacth2o-control-activity-live-${activeProjectId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "project_control_commands",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        (payload) => {
-          const row = payload.new as { id?: string; status?: unknown } | null;
-          if (row?.id && isCommandStatus(row.status)) {
-            const status = row.status;
-            setTrackedCommand((current) => current && current.ids.includes(row.id as string)
-              ? { ...current, statuses: { ...current.statuses, [row.id as string]: status } }
-              : current);
-          }
-          void loadExperimentCatalog();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    canUseExperimentSettings,
-    activeProjectId,
-    loadExperimentCatalog,
-    sessionReady,
-  ]);
-
-  useEffect(() => {
-    if (!sessionReady || !canReadProjectData || !activeProjectId || !activeDeviceId) return undefined;
-
-    const channel = supabase
-      .channel(`exacth2o-valve-events-live-${activeProjectId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "valve_events",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        (payload) => {
-          const row = payload.new as ValveEvent;
-          if (row.device_id !== activeDeviceId || isIgnoredDiagnosticValveEvent(row)) return;
-          setValveEvents((current) => mergeValveEventRows(current, [row]));
-        },
-      )
-      .subscribe((status) => {
-        // Catch rows written between the initial load and the subscription becoming active.
-        // A query already running may have started before the subscription went live, so this
-        // one must start after it.
-        if (status === "SUBSCRIBED") void loadValveEvents({ incremental: true, fresh: true });
-      });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    activeDeviceId,
-    activeProjectId,
-    canReadProjectData,
-    loadValveEvents,
-    sessionReady,
-  ]);
-
-  useEffect(() => {
-    if (!sessionReady || !canUseSalesSupport || !activeProjectId) return undefined;
-
-    const channel = supabase
-      .channel(`exacth2o-sales-support-live-${activeProjectId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "support_threads",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        () => {
-          void loadSalesSupport({ silent: true });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "quote_requests",
-          filter: `project_id=eq.${activeProjectId}`,
-        },
-        () => {
-          void loadSalesSupport({ silent: true });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [activeProjectId, canUseSalesSupport, loadSalesSupport, sessionReady]);
 
   if (!sessionReady) {
     return <AuthScreen {...auth} loading={loading} />;
@@ -2321,7 +915,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                 >
                   VWC
                 </button>
-                {!isObservationOnlyExperiment(selectedExperiment) ? (
+                {(!isObservationOnlyExperiment(selectedExperiment) || experimentWateringEvents.length > 0 || visibleTargetLines.length > 0) ? (
                   <>
                     <button
                       type="button"

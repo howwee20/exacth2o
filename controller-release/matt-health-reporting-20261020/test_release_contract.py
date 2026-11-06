@@ -25,7 +25,7 @@ class ReleaseContractTests(unittest.TestCase):
         cls.temporary.cleanup()
 
     def test_health_payload_matches_maintained_source(self):
-        for relative in ("server.py", "static/app.js", "static/index.html"):
+        for relative in ("server.py", "static/app.js", "static/index.html", *(p.name for p in CANONICAL.glob("health_*.py"))):
             with self.subTest(file=relative):
                 self.assertEqual(
                     (self.generated / "health_svc" / relative).read_bytes(),
@@ -41,7 +41,7 @@ class ReleaseContractTests(unittest.TestCase):
             service = image["service_name"]
             expected = f"FROM {image['is_stored_at__image_location']}@{image['content_hash']}\n"
             if service == "health_svc":
-                expected += "COPY server.py /app/server.py\nCOPY static/app.js /app/static/app.js\nCOPY static/index.html /app/static/index.html\n"
+                expected += "COPY server.py health_*.py /app/\nCOPY static/app.js /app/static/app.js\nCOPY static/index.html /app/static/index.html\n"
             with self.subTest(service=service):
                 self.assertEqual((self.generated / service / "Dockerfile").read_text(), expected)
 

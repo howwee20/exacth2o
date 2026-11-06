@@ -55,3 +55,7 @@ browser acceptance checks, and publishing procedure.
 The operation ledger distinguishes a command from a verified physical outcome.
 A successful valve command does not prove water delivery; flow, pressure,
 weight, or equivalent evidence is required for that claim.
+
+For maintenance, the [portal module map](research-portal/README.md#maintaining-the-workspace),
+[health service map](controller/health/README.md), and
+[scheduler map](controller/cron/README.md) identify where behavior belongs.

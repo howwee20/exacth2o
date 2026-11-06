@@ -7,7 +7,8 @@ import type { PairingRow, SensorReading } from "../types";
 import { bucketSizeMs, groupWaterline, potTraces, waterlineDomain, waterlineSegments } from "../waterline";
 import { PortalLink } from "./PortalLink";
 import { TimeSeriesChart, type ChartBand, type ChartLine } from "./TimeSeriesChart";
-import { GroupGlyph, formatMeasureValue } from "./WaterlineOverview";
+import { GroupGlyph } from "./WaterlineOverview";
+import { formatMeasureValue } from "../measurementPresentation";
 import "./product.css";
 
 /** Installation trends: every running experiment's groups in Waterline form, on one time axis. */

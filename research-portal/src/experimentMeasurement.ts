@@ -124,14 +124,18 @@ export function groupTarget(
     target,
     distinctTargets: applied.length > 1 ? applied : undefined,
     experimentStatus: experimentIsCompleted(experiment) ? "completed" : experiment.status,
-    sensingOnly: isObservationOnlyExperiment(experiment as PortalExperiment),
+    sensingOnly: isObservationOnlyExperiment(experiment as PortalExperiment) && applied.length === 0,
     wateringDisabled: allDisabled,
   });
-  const planMismatch = group.target != null &&
+  const sensingMismatch = isObservationOnlyExperiment(experiment as PortalExperiment) && applied.length > 0;
+  const planMismatch = sensingMismatch || group.target != null &&
     applied.some((value) => Math.abs(value - (group.target as number)) > 0.001);
   let label = presentation.label;
   let detail = presentation.detail;
-  if (planMismatch && presentation.kind !== "sensing_only" && presentation.kind !== "completed") {
+  if (sensingMismatch && presentation.kind !== "completed") {
+    label = `${label} · plan sensing only`;
+    detail = `${detail} The saved plan says sensing only, but the controller has watering configured.`;
+  } else if (planMismatch && presentation.kind !== "sensing_only" && presentation.kind !== "completed") {
     const plan = formatVwc(group.target);
     label = `${label} · plan ${plan?.replace(" VWC", "")}`;
     detail = `${detail} The experiment plan says ${plan}, but the controller is applying ${applied.map((value) => formatVwc(value)).join(", ")}.`;
@@ -160,12 +164,13 @@ export function targetLinesForPairings(
   treatmentOf: (pairing: PairingRow) => Treatment,
   experiment: Pick<PortalExperiment, "status" | "wateringState" | "mode" | "endedAt">,
 ): ChartTargetLine[] {
-  if (isObservationOnlyExperiment(experiment as PortalExperiment) || experimentIsCompleted(experiment)) return [];
+  if (experimentIsCompleted(experiment)) return [];
   const byTreatment = new Map<Treatment, PairingRow[]>();
   for (const pairing of pairings) {
     const treatment = treatmentOf(pairing);
     byTreatment.set(treatment, [...(byTreatment.get(treatment) ?? []), pairing]);
   }
+  const planNote = isObservationOnlyExperiment(experiment as PortalExperiment) ? " · plan sensing only" : "";
   const named = byTreatment.size > 1;
   const lines: ChartTargetLine[] = [];
   for (const [treatment, group] of byTreatment) {
@@ -174,11 +179,11 @@ export function targetLinesForPairings(
     const value = targets[0];
     // The portal knows each pot's current target, not its history, so lines say "current".
     const prefix = named && treatment !== "unknown" ? `Current ${treatment === "control" ? "control" : "drought"} target` : "Current target";
-    lines.push({ value, label: `${prefix} ${formatVwc(value)?.replace(" VWC", "")}`, tone: treatmentTone[treatment] });
+    lines.push({ value, label: `${prefix} ${formatVwc(value)?.replace(" VWC", "")}${planNote}`, tone: treatmentTone[treatment] });
   }
   // Two treatments with the same target share one line.
   if (lines.length === 2 && lines[0].value === lines[1].value) {
-    return [{ value: lines[0].value, label: `Current target ${formatVwc(lines[0].value)?.replace(" VWC", "")}`, tone: "neutral" }];
+    return [{ value: lines[0].value, label: `Current target ${formatVwc(lines[0].value)?.replace(" VWC", "")}${planNote}`, tone: "neutral" }];
   }
   return lines;
 }
@@ -186,8 +191,8 @@ export function targetLinesForPairings(
 /** Tooltip text for one pot's target. */
 export function pairingTargetText(pairing: PairingRow | undefined, experiment: Pick<PortalExperiment, "status" | "wateringState" | "mode" | "endedAt">) {
   if (!pairing) return null;
-  if (isObservationOnlyExperiment(experiment as PortalExperiment)) return "Sensing only";
   if (pairingWateringDisabled(pairing)) return "Watering disabled";
+  if (isObservationOnlyExperiment(experiment as PortalExperiment)) return `Controller target ${formatVwc(pairing.wtc_percent_limit)} · plan sensing only`;
   return `Target ${formatVwc(pairing.wtc_percent_limit)}`;
 }
 

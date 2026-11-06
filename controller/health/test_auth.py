@@ -1,16 +1,18 @@
 import base64
-import importlib.util
+import importlib
+import sys
 import os
-from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-def load(**env):
+def load(module_name="health_auth", **env):
+    # Configuration is read at process startup. Give each case a fresh module
+    # graph so one environment cannot leak into the next case.
     with patch.dict(os.environ, env, clear=True):
-        spec = importlib.util.spec_from_file_location("health_auth_test", Path(__file__).with_name("server.py"))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
+        for name in list(sys.modules):
+            if name.startswith("health_"):
+                del sys.modules[name]
+        return importlib.import_module(module_name)
 
 class DashboardAuthTests(unittest.TestCase):
     def test_missing_or_partial_credentials_deny(self):

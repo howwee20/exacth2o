@@ -1,10 +1,28 @@
 {
   "purpose": "Every recurring timer in the portal that can reach Supabase. A new or extra scheduleVisiblePolling/setInterval call fails scripts/budget/edge-budget-model.test.mjs until it is registered here with its cadence and cost, and the Edge budget model is updated if it invokes an Edge Function.",
   "portal": {
-    "research-portal/src/App.tsx": {
-      "scheduleVisiblePolling": 6,
+    "research-portal/src/usePortalReadings.ts": {
+      "scheduleVisiblePolling": 1,
       "setInterval": 0,
-      "cadence": "readings/valve/device-sync/health every 5 min, sales-support 2 min (admins), tracked settings commands 15 s while pending",
+      "cadence": "readings every 5 min while signed in with project access",
+      "edge": false
+    },
+    "research-portal/src/useControllerStatus.ts": {
+      "scheduleVisiblePolling": 3,
+      "setInterval": 0,
+      "cadence": "valve events, device sync and admin health every 5 min with their existing access and view gates",
+      "edge": false
+    },
+    "research-portal/src/useControllerCommands.ts": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "tracked settings commands every 15 s while pending",
+      "edge": false
+    },
+    "research-portal/src/useSalesSupport.ts": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "sales support every 2 min for authorized accounts",
       "edge": false
     },
     "research-portal/src/ChamberControlView.tsx": {
