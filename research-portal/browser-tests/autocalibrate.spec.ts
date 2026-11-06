@@ -170,6 +170,7 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   await setSpeed(page, 1);
 
   await page.getByRole('button', { name: 'Manual water' }).click();
+  await page.getByRole('tab', { name: 'Hardware', exact: true }).click();
   await page.getByRole('textbox', { name: /Solenoid number/ }).fill('40');
   await page.getByRole('button', { name: /^Solenoid 40,/ }).click();
   await expect(page.getByText(/Autocalibration is running in this tab/)).toBeVisible();
