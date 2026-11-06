@@ -7,7 +7,8 @@ from test_auth import load
 
 class ReportingTests(unittest.TestCase):
     def setUp(self):
-        self.module = load()
+        self.measurements = load("health_measurements")
+        self.module = load("health_status")
 
     def test_archived_experiment_uses_documented_software_assignments(self):
         pairings = []
@@ -17,11 +18,11 @@ class ReportingTests(unittest.TestCase):
                 "Valve": {"relayAddress": "0x20", "address": valve},
                 "WTCPercentLimit": -999999, "ValveOpenTime": 10000})
         before = copy.deepcopy(pairings)
-        report = self.module.validate_researcher_map(pairings)
+        report = self.measurements.validate_researcher_map(pairings)
         self.assertEqual(report["wrong"], [])
         self.assertEqual(pairings, before)
         pairings[0]["Sensor"]["address"] = "r"
-        self.assertEqual(self.module.validate_researcher_map(pairings)["wrong"][0]["physicalPot"], 93)
+        self.assertEqual(self.measurements.validate_researcher_map(pairings)["wrong"][0]["physicalPot"], 93)
 
     def status(self, count=45, jobs=45, inventory_ok=True):
         health = {"api": {"healthcheck": {"ok": True},

@@ -1,0 +1,62 @@
+{
+  "embedded": {
+    "App.tsx": {
+      "count": 6,
+      "sha256": "a46ef4747493dd6f23a7271d0f9630caa912b88263e44b38f400dbc9ee78207c"
+    },
+    "useControllerCommands.ts": {
+      "count": 2,
+      "sha256": "fe9d6ffcc4850442daee9305663d16d42ca7d35bb160c441615af49c1955a03a"
+    },
+    "useControllerStatus.ts": {
+      "count": 11,
+      "sha256": "db75d87e8f0c43083b29138208d9b70d1a9c1ba8ab86be501b842303c57843f1"
+    },
+    "usePortalAccess.ts": {
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "usePortalReadings.ts": {
+      "count": 2,
+      "sha256": "9bba99c8826bc9036d426d75635b32c2fc8b2df803404834b0926c47b30461f9"
+    },
+    "useSalesSupport.ts": {
+      "count": 3,
+      "sha256": "241c9f73712afeaa685419d1497e600dada1c726594a06e60794e6815b6cdc5e"
+    },
+    "usePortalCsv.ts": {
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "standalone": {
+    "App.tsx": {
+      "count": 6,
+      "sha256": "a46ef4747493dd6f23a7271d0f9630caa912b88263e44b38f400dbc9ee78207c"
+    },
+    "useControllerCommands.ts": {
+      "count": 2,
+      "sha256": "fe9d6ffcc4850442daee9305663d16d42ca7d35bb160c441615af49c1955a03a"
+    },
+    "useControllerStatus.ts": {
+      "count": 10,
+      "sha256": "3871bb8927f68e49ddf6e5111e83237b6fd519ec95b10742234202b3e7dc4493"
+    },
+    "usePortalAccess.ts": {
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "usePortalReadings.ts": {
+      "count": 1,
+      "sha256": "e631ea2f7ee6d324b8ce370f2aa38fbb61ebc8075fef11c6c3045bbbd9ecd066"
+    },
+    "useSalesSupport.ts": {
+      "count": 3,
+      "sha256": "241c9f73712afeaa685419d1497e600dada1c726594a06e60794e6815b6cdc5e"
+    },
+    "usePortalCsv.ts": {
+      "count": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  }
+}

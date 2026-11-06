@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-COPY server.py /app/server.py
+COPY server.py health_*.py /app/
 COPY static /app/static
 
 EXPOSE 8767

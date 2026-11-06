@@ -3,6 +3,17 @@
   "files": {
     "health_svc/server.py": "controller/health/server.py",
     "health_svc/static/app.js": "controller/health/static/app.js",
-    "health_svc/static/index.html": "controller/health/static/index.html"
+    "health_svc/static/index.html": "controller/health/static/index.html",
+    "health_svc/health_alerts.py": "controller/health/health_alerts.py",
+    "health_svc/health_auth.py": "controller/health/health_auth.py",
+    "health_svc/health_config.py": "controller/health/health_config.py",
+    "health_svc/health_controller.py": "controller/health/health_controller.py",
+    "health_svc/health_history.py": "controller/health/health_history.py",
+    "health_svc/health_host.py": "controller/health/health_host.py",
+    "health_svc/health_measurements.py": "controller/health/health_measurements.py",
+    "health_svc/health_parsing.py": "controller/health/health_parsing.py",
+    "health_svc/health_scheduler.py": "controller/health/health_scheduler.py",
+    "health_svc/health_status.py": "controller/health/health_status.py",
+    "health_svc/health_transport.py": "controller/health/health_transport.py"
   }
 }
