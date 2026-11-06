@@ -28,7 +28,7 @@ const groups = new Map<string, PortalExperimentAssignment[]>();`,'experiment gra
  }
  const effectTexts=edits.filter(e=>e[2]==='').map(e=>code.slice(e[0],e[1]).replace(/\s+/g,' '));
  const effectDigest=createHash('sha256').update(JSON.stringify(effectTexts)).digest('hex');
- if(effectDigest !== "7c3aeeaca28302bc7fe4226262b494f11f4a5bf013eaf4c17a65d2f3c17db39f" || edits.length-effectTexts.length !== Object.keys(init).length) throw new Error('Offline transform contract changed: review every state and effect before building.');
+ if(effectDigest !== "ccaca239c42ca0e01d180ad8daeb2944b970d14bc86e904b9f637c39b08c3863" || edits.length-effectTexts.length !== Object.keys(init).length) throw new Error('Offline transform contract changed: review every state and effect before building.');
  // Omit the internal support card from the public overview; all other components are the production source.
  function visit(n){if(ts.isJsxAttribute(n)&&n.name.text==='machines'){edits.push([n.getStart(source),n.end,'machines={undefined}']);return;}if(ts.isJsxSelfClosingElement(n)&&['ChamberControlAdminTile','WalkerMachineTile','WebsiteAnalyticsTile'].includes(n.tagName.getText(source))){edits.push([n.getStart(source),n.end,'{null}']);return;}if(ts.isJsxElement(n)&&n.openingElement.tagName.getText(source)==='button'&&n.openingElement.attributes.properties.some(a=>ts.isJsxAttribute(a)&&a.name.text==='className'&&a.initializer?.getText(source).includes('portal-launch-card is-support')))edits.push([n.getStart(source),n.end,'{null}']);else ts.forEachChild(n,visit);}visit(source);
  for(const [start,end,text] of edits.sort((a,b)=>b[0]-a[0]))code=code.slice(0,start)+text+code.slice(end);

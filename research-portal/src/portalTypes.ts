@@ -125,7 +125,6 @@ export type PanelSize = {
 
 export type SettingsSection =
   | "overview"
-  | "assistant"
   | "pairings"
   | "autocalibrate"
   | "calibrations"

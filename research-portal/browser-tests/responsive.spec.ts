@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
-async function openComparisons(page: Page) {
+async function openSavedViews(page: Page) {
   const toggle = page.getByRole('button', {name:'Pots',exact:true});
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
-  await page.getByText('Comparisons', {exact:true}).click();
+  await page.getByText('Saved views', {exact:true}).click();
 }
 
 test.beforeEach(async ({page}) => { await page.clock.setFixedTime(new Date('2026-10-13T20:00:00Z')); });
@@ -16,8 +16,8 @@ for (const size of sizes) test(`page fit ${size.width}`, async ({page}, info) =>
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     const exportButton = page.locator('.px-exp-head').getByRole('button',{name:'Export',exact:true});
     if (route==='/demo?experiment=experiment-2') {
-      await openComparisons(page);
-      await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
+      await openSavedViews(page);
+      await expect(page.getByRole('combobox',{name:'Saved view'})).toBeVisible();
       await expect(page.getByText('Toggle a pot to compare. Open its details with the arrow.')).toHaveCount(0);
       await exportButton.click();
       await expect(page.getByRole('dialog')).toBeVisible();
@@ -29,8 +29,8 @@ for (const size of sizes) test(`page fit ${size.width}`, async ({page}, info) =>
     }
   }
   await page.goto('/demo?experiment=experiment-2');
-  await openComparisons(page);
-  await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
+  await openSavedViews(page);
+  await expect(page.getByRole('combobox',{name:'Saved view'})).toBeVisible();
   await page.evaluate(() => document.documentElement.style.fontSize='200%');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   await info.attach(`text-zoom-${size.width}`, {body:await page.screenshot(),contentType:'image/png'});
@@ -60,17 +60,17 @@ test('deferred data and saved comparisons', async ({page}) => {
   await expect(page.getByRole('heading',{name:'Experiments',exact:true})).toBeVisible();
   expect(loaded.some(url => /\/App-[^/]+\.js/.test(url))).toBe(false);
   await page.getByRole('link',{name:'Recovery after drought 24 pots',exact:true}).click();
-  await openComparisons(page);
-  await expect(page.getByRole('combobox',{name:'Comparison view'})).toBeVisible();
+  await openSavedViews(page);
+  await expect(page.getByRole('combobox',{name:'Saved view'})).toBeVisible();
   expect(loaded.some(url => /\/App-[^/]+\.js/.test(url))).toBe(true);
-  await page.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Early vs delayed recovery'});
+  await page.getByRole('combobox',{name:'Saved view'}).selectOption({label:'Early vs delayed recovery'});
   await expect(page.locator('.px-trace-heading')).toContainText('12 of 24');
   await page.getByRole('button',{name:'Save view',exact:true}).click();
   await page.getByRole('textbox',{name:'View name'}).fill('Recovery review');
   await page.getByRole('button',{name:'Save',exact:true}).click();
   await page.reload();
-  await openComparisons(page);
-  await page.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Recovery review'});
+  await openSavedViews(page);
+  await page.getByRole('combobox',{name:'Saved view'}).selectOption({label:'Recovery review'});
   await expect(page.locator('.px-trace-heading')).toContainText('12 of 24');
   await page.getByRole('button',{name:'Remove saved view'}).click();
   await page.locator('.control-panel').scrollIntoViewIfNeeded();
@@ -84,7 +84,7 @@ test('deferred data and saved comparisons', async ({page}) => {
   await expect(page.getByRole('navigation',{name:'Experiment sections'})).toHaveCount(0);
 });
 
-test('mobile Applications embed loads the current release and closes', async ({page}) => {
+test('mobile Applications embed loads the current release and returns home inline', async ({page}) => {
   await page.setViewportSize({width:390,height:844});
   await page.goto('/applications');
   const frameElement=page.locator('iframe.portal-demo-frame');
@@ -92,76 +92,60 @@ test('mobile Applications embed loads the current release and closes', async ({p
   await frameElement.scrollIntoViewIfNeeded();
   const frame=page.frameLocator('iframe.portal-demo-frame');
   await frame.getByRole('link',{name:'Crop comparison 24 pots',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeVisible();
+  await expect(frame.getByRole('heading',{name:'Crop comparison',exact:true})).toBeVisible();
   const potsToggle = frame.getByRole('button',{name:'Pots',exact:true});
   if (await potsToggle.isVisible()) await potsToggle.click();
-  await frame.getByText('Comparisons',{exact:true}).click();
-  await frame.getByRole('combobox',{name:'Comparison view'}).selectOption({label:'Crop water use'});
+  await frame.getByText('Saved views',{exact:true}).click();
+  await frame.getByRole('combobox',{name:'Saved view'}).selectOption({label:'Crop water use'});
   await expect(frame.locator('.px-trace-heading')).toContainText('3 of 24');
-  await page.getByRole('button',{name:'Close experiment',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Close experiment',exact:true})).toBeHidden();
+  await frame.getByRole('link',{name:'← Home',exact:true}).click();
+  await expect(frame.getByRole('link',{name:'Crop comparison 24 pots',exact:true})).toBeVisible();
 });
 
-// WebKitGTK in CI delivers mouse.wheel events without moving the document.
-// Supply that movement explicitly for its motion integration checks. Chromium
-// and Firefox use native wheel scrolling; macOS Safari is also checked natively.
-async function footerWheel(page:Page, browserName:string, deltaY:number) {
-  if(browserName!=='webkit') {await page.mouse.wheel(0,deltaY);return;}
-  await page.evaluate(delta => {
-    window.dispatchEvent(new WheelEvent('wheel',{deltaY:delta}));
-    window.scrollBy({top:delta,behavior:'instant'});
-  },deltaY);
-}
-
-test('footer water ignores stationary overscroll', async ({page,browserName}) => {
+test('footer water fills on arrival, drains once, and replays after leaving view', async ({page}) => {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
-  const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
-  await expect(page.locator('#brand-water-lines rect')).toHaveAttribute('fill','#91e4d2');
-  await page.keyboard.press('End');
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight-innerHeight-scrollY)).toBeLessThanOrEqual(3);
-  await expect(level).toHaveAttribute('d',empty);
-  // Real browser wheel input at rest cannot lift the water.
-  await page.mouse.move(400,400);await footerWheel(page,browserName,800);await page.waitForTimeout(150);
-  await expect(level).toHaveAttribute('d',empty);
+  const footer = page.locator('.brand-finale');
+  const level = page.locator('.brand-water-level');
+  const empty = 'M600 250H1040V260H600Z';
+
+  await footer.scrollIntoViewIfNeeded();
+  await expect.poll(() => level.getAttribute('d')).not.toBe(empty);
+  await expect(level).toHaveAttribute('d', empty, {timeout:2500});
+  await page.mouse.wheel(0, 500);
+  await page.waitForTimeout(150);
+  await expect(level).toHaveAttribute('d', empty);
+
+  await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
+  await expect(footer).not.toBeInViewport();
+  await footer.scrollIntoViewIfNeeded();
+  await expect.poll(() => level.getAttribute('d')).not.toBe(empty);
 });
 
-test('footer water stays quiet on a gentle arrival', async ({page,browserName}) => {
+test('footer water stops when it leaves view', async ({page}) => {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.goto('/');
-  const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
-  await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-24,behavior:'instant'}));
-  await page.waitForTimeout(200);await page.mouse.move(900,500);
-  for(let i=0;i<8;i++){await footerWheel(page,browserName,3);await page.waitForTimeout(70);}
-  await expect(level).toHaveAttribute('d',empty);
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight-innerHeight-scrollY)).toBeLessThanOrEqual(3);
+  const level = page.locator('.brand-water-level');
+  await page.locator('.brand-finale').scrollIntoViewIfNeeded();
+  await expect.poll(() => level.getAttribute('d')).not.toBe('M600 250H1040V260H600Z');
+  await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
+  await expect(level).toHaveAttribute('d', 'M600 250H1040V260H600Z');
 });
 
-test('footer water rises on a fast arrival and drains once', async ({page,browserName}, info) => {
-  await page.emulateMedia({reducedMotion:'no-preference'});
+test('footer water respects reduced motion, including a change during animation', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto('/');
-  const level=page.locator('.brand-water-level'), empty='M600 250H1040V260H600Z';
-  await page.evaluate(() => window.scrollTo({top:document.documentElement.scrollHeight-innerHeight-450,behavior:'instant'}));
-  await expect.poll(() => page.evaluate(() => Math.abs(document.documentElement.scrollHeight-innerHeight-scrollY-450))).toBeLessThanOrEqual(1);
-  await page.waitForTimeout(200);
-  await page.evaluate(() => {
-    const events: {type:string,at:number,y:number,remaining:number}[]=[];
-    Object.assign(window,{footerMotionProbe:events});
-    for(const type of ['wheel','scroll'])window.addEventListener(type,() => {
-      if(events.length<120)events.push({type,at:performance.now(),y:scrollY,remaining:document.documentElement.scrollHeight-innerHeight-scrollY});
-    },{passive:true});
-  });
-  await page.mouse.move(900,500);
-  await footerWheel(page,browserName,900);
-  try {
-    await expect.poll(() => level.getAttribute('d'),{intervals:[20,40,60]}).not.toBe(empty);
-  } finally {
-    const events=await page.evaluate(() => (window as unknown as {footerMotionProbe:unknown[]}).footerMotionProbe);
-    await info.attach('footer-scroll-timing',{body:JSON.stringify(events),contentType:'application/json'});
-  }
-  await page.waitForTimeout(180);
-  await info.attach('footer-fast-arrival',{body:await page.screenshot(),contentType:'image/png'});
-  await expect(level).toHaveAttribute('d',empty,{timeout:2500});
-  await footerWheel(page,browserName,900);await page.waitForTimeout(150);
-  await expect(level).toHaveAttribute('d',empty);
+  const footer = page.locator('.brand-finale');
+  const level = page.locator('.brand-water-level');
+  const empty = 'M600 250H1040V260H600Z';
+  await footer.scrollIntoViewIfNeeded();
+  await expect(level).toHaveAttribute('d', empty);
+
+  await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
+  await expect(footer).not.toBeInViewport();
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await footer.scrollIntoViewIfNeeded();
+  await expect.poll(() => level.getAttribute('d')).not.toBe(empty);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await expect(level).toHaveAttribute('d', empty);
 });

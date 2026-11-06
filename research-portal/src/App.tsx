@@ -33,7 +33,7 @@ import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, tracked
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups, experimentSidebarGroups } from "./experimentPresentation";
 import { levelLabel } from "./experimentFactors";
-import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, valveEventsForExperiment } from "./experimentRegistry";
+import { deduplicateExperimentCatalog, type ExperimentId, isObservationOnlyExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, hasSalesSupportAccess, parsePortalRole } from "./portalAccess";
 import { autoRefreshMs, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
@@ -247,8 +247,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [exportOpen, setExportOpen] = useState(false);
   const [duplicateExperiment, setDuplicateExperiment] = useState<PortalExperiment | null>(null);
   const [editingExperiment, setEditingExperiment] = useState<PortalExperiment | null>(null);
-  const [experimentBuilderPrompt, setExperimentBuilderPrompt] = useState("");
-  const [settingsAssistantPrompt, setSettingsAssistantPrompt] = useState("");
   const [experimentCatalogError, setExperimentCatalogError] = useState<string | null>(null);
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
   const [healthHistory, setHealthHistory] = useState<DeviceHealthSnapshot[]>([]);
@@ -304,11 +302,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }, [closeSettings, settingsOpen]);
 
   const availableExperiments = useMemo(
-    () => mergePortalExperiments(
-      portalExperimentsForRole(portalAccess?.role),
-      experimentCatalog,
-    ),
-    [experimentCatalog, portalAccess?.role],
+    () => deduplicateExperimentCatalog(experimentCatalog),
+    [experimentCatalog],
   );
   const selectedExperiment = useMemo(
     () => portalExperimentById(selectedExperimentId, availableExperiments),
@@ -1862,8 +1857,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setSettingsSection("overview");
       setExperimentBuilderOpen(false);
       setEditingExperiment(null);
-      setExperimentBuilderPrompt("");
-      setSettingsAssistantPrompt("");
       setHealthSnapshot(null);
       setHealthHistory([]);
       setRuntimeState(null);
@@ -2363,7 +2356,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}
-      initialPrompt={experimentBuilderPrompt}
       direct
       experiment={editingExperiment}
       template={duplicateExperiment}
@@ -2371,14 +2363,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         setExperimentBuilderOpen(false);
         setEditingExperiment(null);
         setDuplicateExperiment(null);
-        setExperimentBuilderPrompt("");
       }}
       onCreated={async (slug) => {
         await loadExperimentCatalog();
         setExperimentBuilderOpen(false);
         setEditingExperiment(null);
         setDuplicateExperiment(null);
-        setExperimentBuilderPrompt("");
         openExperiment(slug);
       }}
     /></FeatureBoundary>
@@ -2649,14 +2639,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       controlNotice={controlNotice}
       commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
       controlError={controlError}
-      assistantInitialPrompt={settingsAssistantPrompt}
       operatorEmail={portalAccess.email ?? null}
       onClose={closeSettings}
       onSectionChange={(section) => section === "autocalibrate" ? openAutocalibrate() : setSettingsSection(section)}
       onPrepareCsvDownload={prepareCsvDownload}
       onDownloadPairingsCsv={downloadPairingsCsv}
       onQueueCommand={queueControlCommand}
-      onQueueSettingsPlan={queueSettingsPlan}
       onSignOut={signOut}
     /></FeatureBoundary>
   ) : null;

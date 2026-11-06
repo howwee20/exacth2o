@@ -11,6 +11,6 @@ export const policyCheck = 'viewers and unknown roles cannot submit controller c
 export const browserChecks = [
   'Control requires confirmation after the checkmark',
   'Drought requires confirmation after the checkmark',
-  'assembled demo has one quiet graph, with Groups sharing the time range and Record under More',
+  'assembled demo retains time range, saved views, Record, and responsive navigation',
 ];
 export const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
