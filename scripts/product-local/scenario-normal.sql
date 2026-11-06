@@ -4,7 +4,7 @@
 create schema if not exists product_local;
 create table if not exists product_local.hidden_readings (like public.sensor_readings);
 
-insert into public.sensor_readings select * from product_local.hidden_readings on conflict (event_id) do nothing;
+insert into public.sensor_readings select * from product_local.hidden_readings on conflict (device_id,event_id) do nothing;
 delete from product_local.hidden_readings;
 
 do $$

@@ -201,6 +201,7 @@ describe("portal routes", () => {
       "?pot=Zone1-Pot17",
       "?view=pocket&pot=Zone1-Pot17&note=1",
       "?view=health",
+      "?view=autocalibrate",
     ];
     for (const search of cases) {
       expect(portalRouteSearch(parsePortalRoute(search))).toBe(search);
@@ -216,8 +217,10 @@ describe("portal routes", () => {
     expect(parsePortalRoute("?experiment=x&tab=overview")).toEqual({ view: "experiment", experiment: "x", tab: "overview", pot: null });
   });
 
-  it("links straight to a Settings section, Autocalibrate included, and ignores anything else", () => {
-    expect(parsePortalRoute("?view=controller&settings=autocalibrate")).toEqual({ view: "controller" });
+  it("keeps Settings links and sends legacy Autocalibrate links to its dedicated page", () => {
+    expect(parsePortalRoute("?view=controller&settings=autocalibrate")).toEqual({ view: "autocalibrate" });
+    expect(parsePortalRoute("?experiment=x&settings=autocalibrate")).toEqual({ view: "autocalibrate" });
+    expect(portalRouteSearch(parsePortalRoute("?view=controller&settings=autocalibrate&project=p1"), "?project=p1")).toBe("?view=autocalibrate&project=p1");
     expect(settingsSectionFromSearch("?view=controller&settings=autocalibrate")).toBe("autocalibrate");
     expect(settingsSectionFromSearch("?experiment=x&settings=pairings&project=p1")).toBe("pairings");
     expect(settingsSectionFromSearch("?settings=assistant")).toBeNull();

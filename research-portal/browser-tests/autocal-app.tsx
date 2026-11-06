@@ -11,6 +11,7 @@ import { ManualWaterPanel } from "../src/product/ManualWaterPanel";
 import { supabase } from "../src/supabase";
 import { FakeBackend, harnessIds } from "./fake-backend";
 import { clockSpeed } from "./virtual-clock";
+import {FIELD_MAP} from '../src/autocalibrate/fieldMap';
 import "../src/styles.css";
 import "../src/product/product.css";
 
@@ -55,7 +56,11 @@ function Preview() {
     });
   }, []);
   const hash = fake.hash;
-  const pairings = useMemo(() => fake.portalPairings().filter((pairing) => params.get("preset") !== "partial" || [65, 100].includes(pairing.pot_number)), [hash]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pairings = useMemo(() => fake.portalPairings().filter((pairing) => params.get("preset") !== "partial" || [65, 100].includes(pairing.pot_number)).map(pairing => {
+    if (params.get('field') !== '1') return pairing;
+    const row = FIELD_MAP.find(row => row.pot === pairing.pot_number)!;
+    return {...pairing, valve_key: row.relayAddress == null ? `38:${pairing.pot_number - 62}` : `${row.relayAddress}:${row.channel}`};
+  }), [hash]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <main className="px-shell ac-preview" data-version={version}>
       <header className="px-header">
@@ -89,6 +94,7 @@ function Preview() {
             controllerOnline
             controlBusy={false}
             onQueueSettingsPlan={async (plan, configHash) => fake.queueSettingsPlan(plan, configHash)}
+            fieldMap={params.get('field') === '1' ? FIELD_MAP : undefined}
           />
         </div>
       </section>

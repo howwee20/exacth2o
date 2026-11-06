@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { HoldWaterControl } from "../HoldWaterControl";
-import { boardLabel, ManualWaterClient, outputName, routeLabel, type Destination, type PotRoute, type RouteBook, type ValveOutput } from "../manualWaterApi";
-import { RouteNeeded, routeSourceText } from "./FindPotDialog";
+import { boardLabel, ManualWaterClient, outputName, type Destination, type PotRoute, type RouteBook, type ValveOutput } from "../manualWaterApi";
+import { PotRouteFacts, RouteNeeded } from "./FindPotDialog";
 
 /**
  * Manual water / troubleshooting. Two ways to choose where water goes, one control:
@@ -12,7 +12,7 @@ import { RouteNeeded, routeSourceText } from "./FindPotDialog";
  */
 export type ManualWaterTarget = { mode: "pot"; potNumber: number } | { mode: "solenoid"; relayAddress: number; channel: number } | null;
 
-const potStatusText = { ready: "Ready", needs_confirmation: "Needs check", no_water_line: "No water line", unmapped: "No route", conflict: "Conflict" } as const;
+const potStatusText = { ready: "Watering ready", needs_confirmation: "Needs check", no_water_line: "No water line", unmapped: "No route", conflict: "Conflict" } as const;
 
 export function ManualWaterPanel({
   open,
@@ -29,7 +29,7 @@ export function ManualWaterPanel({
   controllerName: string;
   initial?: ManualWaterTarget;
 }) {
-  const [mode, setMode] = useState<"pot" | "solenoid">(initial?.mode ?? "solenoid");
+  const [requestedMode, setMode] = useState<"pot" | "solenoid">(initial?.mode ?? "pot");
   const [query, setQuery] = useState("");
   const [book, setBook] = useState<RouteBook | null>(null);
   const [bookError, setBookError] = useState("");
@@ -62,6 +62,7 @@ export function ManualWaterPanel({
   if (!open) return null;
 
   const q = query.trim().toLowerCase();
+  const mode = book?.canConfirm ? requestedMode : "pot";
   const outputs = book?.outputs ?? [];
   const pots = book?.pots ?? [];
   const matchOutput = (output: ValveOutput) => !q
@@ -73,7 +74,7 @@ export function ManualWaterPanel({
   const matchPot = (route: PotRoute) => !q || String(route.pot) === q || String(route.pot).startsWith(q) || (route.pairing?.name.toLowerCase().includes(q) ?? false);
   const boards = Array.from(new Set(outputs.map((output) => output.relayAddress)));
 
-  const chosenOutput = selected?.mode === "solenoid" ? outputs.find((output) => output.relayAddress === selected.relayAddress && output.channel === selected.channel) ?? null : null;
+  const chosenOutput = book?.canConfirm && selected?.mode === "solenoid" ? outputs.find((output) => output.relayAddress === selected.relayAddress && output.channel === selected.channel) ?? null : null;
   const chosenPot = selected?.mode === "pot" ? pots.find((route) => route.pot === selected.potNumber) ?? null : null;
 
   return (
@@ -85,15 +86,15 @@ export function ManualWaterPanel({
         }
       }}>
         <div className="px-dialog-heading">
-          {selected ? <button type="button" className="px-button is-small is-quiet" onClick={() => setSelected(null)}>← All {mode === "pot" ? "pots" : "solenoids"}</button> : <h2 id={titleId}>Manual water · Troubleshooting</h2>}
+          {selected ? <button type="button" className="px-button is-small is-quiet" onClick={() => setSelected(null)}>← All {mode === "pot" ? "pots" : "solenoids"}</button> : <h2 id={titleId}>Manual water</h2>}
           <button type="button" className="px-button is-small" onClick={onClose}>Close</button>
         </div>
         {!selected ? (
           <>
-            <div className="px-segmented" role="tablist" aria-label="Choose by">
-              <button type="button" role="tab" aria-selected={mode === "solenoid"} onClick={() => setMode("solenoid")}>By solenoid</button>
-              <button type="button" role="tab" aria-selected={mode === "pot"} onClick={() => setMode("pot")}>By pot</button>
-            </div>
+            {book?.canConfirm ? <div className="px-segmented" role="tablist" aria-label="Choose by">
+              <button type="button" role="tab" aria-selected={mode === "solenoid"} onClick={() => setMode("solenoid")}>Hardware</button>
+              <button type="button" role="tab" aria-selected={mode === "pot"} onClick={() => setMode("pot")}>Pots</button>
+            </div> : null}
             <input
               ref={searchRef}
               className="px-manual-search"
@@ -136,7 +137,7 @@ export function ManualWaterPanel({
                   <li key={route.pot}>
                     <button type="button" className="px-pot-choice" onClick={() => setSelected({ mode: "pot", potNumber: route.pot })}>
                       <b>Pot {route.pot}</b>
-                      <span>{route.relayAddress != null && route.channel != null ? routeLabel(route.relayAddress, route.channel) : route.reason ?? ""}</span>
+                      <span>{route.pairing?.sensorKey ? "Sensor linked" : "No sensor linked"}</span>
                       <span className="px-route-badge" data-status={route.status}>{potStatusText[route.status]}</span>
                     </button>
                   </li>
@@ -209,19 +210,13 @@ function OutputLabelForm({ client, output, onBook }: { client: ManualWaterClient
 }
 
 function PotWaterPanel({ client, book, route, potNumber, controllerName, onBook, titleId }: { client: ManualWaterClient; book: RouteBook | null; route: PotRoute | null; potNumber: number; controllerName: string; onBook: (book: RouteBook) => void; titleId: string }) {
-  const valve = route?.relayAddress != null && route.channel != null ? routeLabel(route.relayAddress, route.channel) : null;
-  const output = route?.relayAddress != null ? book?.outputs.find((item) => item.relayAddress === route.relayAddress && item.channel === route.channel) ?? null : null;
   return (
     <div className="px-pot-panel">
       <header>
         <h2 id={titleId}>Pot {potNumber}</h2>
         <p>{controllerName}</p>
       </header>
-      <dl className="px-pot-facts">
-        <div><dt>Valve</dt>{valve ? <dd className="px-mono">{valve}{output?.solenoidNumber != null ? ` · solenoid ${output.solenoidNumber}` : ""}</dd> : <dd className="px-muted">{route?.status === "no_water_line" ? "No water line" : "Not confirmed"}</dd>}</div>
-        <div><dt>Sensor pairing</dt>{route?.pairing ? <dd><span>{route.pairing.name}</span>{route.pairing.sensorKey ? <span className="px-mono px-muted"> · {route.pairing.sensorKey}</span> : null}</dd> : <dd className="px-muted">None</dd>}</div>
-        <div><dt>Route record</dt><dd>{route ? routeSourceText(route) : "Loading…"}</dd></div>
-      </dl>
+      <PotRouteFacts route={route} admin={Boolean(book?.canConfirm)} />
       {!route || !book ? <p className="px-muted px-small">Loading valve routes…</p>
         : route.status === "ready"
           ? <HoldWaterControl key={`pot:${potNumber}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber }} label={`Pot ${potNumber}`} renewMs={book.renewMs} leaseMs={book.leaseMs} canTakeover={book.canTakeover} />

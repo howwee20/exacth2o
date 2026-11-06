@@ -25,8 +25,7 @@
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site.css?v=20261014">
-<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
+<link rel="stylesheet" href="/site.css?v=20261104-header1">
 <style>
 .team-section { padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(4rem, 8vw, 6rem); }
 .team-inner { max-width: var(--content); margin: 0 auto; }
@@ -60,9 +59,9 @@
   .founder-photo { max-width: 260px; }
 }
 </style>
-<script src="/site-navigation.js" defer></script>
+<script src="/site-navigation.js?v=20261104-header1" defer></script>
 <script src="/site-ambient.js?v=20261015-2" defer></script>
-<script src="/site-brand-footer.js?v=20261014" defer></script>
+<script src="/site-brand-footer.js?v=20261104-arrival1" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/about">
@@ -72,6 +71,9 @@
 <meta property="og:url" content="https://exacth2o.com/about">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site-typography.css?v=20261103-type1">
+<link rel="stylesheet" href="/site-components.css?v=20261104-header1">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261103-footer3">
 </head>
 <body>
 
@@ -177,21 +179,7 @@
 
 </main>
 
-<footer>
-<div class="brand-finale" role="img" aria-label="ExactH2O">
-<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
-    <defs>
-      <pattern id="brand-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#a6b7ae"/></pattern>
-      <pattern id="brand-water-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#91e4d2"/></pattern>
-      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
-    </defs>
-    <g class="brand-finale-type">
-      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
-    </g>
-  </svg>
-  </div>
+<footer class="site-footer">
   <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
     <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
@@ -201,6 +189,20 @@
       <span>MADE IN USA</span>
     </div>
   </div>
+  <a class="brand-finale" href="/" aria-label="ExactH2O home">
+<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="brand-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#c5cdc7"/></pattern>
+      <pattern id="brand-water-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#87b6a9"/></pattern>
+      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
+    </defs>
+    <g class="brand-finale-type">
+      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
+    </g>
+  </svg>
+  </a>
 </footer>
 
 

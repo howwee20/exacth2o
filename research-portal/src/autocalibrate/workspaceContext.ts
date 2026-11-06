@@ -7,6 +7,7 @@ import type { PortalRole } from "../portalAccess";
 import type { SettingsPlan } from "../settingsSpec";
 import type { PairingRow } from "../types";
 import type { BatchKind, SessionRecord, SessionStatus, TrackedBatch } from "./sessionRecord";
+import type {FieldMapRow} from './fieldMap';
 
 export type SessionPatch = { status?: SessionStatus; active?: boolean; record?: SessionRecord };
 
@@ -31,6 +32,8 @@ export type WorkspaceContext = {
   record: SessionRecord;
   /** Each selected pot's settings before the session changed anything (server, immutable). */
   snapshot: PotSettingsSnapshot[];
+  fieldMap?: readonly FieldMapRow[] | null;
+  fieldBlockReason?: string | null;
   /** The run's evidence (run_result), loaded on demand. */
   result: CommissioningResult | null;
   resultLoading: boolean;

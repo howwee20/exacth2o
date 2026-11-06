@@ -26,14 +26,18 @@ All three installed health payload files matched this source by SHA-256.
 
 ## Maintaining the fix
 
-The maintained health source is `../matt-balena-release-4174753/health`.
-Refresh `health_svc/server.py`, `health_svc/static/app.js` and
-`health_svc/static/index.html` from that source when changing diagnostics.
-CI tests both the reporting behavior and equality of the packaged payload with
-the maintained source. Do not rebuild a replacement health service using the
-old base image alone; its diagnostic reference predates this correction.
+The maintained health source is `controller/health/` at the repository root.
+This directory keeps the pinned baseline and Dockerfiles. Generate its payload
+from the maintained source before building a replacement release.
 
-Build a draft with `balena push basyalbi/matt --source <this-directory> --draft`.
+```sh
+node scripts/build-controller-release.mjs matt-health-reporting-20261020 /tmp/exacth2o-health-release
+balena push basyalbi/matt --source /tmp/exacth2o-health-release --draft
+```
+
+CI generates the package and checks every payload byte against the maintained
+source. The output includes a source revision and SHA-256 file manifest.
+
 Compare its composition and image digests with the intended live baseline before
 pinning a device. Verify controller state/configuration, health payload hashes,
 and unchanged container start times before finalizing. Never use a fleet rebuild

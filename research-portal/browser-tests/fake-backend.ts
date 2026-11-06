@@ -331,6 +331,20 @@ export class FakeBackend {
     this.advance();
     const sessions = this.rows("commissioning_sessions");
     const find = (runId: unknown) => sessions.find((row) => row.run_id === runId && row.project_id === project);
+    if (name === "save_commissioning_session") {
+      const row = find(args.save_run_id);
+      if (!row) return { data: null, error: { message: "Autocalibration session not found" } };
+      const token = args.save_token ?? null;
+      if (token !== (row.run_token ?? null)) {
+        if (token != null) return { data: null, error: null };
+        const fresh = row.heartbeat_at && Date.now() - Date.parse(String(row.heartbeat_at)) < 180_000;
+        if (fresh) return { data: null, error: { message: "Another screen is running this autocalibration session" } };
+        Object.assign(row, { run_token: null, heartbeat_at: null });
+        if (row.status === "running") row.status = "interrupted";
+      }
+      const result = this.update("commissioning_sessions", [row], args.save_patch as Row);
+      return "error" in result ? { data: null, error: { message: result.error } } : { data: { ...row }, error: null };
+    }
     if (name === "claim_commissioning_run") {
       const row = find(args.claim_run_id);
       if (!row) return { data: null, error: { message: "Autocalibration session not found" } };

@@ -7,3 +7,11 @@ export function replaceRequired(code, search, replacement, label) {
   if (code.indexOf(search, index + search.length) >= 0) throw new Error(`Preview transform matched more than once (${label}).`);
   return code.slice(0, index) + replacement + code.slice(index + search.length);
 }
+
+// Both public demos start with their own login state, independent of invite or
+// recovery parameters in the URL. The real portal keeps the URL-driven state.
+export function offlineAuthState(code) {
+  let result = replaceRequired(code, "useState(() => initialEmail())", 'useState("")', "demo email");
+  result = replaceRequired(result, "useState<AuthMode>(() => initialAuthMode())", 'useState<AuthMode>("sign-in")', "demo auth mode");
+  return replaceRequired(result, "useState(() => inviteTokenFromUrl())", 'useState("")', "demo invite token");
+}

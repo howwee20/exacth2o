@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('./supabase', () => ({ supabase: {} }));
+vi.mock('./supabase', () => ({ supabase: {}, functionUrl: (name: string) => `https://offline.invalid/functions/v1/${name}`, anonKey: 'test' }));
 import { ManualWaterClient, outputName, sameDestination } from './manualWaterApi';
 
 const pot = { kind: 'pot', potNumber: 16 } as const;

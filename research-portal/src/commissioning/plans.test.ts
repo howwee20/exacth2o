@@ -339,8 +339,10 @@ describe("real-hardware boundary", () => {
     expect(records.match(/\.from\(\s*["']([a-z_]+)["']\s*\)\s*\.(insert|update|upsert|delete)/g)?.every((call) => call.includes("commissioning_sessions"))).toBe(true);
     // Session ownership and pot records only; none of these functions touches a controller or its settings.
     expect(records.match(/\.rpc\(\s*["']([a-z_]+)["']/g)).toEqual([
+      '.rpc("save_commissioning_session"',
       '.rpc("claim_commissioning_run"',
       '.rpc("renew_commissioning_run"',
+      '.rpc("save_commissioning_session"',
       '.rpc("reconcile_autocalibration_bindings"',
       '.rpc("confirm_autocalibration_delivery"',
     ]);

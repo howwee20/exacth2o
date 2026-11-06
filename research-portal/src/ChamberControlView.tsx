@@ -1,6 +1,6 @@
+import { PortalHomeButton } from "./product/PortalHomeButton";
 import {
   AlertTriangle,
-  ArrowLeft,
   Eye,
   Loader2,
   MousePointer2,
@@ -31,7 +31,7 @@ import { GasMixerNativeControl } from "./GasMixerNativeControl";
 import { LightingNativeControl } from "./LightingNativeControl";
 import { ChamberSchedules } from "./ChamberSchedules";
 import { scheduleVisiblePolling } from "./visiblePolling";
-import { supabase } from "./supabase";
+import { supabase, functionUrl, anonKey } from "./supabase";
 
 function statusTime(value: string | null | undefined) {
   if (!value) return "No device heartbeat yet";
@@ -243,12 +243,12 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
       const active = sessionRef.current;
       const token = accessTokenRef.current;
       if (!active || !token) return;
-      void fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gas-mixer-session`, {
+      void fetch(functionUrl("gas-mixer-session"), {
         method: "POST",
         keepalive: true,
         headers: {
           "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          apikey: anonKey,
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ action: "end_session", session_token: active.session_token }),
@@ -323,11 +323,9 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
   return (
     <section className="dashboard-shell chamber-control-shell">
       <section className="chamber-control-page">
+        <PortalHomeButton onClick={leaveChamber} />
         <header className="chamber-control-heading">
           <div><h1 className="px-title">Chamber</h1><p className="px-subtitle">Gas mixer, lighting, and schedules</p></div>
-          <button type="button" className="chamber-back-button" onClick={leaveChamber}>
-            <ArrowLeft size={17} /> Back
-          </button>
         </header>
 
         {denied ? (

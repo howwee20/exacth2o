@@ -41,7 +41,7 @@ export function TrendsView({
 
   return (
     <section className="px-page is-wide" aria-label="Trends">
-      <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
       <h1 className="px-title">Trends</h1>
       <p className="px-lede">Last {Math.round(loadedWindowMs / 3_600_000)} hours · calibrated VWC. Lines show group medians; bands show the range across pots.</p>
       {blocks.length ? blocks.map(({ experiment, grouping, lines }) => {

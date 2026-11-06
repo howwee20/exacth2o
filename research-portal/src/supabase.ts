@@ -16,3 +16,6 @@ export function portalClientWithToken(accessToken: string) {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }
+
+export const functionUrl = (name: string) => `${supabaseUrl}/functions/v1/${name}`;
+export const anonKey = supabaseAnonKey;

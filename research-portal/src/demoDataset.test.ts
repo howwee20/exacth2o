@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
 import { ModuleKind, transpileModule } from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { experimentTraceReadings } from './experimentTraceReadings';
 
 const root = new URL('../../demo-preview/', import.meta.url);
 const csv = readFileSync(new URL('data/ExactH2O_dummy_interface.csv', root), 'utf8');
@@ -31,6 +32,18 @@ const atHour = (name: string, hour: number) => {
 };
 
 describe('recorded and derived demo datasets', () => {
+  it('shows the full experiment history even when the live cache only contains recent readings', () => {
+    for (const experiment of data.experiments) {
+      const plotted = experimentTraceReadings(data.fixture.historyReadings ?? [], data.fixture.data.readings, experiment);
+      for (const name of experiment.pairingNames) {
+        const points = plotted.filter(row => row.pairing_name === name);
+        expect(points.length).toBeGreaterThan(1);
+        expect(Date.parse(points[0].device_recorded_at)).toBe(Date.parse(experiment.startedAt));
+        expect(Date.parse(points.at(-1)!.device_recorded_at)).toBe(now);
+      }
+    }
+  });
+
   it('keeps source details at experiment level without repeated pot notes', () => {
     expect(data.recordTables.portal_pot_notes).toEqual([]);
     expect(data.experiments[0].sourceNote).toContain('measurement values and intervals are unchanged');

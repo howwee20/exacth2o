@@ -2,6 +2,7 @@ import { healthEventText, healthFirstEventText, healthNumber, healthString, heal
 import { dayMs, maxValveEventRows, wateringEventDedupeBucketMs, wateringHistoryMs } from "./portalConstants";
 import { isIgnoredDiagnosticValveEvent } from "./portalData";
 import { treatmentForPairing } from "./portalPresentation";
+import type { PortalExperiment } from "./experimentRegistry";
 import { type HealthWateringEvent } from "./portalTypes";
 import { type PairingRow, type ValveEvent } from "./types";
 
@@ -79,8 +80,8 @@ export function pairingLabel(pairing: PairingRow) {
   return `Pot ${pairing.pot_number}`;
 }
 
-export function wateringAxisLabel(pairing: PairingRow) {
-  const treatment = treatmentForPairing(pairing);
+export function wateringAxisLabel(pairing: PairingRow, experiment?: PortalExperiment) {
+  const treatment = treatmentForPairing(pairing, experiment);
   const shortTreatment =
     treatment === "control" ? "C" :
     treatment === "drought" ? "D" :

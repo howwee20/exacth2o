@@ -9,6 +9,7 @@ import {
   assistantChatInstructions,
   assistantTools,
   experimentArchiveDecision,
+  experimentsVisibleToRole,
   normalizeAssistantConversation,
   proposalFromFunctionCall,
   resolveExactExperimentCatalog,
@@ -340,4 +341,15 @@ test("overview, calibration, and automation reads produce compact evidence cards
     bundle.artifacts.map((artifact) => artifact.title),
     ["Project overview", "Calibration", "Automation"],
   );
+});
+
+test("experiments hidden from a role are neither listed nor resolvable by name", () => {
+  const rows = [
+    { id: "open", slug: "open-trial", name: "Open trial", visible_to_roles: ["admin", "researcher"] },
+    { id: "hidden", slug: "admin-trial", name: "Admin-only trial", visible_to_roles: ["admin"] },
+  ];
+  assert.deepEqual(experimentsVisibleToRole(rows, "admin").map((row) => row.id), ["open", "hidden"]);
+  assert.deepEqual(experimentsVisibleToRole(rows, "researcher").map((row) => row.id), ["open"]);
+  assert.equal(resolveExactExperimentCatalog(experimentsVisibleToRole(rows, "researcher"), "Admin-only trial"), null);
+  assert.deepEqual(experimentsVisibleToRole(null, "admin"), []);
 });

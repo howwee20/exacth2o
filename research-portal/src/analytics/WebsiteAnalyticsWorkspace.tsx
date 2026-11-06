@@ -1,4 +1,5 @@
-import { AlertTriangle, ArrowLeft, Copy, Loader2, RefreshCw } from "lucide-react";
+import { PortalHomeButton } from "../product/PortalHomeButton";
+import { AlertTriangle, Copy, Loader2, RefreshCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleVisiblePolling } from "../visiblePolling";
 import "./analytics.css";
@@ -633,7 +634,7 @@ export default function WebsiteAnalyticsWorkspace({ onBack }: { onBack: () => vo
 
   return (
     <section className="sales-support-main website-analytics-page analytics-workspace" aria-label="Web Analytics">
-      <button type="button" className="support-back-button" onClick={onBack}><ArrowLeft size={15} />Home</button>
+      <PortalHomeButton onClick={onBack} />
       <header className="support-hero">
         <div>
           <p>ExactH2O website</p>

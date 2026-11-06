@@ -1,37 +1,89 @@
+/* Shared, compact striped-wordmark footer for every public page. */
 html { overscroll-behavior-y: none; }
-/* A full-height wordmark anchors the footer, with contact details to its right. */
-footer {
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  align-items: flex-end;
-  min-height: clamp(220px, 18vw, 360px);
-  padding: 2rem clamp(1.5rem, 3.7vw, 4rem);
+
+body > footer.site-footer {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: end;
+  gap: 40px;
+  min-height: 0;
+  padding: 32px max(24px, calc((100% - 1060px) / 2)) 20px;
   overflow: hidden;
-  isolation: isolate;
-}
-.brand-finale {
-  position: absolute;
-  left: 1.5vw;
-  bottom: 0;
-  width: min(71vw, calc(100% - 330px));
-  transform: none;
-  pointer-events: none;
-  z-index: -1;
-}
-.brand-finale svg { display: block; width: 100%; height: auto; overflow: visible; }
-.brand-finale-type { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 240px; font-weight: 600; font-style: italic; }
-footer .footer-details { align-items: flex-end; text-align: right; gap: .7rem; }
-footer .footer-support { color: #d3d9d4; }
-footer .footer-copyright { color: #a5b1aa; }
-footer .made-in-america { margin-top: .15rem; }
-@media (max-width: 768px) {
-  footer { min-height: calc(20vw + 190px); padding: 1.5rem; align-items: flex-start; }
-  .brand-finale { left: 20px; right: 20px; width: calc(100% - 40px); bottom: 12px; transform: none; }
-  footer .footer-details { align-items: flex-end; text-align: right; }
+  background: #f8f9f7;
+  border-top: 1px solid #e5e9e4;
+  color: #647069;
+  font-family: var(--exact-font-sans);
+  letter-spacing: 0;
 }
 
-footer .site-policy-links { font-family: var(--sans); letter-spacing: 0; gap: 16px; }
-footer .footer-details { max-width: 100%; }
-footer .footer-support { overflow-wrap: anywhere; }
+.site-footer .footer-details {
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+  text-align: left;
+}
+.site-footer .footer-support {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: #40594c;
+  overflow-wrap: anywhere;
+}
+.site-footer .site-policy-links {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 4px;
+  font: 400 13px/1.4 var(--exact-font-sans);
+}
+.site-footer .site-policy-links a {
+  min-height: 28px;
+  color: #647069;
+}
+.site-footer .footer-support:hover,
+.site-footer .site-policy-links a:hover { color: #1d3327; }
+.site-footer .footer-copyright { color: #647069; }
+.site-footer .made-in-america { margin-top: 0; color: #647069; }
+
+.site-footer .brand-finale {
+  position: static;
+  display: block;
+  width: min(100%, 640px);
+  min-width: 0;
+  margin: 0 0 0 auto;
+  color: #c5cdc7;
+  transform: none;
+  text-decoration: none;
+}
+.site-footer .brand-finale svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.site-footer .brand-finale-type {
+  font-family: var(--exact-font-sans);
+  font-size: 240px;
+  font-weight: 600;
+  font-style: italic;
+}
+.site-footer a:focus-visible {
+  outline: 2px solid #28755e;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+@media (max-width: 680px) {
+  body > footer.site-footer {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 24px 20px 12px;
+  }
+  .site-footer .site-policy-links {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 20px;
+  }
+  .site-footer .site-policy-links a { min-height: 36px; }
+  .site-footer .brand-finale { width: min(100%, 420px); }
+}

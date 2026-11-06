@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, functionUrl, anonKey } from './supabase';
 
 /** One physical pot and the recorded valve route the server will use for it. */
 export type PotRoute = {
@@ -108,9 +108,9 @@ export class ManualWaterClient {
       if (!token) return { ok: false, status: 401, error: 'Sign in to water manually', transient: false };
       if (options.shouldSend && !options.shouldSend()) return null;
       const sent = Date.now();
-      const response = await this.fetchImpl(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manual-hold`, {
+      const response = await this.fetchImpl(functionUrl("manual-hold"), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...body, sentAt: body.sentAt ?? this.serverNow(), projectId: this.projectId, deviceId: this.deviceId }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 4500),
         keepalive: options.keepalive,

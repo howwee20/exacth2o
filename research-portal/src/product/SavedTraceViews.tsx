@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PortalExperiment } from '../experimentRegistry';
 import type { TimeBounds, TimeWindow } from '../portalTypes';
 import { captureTraceRange, readTraceViews, restoreTraceView, type TraceView } from './traceViewStorage';
@@ -13,6 +13,21 @@ export function SavedTraceViews({ scope, experiment, names, visible, bounds, win
   const [name, setName] = useState('');
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState('');
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (menu.current && event.target instanceof Node && !menu.current.contains(event.target)) menu.current.open = false;
+    };
+    const closeEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && menu.current?.open) {
+        menu.current.open = false;
+        menu.current.querySelector('summary')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeEscape);
+    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeEscape); };
+  }, []);
   const treatments = new Set(experiment.assignments?.map(a => a.treatment));
   const presets: TraceView[] = [
     ...(treatments.has('control') && treatments.has('drought') ? [{ id: 'preset-control', name: 'Control vs drought', pairingNames: experiment.assignments!.filter(a => a.treatment === 'control' || a.treatment === 'drought').map(a => a.pairing_name), range: null }] : []),
@@ -25,16 +40,18 @@ export function SavedTraceViews({ scope, experiment, names, visible, bounds, win
     try { localStorage.setItem(key, JSON.stringify(next)); setSaved(next); return true; }
     catch { setNotice('This browser could not save the view.'); return false; }
   }
-  return <div className="px-saved-views">
+  return <details className="px-comparison-menu" ref={menu}>
+    <summary>Saved views</summary>
+    <div className="px-saved-views">
     <div className="px-saved-view-row">
-      <select aria-label="Comparison view" value={selectionMatches ? selected : ''} onChange={event => {
+      <select aria-label="Saved view" value={selectionMatches ? selected : ''} onChange={event => {
         const id = event.target.value; const view = [...presets, ...saved].find(v => v.id === id);
         setSelected(id); setNotice(''); if (!view) return;
         const restored = restoreTraceView(view, names, bounds);
         if (restored.error || !restored.names || !restored.window) { setNotice(restored.error ?? 'View unavailable.'); return; }
         onApply(restored.names, restored.window); setNotice(restored.warning ?? '');
       }}>
-        <option value="">Comparison views</option>
+        <option value="">Choose a view</option>
         {presets.length ? <optgroup label="Suggested">{presets.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup> : null}
         {saved.length ? <optgroup label="Saved on this browser">{saved.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup> : null}
       </select>
@@ -54,5 +71,6 @@ export function SavedTraceViews({ scope, experiment, names, visible, bounds, win
     </form> : null}
     {saved.some(v => v.id === selected) ? <button className="px-remove-view" type="button" onClick={() => { if (persist(saved.filter(v => v.id !== selected))) { setSelected(''); setNotice('View removed.'); } }}>Remove saved view</button> : null}
     {notice ? <p className="px-muted" role="status">{notice}</p> : null}
-  </div>;
+    </div>
+  </details>;
 }

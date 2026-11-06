@@ -1,0 +1,90 @@
+/* One header and action-button style across the public website. */
+html:root {
+  --exact-action: #0071e3;
+  --exact-action-hover: #0077ed;
+  --exact-button-radius: 999px;
+}
+
+body > nav {
+  min-height: 54px;
+  padding-inline: max(24px, calc((100% - 1060px) / 2));
+  gap: 32px;
+  /* An opaque header avoids a separate backdrop-filter surface at Safari's
+     moving toolbar edge. Its position and dimensions stay in normal CSS. */
+  background: #101f1a;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.nav-logo { width: 142px; margin-left: -9px; }
+.nav-logo img { filter: none; }
+.nav-links { flex: 1; justify-content: flex-end; gap: clamp(22px, 3vw, 42px); }
+.nav-links a { min-height: 44px; color: #c6d2cc; }
+.nav-links a:hover, .nav-links a.active { color: #fff; }
+.nav-links a::after { display: none; }
+.nav-links a.active::after { display: block; transform: scaleX(1); background: #91e4d2; bottom: 5px; }
+.nav-links a[href="/quote"] { color: #91e4d2; }
+.nav-links .nav-cta {
+  min-height: 28px;
+  padding: 0 14px;
+  border-radius: var(--exact-button-radius);
+  background: var(--exact-action);
+  color: #fff;
+}
+.nav-links .nav-cta:hover { background: var(--exact-action-hover); }
+.hamburger span { background: #c6d2cc; }
+.mobile-menu { background: #101f1a; }
+.mobile-menu a, .mobile-menu .mob-close { color: #e3ebe6; }
+.mobile-menu a[href="/quote"] { color: #91e4d2; }
+.mobile-menu a[href="/portal"] {
+  color: #fff;
+  border-radius: var(--exact-button-radius);
+  background: var(--exact-action);
+}
+
+.btn-primary, .btn-secondary, .submit-btn, .cinema-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 12px 23px;
+  border: 1px solid var(--exact-action);
+  border-radius: var(--exact-button-radius);
+  background: var(--exact-action);
+  color: #fff;
+  font: 400 17px/1.25 var(--exact-font-sans);
+  letter-spacing: -.015em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+.btn-primary:hover, .submit-btn:hover:not(:disabled), .cinema-button:hover {
+  background: var(--exact-action-hover);
+  border-color: var(--exact-action-hover);
+  color: #fff;
+}
+.btn-secondary { color: var(--exact-action); background: transparent; }
+.btn-secondary:hover { background: #eef6ff; }
+@media (max-width: 600px) {
+  body > nav { min-height: 48px; padding-inline: 20px; }
+  .nav-logo { width: 130px; }
+}
+
+/* Grow media and page columns together without stretching reading text. */
+@media (min-width:1800px) {
+  :root, body.public-page { --content:1440px; --wide-site-rail:1440px; }
+  body > nav { padding-inline:max(40px,calc((100% - var(--wide-site-rail))/2)); }
+  html body > footer.site-footer { padding-inline:max(40px,calc((100% - var(--wide-site-rail))/2)); }
+  .home-page .cinema-photo { max-width:1800px; }
+  .home-traces-chart-card { max-width:1200px; }
+  .portal-demo-stage { max-width:1680px; }
+}
+@media (min-width:2600px) {
+  :root, body.public-page { --content:1680px; --wide-site-rail:1680px; }
+  .home-page .cinema-photo { max-width:2160px; }
+  .home-traces-chart-card { max-width:1440px; }
+  .portal-demo-stage { max-width:2160px; }
+}
+
+.public-page a:focus-visible, .public-page button:focus-visible { outline:2px solid #0071e3; outline-offset:3px; }
+body > nav a:focus-visible, .mobile-menu :focus-visible { outline-color:#9dbfff; }

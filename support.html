@@ -17,17 +17,13 @@
   }
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
 /* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
    so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 .support-situations{grid-column:1/-1;padding:1.5rem;border:1px solid var(--rule);border-radius:12px}.support-situations h2{margin-bottom:1rem}.support-situations details{padding:1rem 0;border-top:1px solid var(--rule)}.support-situations summary{cursor:pointer;font-weight:600}.support-situations p{margin:.8rem 0;line-height:1.6}
 </style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site.css?v=20261014">
-<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
+<link rel="stylesheet" href="/site.css?v=20261104-header1">
 <style>
 .support-shell { box-sizing: content-box; max-width: var(--content); margin: 0 auto; padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(4rem, 8vw, 6rem); }
 .support-heading { margin-bottom: clamp(2rem, 4vw, 3rem); padding-bottom: .5rem; --ambient-opacity: .08; }
@@ -45,19 +41,8 @@
 .support-message-guide h3 { margin-bottom: .5rem; font-size: .875rem; font-weight: 600; }
 .support-message-guide p { font-size: .875rem; line-height: 1.65; color: var(--muted); }
 .support-message-guide .text-link { margin-top: .85rem; font-size: .875rem; }
-.support-faq h2 { margin-bottom: 1.25rem; font-size: 1.5rem; font-weight: 600; line-height: 1.2; letter-spacing: -.025em; }
-.faq-item { border-top: 1px solid var(--rule); }
-.faq-item:last-child { border-bottom: 1px solid var(--rule); }
-.faq-question { display: flex; justify-content: space-between; align-items: center; gap: 1rem; min-height: 56px; padding: 1rem 0; list-style: none; font-size: .9375rem; font-weight: 600; cursor: pointer; transition: color .2s var(--ease); }
-.faq-question::-webkit-details-marker { display: none; }
-.faq-question:hover { color: var(--water); }
-.faq-question:focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
-.faq-toggle { flex: none; font: 400 1.125rem/1 var(--mono); color: var(--water); transition: transform .3s var(--ease); }
 .faq-item[open] .faq-toggle { transform: rotate(45deg); }
-.faq-answer { padding: 0 1.5rem 1.25rem 0; font-size: .9rem; line-height: 1.75; color: var(--muted); }
 .faq-item[open] .faq-answer { animation: faq-open .35s var(--ease); }
-.faq-answer a { color: var(--water); text-underline-offset: 3px; }
-@keyframes faq-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (max-width: 900px) {
   .support-workspace { gap: 2rem; }
   .support-contact { padding: 1.5rem; }
@@ -66,9 +51,7 @@
   .support-workspace { grid-template-columns: 1fr; gap: 2.5rem; }
 }
 </style>
-<script src="/site-navigation.js" defer></script>
-<script src="/site-ambient.js?v=20261015-2" defer></script>
-<script src="/site-brand-footer.js?v=20261014" defer></script>
+<script src="/site-navigation.js?v=20261104-header1" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/support">
@@ -78,8 +61,14 @@
 <meta property="og:url" content="https://exacth2o.com/support">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site-polish.css?v=20261103-preview4">
+<link rel="stylesheet" href="/support-polish.css?v=20261103-simple2">
+<link rel="stylesheet" href="/site-typography.css?v=20261103-type1">
+<link rel="stylesheet" href="/site-components.css?v=20261104-header1">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261103-footer3">
+<script src="/site-brand-footer.js?v=20261104-arrival1" defer></script>
 </head>
-<body>
+<body class="public-page support-page">
 
 <nav>
   <a href="/" class="nav-logo" aria-label="ExactH2O home"><img src="/exacth2o-logo.jpeg" alt="ExactH2O"></a>
@@ -104,7 +93,7 @@
 </div>
 
 <main id="main-content" class="support-shell">
-  <header class="support-heading" data-ambient>
+  <header class="support-heading">
     <div class="section-label">Support</div>
     <h1>Technical support</h1>
     <p>Help with installation, sensors, calibration, and the research portal.</p>
@@ -113,18 +102,20 @@
   <div class="support-workspace">
     <section class="support-situations" aria-label="Help by problem">
       <h2>What do you need help with?</h2>
-      <details><summary>My pot isn’t watering</summary><p>Open the pot and compare its latest moisture reading with its target. Watering above the target is normally off. Check whether the controller is online and whether readings are current. Use the watering record to check recent valve commands.</p><a class="support-draft" data-problem="My pot is not watering" href="mailto:support@exacth2o.com">Ask for help with watering →</a></details>
-      <details><summary>This reading looks wrong</summary><p>Open the pot and choose Explain this reading. Compare the raw signal and calibration history, and check sensor placement before changing calibration.</p><a class="support-draft" data-problem="A reading looks wrong" href="mailto:support@exacth2o.com">Ask for help with a reading →</a></details>
-      <details><summary>I can’t access my experiment</summary><p>Sign in with your invited email address. If the experiment is missing, ask your project administrator to check your access.</p><a class="support-draft" data-problem="I cannot access my experiment" href="mailto:support@exacth2o.com">Ask for access help →</a></details>
-      <details><summary>I want to export my results</summary><p>Open the experiment, select your pots and dates, and choose Export. You can export the current selection or the whole experiment.</p><a href="/portal">Open the portal →</a></details>
+      <details><summary><svg class="support-topic-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 4C15 9 8 16 8 22a10 10 0 0 0 20 0C28 16 21 9 18 4Z"/><path d="M13 22a5 5 0 0 0 5 5"/></svg><span>My pot isn’t watering</span><span class="support-topic-toggle" aria-hidden="true">+</span></summary><p>Open the pot and compare its latest moisture reading with its target. Watering above the target is normally off. Check whether the controller is online and whether readings are current. Use the watering record to check recent valve commands.</p><a class="support-draft" data-problem="My pot is not watering" href="mailto:support@exacth2o.com">Ask for help with watering →</a></details>
+      <details><summary><svg class="support-topic-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5v26h26"/><path d="m9 24 7-10 7 5 8-13"/></svg><span>This reading looks wrong</span><span class="support-topic-toggle" aria-hidden="true">+</span></summary><p>Open the pot and choose Explain this reading. Compare the raw signal and calibration history, and check sensor placement before changing calibration.</p><a class="support-draft" data-problem="A reading looks wrong" href="mailto:support@exacth2o.com">Ask for help with a reading →</a></details>
+      <details><summary><svg class="support-topic-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="15" width="22" height="17" rx="4"/><path d="M12 15V10a6 6 0 0 1 12 0v5"/><path d="M18 22v4"/></svg><span>I can’t access my experiment</span><span class="support-topic-toggle" aria-hidden="true">+</span></summary><p>Sign in with your invited email address. If the experiment is missing, ask your project administrator to check your access.</p><a class="support-draft" data-problem="I cannot access my experiment" href="mailto:support@exacth2o.com">Ask for access help →</a></details>
+      <details><summary><svg class="support-topic-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 4v19m-7-7 7 7 7-7"/><path d="M6 23v8h24v-8"/></svg><span>I want to export my results</span><span class="support-topic-toggle" aria-hidden="true">+</span></summary><p>Open the experiment, select your pots and dates, and choose Export. You can export the current selection or the whole experiment.</p><a href="/portal">Open the portal →</a></details>
       <p id="support-context"></p>
     </section>
     <section class="support-contact" aria-labelledby="support-contact-title">
+      <div class="support-contact-main">
       <svg class="support-contact-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="6" width="26" height="20" rx="3"/><path d="m4 8 12 9L28 8"/></svg>
       <h2 id="support-contact-title">Contact support</h2>
       <p>Describe the issue and include your experiment or sensor ID, if available.</p>
       <a href="mailto:support@exacth2o.com?subject=ExactH2O%20support" class="btn-primary">Email support</a>
       <a href="mailto:support@exacth2o.com" class="support-address">support@exacth2o.com</a>
+      </div>
       <div class="support-message-guide">
         <h3>Installation and training</h3>
         <p>On-site setup and staff training are included with your system.</p>
@@ -132,50 +123,11 @@
       </div>
     </section>
 
-    <section class="support-faq" aria-labelledby="support-faq-title">
-      <h2 id="support-faq-title">Common questions</h2>
-      <details class="faq-item"><summary class="faq-question">How do I get access to the portal?<span class="faq-toggle" aria-hidden="true">+</span></summary><p class="faq-answer">Sign in with your invited email address. For missing or expired access, contact your project administrator or support with your project and account email.</p></details>
-      <details class="faq-item"><summary class="faq-question">How do I investigate an unexpected reading?<span class="faq-toggle" aria-hidden="true">+</span></summary><p class="faq-answer">Open the pot and choose Explain this reading to inspect its timestamp, raw signal, and calibration. Use Record to check recent changes. Check sensor placement before recalibrating. Values outside 0–100% VWC remain visible and flagged.</p></details>
-      <details class="faq-item" open>
-        <summary class="faq-question">Where is exactH2O designed to be used?<span class="faq-toggle" aria-hidden="true">+</span></summary>
-        <p class="faq-answer">exactH2O supports plant research in greenhouses, bench systems, and container experiments. We confirm the sensor and irrigation setup with your quote.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">How is a system sized for my greenhouse?<span class="faq-toggle" aria-hidden="true">+</span></summary>
-        <p class="faq-answer">System size depends on the number of benches, pots, treatment zones, sensors, and independently controlled irrigation lines. We review the facility and experimental requirements before recommending a configuration.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">Can I review and export my data?<span class="faq-toggle" aria-hidden="true">+</span></summary>
-        <p class="faq-answer">The web portal provides live readings, historical views, irrigation history, and data export for analysis. We confirm any required formats or integrations while planning the system.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">What happens if a sensor stops reporting?<span class="faq-toggle" aria-hidden="true">+</span></summary>
-        <p class="faq-answer">The portal flags missing or stale readings and identifies the affected pot. Support can help check the sensor and connection.</p>
-      </details>
-      <details class="faq-item">
-        <summary class="faq-question">What is included with installation?<span class="faq-toggle" aria-hidden="true">+</span></summary>
-        <p class="faq-answer">Planning, on-site setup, and staff training are included. We confirm the schedule before delivery.</p>
-      </details>
-    </section>
   </div>
 
 </main>
 
-<footer>
-<div class="brand-finale" role="img" aria-label="ExactH2O">
-<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
-    <defs>
-      <pattern id="brand-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#a6b7ae"/></pattern>
-      <pattern id="brand-water-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#91e4d2"/></pattern>
-      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
-    </defs>
-    <g class="brand-finale-type">
-      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
-    </g>
-  </svg>
-  </div>
+<footer class="site-footer">
   <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
     <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
@@ -185,6 +137,20 @@
       <span>MADE IN USA</span>
     </div>
   </div>
+  <a class="brand-finale" href="/" aria-label="ExactH2O home">
+<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="brand-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#c5cdc7"/></pattern>
+      <pattern id="brand-water-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#87b6a9"/></pattern>
+      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
+    </defs>
+    <g class="brand-finale-type">
+      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
+    </g>
+  </svg>
+  </a>
 </footer>
 
 

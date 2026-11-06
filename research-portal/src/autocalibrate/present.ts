@@ -4,7 +4,7 @@ import type { StatusTone } from "../settingsPresentation";
 import type { PairingRow } from "../types";
 import type { PotAvailability } from "./selection";
 
-// Words and per-pot states for Settings → Autocalibrate. Pure, so every state the
+// Words and per-pot states for Autocalibrate. Pure, so every state the
 // aerial view can show is tested without a browser.
 
 export const outcomeText: Record<RunOutcome, { tone: StatusTone; label: string }> = {

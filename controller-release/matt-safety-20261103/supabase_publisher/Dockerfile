@@ -1,0 +1,2 @@
+FROM registry2.balena-cloud.com/v2/4b9c444a54db48bb92c449e4e984aa0c@sha256:af190a0e33e8cc44a44fe642ba60f212efc89003ac51c7d86b39f59dda49b21b
+COPY publisher.mjs /app/src/publisher.mjs

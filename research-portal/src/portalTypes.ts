@@ -71,7 +71,7 @@ export type WateringOverlayTooltip = WateringOverlayMarker & {
 
 export type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
 export type AuthMode = "sign-in" | "accept-invite" | "set-password" | "recover";
-export type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account";
+export type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account" | "autocalibrate";
 
 export type PortalAccess = {
   role: PortalRole;
@@ -125,7 +125,6 @@ export type PanelSize = {
 
 export type SettingsSection =
   | "overview"
-  | "assistant"
   | "pairings"
   | "autocalibrate"
   | "calibrations"

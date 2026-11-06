@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ShieldCheck, Square } from "lucide-react";
-import { AerialBench } from "../product/AerialBench";
+import { PhysicalPotMap } from './PhysicalPotMap';
+import { potAvailability } from './selection';
 import { StatusChip } from "../SettingsChrome";
 import { formatClock, formatDuration, liveStates, minutesPerValve, potName } from "./present";
 import type { LiveRunView } from "./runStore";
@@ -84,14 +85,7 @@ function LiveRun({ ctx, live }: { ctx: WorkspaceContext; live: LiveRunView }) {
         Stop prevents every further pulse. A pulse the controller has already accepted ends on the controller's own timer. Starting manual watering
         anywhere on this controller also stops the run; its evidence is kept and the run can be resumed after the pots settle.
       </p>
-      <AerialBench model={ctx.model} states={states} selected={selected} selectable={false} onInspect={ctx.inspect} label={`Run progress: ${progress.completed} of ${progress.total} valves measured`} />
-      <ul className="ac-legend" aria-label="Legend">
-        <li><span className="ac-key is-active" aria-hidden="true" />Being tested now</li>
-        <li><span className="ac-key is-matched" aria-hidden="true" />✓ Its valve raised its own sensor</li>
-        <li><span className="ac-key is-changed" aria-hidden="true" />↔ Its valve raised another pot</li>
-        <li><span className="ac-key is-unresolved" aria-hidden="true" />? Nothing rose</li>
-        <li>Readings during a run are preliminary; the mapping is worked out from the complete matrix at the end.</li>
-      </ul>
+      <PhysicalPotMap map={ctx.fieldMap ?? null} pairings={ctx.pairings} availability={potAvailability({pairings: ctx.pairings, lastReadingAt: null, nowMs: Date.now()})} states={states} selected={selected} />
       <details className="ac-evidence">
         <summary>Log ({run.log.length} entries)</summary>
         <ol className="commission-log">

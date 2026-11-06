@@ -1,0 +1,162 @@
+{
+  "recorded_at_utc": "2026-11-03T02:29:54.181276+00:00",
+  "project_ref": "zmhdclcjrkntrpynozvo",
+  "frontend_release": "57a168a7d52dc20c580d5a468c6600c5bffb406c",
+  "database_bytes_before": 3109407891,
+  "database_bytes_after": 2515799187,
+  "observed_database_reduction_bytes": 593608704,
+  "reclaimed_index_bytes": 593715200,
+  "index_rebuilds": [
+    {
+      "index": "sensor_readings_device_time_idx",
+      "before": 184541184,
+      "after": 102932480,
+      "saved_bytes": 81608704
+    },
+    {
+      "index": "sensor_readings_project_device_recorded_idx",
+      "before": 320143360,
+      "after": 179601408,
+      "saved_bytes": 140541952,
+      "seconds": 22.02
+    },
+    {
+      "index": "sensor_readings_project_device_received_idx",
+      "before": 318185472,
+      "after": 179757056,
+      "saved_bytes": 138428416,
+      "seconds": 18.56
+    },
+    {
+      "index": "sensor_readings_project_pairing_recorded_idx",
+      "before": 209805312,
+      "after": 120299520,
+      "saved_bytes": 89505792,
+      "seconds": 14.72
+    },
+    {
+      "index": "sensor_readings_event_id_key",
+      "before": 236994560,
+      "after": 144531456,
+      "saved_bytes": 92463104,
+      "seconds": 16.22
+    },
+    {
+      "index": "sensor_readings_project_time_idx",
+      "before": 116178944,
+      "after": 65011712,
+      "saved_bytes": 51167232,
+      "seconds": 12.28
+    },
+    {
+      "index": "sensor_readings_walker_finalize_idx",
+      "before": 97828864,
+      "after": 97828864,
+      "saved_bytes": 0,
+      "seconds": 14.42
+    }
+  ],
+  "cron": {
+    "archived_and_deleted_rows": 450905,
+    "archive_sha256": "0d495bf8e7cfdac0b187fb1cea8389efcb281121cd160f17bc948003c09231b8",
+    "retention_days": 30,
+    "job_id": 9,
+    "migration_version": "20261103023000",
+    "vacuum_analyze_completed": true,
+    "note": "Archive is private and excluded. Cron heap retained for reuse; no VACUUM FULL."
+  },
+  "walker_sql_ms": {
+    "latest_device": 0.123,
+    "latest_source": 0.119,
+    "current_count_empty_window": 0.184,
+    "historical_count_135_rows": 1.72
+  },
+  "walker_change": "No function rewrite or summary cache added: current indexed subqueries are fast in tested windows. Not an end-to-end RPC benchmark.",
+  "map": {
+    "source_thread": "01a1987a-0405-7bc3-bd09-9e833ebb2583",
+    "recorded_routes": 95,
+    "field_confirmed": 83,
+    "retained_pan_routes": 12,
+    "unresolved": [
+      63,
+      87,
+      88,
+      89,
+      90
+    ],
+    "runtime_matches_source": true
+  },
+  "final_verification": {
+    "database_bytes": 2515799187,
+    "tables": [
+      {
+        "relname": "sensor_readings",
+        "n_live_tup": 1880967,
+        "n_dead_tup": 27,
+        "total_bytes": 1525137408,
+        "index_bytes": 932257792,
+        "last_analyze": "2026-11-03T02:27:05.903947+00:00",
+        "last_autoanalyze": "2026-10-22T03:17:09.20794+00:00"
+      },
+      {
+        "relname": "job_run_details",
+        "n_live_tup": 534385,
+        "n_dead_tup": 0,
+        "total_bytes": 169738240,
+        "index_bytes": 22208512,
+        "last_analyze": "2026-11-03T02:29:32.553666+00:00",
+        "last_autoanalyze": "2026-11-03T02:28:28.883686+00:00"
+      },
+      {
+        "relname": "rd_curve_predictions",
+        "n_live_tup": 11241,
+        "n_dead_tup": 0,
+        "total_bytes": 32563200,
+        "index_bytes": 3153920,
+        "last_analyze": "2026-11-03T02:27:07.509645+00:00",
+        "last_autoanalyze": null
+      },
+      {
+        "relname": "rd_model_updates_v5",
+        "n_live_tup": 235,
+        "n_dead_tup": 0,
+        "total_bytes": 55001088,
+        "index_bytes": 81920,
+        "last_analyze": "2026-11-03T02:27:07.031591+00:00",
+        "last_autoanalyze": null
+      },
+      {
+        "relname": "walker_live_telemetry_readings",
+        "n_live_tup": 437581,
+        "n_dead_tup": 0,
+        "total_bytes": 352403456,
+        "index_bytes": 208551936,
+        "last_analyze": "2026-11-03T02:27:06.989229+00:00",
+        "last_autoanalyze": "2026-09-02T22:22:37.13939+00:00"
+      }
+    ],
+    "index_progress": 0,
+    "invalid_sensor_indexes": 0,
+    "cron_retention": [
+      {
+        "jobid": 9,
+        "jobname": "exacth2o-prune-cron-history",
+        "active": true,
+        "schedule": "17 4 * * *"
+      }
+    ],
+    "latest_device_state": [
+      {
+        "device_id": "3100e37ee3205651fe3dd86dafd4dc0c",
+        "last_seen_at": "2026-11-03T02:29:35.960341+00:00",
+        "health_status": "online"
+      }
+    ]
+  },
+  "limitations": [
+    "No claim of physical watering validation; no valve commands sent.",
+    "No research records deleted. No auth policies, queue semantics, timing, or controller software modified.",
+    "Concurrent reindex resets index statistics; subsequent scan counts are not comparable with earlier counters.",
+    "Automatic retention was registered and active; its first scheduled daily execution is still pending."
+  ]
+}

@@ -32,11 +32,11 @@ export function dedupeReadingsForExport(readings: SensorReading[]) {
     }
   }
 
-  return Array.from(byKey.values()).sort(
-    (a, b) =>
-      new Date(a.device_recorded_at).getTime() -
-      new Date(b.device_recorded_at).getTime(),
-  );
+  // Parse each timestamp once; parsing inside the comparator cost O(n log n) parses on every
+  // live update of a full experiment.
+  const decorated = Array.from(byKey.values(), (reading) => ({ reading, at: new Date(reading.device_recorded_at).getTime() }));
+  decorated.sort((a, b) => a.at - b.at);
+  return decorated.map((item) => item.reading);
 }
 export function csvEscape(value: unknown) {
   const text = value == null ? "" : String(value);

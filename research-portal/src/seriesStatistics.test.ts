@@ -41,6 +41,8 @@ describe("prepareSeries", () => {
     expect(summary.count).toBe(2);
     expect(summary.min?.value).toBe(28);
     expect(summary.mean).toBe(29);
+    // Missing/invalid samples must not be drawn as a continuous measured line.
+    expect(decimateForDisplay(prepared.points, { startMs: start, endMs: start + 3 * minute, buckets: 20, gapMs: 90_000 })).toHaveLength(2);
   });
 
   it("collapses duplicate timestamps and reports conflicting values", () => {

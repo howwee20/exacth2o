@@ -5,3 +5,7 @@ controller-before-release.json
 
 # Browser runner output when invoked from the repository root.
 /test-results/
+
+controller/**/dist/
+**/__pycache__/
+.controller-build/

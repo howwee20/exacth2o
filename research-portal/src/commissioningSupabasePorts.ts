@@ -220,6 +220,7 @@ export function createSupabasePorts(input: { projectId: string; deviceId: string
             device_id: deviceId,
             client_request_id: crypto.randomUUID(),
             command_type: "manual_water",
+            workflow: "autocalibration",
             payload: {},
             operation_intent: "Autocalibrate preflight: gate probe (empty payload, cannot be queued).",
           },
@@ -244,6 +245,7 @@ export function createSupabasePorts(input: { projectId: string; deviceId: string
             client_request_id: clientRequestId,
             command_type: "manual_water",
             // Exactly one pairing per command: one valve, one bounded pulse.
+            workflow: "autocalibration",
             payload: { pairing_names: [request.pairingName], duration_seconds: request.seconds },
             confirm: true,
             operation_intent: `Autocalibrate commissioning ${request.runId}: diagnostic pulse ${request.step}, ${request.seconds}s.`,
