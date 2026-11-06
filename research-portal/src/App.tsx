@@ -915,7 +915,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                 >
                   VWC
                 </button>
-                {!isObservationOnlyExperiment(selectedExperiment) ? (
+                {(!isObservationOnlyExperiment(selectedExperiment) || experimentWateringEvents.length > 0 || visibleTargetLines.length > 0) ? (
                   <>
                     <button
                       type="button"

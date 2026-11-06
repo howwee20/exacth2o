@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { experimentIsCompleted } from "../experimentMeasurement";
+import { experimentIsCompleted, pairingTargetText } from "../experimentMeasurement";
 import { isObservationOnlyExperiment } from "../experimentRegistry";
 import { formatMeasurementTime, measurementFreshness } from "../measurementFreshness";
 import { setPortalQuery, usePortalQueryValue } from "../portalRoute";
@@ -10,7 +10,7 @@ import type { SensorReading } from "../types";
 import { availableMeasures, measures, potTraces, type Measure } from "../waterline";
 import { PortalLink } from "./PortalLink";
 import { TimeSeriesChart } from "./TimeSeriesChart";
-import { formatMeasureValue } from "./WaterlineOverview";
+import { formatMeasureValue } from "../measurementPresentation";
 import { vwcQuality } from "../readingQuality";
 import "./product.css";
 
@@ -25,6 +25,7 @@ export function potReadingSentence(input: {
   target: string | null;
 }) {
   if (input.value == null || input.measuredAt == null) return `Pot ${input.potNumber} has no reading in the loaded window.`;
+  if (vwcQuality(input.value)) return `Pot ${input.potNumber}: invalid VWC reading ${input.value.toFixed(1)}%. ${vwcQuality(input.value)}.${input.target ? ` ${input.target}.` : ""}`;
   const reading = `${input.value.toFixed(1)}% VWC at ${formatMeasurementTime(input.measuredAt)}`;
   const state = input.freshnessState === "current" ? "current" : input.freshnessDetail.replace(/\.$/, "").toLowerCase();
   return `Pot ${input.potNumber}: ${reading} (${state}).${input.target ? ` ${input.target}.` : ""}`;
@@ -63,18 +64,18 @@ export function PotPage({
     completed,
     nowMs: asOfMs ?? nowMs,
   });
-  const sensing = experiment ? isObservationOnlyExperiment(experiment) : true;
+  const sensingPlan = experiment ? isObservationOnlyExperiment(experiment) : false;
   const disabled = pairingWateringDisabled(pairing);
   const plan = assignment?.target_vwc_percent ?? null;
-  const targetText = experiment && sensing
-    ? "Sensing only"
+  const targetText = completed
+    ? `Experiment complete${plan != null ? ` · recorded target ${plan}% VWC` : ""}`
     : disabled
       ? `Watering off${plan != null ? ` · plan target ${plan}% VWC` : ""}`
-      : `${experiment ? "Target" : "Controller target"} ${pairing.wtc_percent_limit}% VWC${plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
+      : `${experiment ? pairingTargetText(pairing, experiment) : `Controller target ${pairing.wtc_percent_limit}% VWC`}${!sensingPlan && plan != null && Math.abs(plan - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${plan}%` : ""}`;
   const info = measures[measure];
   const points = (trace?.points ?? []).filter((point) => point.timestampMs >= window.startMs);
   const values = points.map((point) => point.value);
-  const showTarget = measure === "vwc" && !sensing && !disabled && !completed;
+  const showTarget = measure === "vwc" && !disabled && !completed;
   const lo = Math.min(...values, ...(showTarget ? [pairing.wtc_percent_limit] : []));
   const hi = Math.max(...values, ...(showTarget ? [pairing.wtc_percent_limit] : []));
   const yDomain: [number, number] = Number.isFinite(lo) && Number.isFinite(hi)
@@ -90,7 +91,7 @@ export function PotPage({
       <div className="px-pot-grid is-reading-only">
         <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
           <div className={`px-card px-reading ${latestVwc && freshness.state !== "stale" && freshness.state !== "unknown" ? "" : "is-silent"}`}>
-            {latestVwc ? (
+            {quality ? <strong>Invalid VWC reading</strong> : latestVwc ? (
               freshness.state === "stale" ? (
                 <strong>No current reading</strong>
               ) : (
@@ -104,7 +105,7 @@ export function PotPage({
               <span className="px-muted">Last value {latestVwc.value.toFixed(1)}% VWC — kept for reference, not a current reading.</span>
             ) : null}
             <span>{targetText}</span>
-            {quality ? <span className="px-quality-link">{quality}</span> : null}
+            {quality ? <span className="px-quality-link">Reported {String(latestReading?.calibrated_value)}% VWC. {quality}. Review the raw signal and calibration.</span> : null}
           </div>
 
           <div className="px-card" style={{ padding: "12px 14px", display: "grid", gap: 10 }}>
@@ -133,7 +134,7 @@ export function PotPage({
                 measuredAt: latestVwc?.timestampMs ?? null,
                 freshnessState: freshness.state,
                 freshnessDetail: freshness.detail,
-                target: sensing ? null : targetText,
+                target: targetText,
               })}
               readout={(t) => {
                 if (!points.length) return null;

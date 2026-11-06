@@ -104,17 +104,18 @@ describe("targetLinesForPairings", () => {
     ]);
   });
 
-  it("draws nothing for mixed, disabled, sensing-only or completed groups", () => {
+  it("draws nothing for mixed, disabled or completed groups", () => {
     expect(targetLinesForPairings([pairing("Pot 1", { wtc_percent_limit: 35 }), pairing("Pot 3", { wtc_percent_limit: 30 })], treatment, active)).toEqual([]);
     expect(targetLinesForPairings([pairing("Pot 1", { valve_open_time_ms: 0 })], treatment, active)).toEqual([]);
-    expect(targetLinesForPairings([pairing("Pot 1")], treatment, { ...active, wateringState: "off" })).toEqual([]);
+    expect(targetLinesForPairings([pairing("Pot 1")], treatment, { ...active, wateringState: "off" })).toEqual([{ value: 30, label: "Current target 30% · plan sensing only", tone: "control" }]);
     expect(targetLinesForPairings([pairing("Pot 1")], treatment, { ...active, status: "completed" })).toEqual([]);
   });
 
   it("describes each pot's target for tooltips", () => {
     expect(pairingTargetText(pairing("Pot 1", { wtc_percent_limit: 0 }), active)).toBe("Target 0% VWC");
     expect(pairingTargetText(pairing("Pot 1", { wtc_percent_limit: -999_999 }), active)).toBe("Watering disabled");
-    expect(pairingTargetText(pairing("Pot 1"), { ...active, mode: "observation" })).toBe("Sensing only");
+    expect(pairingTargetText(pairing("Pot 1"), { ...active, mode: "observation" })).toBe("Controller target 30% VWC · plan sensing only");
+    expect(pairingTargetText(pairing("Pot 1", { valve_open_time_ms: 0 }), { ...active, mode: "observation" })).toBe("Watering disabled");
   });
 });
 
