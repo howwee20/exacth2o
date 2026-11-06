@@ -1,3 +1,5 @@
+import { checkFieldCommands } from '../_shared/field-command-policy.mjs';
+import { controlCommandIntakeEnabled } from "../create-control-command/command-policy.mjs";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 type AdminClient = ReturnType<typeof createClient<any>>;
@@ -174,6 +176,7 @@ async function runSchedule(
     throw new Error("Controller configuration changed after review; review this schedule again.");
   }
   const commands = validatedScheduledCommands(schedule.approved_plan, config);
+  await checkFieldCommands(admin, projectId, deviceId, commands);
   const batchId = crypto.randomUUID();
 
   if (commands.length === 1 && commands[0].command_type === "update_system_state") {
@@ -435,10 +438,12 @@ Deno.serve(async (request) => {
     monitor_events: 0,
   };
 
-  const { data: schedules, error: claimError } = await admin.rpc(
-    "claim_due_assistant_schedules",
-    { claim_limit: 10 },
-  );
+  const {data: intake, error: intakeError} = await admin.from("control_command_intake_settings").select("enabled").eq("singleton",true).maybeSingle();
+  const intakeEnabled = !intakeError && intake?.enabled === true && controlCommandIntakeEnabled(Deno.env.get("CONTROL_COMMAND_INTAKE_ENABLED"));
+  // Leave approved schedules due while intake is paused. Monitoring remains available.
+  const { data: schedules, error: claimError } = intakeEnabled ? await admin.rpc(
+    "claim_due_assistant_schedules", { claim_limit: 10 },
+  ) : {data: [], error: null};
   if (claimError) {
     return new Response(JSON.stringify({ error: claimError.message }), {
       status: 500,

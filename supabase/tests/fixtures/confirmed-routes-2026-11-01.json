@@ -1,0 +1,802 @@
+[
+  {
+    "pot": 1,
+    "output": 1,
+    "board": "0x24",
+    "channel": 1,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 2,
+    "output": 2,
+    "board": "0x24",
+    "channel": 2,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 3,
+    "output": 3,
+    "board": "0x24",
+    "channel": 3,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 4,
+    "output": 4,
+    "board": "0x24",
+    "channel": 4,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 5,
+    "output": 5,
+    "board": "0x24",
+    "channel": 5,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 6,
+    "output": 6,
+    "board": "0x24",
+    "channel": 6,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 7,
+    "output": 7,
+    "board": "0x24",
+    "channel": 7,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 8,
+    "output": 8,
+    "board": "0x24",
+    "channel": 8,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 9,
+    "output": 9,
+    "board": "0x24",
+    "channel": 9,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 10,
+    "output": 10,
+    "board": "0x24",
+    "channel": 10,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 11,
+    "output": 11,
+    "board": "0x24",
+    "channel": 11,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 12,
+    "output": 12,
+    "board": "0x24",
+    "channel": 12,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 13,
+    "output": 13,
+    "board": "0x24",
+    "channel": 13,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 14,
+    "output": 14,
+    "board": "0x24",
+    "channel": 14,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 15,
+    "output": 15,
+    "board": "0x24",
+    "channel": 15,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 16,
+    "output": 16,
+    "board": "0x24",
+    "channel": 16,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 17,
+    "output": 17,
+    "board": "0x24",
+    "channel": 17,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 18,
+    "output": 18,
+    "board": "0x24",
+    "channel": 18,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 19,
+    "output": 19,
+    "board": "0x24",
+    "channel": 19,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 20,
+    "output": 20,
+    "board": "0x24",
+    "channel": 20,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 21,
+    "output": 21,
+    "board": "0x24",
+    "channel": 21,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 22,
+    "output": 22,
+    "board": "0x24",
+    "channel": 22,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 23,
+    "output": 23,
+    "board": "0x24",
+    "channel": 23,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 24,
+    "output": 24,
+    "board": "0x24",
+    "channel": 24,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 25,
+    "output": 25,
+    "board": "0x24",
+    "channel": 25,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 26,
+    "output": 26,
+    "board": "0x24",
+    "channel": 26,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 27,
+    "output": 27,
+    "board": "0x24",
+    "channel": 27,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 28,
+    "output": 28,
+    "board": "0x24",
+    "channel": 28,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 29,
+    "output": 29,
+    "board": "0x24",
+    "channel": 29,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 30,
+    "output": 30,
+    "board": "0x24",
+    "channel": 30,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 31,
+    "output": 31,
+    "board": "0x24",
+    "channel": 31,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 32,
+    "output": 32,
+    "board": "0x24",
+    "channel": 32,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 33,
+    "output": 33,
+    "board": "0x24",
+    "channel": 33,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 34,
+    "output": 34,
+    "board": "0x24",
+    "channel": 34,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 35,
+    "output": 35,
+    "board": "0x24",
+    "channel": 35,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 36,
+    "output": 36,
+    "board": "0x24",
+    "channel": 36,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 37,
+    "output": 37,
+    "board": "0x24",
+    "channel": 37,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 38,
+    "output": 38,
+    "board": "0x24",
+    "channel": 38,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 39,
+    "output": 39,
+    "board": "0x24",
+    "channel": 39,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 40,
+    "output": 40,
+    "board": "0x24",
+    "channel": 40,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 41,
+    "output": 41,
+    "board": "0x24",
+    "channel": 41,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 42,
+    "output": 42,
+    "board": "0x24",
+    "channel": 42,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 43,
+    "output": 43,
+    "board": "0x24",
+    "channel": 43,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 44,
+    "output": 44,
+    "board": "0x24",
+    "channel": 44,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 45,
+    "output": 45,
+    "board": "0x24",
+    "channel": 45,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 46,
+    "output": 46,
+    "board": "0x24",
+    "channel": 46,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 47,
+    "output": 47,
+    "board": "0x24",
+    "channel": 47,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 48,
+    "output": 48,
+    "board": "0x24",
+    "channel": 48,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 49,
+    "output": 49,
+    "board": "0x20",
+    "channel": 1,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 50,
+    "output": 50,
+    "board": "0x20",
+    "channel": 2,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 51,
+    "output": 51,
+    "board": "0x20",
+    "channel": 3,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 52,
+    "output": 52,
+    "board": "0x20",
+    "channel": 4,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 53,
+    "output": 53,
+    "board": "0x20",
+    "channel": 5,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 54,
+    "output": 54,
+    "board": "0x20",
+    "channel": 6,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 55,
+    "output": 55,
+    "board": "0x20",
+    "channel": 7,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 56,
+    "output": 56,
+    "board": "0x20",
+    "channel": 8,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 57,
+    "output": 57,
+    "board": "0x20",
+    "channel": 9,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 58,
+    "output": 58,
+    "board": "0x20",
+    "channel": 10,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 59,
+    "output": 59,
+    "board": "0x20",
+    "channel": 11,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 60,
+    "output": 60,
+    "board": "0x20",
+    "channel": 12,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 61,
+    "output": 61,
+    "board": "0x20",
+    "channel": 13,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 62,
+    "output": 62,
+    "board": "0x20",
+    "channel": 14,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 63,
+    "output": null,
+    "board": null,
+    "channel": null,
+    "status": "unresolved",
+    "note": "No water at tested output 63 / 0x20:15; actual cause or route unresolved"
+  },
+  {
+    "pot": 64,
+    "output": 64,
+    "board": "0x20",
+    "channel": 16,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 65,
+    "output": 65,
+    "board": "0x20",
+    "channel": 17,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 66,
+    "output": 66,
+    "board": "0x20",
+    "channel": 18,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 67,
+    "output": 67,
+    "board": "0x20",
+    "channel": 19,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 68,
+    "output": 68,
+    "board": "0x20",
+    "channel": 20,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 69,
+    "output": 69,
+    "board": "0x20",
+    "channel": 21,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 70,
+    "output": 70,
+    "board": "0x20",
+    "channel": 22,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 71,
+    "output": 71,
+    "board": "0x20",
+    "channel": 23,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 72,
+    "output": 72,
+    "board": "0x20",
+    "channel": 24,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 73,
+    "output": 73,
+    "board": "0x20",
+    "channel": 25,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 74,
+    "output": 74,
+    "board": "0x20",
+    "channel": 26,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 75,
+    "output": 75,
+    "board": "0x20",
+    "channel": 27,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 76,
+    "output": 76,
+    "board": "0x20",
+    "channel": 28,
+    "status": "retained",
+    "note": "Existing Pan route retained; not pulsed today"
+  },
+  {
+    "pot": 77,
+    "output": 77,
+    "board": "0x20",
+    "channel": 29,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 78,
+    "output": 78,
+    "board": "0x20",
+    "channel": 30,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 79,
+    "output": 79,
+    "board": "0x20",
+    "channel": 31,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 80,
+    "output": 80,
+    "board": "0x20",
+    "channel": 32,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 81,
+    "output": 81,
+    "board": "0x20",
+    "channel": 33,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 82,
+    "output": 82,
+    "board": "0x20",
+    "channel": 34,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 83,
+    "output": 84,
+    "board": "0x20",
+    "channel": 36,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 84,
+    "output": 83,
+    "board": "0x20",
+    "channel": 35,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 85,
+    "output": 85,
+    "board": "0x20",
+    "channel": 37,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 86,
+    "output": 96,
+    "board": "0x20",
+    "channel": 48,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 87,
+    "output": null,
+    "board": null,
+    "channel": null,
+    "status": "unresolved",
+    "note": "No confirmed valve route; keep disabled in autocalibration"
+  },
+  {
+    "pot": 88,
+    "output": null,
+    "board": null,
+    "channel": null,
+    "status": "unresolved",
+    "note": "No confirmed valve route; keep disabled in autocalibration"
+  },
+  {
+    "pot": 89,
+    "output": null,
+    "board": null,
+    "channel": null,
+    "status": "unresolved",
+    "note": "No confirmed valve route; keep disabled in autocalibration"
+  },
+  {
+    "pot": 90,
+    "output": null,
+    "board": null,
+    "channel": null,
+    "status": "unresolved",
+    "note": "No confirmed valve route; keep disabled in autocalibration"
+  },
+  {
+    "pot": 91,
+    "output": 91,
+    "board": "0x20",
+    "channel": 43,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 92,
+    "output": 92,
+    "board": "0x20",
+    "channel": 44,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 93,
+    "output": 93,
+    "board": "0x20",
+    "channel": 45,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 94,
+    "output": 94,
+    "board": "0x20",
+    "channel": 46,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 95,
+    "output": 95,
+    "board": "0x20",
+    "channel": 47,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 96,
+    "output": 86,
+    "board": "0x20",
+    "channel": 38,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 97,
+    "output": 87,
+    "board": "0x20",
+    "channel": 39,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 98,
+    "output": 88,
+    "board": "0x20",
+    "channel": 40,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 99,
+    "output": 89,
+    "board": "0x20",
+    "channel": 41,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  },
+  {
+    "pot": 100,
+    "output": 90,
+    "board": "0x20",
+    "channel": 42,
+    "status": "verified",
+    "note": "Physically confirmed by you today"
+  }
+]

@@ -668,4 +668,28 @@ psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/gas_mixer_resear
 # authenticated role (rolled back).
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/portal_product_access.sql" >/dev/null
 
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/product_read_views.sql" >/dev/null
+
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/control_authorization.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/manual_valve_routes.sql" >/dev/null
+# Full-scale autocalibration sessions, run ownership, binding reconciliation, bench
+# confirmation and hold-to-water records (rolled back).
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/autocalibration_manual_hold.sql" >/dev/null
+
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/sales_support_access.sql" >/dev/null
+
+# 2026-10-22 authorization fixes: experiment lifecycle RPCs refuse non-members, anonymous
+# helpers and direct preference updates are closed, a live autocalibration run cannot be
+# taken by a direct update, and restored function permissions match production (rolled back).
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/experiment_lifecycle_authorization.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/revoke_public_helper_functions.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/notification_preferences_rpc_only.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/commissioning_run_lease_guard.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/restore_safe_function_acls.sql" >/dev/null
+# Exercise the reviewed Walker RPC's authorization and retry behavior, then discard its records.
+psql "$db_url" -v ON_ERROR_STOP=1 -c 'begin;' \
+  -f "$repo_root/supabase/tests/walker_portal_experiments.sql" -c 'rollback;' >/dev/null
+
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/ingest_identity_and_deletion.sql" >/dev/null
+
 echo "ExactH2O database baseline restored and verified."

@@ -1,5 +1,11 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { scheduleVisiblePolling } from "./visiblePolling";
+import {
+  chamberCommandReceiptOverdue,
+  chamberStatusIntervals,
+  chamberStatusReadDue,
+} from "./chamberStatusPolling";
 import {
   lightingMaxIntensity,
   lightingMinIntensity,
@@ -25,15 +31,19 @@ export function LightingNativeControl() {
   const [now, setNow] = useState(Date.now());
   const dirty = useRef(false);
   const pendingCommand = useRef<string | null>(null);
+  const pendingSentAt = useRef(0);
+  const lastReadAt = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
     let refreshing = false;
     const refresh = () => {
-      setNow(Date.now());
-      if (refreshing) return;
+      const tickAt = Date.now();
+      setNow(tickAt);
+      if (refreshing || !chamberStatusReadDue(tickAt, lastReadAt.current, pendingCommand.current !== null)) return;
       refreshing = true;
-      loadLightingNativeStatus()
+      lastReadAt.current = tickAt;
+      return loadLightingNativeStatus()
         .then((next) => {
           if (!active) return;
           setStatus(next);
@@ -54,6 +64,16 @@ export function LightingNativeControl() {
               setError(next.last_command.error_message ?? "The controller rejected that lighting value");
             }
           }
+          // A schedule or another user's command can replace last_command; do
+          // not leave this panel locked waiting for a receipt that cannot arrive.
+          if (pendingCommand.current && pendingCommand.current !== "sending" &&
+              chamberCommandReceiptOverdue(pendingSentAt.current, Date.now())) {
+            pendingCommand.current = null;
+            dirty.current = false;
+            setDraftIntensity(next.controller_intensity);
+            setPhase("failed");
+            setError("The controller did not confirm that change. Showing its reported intensity.");
+          }
         })
         .catch((reason) => {
           if (!active) return;
@@ -66,10 +86,10 @@ export function LightingNativeControl() {
     };
 
     refresh();
-    const timer = window.setInterval(refresh, 1_000);
+    const stopPolling = scheduleVisiblePolling(refresh, chamberStatusIntervals.tickMs);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      stopPolling();
     };
   }, []);
 
@@ -96,6 +116,7 @@ export function LightingNativeControl() {
     try {
       const result = await sendLightingIntensity(intensity, status.state_revision);
       pendingCommand.current = result.command.id;
+      pendingSentAt.current = Date.now();
     } catch (reason) {
       pendingCommand.current = null;
       dirty.current = false;

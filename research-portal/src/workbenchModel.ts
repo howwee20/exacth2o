@@ -156,7 +156,7 @@ export function bucketStarts(window: Pick<ResolvedWindow, "queryStartMs" | "endM
 /** Calls of at most `rowLimit` pot-buckets each: pots split into chunks, long windows into segments. */
 export function bucketRequestPlan(pairingNames: readonly string[], window: Pick<ResolvedWindow, "queryStartMs" | "endMs" | "bucketMs">, rowLimit = 1000) {
   const plan: { pairingNames: string[]; startMs: number; endMs: number }[] = [];
-  const segmentSpan = rowLimit * window.bucketMs;
+  const segmentSpan = Math.min(rowLimit * window.bucketMs, Math.max(window.bucketMs, Math.floor(120 * 86400000 / window.bucketMs) * window.bucketMs));
   for (let segmentStart = window.queryStartMs; segmentStart < window.endMs; segmentStart += segmentSpan) {
     const segmentEnd = Math.min(window.endMs, segmentStart + segmentSpan);
     const buckets = Math.ceil((segmentEnd - segmentStart) / window.bucketMs);

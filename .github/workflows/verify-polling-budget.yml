@@ -1,0 +1,70 @@
+name: Verify polling budget
+
+on:
+  push:
+    branches: [ej-supabase-research-portal]
+    paths:
+      - 'supabase/functions/_shared/agent-polling*'
+      - 'supabase/functions/_shared/agent-wake*'
+      - 'supabase/functions/_shared/gas-mixer-native-policy*'
+      - 'supabase/migrations/**'
+      - 'scripts/budget/**'
+      - 'research-portal/src/visiblePolling*'
+      - 'research-portal/src/chamberStatusPolling*'
+      - 'research-portal/src/portalReadings.ts'
+      - 'research-portal/src/portalConstants.ts'
+      - 'research-portal/src/useExperimentReadings.ts'
+      - 'research-portal/src/experimentExportClient.ts'
+      - 'research-portal/src/workbenchClient.ts'
+      - 'controller/health/**'
+      - 'controller-release/matt-health-reporting-20261020/**'
+      - 'supabase/functions/*-agent/**'
+      - 'controller-release/gas-mixer*/**'
+      - 'controller-release/lighting-bridge/**'
+      - 'scripts/*supabase*'
+      - '.github/workflows/verify-polling-budget.yml'
+  pull_request:
+    paths:
+      - 'supabase/functions/_shared/agent-polling*'
+      - 'supabase/functions/_shared/agent-wake*'
+      - 'supabase/functions/_shared/gas-mixer-native-policy*'
+      - 'supabase/migrations/**'
+      - 'scripts/budget/**'
+      - 'research-portal/src/visiblePolling*'
+      - 'research-portal/src/chamberStatusPolling*'
+      - 'research-portal/src/portalReadings.ts'
+      - 'research-portal/src/portalConstants.ts'
+      - 'research-portal/src/useExperimentReadings.ts'
+      - 'research-portal/src/experimentExportClient.ts'
+      - 'research-portal/src/workbenchClient.ts'
+      - 'controller/health/**'
+      - 'controller-release/matt-health-reporting-20261020/**'
+      - 'supabase/functions/*-agent/**'
+      - 'controller-release/gas-mixer*/**'
+      - 'controller-release/lighting-bridge/**'
+      - 'scripts/*supabase*'
+      - '.github/workflows/verify-polling-budget.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify bounded polling, quota assumptions and unchanged command policy
+        run: |
+          node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/agent-wake.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
+          node --test scripts/budget/edge-budget-model.test.mjs
+          python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
+          python3 -m unittest discover -s controller/health -p 'test_*.py'
+          python3 -m unittest discover -s controller-release/matt-health-reporting-20261020 -p 'test_*.py'
+          python3 -m unittest discover -s scripts -p 'test_supabase_usage_audit.py'

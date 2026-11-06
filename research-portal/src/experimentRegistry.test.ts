@@ -4,13 +4,14 @@ import {
   activeExperimentPotOccupancy,
   experimentCardDescription,
   isCalibrationExperiment,
-  mergePortalExperiments,
+  deduplicateExperimentCatalog,
   portalExperimentById,
-  portalExperimentsForRole,
   readingsForExperiment,
+  pairingsForExperiment,
   type PortalExperiment,
 } from "./experimentRegistry";
 import { experimentDraftFromPortalExperiment } from "./experimentSpec";
+import { resolvePot } from "./potIdentity";
 import type { PairingRow, SensorReading } from "./types";
 
 function pairing(overrides: Partial<PairingRow> = {}): PairingRow {
@@ -68,14 +69,18 @@ describe("experiment registry", () => {
     startedAt,
   };
 
-  it("does not embed installation-specific experiment fallbacks", () => {
-    expect(portalExperimentsForRole("admin")).toEqual([]);
-    expect(portalExperimentsForRole("researcher")).toEqual([]);
+  it("returns an unavailable experiment for a missing catalog record", () => {
     expect(portalExperimentById("missing").id).toBe("unavailable");
   });
 
-  it("merges only supplied catalog records", () => {
-    expect(mergePortalExperiments([], [history, calibration])).toEqual([
+  it("keeps the supplied catalog order and the last version of each experiment", () => {
+    const updatedHistory = { ...history, name: "Updated historical trial" };
+    expect(deduplicateExperimentCatalog([history, calibration, updatedHistory])).toEqual([
+      updatedHistory,
+      calibration,
+    ]);
+    expect(deduplicateExperimentCatalog([])).toEqual([]);
+    expect(deduplicateExperimentCatalog([history, calibration])).toEqual([
       history,
       calibration,
     ]);
@@ -87,7 +92,31 @@ describe("experiment registry", () => {
     const atStart = reading(startedAt);
 
     expect(readingsForExperiment([before, atStart], history)).toEqual([before]);
+
     expect(readingsForExperiment([before, atStart], calibration)).toEqual([atStart]);
+  });
+
+  it("retains the experiment time window when matching a renamed sensor", () => {
+    const renamed: PortalExperiment = {
+      ...calibration,
+      pairingNames: ["Zone3-Pot41"],
+      assignments: [{
+        pairing_name: "Zone3-Pot41", zone: 3, pot_number: 41,
+        crop: "Maize", treatment: null, block: null, substrate: null,
+        target_vwc_percent: 35, measurement_interval_minutes: 10,
+        sensor_key_snapshot: "D30GQN2D:p",
+      }],
+    };
+    const before = reading("2026-07-23T14:46:33.999Z");
+    const atStart = reading(startedAt);
+    expect(readingsForExperiment([before, atStart], renamed)).toEqual([
+      { ...atStart, pairing_name: "Zone3-Pot41", recorded_pairing_name: "Zone2-Pot41" },
+    ]);
+    const renamedPairing = pairing({ name: "Zone3-Pot41", zone: 3 });
+    const oldExperiment = { ...renamed, id: "old", pairingNames: ["Zone2-Pot41"], assignments: renamed.assignments?.map((a) => ({ ...a, pairing_name: "Zone2-Pot41", zone: 2 })) };
+    expect(pairingsForExperiment([renamedPairing], oldExperiment)[0]).toMatchObject({ name: "Zone2-Pot41", zone: 2 });
+    expect(resolvePot("Zone2-Pot41", [renamedPairing], [oldExperiment, renamed], { preferExperimentId: "calibration" })?.pairing.name).toBe("Zone3-Pot41");
+    expect(readingsForExperiment([before, atStart], history)).toEqual([before]);
   });
 
   it("reports the live SWC settings and changes automatically to sensing-only", () => {

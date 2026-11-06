@@ -1,9 +1,9 @@
 import type { PairingRow, SensorReading, ValveEvent } from "./types";
 import type { ExperimentDraft } from "./experimentSpec";
+import { alignPairingHistory } from "./pairingHistory";
 
 export type ExperimentId = string;
 export type ExperimentMode = "controlled" | "observation" | "calibration";
-export type ExperimentPortalRole = "admin" | "researcher" | "viewer";
 
 export type PortalExperimentAssignment = {
   pot_id?: string | null;
@@ -16,6 +16,8 @@ export type PortalExperimentAssignment = {
   substrate: string | null;
   target_vwc_percent: number | null;
   measurement_interval_minutes: number | null;
+  sensor_key_snapshot?: string | null;
+  valve_key_snapshot?: string | null;
 };
 
 export type PortalExperiment = {
@@ -26,6 +28,8 @@ export type PortalExperiment = {
   currentSpec?: ExperimentDraft;
   name: string;
   shortDescription: string;
+  sourceNote?: string;
+  comparisonPresets?: { name: string; pairingNames: string[] }[];
   mode: ExperimentMode;
   status?:
     | "published_sensing"
@@ -65,16 +69,8 @@ const emptyExperiment: PortalExperiment = {
   assignments: [],
 };
 
-export function portalExperimentsForRole(role: ExperimentPortalRole | null | undefined) {
-  void role;
-  return [] as readonly PortalExperiment[];
-}
-
-export function mergePortalExperiments(
-  fallback: readonly PortalExperiment[],
-  catalog: readonly PortalExperiment[],
-) {
-  const merged = new Map(fallback.map((experiment) => [experiment.id, experiment]));
+export function deduplicateExperimentCatalog(catalog: readonly PortalExperiment[]) {
+  const merged = new Map<string, PortalExperiment>();
   for (const experiment of catalog) merged.set(experiment.id, experiment);
   return Array.from(merged.values());
 }
@@ -109,17 +105,23 @@ export function portalExperimentById(
   experiments: readonly PortalExperiment[] = [],
 ): PortalExperiment {
   return experiments.find((experiment) => experiment.id === id) ??
-    experiments[0] ??
     emptyExperiment;
 }
 
 export function pairingBelongsToExperiment(pairing: PairingRow, experiment: PortalExperiment) {
+  const assignment = experiment.assignments?.find((item) => item.sensor_key_snapshot === pairing.sensor_key);
+  if (assignment) return true;
   return new Set<string>(experiment.pairingNames).has(pairing.name) ||
     (typeof pairing.group_name === "string" && new Set<string>(experiment.groupNames).has(pairing.group_name));
 }
 
 export function pairingsForExperiment(pairings: PairingRow[], experiment: PortalExperiment) {
-  return pairings.filter((pairing) => pairingBelongsToExperiment(pairing, experiment));
+  return pairings.filter((pairing) => pairingBelongsToExperiment(pairing, experiment)).map((pairing) => {
+    const assignment = experiment.assignments?.find((item) => item.sensor_key_snapshot === pairing.sensor_key);
+    if (!assignment || assignment.pairing_name === pairing.name) return pairing;
+    // Completed experiments retain the labels and zones from their own immutable revision.
+    return { ...pairing, name: assignment.pairing_name, zone: assignment.zone, pot_number: assignment.pot_number };
+  });
 }
 
 export function timestampBelongsToExperiment(timestamp: string, experiment: PortalExperiment) {
@@ -131,17 +133,25 @@ export function timestampBelongsToExperiment(timestamp: string, experiment: Port
 }
 
 export function readingsForExperiment(readings: SensorReading[], experiment: PortalExperiment) {
-  const names = new Set<string>(experiment.pairingNames);
-  return readings.filter((reading) =>
-    names.has(reading.pairing_name) &&
-    timestampBelongsToExperiment(reading.device_recorded_at, experiment)
-  );
+  const identities = experiment.pairingNames.map((name) => ({
+    name,
+    sensor_key: experiment.assignments?.find((item) => item.pairing_name === name)?.sensor_key_snapshot,
+  }));
+  // timestampBelongsToExperiment, with the experiment's bounds parsed once instead of per reading.
+  const startMs = experiment.startedAt ? Date.parse(experiment.startedAt) : null;
+  const endMs = experiment.endedAt ? Date.parse(experiment.endedAt) : null;
+  return alignPairingHistory(readings, identities, "sensor_key").filter((reading) => {
+    const timestampMs = Date.parse(reading.device_recorded_at);
+    return Number.isFinite(timestampMs) && !(startMs !== null && timestampMs < startMs) && !(endMs !== null && timestampMs >= endMs);
+  });
 }
 
 export function valveEventsForExperiment(events: ValveEvent[], experiment: PortalExperiment) {
-  const names = new Set<string>(experiment.pairingNames);
-  return events.filter((event) =>
-    names.has(event.pairing_name) &&
+  const identities = experiment.pairingNames.map((name) => ({
+    name,
+    valve_key: experiment.assignments?.find((item) => item.pairing_name === name)?.valve_key_snapshot,
+  }));
+  return alignPairingHistory(events, identities, "valve_key").filter((event) =>
     timestampBelongsToExperiment(event.device_recorded_at ?? event.server_received_at, experiment)
   );
 }

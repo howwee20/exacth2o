@@ -1,11 +1,11 @@
-import { useMemo } from "react";
-import { experimentFactors, groupingLabel, parseGrouping, potGroups, type FactorKey, type PotGroup } from "../experimentFactors";
 import { experimentIsCompleted } from "../experimentMeasurement";
-import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
+import { appliedGroupTarget, formatMeasureValue } from "../measurementPresentation";
+import { type ReactNode, useMemo } from "react";
+import { experimentFactors, groupingLabel, parseGrouping, potGroups, type FactorKey, type PotGroup } from "../experimentFactors";
+import { type PortalExperiment } from "../experimentRegistry";
 import { formatCadence, formatMeasurementTime } from "../measurementFreshness";
 import { setPortalQuery, usePortalQueryValue } from "../portalRoute";
 import { decimateForDisplay } from "../seriesStatistics";
-import { pairingWateringDisabled } from "../targetPresentation";
 import type { PairingRow, SensorReading, ValveEvent } from "../types";
 import {
   availableMeasures,
@@ -20,40 +20,8 @@ import {
   type PotTrace,
 } from "../waterline";
 import { PortalLink } from "./PortalLink";
-import { TimeSeriesChart, type ChartBand, type ChartLine, type ChartTarget } from "./TimeSeriesChart";
+import { TimeSeriesChart, type ChartBand, type ChartLine } from "./TimeSeriesChart";
 import "./product.css";
-
-export function formatMeasureValue(value: number | null | undefined, measure: Measure) {
-  if (value == null || !Number.isFinite(value)) return "—";
-  const info = measures[measure];
-  return `${value.toFixed(info.digits)}${info.shortUnit}`;
-}
-
-type AppliedTarget = { line: ChartTarget | null; text: string | null; planMismatch: boolean };
-
-/** What the controller is applying to a group, with the plan beside it when they differ. */
-export function appliedGroupTarget(group: PotGroup, pairings: readonly PairingRow[], experiment: PortalExperiment, nowMs: number): AppliedTarget {
-  if (experimentIsCompleted(experiment, nowMs)) return { line: null, text: null, planMismatch: false };
-  const sensingPlan = isObservationOnlyExperiment(experiment);
-  const names = new Set(group.pairingNames);
-  const groupPairings = pairings.filter((pairing) => names.has(pairing.name));
-  const active = groupPairings.filter((pairing) => !pairingWateringDisabled(pairing));
-  if (!groupPairings.length) return { line: null, text: sensingPlan ? "Sensing-only plan" : null, planMismatch: false };
-  if (!active.length) return { line: null, text: "Watering disabled", planMismatch: false };
-  const applied = Array.from(new Set(active.map((pairing) => Number(pairing.wtc_percent_limit.toFixed(2)))));
-  const planMismatch = sensingPlan || (group.plannedTargets.length > 0 && applied.some((value) => !group.plannedTargets.some((plan) => Math.abs(plan - value) < 0.001)));
-  const disabled = groupPairings.length - active.length;
-  const disabledText = disabled ? ` · ${disabled} ${disabled === 1 ? "pot" : "pots"} unwatered` : "";
-  if (applied.length !== 1) {
-    return { line: null, text: `Mixed targets ${applied.map((value) => `${value}%`).join(" / ")}${disabledText}`, planMismatch };
-  }
-  const plan = sensingPlan ? " · plan sensing only" : planMismatch ? ` · plan ${group.plannedTargets.map((value) => `${value}%`).join(" / ")}` : "";
-  return {
-    line: { value: applied[0], label: `Target ${applied[0]}%${plan}`, color: group.pattern.color, dash: "1 0" },
-    text: `${sensingPlan ? "Controller target" : "Target"} ${applied[0]}% VWC${plan}${disabledText}`,
-    planMismatch,
-  };
-}
 
 function lineFromWaterline(line: GroupWaterline): { median: ChartLine; band: ChartBand } {
   const segments = waterlineSegments(line.buckets);
@@ -124,7 +92,11 @@ export function WaterlineOverview({
   asOfMs,
   loadedWindowMs,
   dataSourceLabel,
+  windowOverride,
+  leading,
 }: {
+  /** A control shown first in the toolbar, e.g. the Individual / Groups switch. */
+  leading?: ReactNode;
   experiment: PortalExperiment;
   /** The experiment's pairings (controller configuration). */
   pairings: readonly PairingRow[];
@@ -136,6 +108,7 @@ export function WaterlineOverview({
   asOfMs: number | null;
   loadedWindowMs: number;
   dataSourceLabel: string;
+  windowOverride?: {startMs:number;endMs:number};
 }) {
   const factors = useMemo(() => experimentFactors(experiment), [experiment]);
   const groupParam = usePortalQueryValue("group");
@@ -151,7 +124,7 @@ export function WaterlineOverview({
   const completed = experimentIsCompleted(experiment, nowMs);
   const endedMs = experiment.endedAt ? Date.parse(experiment.endedAt) : Number.NaN;
   const endMs = completed && Number.isFinite(endedMs) ? Math.min(endedMs, nowMs) : nowMs;
-  const window = useMemo(() => ({ startMs: Math.max(endMs - span.ms, nowMs - loadedWindowMs), endMs }), [endMs, loadedWindowMs, nowMs, span.ms]);
+  const window = useMemo(() => windowOverride ?? ({ startMs: Math.max(endMs - span.ms, nowMs - loadedWindowMs), endMs }), [windowOverride, endMs, loadedWindowMs, nowMs, span.ms]);
   const traces = useMemo(() => potTraces(readings, pairings, measure), [measure, pairings, readings]);
   const bucketMs = bucketSizeMs(window.endMs - window.startMs);
   const asOf = asOfMs ?? nowMs;
@@ -205,8 +178,9 @@ export function WaterlineOverview({
   };
 
   return (
-    <section className="px-waterline" aria-label="Overview">
+    <section className="px-waterline" aria-label={leading ? "Group traces" : "Overview"}>
       <div className="px-toolbar">
+        {leading}
         {factors.length ? (
           <label className="px-select">
             Group by
@@ -226,19 +200,19 @@ export function WaterlineOverview({
             ))}
           </div>
         ) : null}
-        <div className="px-segmented" role="group" aria-label="Time window">
+        {!windowOverride ? <div className="px-segmented" role="group" aria-label="Time window">
           {windowChoices.map((choice) => (
             <button key={choice.id} type="button" aria-pressed={choice.id === span.id} onClick={() => setPortalQuery({ span: choice.id === "72h" ? null : choice.id })}>
               {choice.label}
             </button>
           ))}
-        </div>
-        <label className="px-select">
+        </div> : null}
+        {!leading ? <label className="px-select">
           <input type="checkbox" checked={showPots} onChange={(event) => setPortalQuery({ pots: event.target.checked ? "1" : null })} />
           Show individual pots
-        </label>
-        <span className="px-spacer" />
-        <span className="px-muted px-small">{reportingTotal} of {totalPots} {measure === "vwc" ? "pots with valid VWC" : "pots reporting"}{invalidTotal ? ` · ${invalidTotal} invalid` : ""}{asOfMs ? ` · checked ${formatMeasurementTime(asOfMs)}` : ""}</span>
+        </label> : null}
+        {!leading ? <><span className="px-spacer" />
+        <span className="px-muted px-small">{reportingTotal} of {totalPots} {measure === "vwc" ? "pots with valid VWC" : "pots reporting"}{invalidTotal ? ` · ${invalidTotal} invalid` : ""}{asOfMs ? ` · checked ${formatMeasurementTime(asOfMs)}` : ""}</span></> : null}
       </div>
 
       {lines.map((line) => {
@@ -254,8 +228,7 @@ export function WaterlineOverview({
           <article key={line.group.id} className="px-wl-group" aria-label={line.group.label}>
             <header className="px-wl-head">
               <h2 className="px-wl-name"><GroupGlyph group={line.group} />{line.group.label}</h2>
-              <span className="px-wl-caps">{line.potTotal} {line.potTotal === 1 ? "pot" : "pots"}</span>
-              <span className={`px-wl-caps ${coverageWarn ? "is-warn" : ""}`}>{line.reporting} reporting</span>
+              {coverageWarn ? <span className="px-wl-caps is-warn">{line.reporting} of {line.potTotal} pots reporting</span> : null}
               {target?.text ? <span className={`px-wl-caps ${target.planMismatch ? "is-warn" : ""}`}>{target.text}</span> : null}
               <span className="px-wl-now">
                 {line.latest ? (
@@ -277,7 +250,7 @@ export function WaterlineOverview({
               yDomain={yDomain}
               height={190}
               stepMs={line.bucketMs}
-              ariaLabel={`${line.group.label}: ${info.label} over the last ${span.label}.`}
+              ariaLabel={`${line.group.label}: ${info.label}${windowOverride ? ", selected time range" : ` over the last ${span.label}`}.`}
               description={line.latest
                 ? `Median now ${formatMeasureValue(line.latest.median, measure)} across ${line.latest.pots} reporting pots, range ${formatMeasureValue(line.latest.low, measure)} to ${formatMeasureValue(line.latest.high, measure)}. ${line.reporting} of ${line.potTotal} pots reporting.${target?.text ? ` ${target.text}.` : ""}`
                 : `No current reading for this group. ${line.reporting} of ${line.potTotal} pots reporting.`}
@@ -330,7 +303,7 @@ export function WaterlineOverview({
           <dt>Targets</dt><dd>{info.hasTargets ? "The hairline is the target the controller is applying (what watering follows). When the experiment plan differs, the label says so." : "Targets apply to calibrated VWC only, so none are drawn for this measure."}</dd>
           <dt>Calibration</dt><dd>{Array.from(calibrations.entries()).map(([name, pots]) => `${name} (${pots.length} ${pots.length === 1 ? "pot" : "pots"})`).join("; ")}.</dd>
           <dt>Cadence</dt><dd>{cadences.length ? cadences.join(", ") : "Not reported by the controller; gaps use the observed spacing."}</dd>
-          <dt>Window</dt><dd>{formatMeasurementTime(window.startMs)} – {formatMeasurementTime(window.endMs)} ({dataSourceLabel}). Longer histories and exports are in Workbench.</dd>
+          <dt>Window</dt><dd>{formatMeasurementTime(window.startMs)} – {formatMeasurementTime(window.endMs)} ({dataSourceLabel}).</dd>
         </dl>
       </details>
     </section>

@@ -44,6 +44,7 @@ import {
   assistantTools,
   compareExperimentAggregates,
   experimentArchiveDecision,
+  experimentsVisibleToRole,
   normalizeAssistantConversation,
   proposalFromFunctionCall,
   resolveExactExperimentCatalog,
@@ -113,7 +114,7 @@ Deno.serve(async (request) => {
   const openAiKey = Deno.env.get("OPENAI_API_KEY");
   const model = Deno.env.get("OPENAI_MODEL") || "gpt-5.6-luna";
   const reasoningEffort = Deno.env.get("OPENAI_REASONING_EFFORT") || "none";
-  if (!supabaseUrl || !anonKey || !serviceKey || !openAiKey) {
+  if (!supabaseUrl || !anonKey || !serviceKey) {
     return response({ error: "Experiment builder is not configured." }, 503, origin);
   }
 
@@ -159,6 +160,11 @@ Deno.serve(async (request) => {
   const projectId = clean(body.project_id, 80);
   if (!action || !isUuid(projectId)) {
     return response({ error: "A valid action and project are required." }, 400, origin);
+  }
+
+  const usesLanguageModel = ["draft", "revise", "route", "assistant_chat", "settings_draft", "settings_revise", "schedule_draft", "monitor_draft"].includes(action);
+  if (usesLanguageModel && !openAiKey) {
+    return response({ error: "The assistant is unavailable. You can still create and edit experiments manually." }, 503, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceKey, {
@@ -239,21 +245,22 @@ Deno.serve(async (request) => {
     const { data: experimentRows, error: experimentError } = await admin
       .from("experiments")
       .select(
-        "id,project_id,slug,name,description,mode,status,watering_state,started_at,ended_at,current_revision_id,created_by,created_at,updated_at",
+        "id,project_id,slug,name,description,mode,status,watering_state,started_at,ended_at,current_revision_id,created_by,created_at,updated_at,visible_to_roles",
       )
       .eq("project_id", projectId)
       .neq("status", "archived");
     if (experimentError) {
       return response({ error: "Experiment records are unavailable." }, 503, origin);
     }
+    const visibleRows = experimentsVisibleToRole(experimentRows, access.role);
     const experiment = resolveExactExperimentCatalog(
-      experimentRows ?? [],
+      visibleRows,
       requestedExperiment,
     );
     if (!experiment) {
       return response({
         error: "Use the exact experiment name or slug.",
-        available_experiments: (experimentRows ?? []).map((item) => item.name),
+        available_experiments: visibleRows.map((item) => item.name),
       }, 404, origin);
     }
     const requestedExperimentId = clean(body.experiment_id, 80);
@@ -437,20 +444,21 @@ Deno.serve(async (request) => {
     const { data: experimentRows, error: experimentError } = await admin
       .from("experiments")
       .select(
-        "id,project_id,slug,name,mode,status,watering_state,current_revision_id,created_by,updated_at",
+        "id,project_id,slug,name,mode,status,watering_state,current_revision_id,created_by,updated_at,visible_to_roles",
       )
       .eq("project_id", projectId);
     if (experimentError) {
       return response({ error: "Experiment records are unavailable." }, 503, origin);
     }
+    const visibleRows = experimentsVisibleToRole(experimentRows, access.role);
     const experiment = resolveExactExperimentCatalog(
-      experimentRows ?? [],
+      visibleRows,
       requestedExperiment,
     );
     if (!experiment) {
       return response({
         error: "Use the exact experiment name or slug.",
-        available_experiments: (experimentRows ?? []).map((item) => item.name),
+        available_experiments: visibleRows.map((item) => item.name),
       }, 404, origin);
     }
     const { data: revision, error: revisionError } = await admin
@@ -1001,11 +1009,10 @@ Deno.serve(async (request) => {
       }, 409, origin);
     }
 
-    const expectedInventory = clean(body.inventory_updated_at, 80);
-    if (!expectedInventory || expectedInventory !== configState.updated_at) {
-      return response({ error: "The pot inventory changed. Review the experiment again." }, 409, origin);
-    }
-
+    // updated_at advances on ordinary controller refreshes even when inventory
+    // is unchanged. Review the current inventory here; commit is bound to the
+    // reviewed configuration hash below, plus current occupancy/revision checks.
+    const expectedInventory = configState.updated_at;
     if (action === "preflight" || action === "edit_preflight") {
       return response({
         draft,
@@ -1043,7 +1050,6 @@ Deno.serve(async (request) => {
       const launchFingerprint = await sha256(JSON.stringify({
         draft,
         reviewedConfigHash,
-        expectedInventory,
         experimentId: existingExperiment?.id ?? null,
         expectedRevisionId: existingExperiment?.current_revision_id ?? null,
       }));

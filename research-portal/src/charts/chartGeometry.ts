@@ -91,9 +91,11 @@ export function chartBounds(
   extraValues: readonly number[] = [],
   compact = false,
   headerSpace = 0,
+  /** Keep this y-axis exactly (e.g. while a target is dragged) instead of fitting the data. */
+  fixedYDomain: ReturnType<typeof vwcDomain> | null = null,
 ) {
   const margin = compact
-    ? { top: 12 + headerSpace, right: 12, bottom: 30, left: 44 }
+    ? { top: 12 + headerSpace, right: 12, bottom: 42, left: 44 }
     : { top: 22 + headerSpace, right: 24, bottom: 54, left: 68 };
   const plotWidth = Math.max(1, width - margin.left - margin.right);
   const plotHeight = Math.max(1, height - margin.top - margin.bottom);
@@ -110,7 +112,7 @@ export function chartBounds(
       : item.points;
     for (const point of points) inDomain.push(point);
   }
-  const yDomain = vwcDomain(inDomain, extraValues);
+  const yDomain = fixedYDomain ?? vwcDomain(inDomain, extraValues);
   const minX = domainIsValid && xDomain ? xDomain.startMs : Number.isFinite(firstTime) ? firstTime : 0;
   const maxX = domainIsValid && xDomain ? xDomain.endMs : Number.isFinite(lastTime) ? lastTime : 1;
   const spanX = Math.max(1, maxX - minX);

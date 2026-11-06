@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
+import { timeTicks, timeZoneLabel } from "../timeAxis";
+
 export type TimedPoint = { timestampMs: number; value: number };
 export type ChartLine = {
   id: string;
@@ -40,38 +42,7 @@ export function useElementWidth<T extends HTMLElement>() {
   return [ref, width] as const;
 }
 
-const hour = 3_600_000;
-const tickSteps = [hour, 2 * hour, 3 * hour, 6 * hour, 12 * hour, 24 * hour, 48 * hour, 7 * 24 * hour, 14 * 24 * hour, 30 * 24 * hour];
-
-const dayFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-const hourFormat = new Intl.DateTimeFormat("en-US", { hour: "numeric" });
-
-function localMidnight(ms: number) {
-  const date = new Date(ms);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-/** Ticks at local clock boundaries, at least `minGapPx` apart. Midnights are labelled by date. */
-export function timeTicks(domain: { startMs: number; endMs: number }, plotWidth: number, minGapPx = 74) {
-  const span = Math.max(1, domain.endMs - domain.startMs);
-  const step = tickSteps.find((candidate) => (candidate / span) * plotWidth >= minGapPx) ?? tickSteps[tickSteps.length - 1];
-  const ticks: { at: number; label: string }[] = [];
-  let at = step >= 24 * hour ? localMidnight(domain.startMs) : localMidnight(domain.startMs);
-  while (at < domain.startMs) at += step >= 24 * hour ? 24 * hour : step;
-  let guard = 0;
-  while (at <= domain.endMs && guard < 400) {
-    guard += 1;
-    const midnight = new Date(at).getHours() === 0;
-    ticks.push({ at, label: midnight || step >= 24 * hour ? dayFormat.format(at) : hourFormat.format(at) });
-    if (step >= 24 * hour) {
-      const date = new Date(at);
-      date.setDate(date.getDate() + Math.round(step / (24 * hour)));
-      at = date.getTime();
-    } else at += step;
-  }
-  return ticks;
-}
+export { timeTicks } from "../timeAxis";
 
 export function valueTicks([low, high]: [number, number], count = 4) {
   const span = high - low;
@@ -95,7 +66,8 @@ export function TimeSeriesChart({
   shades = [],
   domain,
   yDomain,
-  height = 220,
+  height: minimumHeight = 220,
+  responsive = false,
   ariaLabel,
   description,
   readout,
@@ -114,6 +86,8 @@ export function TimeSeriesChart({
   domain: { startMs: number; endMs: number };
   yDomain: [number, number];
   height?: number;
+  /** Give wide analytical plots vertical space without scaling the text. */
+  responsive?: boolean;
   ariaLabel: string;
   description?: ReactNode;
   readout?: (timestampMs: number) => ChartReadout | null;
@@ -125,8 +99,10 @@ export function TimeSeriesChart({
   xAxis?: (domain: { startMs: number; endMs: number }, plotWidth: number) => { at: number; label: string }[];
 }) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
+  const height = responsive ? Math.max(minimumHeight, Math.min(520, Math.round(width / 3))) : minimumHeight;
   const [cursor, setCursor] = useState<number | null>(null);
   const descId = useId();
+  const clipId = useId().replace(/:/g, "");
   const margin = compact ? { left: 34, right: 8, top: 6, bottom: 20 } : chartMargin;
   const plotWidth = Math.max(10, width - margin.left - margin.right);
   const plotHeight = Math.max(10, height - margin.top - margin.bottom);
@@ -173,6 +149,7 @@ export function TimeSeriesChart({
       onBlur={() => setCursor(null)}
     >
       {description ? <p id={descId} className="px-sr-only">{description}</p> : null}
+      {!compact && targets.length ? <div className="px-chart-target-legend">{targets.map((target) => <span key={target.label} style={{ color: target.color }}>{target.label}</span>)}</div> : null}
       {width > 0 ? (
         <svg width={width} height={height} aria-hidden="true">
           {yTicks.map((value) => (
@@ -184,7 +161,7 @@ export function TimeSeriesChart({
           {xTicks.map((tick) => (
             <g key={`x${tick.at}`}>
               <line x1={x(tick.at)} x2={x(tick.at)} y1={margin.top} y2={margin.top + plotHeight} className="px-chart-grid" />
-              <text x={x(tick.at)} y={height - 7} textAnchor="middle" className="px-chart-axis">{tick.label}</text>
+              <text x={x(tick.at)} y={height - 7} textAnchor={x(tick.at) < margin.left + 24 ? "start" : x(tick.at) > width - 40 ? "end" : "middle"} className="px-chart-axis">{tick.label}</text>
             </g>
           ))}
           {shades.map((shade, index) => {
@@ -200,6 +177,8 @@ export function TimeSeriesChart({
               </g>
             );
           })}
+          <defs><clipPath id={clipId}><rect x={margin.left} y={margin.top} width={plotWidth} height={plotHeight} /></clipPath></defs>
+          <g clipPath={`url(#${clipId})`}>
           {bands.map((band) => band.segments.map((segment, index) => {
             if (!segment.length) return null;
             const top = segment.map((point) => ({ x: x(point.timestampMs), y: y(point.high) }));
@@ -231,11 +210,7 @@ export function TimeSeriesChart({
           {targets.map((target) => (
             <line key={`t${target.label}`} x1={margin.left} x2={margin.left + plotWidth} y1={y(target.value)} y2={y(target.value)} stroke={target.color} strokeWidth={1} strokeDasharray={target.dash ?? "1 0"} />
           ))}
-          {!compact ? targets.map((target, index) => (
-            <text key={`tl${target.label}`} x={margin.left + plotWidth - 4} y={y(target.value) - 4 - (index % 2) * 0} textAnchor="end" className="px-chart-target" fill={target.color}>
-              {target.label}
-            </text>
-          )) : null}
+          </g>
           {ticks.map((tick, index) => {
             const tx = x(tick.timestampMs);
             if (tx < margin.left || tx > margin.left + plotWidth) return null;
@@ -251,6 +226,7 @@ export function TimeSeriesChart({
           ) : null}
         </svg>
       ) : <div style={{ height }} />}
+      <span className="px-chart-zone">{timeZoneLabel(domain.startMs,domain.endMs)}</span>
       {info && cursor != null ? (
         <div
           className="px-chart-readout"

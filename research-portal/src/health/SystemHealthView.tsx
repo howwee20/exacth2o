@@ -1,4 +1,5 @@
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { PortalHomeButton } from "../product/PortalHomeButton";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { advanceCurrentBootUptime, reconstructCurrentBootUptime, restartOutagePresentation } from "../healthUptime";
 import { formatHealthDetailValue, healthBoolean, healthDateWithAge, healthNumber, healthString, healthTimestampMs } from "../healthValues";
@@ -222,10 +223,7 @@ export function SystemHealthView({
         detail={selectedDetail}
         onClose={() => setSelectedDetail(null)}
       />
-      <button type="button" className="support-back-button" onClick={onBackHome}>
-        <ArrowLeft size={15} />
-        Home
-      </button>
+      <PortalHomeButton onClick={onBackHome} />
 
       {error ? (
         <div className="banner error">
@@ -234,8 +232,10 @@ export function SystemHealthView({
         </div>
       ) : null}
 
+      <h1 className="px-title">System health</h1>
+      <p className="px-subtitle">Controller connection and recent interruptions</p>
       <HealthPanel
-        title="Restart / Outage Evidence"
+        title="Recent interruptions"
         detail={restartOutageStatus.detail}
         badge={restartOutageStatus.badge}
         badgeTone={restartOutageStatus.badgeTone}
@@ -247,6 +247,7 @@ export function SystemHealthView({
           <HealthMiniFact label="Service restored" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.end) : "none detected"} />
           <HealthMiniFact label="Outage duration" value={!restartEvidenceKnown ? "Not synced" : lastGap ? healthCompactDuration(lastGap.durationMs) : "none detected"} />
         </div>
+        <details className="px-diagnostics"><summary>Uptime history</summary>
         <HealthTrendChart
           yTitle="Uptime minutes"
           onSelectDetail={setSelectedDetail}
@@ -278,6 +279,7 @@ export function SystemHealthView({
             },
           ]}
         />
+        </details>
       </HealthPanel>
 
       <div className="health-evidence-grid">

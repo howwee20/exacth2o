@@ -1,0 +1,12 @@
+export type FieldMapRow = Readonly<{pot: number; output: number | null; relayAddress: number | null; channel: number | null; status: 'verified' | 'protected' | 'unresolved'}>;
+export const FIELD_PROJECT_ID: string;
+export const FIELD_DEVICE_ID: string;
+export const FIELD_MAP_VERSION: string;
+export const UNRESOLVED_POTS: readonly number[];
+export const PROTECTED_POTS: readonly number[];
+export const FIELD_MAP: readonly FieldMapRow[];
+export function isFieldInstallation(projectId: string, deviceId: string): boolean;
+export function normalizedValveKey(value: unknown): string | null;
+export function fieldPotForValve(value: unknown): FieldMapRow | null;
+export function fieldValveBlockReason(value: unknown): string | null;
+export function assertAutocalibrationCommandsAllowed(input: {projectId: string; deviceId: string; commands: readonly {command_type?: string; commandType?: string; payload: Record<string, unknown>}[]; pairings: readonly Record<string, unknown>[]}): void;

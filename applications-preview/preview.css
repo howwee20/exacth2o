@@ -2,25 +2,21 @@
    stay out of the public preview; everything else is the production product. */
 body{margin:0;background:#f4f1eb}
 .px-header,.dashboard-header{display:none!important}
-.px-menu,.px-tools,.px-home-top .px-button.is-primary{display:none!important}
-.px-home{padding-top:44px}
+.px-menu:not(.px-more-actions),.px-tools,.px-home-top .px-button.is-primary{display:none!important}
+.px-home{padding-top:44px;padding-bottom:28px}
 .px-page{padding-top:44px}
 .px-home-grid{grid-template-columns:minmax(0,720px);justify-content:center}
 
-/* Sample-data label: always visible inside the public demonstration. */
-.demo-sample-badge{position:fixed;left:12px;top:10px;z-index:30;padding:3px 9px;border:1px solid #d6ddd9;border-radius:999px;background:rgba(255,255,255,.94);color:#475569;font:500 11px/1.4 "DM Mono",monospace;letter-spacing:.03em;pointer-events:none}
 
-/* The Pots tab keeps the chart and pot list side by side within the frame. */
-.px-pots-tab .dashboard-main{grid-template-columns:minmax(0,1fr) 304px!important;gap:12px;min-height:0!important;height:max(430px,calc(100vh - 200px));align-items:stretch}
-.px-pots-tab .dashboard-main .chart-card{min-height:0;height:100%}
-.px-pots-tab .dashboard-main .chart-panel-main{min-height:0;height:100%}
-.px-pots-tab .dashboard-main .canvas-chart{min-height:0!important;height:100%}
-.px-pots-tab .dashboard-main .control-panel{position:static!important;display:block!important;min-height:0;height:100%;max-height:100%;overflow:auto;width:auto!important}
-.px-pots-tab .pot-toggle{min-height:40px;border:1px solid #dce3df;border-radius:9px;box-shadow:none;padding:8px 10px}
-.px-pots-tab .pot-toggle:not(.is-on){opacity:.5}
-@media(max-width:600px){
- .px-pots-tab .dashboard-main{grid-template-columns:minmax(0,1fr)!important;height:auto}
- .px-pots-tab .dashboard-main .chart-card{height:430px}
- .px-pots-tab .dashboard-main .control-panel{max-height:300px}
-}
+/* Use the product's responsive chart layout. A collapsed pot list must not
+   reserve a full-height sidebar inside a narrow embedded viewport. */
+.px-pots-tab .dashboard-main:not(.is-expanded) .control-panel{position:static}
 .walker-observation{padding-top:20px}.chamber-control-header{padding-top:20px}
+
+/* Natural content height lets the website own scrolling around the demo. */
+html,body,#root,.px-shell,.dashboard-shell{min-height:0;height:auto}
+.px-home-grid{grid-template-columns:minmax(0,1fr)}
+.px-home,.px-page{padding:32px}
+.px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart{height:420px;min-height:420px}
+/* The renderer requires 360px for its axes and legend at full chart size. */
+@media(max-width:600px){.px-home,.px-page{padding:20px 16px}.px-pot-chart .dashboard-main:not(.is-expanded) .canvas-chart{height:360px;min-height:360px}}

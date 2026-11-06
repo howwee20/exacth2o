@@ -1,0 +1,31 @@
+name: Responsive and visual regression (manual)
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: research-portal/package-lock.json
+      - run: npm ci --prefix research-portal
+      - run: npx --prefix research-portal playwright install --with-deps chromium firefox webkit
+      - name: Browser acceptance and screenshots
+        working-directory: research-portal
+        run: npx playwright test ${{ (github.ref == 'refs/heads/homepage-polish-oct14' || github.ref == 'refs/heads/codex/hold-water-and-site-polish' || github.ref == 'refs/heads/claude/hold-water-routes') && '--update-snapshots' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: responsive-review
+          path: |
+            research-portal/playwright-report
+            research-portal/test-results
+            research-portal/browser-tests/*-snapshots
+          retention-days: 14

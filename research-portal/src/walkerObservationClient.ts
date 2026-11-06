@@ -17,8 +17,8 @@ export async function loadWalkerLiveStatus(): Promise<WalkerLiveStatus> {
   return data as WalkerLiveStatus;
 }
 
-export async function loadWalkerLiveSnapshot(): Promise<WalkerLiveSnapshot> {
-  const { data, error } = await supabase.rpc("walker_live_observation_snapshot", {
+export async function loadWalkerLiveSnapshot(lastRecorded = false): Promise<WalkerLiveSnapshot> {
+  const { data, error } = await supabase.rpc(lastRecorded ? "walker_latest_recorded_snapshot" : "walker_live_observation_snapshot", {
     requested_project_id: walkerProjectId,
     requested_device_id: walkerDeviceId,
     requested_window_hours: walkerDefaultWindowHours,

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { SettingsSection } from "./portalTypes";
 
 /**
  * Portal routes live in the query string under /portal. portal.html canonicalises every path to
@@ -8,17 +9,18 @@ import { useSyncExternalStore } from "react";
  *   /portal                                  Experiments (Quiet Spine home)
  *   /portal?view=trends                      Installation trends
  *   /portal?view=bench[&pot=Zone1-Pot3]      Bench layout
- *   /portal?view=workbench[&comparison=<id>] Workbench
- *   /portal?experiment=<slug>[&tab=pots|record][&pot=<pot>]
+ *   /portal?experiment=<slug>[&tab=overview|record][&pot=<pot>] Individual traces by default
  *   /portal?pot=<pairing name | research pot id>
  *   /portal?view=pocket[&pot=<pot>][&note=1] At the bench
  *   /portal?view=health|support|walker|chamber|analytics
+ *   /portal?view=controller[&settings=<section>]  Installation (and its Settings section)
+ *   /portal?view=autocalibrate                    Autocalibrate
  *
  * `project` is carried on every link so a copied URL resolves to the same project.
  */
 
 export type ExperimentTab = "overview" | "pots" | "record";
-export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics";
+export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account" | "autocalibrate";
 
 export type PortalRoute =
   | { view: "home" }
@@ -30,7 +32,7 @@ export type PortalRoute =
   | { view: "pocket"; pot: string | null; note: boolean }
   | { view: ToolView };
 
-const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics"]);
+const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics", "controller", "account", "autocalibrate"]);
 const tabs = new Set<ExperimentTab>(["overview", "pots", "record"]);
 
 /** Keys that identify the account context and survive every navigation. */
@@ -43,19 +45,32 @@ const clean = (value: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const linkableSettings = new Set<SettingsSection>(["overview", "water", "pairings", "autocalibrate", "calibrations", "groups", "exports", "hardware"]);
+
+/**
+ * The Settings section a link asks to open: `settings=<section>` on an experiment or
+ * the installation. Legacy Autocalibrate settings links redirect to its dedicated page.
+ */
+export function settingsSectionFromSearch(search: string): SettingsSection | null {
+  const value = clean(new URLSearchParams(search).get("settings"));
+  return value && linkableSettings.has(value as SettingsSection) ? (value as SettingsSection) : null;
+}
+
 export function parsePortalRoute(search: string): PortalRoute {
   const params = new URLSearchParams(search);
   const view = clean(params.get("view"));
   const experiment = clean(params.get("experiment"));
   const pot = clean(params.get("pot"));
+  if (params.get("settings") === "autocalibrate") return { view: "autocalibrate" };
   if (view && toolViews.has(view as ToolView)) return { view: view as ToolView };
   if (view === "trends") return { view: "trends" };
   if (view === "bench") return { view: "bench", pot };
-  if (view === "workbench") return { view: "workbench", comparison: clean(params.get("comparison")), experiment };
+  // Retired Workbench links land on Experiments, including links to saved comparisons.
+  if (view === "workbench") return { view: "home" };
   if (view === "pocket") return { view: "pocket", pot, note: params.get("note") === "1" };
   if (experiment) {
     const tab = clean(params.get("tab"));
-    return { view: "experiment", experiment, tab: tab && tabs.has(tab as ExperimentTab) ? (tab as ExperimentTab) : "overview", pot };
+    return { view: "experiment", experiment, tab: tab && tabs.has(tab as ExperimentTab) ? (tab as ExperimentTab) : "pots", pot };
   }
   if (pot) return { view: "pot", pot };
   return { view: "home" };
@@ -80,7 +95,7 @@ function routeParams(route: PortalRoute) {
       break;
     case "experiment":
       params.set("experiment", route.experiment);
-      if (route.tab !== "overview") params.set("tab", route.tab);
+      if (route.tab !== "pots") params.set("tab", route.tab);
       if (route.pot) params.set("pot", route.pot);
       break;
     case "pot":
@@ -116,13 +131,15 @@ export function portalRouteSearch(route: PortalRoute, current = "", extra: Recor
   return search ? `?${search}` : "";
 }
 
+/** Keep each isolated demo on its own document, including on the production hostname. */
+export function portalBasePath(pathname: string, hostname: string) {
+  if (/^\/demo(?:\.html|\/)?$/.test(pathname)) return "/demo";
+  if (pathname.startsWith("/demo-app/") || pathname.startsWith("/applications-demo-app/")) return pathname;
+  return hostname === "exacth2o.com" || hostname === "www.exacth2o.com" ? "/portal" : pathname;
+}
+
 function portalPath() {
-  if (typeof window === "undefined") return "/portal";
-  // On the production host the portal always lives at /portal (portal.html canonicalises it);
-  // locally (dev server, previews) keep whatever path served the app.
-  return window.location.hostname === "exacth2o.com" || window.location.hostname === "www.exacth2o.com"
-    ? "/portal"
-    : window.location.pathname;
+  return typeof window === "undefined" ? "/portal" : portalBasePath(window.location.pathname, window.location.hostname);
 }
 
 export function portalRouteHref(route: PortalRoute, extra: Record<string, string | null> = {}) {

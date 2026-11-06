@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { measurementFreshness } from "./measurementFreshness";
 import {
   experimentFreshness,
+  orderHomeExperiments,
   experimentProgressText,
   groupTarget,
   latestMeasurementByPot,
@@ -11,6 +12,7 @@ import {
   targetLinesForPairings,
 } from "./experimentMeasurement";
 import { pairingWateringDisabled, presentTarget, wateringDisabledTarget } from "./targetPresentation";
+import type { PortalExperiment } from "./experimentRegistry";
 import type { PairingRow } from "./types";
 
 function pairing(name: string, overrides: Partial<PairingRow> = {}): PairingRow {
@@ -102,10 +104,10 @@ describe("targetLinesForPairings", () => {
     ]);
   });
 
-  it("draws nothing for mixed, disabled, sensing-only or completed groups", () => {
+  it("draws nothing for mixed, disabled or completed groups", () => {
     expect(targetLinesForPairings([pairing("Pot 1", { wtc_percent_limit: 35 }), pairing("Pot 3", { wtc_percent_limit: 30 })], treatment, active)).toEqual([]);
     expect(targetLinesForPairings([pairing("Pot 1", { valve_open_time_ms: 0 })], treatment, active)).toEqual([]);
-    expect(targetLinesForPairings([pairing("Pot 1")], treatment, { ...active, wateringState: "off" })).toEqual([]);
+    expect(targetLinesForPairings([pairing("Pot 1")], treatment, { ...active, wateringState: "off" })).toEqual([{ value: 30, label: "Current target 30% · plan sensing only", tone: "control" }]);
     expect(targetLinesForPairings([pairing("Pot 1")], treatment, { ...active, status: "completed" })).toEqual([]);
   });
 
@@ -159,5 +161,20 @@ describe("reporting coverage", () => {
     expect(freshness.detail).toMatch(/^1 of 12 pots have a current reading/);
     // All reporting: unchanged.
     expect(withReportingCoverage(measurementFreshness({ measuredAt: now, nowMs: now }), { reporting: 12, total: 12 }).state).toBe("current");
+  });
+});
+
+
+describe("home experiment ordering", () => {
+  it("places the current run first and keeps completed numbered runs together", () => {
+    const make = (name: string, status: PortalExperiment["status"]): PortalExperiment => ({
+      id: name, name, status, mode: "controlled", shortDescription: "", pairingNames: [], groupNames: [],
+    });
+    const runs = [make("SWC Saturation Calibration", "completed"), make("Matt Experiment 10", "completed"),
+      make("Matt Experiment 2", "completed"), make("Huiqiao Pan experiment", "active"), make("Matt Experiment 1", "completed")];
+    expect(orderHomeExperiments(runs).map(run => run.name)).toEqual([
+      "Huiqiao Pan experiment", "Matt Experiment 1", "Matt Experiment 2", "Matt Experiment 10", "SWC Saturation Calibration",
+    ]);
+    expect(runs[0].name).toBe("SWC Saturation Calibration");
   });
 });

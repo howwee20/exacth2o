@@ -79,3 +79,12 @@ describe("rolling readings merge", () => {
     expect(elapsed).toBeLessThan(1500);
   });
 });
+
+it('keeps scoped experiment pot labels separate from older sensors with the same pot number', async () => {
+  const {pairingsFromDeviceConfigState} = await import('./portalData');
+  const base = {sensorId:640,valveId:1556,WTCPercentLimit:35,ValveOpenTime:4000,MeasurementInterval:600000,Sensor:{boardSerialId:'D30GQN2E',address:'R'},Valve:{relayAddress:'0x20',address:'20'}};
+  const rows=pairingsFromDeviceConfigState([{...base,name:'Huiqiao-Zone3-Pot68'},{...base,name:'Zone3-Pot68',sensorId:690,Sensor:{boardSerialId:'D30GQN2D',address:'R'}}],[]);
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toMatchObject({name:'Huiqiao-Zone3-Pot68',zone:3,pot_number:68,sensor_key:'D30GQN2E:R'});
+  expect(rows[1].sensor_key).toBe('D30GQN2D:R');
+});

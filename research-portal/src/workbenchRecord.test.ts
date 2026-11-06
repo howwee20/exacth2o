@@ -194,7 +194,12 @@ describe("record lane", () => {
     expect(calibration).toMatchObject({ kind: "calibration", pots: ["Zone1-Pot1"], happenedAt: Date.parse("2026-10-06T09:14:00Z"), recordedAt: Date.parse("2026-10-06T09:10:00Z") });
     expect(calibration.calibration?.name).toBe("Substrate v2");
     const failed = settingsItems([{ ...base, id: "f", command_type: "update_board_config", payload: { board: "B5" }, status: "failed", error: "No ack" }], ["Zone1-Pot1"], "e-1");
-    expect(failed[0].title).toMatch(/did not complete/);
+    expect(failed[0].title).toMatch(/failed/);
+    for (const status of ["canceled", "expired", "unknown"] as const) {
+      const item = settingsItems([{ ...base, id: status, command_type: "update_board_config", status }], ["Zone1-Pot1"], null)[0];
+      expect(item.status).toBe(status);
+      expect(item.title).not.toMatch(/failed|did not complete/);
+    }
     expect(settingsItems([{ ...base, id: "o", command_type: "update_pairing", payload: { pairing_name: "Zone9-Pot99" } }], ["Zone1-Pot1"], "e-1")).toEqual([]);
   });
 

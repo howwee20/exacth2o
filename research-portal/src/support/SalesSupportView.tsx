@@ -1,4 +1,5 @@
-import { AlertTriangle, ArrowLeft, Loader2, Mail, MessageSquare, Search, Trash2 } from "lucide-react";
+import { PortalHomeButton } from "../product/PortalHomeButton";
+import { AlertTriangle, Loader2, Mail, MessageSquare, Search, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { HealthMiniFact } from "../health/HealthPanels";
 import { errorMessage, formatSettingsTimestamp, mailtoUrl, supportDetailValue, supportExcerpt, supportRequestTypeLabel, supportStatusLabel, supportStatusTone } from "../portalFormat";
@@ -176,14 +177,11 @@ export function SalesSupportView({
   return (
     <section className="sales-support-main" aria-label="Sales and support">
       <SalesSupportDetailDrawer detail={selectedDetail} onClose={() => setSelectedDetail(null)} />
-      <button type="button" className="support-back-button" onClick={onBackHome}>
-        <ArrowLeft size={15} />
-        Home
-      </button>
+      <PortalHomeButton onClick={onBackHome} />
       <header className="support-hero">
         <div>
-          <p>Sales &amp; Support</p>
-          <h1>{newItems.length} new</h1>
+          <h1 className="px-title">Sales &amp; support</h1>
+          <p>{newItems.length ? `${newItems.length} new items to review` : "No new requests"}</p>
         </div>
         {loading ? (
           <Loader2 className="chart-loading-spinner" size={22} aria-label="Loading support queue" />

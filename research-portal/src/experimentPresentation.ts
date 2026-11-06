@@ -71,6 +71,27 @@ export function plantGroupForExperimentPairing(
   return "unknown";
 }
 
+/** Crop identity comes from the experiment plan, independent of controller wiring zones. */
+export function experimentSidebarGroups(
+  pairings: readonly PairingRow[],
+  experiment?: PortalExperiment | null,
+) {
+  const groups = new Map<string, { id: string; label: string; pairings: PairingRow[] }>();
+  for (const pairing of pairings) {
+    const assignment = assignmentForPairing(pairing, experiment);
+    const legacyCrop = plantGroupForExperimentPairing(pairing, experiment);
+    const crop = normalized(assignment?.crop) || (legacyCrop === "unknown" ? "" : legacyCrop);
+    const id = crop ? `crop:${crop}` : "unassigned";
+    const group = groups.get(id) ?? { id, label: crop ? title(crop) : "All pots", pairings: [] };
+    group.pairings.push(pairing);
+    groups.set(id, group);
+  }
+  if (groups.size > 1 && groups.has("unassigned")) groups.get("unassigned")!.label = "Other pots";
+  return [...groups.values()]
+    .map((group) => ({ ...group, pairings: group.pairings.slice().sort((a, b) => a.pot_number - b.pot_number || a.name.localeCompare(b.name)) }))
+    .sort((a, b) => Number(a.id === "unassigned") - Number(b.id === "unassigned") || a.label.localeCompare(b.label));
+}
+
 export function experimentGraphGroups(
   experiment?: PortalExperiment | null,
 ): ExperimentGraphGroup[] {

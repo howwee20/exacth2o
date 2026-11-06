@@ -70,8 +70,8 @@ export type WateringOverlayTooltip = WateringOverlayMarker & {
 };
 
 export type PotPreset = "all" | "control" | "drought" | "maize" | "sorghum" | "custom";
-export type AuthMode = "sign-in" | "accept-invite" | "set-password";
-export type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber" | "analytics";
+export type AuthMode = "sign-in" | "accept-invite" | "set-password" | "recover";
+export type PortalView = "home" | "experiment" | "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account" | "autocalibrate";
 
 export type PortalAccess = {
   role: PortalRole;
@@ -82,6 +82,7 @@ export type PortalAccess = {
   deviceId: string | null;
   accessScope: string;
   gasMixerAllowed: boolean;
+  salesSupportAllowed?: boolean;
 } | null;
 
 export type InviteAcceptResponse = {
@@ -124,7 +125,6 @@ export type PanelSize = {
 
 export type SettingsSection =
   | "overview"
-  | "assistant"
   | "pairings"
   | "autocalibrate"
   | "calibrations"
@@ -155,6 +155,8 @@ export type ControlCommandType =
   | "create_calibration"
   | "delete_calibration"
   | "apply_calibration"
+  | "remap_pairing_valves"
+  | "restore_pairing_settings"
   | "manual_water"
   | "update_board_config"
   | "initialize_sensors"
@@ -199,10 +201,13 @@ export type QueueControlCommand = (
   options?: { confirm?: boolean; operationIntent?: string },
 ) => Promise<void>;
 
+/** A reviewed settings batch the server accepted: its commands in execution order. */
+export type QueuedSettingsBatch = { batchId: string; commandIds: string[] };
+
 export type QueueSettingsPlan = (
   plan: SettingsPlan,
   configHash: string,
-) => Promise<void>;
+) => Promise<QueuedSettingsBatch | null>;
 
 export type DeviceHealthSnapshot = {
   id: string;

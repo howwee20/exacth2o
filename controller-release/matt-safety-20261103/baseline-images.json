@@ -1,0 +1,47 @@
+[
+  {
+    "service": "ui_svc",
+    "image": "registry2.balena-cloud.com/v2/364600e98a38bc7aadb37e3e90e14ed5",
+    "digest": "sha256:aa8a6af1fd1c9c6be2b61480c429b39cba7aed668d07694d34ec2d545e9c9f7e"
+  },
+  {
+    "service": "api_svc",
+    "image": "registry2.balena-cloud.com/v2/fc4be9324e7623cfcf437866760aded9",
+    "digest": "sha256:441b96a4199d33e5795339a03cc3a222e48acce38c72c988850aebec1cd156cc"
+  },
+  {
+    "service": "cron_svc",
+    "image": "registry2.balena-cloud.com/v2/fc5b79ab40346ebe1b89f96c94bed7e3",
+    "digest": "sha256:f0e1e3dc3d0e5fc9196add16195b5adaa61e57d5cdc169197263b679ef9b5ecf"
+  },
+  {
+    "service": "redis_svc",
+    "image": "registry2.balena-cloud.com/v2/22b2e0bf5322f1cea7c615ce41a3dbd9",
+    "digest": "sha256:1e7f5340948c5493edc32d133f82a1850433ec93296be347f7f59fec757a707a"
+  },
+  {
+    "service": "health_svc",
+    "image": "registry2.balena-cloud.com/v2/d1983d2793ef17bad64b4f89a68689ef",
+    "digest": "sha256:78a09c1069de4e66ac2819786e762462ecf26d85ac666135bfc329227087da9e"
+  },
+  {
+    "service": "database_svc",
+    "image": "registry2.balena-cloud.com/v2/52c5eb86b54eb916ad4fb77e91f822c6",
+    "digest": "sha256:11298cca2b7de077f33d45865a561d5e56f524f7c6245a983ad8a99b74cd95b7"
+  },
+  {
+    "service": "valve_watchdog",
+    "image": "registry2.balena-cloud.com/v2/ae5d18532b01a05e6cf4d688096105ce",
+    "digest": "sha256:5e04ec1625dc4ec4cecaff9b57374cd393cf9253d65ad84a61c6969bb0cf507a"
+  },
+  {
+    "service": "control_executor",
+    "image": "registry2.balena-cloud.com/v2/df16b4e20ee8217e0958d1a288d5b319",
+    "digest": "sha256:1a6d015b08d9ecb6a7e46b2315606ef5fb7f73afb72b463676236a6397b63abf"
+  },
+  {
+    "service": "supabase_publisher",
+    "image": "registry2.balena-cloud.com/v2/4b9c444a54db48bb92c449e4e984aa0c",
+    "digest": "sha256:af190a0e33e8cc44a44fe642ba60f212efc89003ac51c7d86b39f59dda49b21b"
+  }
+]

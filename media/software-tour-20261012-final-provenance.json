@@ -1,0 +1,188 @@
+{
+  "captureDate": "2026-10-12",
+  "source": "Final locally built production-source offline /demo workspace",
+  "sourceResolution": [
+    1920,
+    1200
+  ],
+  "outputResolution": [
+    2560,
+    1600
+  ],
+  "fps": 30,
+  "durationSeconds": 43,
+  "data": "Offline representative fixtures. connect-src none; no controller access.",
+  "editing": "Real working demo interaction states captured through CUA, edited with timed holds, smooth cursor motion, click cues and on-screen captions. This is an edited walkthrough, not an uncut screen recording. No UI or readings fabricated. Desktop viewport captures fit proportionally; Framing focuses on the complete traces workspace or the relevant pot details; outer page navigation is cropped in the chart scenes. Important demonstrated controls remain visible. The output is rendered at 2560x1600 from 1920x1200 captures.",
+  "scenes": [
+    {
+      "name": "01-all",
+      "caption": "Start with every pot in the experiment.",
+      "seconds": 4,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1743.5,
+        200.7265625
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "02-none",
+      "caption": "Clear the chart to build a focused comparison.",
+      "seconds": 3,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1639,
+        301.12109375
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "03-one",
+      "caption": "Select Pot 62. Its individual trace appears.",
+      "seconds": 4,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1639,
+        358.91015625
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "04-two",
+      "caption": "Add Pot 64 to compare two control pots.",
+      "seconds": 4,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1639,
+        590.06640625
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "05-three",
+      "caption": "Add a drought pot. Each line stays independent.",
+      "seconds": 4,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1639,
+        281.41015625
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "06-compare",
+      "caption": "Keep the control and drought traces side by side.",
+      "seconds": 4,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1805,
+        301.12109375
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "07-detail",
+      "caption": "Open Pot 62 to inspect its readings and hardware identity.",
+      "seconds": 4,
+      "crop": [
+        32,
+        0,
+        1888,
+        1200
+      ],
+      "point": [
+        736,
+        669.59375
+      ],
+      "keyboard": true
+    },
+    {
+      "name": "08-reading",
+      "caption": "Step through timestamps with the keyboard.",
+      "seconds": 4,
+      "crop": [
+        32,
+        0,
+        1888,
+        1200
+      ],
+      "point": [
+        736,
+        1080.8125
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "09-explain",
+      "caption": "Review raw values, calibration and recorded valve openings.",
+      "seconds": 5,
+      "crop": [
+        32,
+        979,
+        1888,
+        2049
+      ],
+      "point": null,
+      "keyboard": false
+    },
+    {
+      "name": "10-return",
+      "caption": "Return to the same two-pot comparison.",
+      "seconds": 4,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": [
+        1576.5,
+        200.7265625
+      ],
+      "keyboard": false
+    },
+    {
+      "name": "11-final",
+      "caption": "Restore all traces and keep exploring.",
+      "seconds": 3,
+      "crop": [
+        32,
+        413,
+        1888,
+        1489
+      ],
+      "point": null,
+      "keyboard": false
+    }
+  ]
+}

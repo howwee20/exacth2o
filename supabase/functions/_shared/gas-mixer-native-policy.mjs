@@ -42,6 +42,17 @@ export function bridgeIsReady(state, nowMs = Date.now()) {
   return Number.isFinite(heartbeatMs) && heartbeatMs >= nowMs - 45_000;
 }
 
+// Postgres emits 1-6 fractional digits; the installed Python's fromisoformat
+// accepts only 3 or 6. Canonical milliseconds preserve compatibility and can
+// only shorten an expiry by less than 1 ms, never extend the command lifetime.
+export function nativeCommandForBridge(command) {
+  return {
+    ...command,
+    created_at: new Date(command.created_at).toISOString(),
+    expires_at: new Date(command.expires_at).toISOString(),
+  };
+}
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -164,4 +175,16 @@ export function nativeAckPreviousStatuses(status) {
     return ["queued", "accepted", "applied"];
   }
   return [];
+}
+
+// Queue reads return expired rows too, so one call both serves the agent and
+// finds what must be marked expired. Equal timestamps count as expired.
+export function splitExpiredCommands(commands, nowMs = Date.now()) {
+  const deliverable = [];
+  const expired = [];
+  for (const command of commands) {
+    const expiresAt = Date.parse(String(command?.expires_at ?? ""));
+    (Number.isFinite(expiresAt) && expiresAt > nowMs ? deliverable : expired).push(command);
+  }
+  return { deliverable, expired };
 }

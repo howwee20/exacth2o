@@ -65,19 +65,21 @@ export function RecordView({
   const [error, setError] = useState<string | null>(null);
   // The mark from before this visit decides what is new; the database mark moves on load.
   const previousMark = useRef<{ experiment: string; value: string | null } | null>(null);
-  const [anchorMs] = useState(() => nowMs);
+  const [visitedAt] = useState(nowMs);
+  const anchorMs = Math.min(visitedAt, experiment.endedAt ? Date.parse(experiment.endedAt) : visitedAt);
 
   useEffect(() => {
     if (!experiment.databaseId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const startMs = anchorMs - spanDays * day;
+    const startMs = Math.max(anchorMs - spanDays * day, experiment.startedAt ? Date.parse(experiment.startedAt) : -Infinity);
     void loadRecordSources({
       projectId,
       deviceId,
       experimentDatabaseId: experiment.databaseId,
       pairingNames: experiment.pairingNames,
+      pairingAssignments: experiment.assignments,
       startMs,
       endMs: anchorMs,
     })
@@ -87,7 +89,7 @@ export function RecordView({
           previousMark.current = { experiment: experiment.id, value: next.lastSeenAt };
         }
         if (!next.problems.length && next.stats.failed === 0) {
-          await markExperimentSeen(projectId, experiment.databaseId as string, new Date(anchorMs).toISOString()).catch(() => undefined);
+          await markExperimentSeen(projectId, experiment.databaseId as string, new Date(visitedAt).toISOString()).catch(() => undefined);
         }
         if (!cancelled) setSources(next);
       })
@@ -96,20 +98,20 @@ export function RecordView({
     return () => {
       cancelled = true;
     };
-  }, [anchorMs, deviceId, experiment.databaseId, experiment.id, experiment.pairingNames, projectId, spanDays]);
+  }, [anchorMs, visitedAt, deviceId, experiment.databaseId, experiment.id, experiment.pairingNames, experiment.assignments, experiment.startedAt, projectId, spanDays]);
 
   const experimentPairings = useMemo(() => pairings.filter((pairing) => experiment.pairingNames.includes(pairing.name)), [experiment.pairingNames, pairings]);
   const items = useMemo(() => {
     if (!sources) return [] as RecordItem[];
     return sortRecord([
       ...planItems(sources.revisions, sources.audits, sources.assignments),
-      ...settingsItems(sources.commands, experiment.pairingNames, experiment.databaseId ?? null),
-      ...calibrationRequestItems(sources.calibrationRequests, experiment.pairingNames),
+      ...settingsItems(sources.commands, sources.historyPairingNames, experiment.databaseId ?? null),
+      ...calibrationRequestItems(sources.calibrationRequests, sources.historyPairingNames),
       ...noteItems(sources.notes),
       ...gapItems(sources.gaps, experimentPairings),
       ...wateringItems(sources.daily),
     ].filter((item) => item.happenedAt >= anchorMs - spanDays * day && item.happenedAt <= anchorMs));
-  }, [anchorMs, spanDays, experiment.databaseId, experiment.pairingNames, experimentPairings, sources]);
+  }, [anchorMs, spanDays, experiment.databaseId, experimentPairings, sources]);
   const lastSeenMs = previousMark.current?.value ? Date.parse(previousMark.current.value) : null;
   const fresh = useMemo(() => newSince(items, lastSeenMs, userId), [items, lastSeenMs, userId]);
   const shown = useMemo(() => filterRecord(items, kinds, pot || null), [items, kinds, pot]);
@@ -120,7 +122,7 @@ export function RecordView({
   }, [shown]);
 
   if (!experiment.databaseId) {
-    return <p className="px-empty">This experiment has no saved history yet (plan versions, controller commands, notes), so the Record is empty.</p>;
+    return <p className="px-empty">No experiment history yet.</p>;
   }
 
   return (
@@ -156,7 +158,7 @@ export function RecordView({
       </div>
 
       {lastSeenMs != null && fresh.size ? (
-        <p className="px-notice is-info" role="status"><b>{fresh.size} new</b> since you last looked ({formatMeasurementTime(lastSeenMs)}). They are marked below.</p>
+        <p className="px-notice is-info" role="status"><b>{fresh.size} new</b> since {formatMeasurementTime(lastSeenMs)}.</p>
       ) : null}
       {error ? <p className="px-notice is-bad" role="alert">{error}</p> : null}
       {sources?.problems.map((problem) => <p key={problem} className="px-notice is-bad" role="alert">{problem} The rest of the record is shown.</p>)}
@@ -164,7 +166,7 @@ export function RecordView({
       {sources ? <RecordLane items={shown} startMs={anchorMs - spanDays * day} endMs={anchorMs} kinds={kinds} /> : null}
 
       {loading && !sources ? <p className="px-empty">Loading the record…</p> : null}
-      {sources && !shown.length ? <p className="px-empty">Nothing of the selected kinds in the last {spanDays} days{pot ? ` for ${potsText([pot])}` : ""}.</p> : null}
+      {sources && !shown.length ? <p className="px-empty">No matching entries in the last {spanDays} days{pot ? ` for ${potsText([pot])}` : ""}.</p> : null}
 
       {byDay.map(([dayMs, list]) => (
         <section key={dayMs} className="px-record-day" aria-label={dayHeading.format(dayMs)}>
@@ -178,9 +180,9 @@ export function RecordView({
       ))}
 
       {sources ? (
-        <p className="px-muted px-small">
+        <details className="px-details"><summary>Data sources</summary><p className="px-muted px-small">
           {sources.stats.requests} requests, {sources.stats.rows.toLocaleString()} rows ({Math.round(sources.stats.bytes / 1024)} kB) for {spanDays} days. Gaps and valve openings are derived from readings and controller events; everything else is a recorded row.
-        </p>
+        </p></details>
       ) : null}
     </section>
   );
@@ -251,8 +253,9 @@ function RecordEntry({ item, isNew, projectId, deviceId, focusPot }: { item: Rec
           {item.actor ? <span>{item.actor}</span> : null}
           {item.kind === "gap" ? <span>{item.ongoing ? "ongoing" : `until ${formatMeasurementTime(item.endAt ?? null)}`}</span> : null}
           {item.recordedAt != null ? <span>{item.kind === "note" ? "written" : "happened"} {formatMeasurementTime(item.happenedAt)} · {item.kind === "note" ? "received" : "requested"} {formatMeasurementTime(item.recordedAt)}</span> : null}
-          <span>{item.basis === "derived" ? "derived" : "recorded"} · {item.source}</span>
+          <span>{item.basis === "derived" ? "Derived" : "Recorded"}</span>
         </p>
+        <details className="px-record-source"><summary>Source</summary><span>{item.source}</span></details>
         {item.calibration && item.calibration.pairingNames.length ? (
           <>
             <button type="button" className="px-link-button" aria-expanded={explain} onClick={() => setExplain((value) => !value)}>

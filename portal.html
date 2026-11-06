@@ -19,14 +19,32 @@
         }
       })();
     </script>
+    <script>
+      window.addEventListener('error', function (event) {
+        if (!event.target || event.target.tagName !== 'SCRIPT' || event.target.type !== 'module') return;
+        var root = document.getElementById('root');
+        if (!root) return;
+        root.innerHTML = '<main style="padding:48px;font:16px system-ui;color:#0e1a14;background:#f7f9f8;min-height:100vh"><h1>The portal could not load</h1><p>Your research data is unchanged. Reload to get the latest version.</p><button type="button" onclick="location.reload()" style="padding:12px 20px">Reload portal</button> <a href="/support">Contact support</a></main>';
+      }, true);
+    </script>
     <!-- portal-modulepreloads:start -->
-    <link rel="modulepreload" crossorigin href="portal-app/assets/icon-vendor-CouGbx5F.js">
-    <link rel="modulepreload" crossorigin href="portal-app/assets/react-vendor-CWtAimRu.js">
+    <link rel="modulepreload" crossorigin href="portal-app/assets/icon-vendor-DvpbQrmp.js">
+    <link rel="modulepreload" crossorigin href="portal-app/assets/react-vendor-C6mmj4OX.js">
     <link rel="modulepreload" crossorigin href="portal-app/assets/supabase-vendor-dIChsWQP.js">
     <!-- portal-modulepreloads:end -->
-    <script type="module" crossorigin src="portal-app/assets/portal-DJLYMy5W.js"></script>
-    <link rel="stylesheet" crossorigin href="portal-app/assets/portal.css?v=91cb932e481f0d41">
-  </head>
+    <script type="module" crossorigin src="portal-app/assets/portal-DpNzUpfI.js"></script>
+    <link rel="stylesheet" crossorigin href="portal-app/assets/portal.css?v=1f8708794d11b2c1">
+  <link rel="stylesheet" href="/site-ui.css?v=b65938dd0415">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://exacth2o.com/portal">
+<meta property="og:type" content="website">
+<meta property="og:title" content="exactH2O Portal">
+<meta property="og:description" content="Precision sensing and irrigation for plant research.">
+<meta property="og:url" content="https://exacth2o.com/portal">
+<meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="noindex,follow">
+</head>
   <body>
     <div id="root">
       <main style="min-height:100vh;margin:0;background:#f4f1eb;color:#0e1a14;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">

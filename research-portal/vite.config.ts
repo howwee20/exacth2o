@@ -6,7 +6,8 @@ export default defineConfig({
   publicDir: false,
   build: {
     outDir: "../portal-app",
-    emptyOutDir: true,
+    // Keep content-hashed files available to tabs opened before a deployment.
+    emptyOutDir: false,
     // The entry's stylesheet is assets/portal.css; a feature that imports its own stylesheet
     // (Web Analytics) gets a hashed CSS file loaded together with its chunk.
     cssCodeSplit: true,

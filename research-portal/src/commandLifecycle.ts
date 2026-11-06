@@ -115,11 +115,11 @@ export function describeCommandProgress(input: {
         terminal: true,
         title: water ? `${label}: controller reported complete` : `${label}: confirmed by controller`,
         detail: water
-          ? "The controller reported the valve pulse finished. Water delivery is not physically verified; the portal has no flow or weight evidence."
+          ? "The controller reported this request ended. It may have ended early; water delivery is not physically verified."
           : "The controller reported the change applied.",
       };
     case "failed":
-      return { ...base, stage, tone: "bad", terminal: true, title: `${label}: failed`, detail: "The controller or service rejected the request. Nothing further will happen for it." };
+      return { ...base, stage, tone: "bad", terminal: true, title: `${label}: failed`, detail: water ? "The watering request failed. It may have partly watered; verify the controller outcome before retrying." : "The controller or service could not complete the request. Check the applied state before retrying." };
     case "canceled":
       return { ...base, stage, tone: "warning", terminal: true, title: `${label}: canceled`, detail: "The request was canceled before it ran." };
     case "expired":

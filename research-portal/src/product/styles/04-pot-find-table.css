@@ -1,0 +1,97 @@
+/* ---------------------------------------------------------------- pot page */
+
+.px-pot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .px-pot-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.px-reading {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+}
+
+.px-reading strong { font-family: var(--px-mono); font-size: 44px; font-weight: 500; line-height: 1; color: var(--px-ink); }
+.px-reading strong small { margin-left: 4px; font-size: 16px; color: var(--px-muted); }
+.px-reading.is-silent { border-style: dashed; background: repeating-linear-gradient(45deg, #fff, #fff 6px, #f6f2ea 6px, #f6f2ea 10px); }
+.px-reading.is-silent strong { font-family: var(--px-sans); font-size: 22px; font-weight: 700; color: var(--px-amber); }
+
+.px-facts { margin: 0; display: grid; border-top: 1px solid var(--px-rule); }
+.px-facts div { display: grid; grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--px-rule); font-size: 14px; }
+.px-facts dt { color: var(--px-muted); }
+.px-facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- find pot */
+
+.px-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: start center;
+  padding: 10vh 16px 16px;
+  background: rgba(14, 26, 20, 0.36);
+}
+
+.px-dialog {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 10px;
+  background: var(--px-white);
+  box-shadow: 0 30px 80px rgba(14, 26, 20, 0.3);
+}
+
+.px-dialog h2 { margin: 0; font-size: 18px; }
+.px-dialog input {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--px-rule-strong);
+  border-radius: 8px;
+  font: 500 18px var(--px-sans);
+  color: var(--px-ink);
+}
+
+.px-results { display: grid; gap: 4px; max-height: 50vh; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+
+.px-results a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border-radius: 6px;
+  color: var(--px-ink);
+  text-decoration: none;
+}
+
+.px-results a:hover, .px-results a:focus-visible, .px-results a[aria-selected="true"] { background: var(--px-water-soft); outline: none; }
+.px-results b { font-family: var(--px-mono); font-weight: 500; }
+.px-results span { color: var(--px-muted); font-size: 13px; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- tables */
+
+.px-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.px-table th, .px-table td { padding: 8px 10px; border-bottom: 1px solid var(--px-rule); text-align: left; vertical-align: top; }
+.px-table th { color: var(--px-muted); font: 500 11px var(--px-mono); letter-spacing: 0.06em; text-transform: uppercase; background: #faf8f3; }
+.px-table td.px-num { font-family: var(--px-mono); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .px-table-wrap { overflow-x: auto; }
+  .px-table th, .px-table td { white-space: nowrap; }
+}
+
+.px-subtitle a, .px-lede a { color: var(--px-water); font-weight: 600; text-decoration: none; }
+.px-subtitle a:hover, .px-lede a:hover { text-decoration: underline; }
+
+.px-pots-tab { display: grid; gap: 16px; }
+.px-pots-tab .dashboard-main { margin: 0; }
+.px-table a { color: var(--px-water); text-decoration: none; }
+.px-table a:hover { text-decoration: underline; }

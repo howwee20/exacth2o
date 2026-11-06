@@ -1,18 +1,9 @@
-import { AlertTriangle, ArrowLeft, Copy, Loader2, RefreshCw } from "lucide-react";
+import { PortalHomeButton } from "../product/PortalHomeButton";
+import { AlertTriangle, Copy, Loader2, RefreshCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleVisiblePolling } from "../visiblePolling";
 import "./analytics.css";
-import {
-  type AnalyticsDevice,
-  type AnalyticsRange,
-  type AnalyticsReportName,
-  fetchReport,
-  preferReport,
-  ReportCache,
-  type ReportEnvelope,
-  reportKey,
-  serviceOutdatedFailure,
-} from "../websiteAnalyticsClient";
+import { type AnalyticsDevice, type AnalyticsRange, type AnalyticsReportName, fetchReport, preferReport, type ReportEnvelope, reportKey, serviceOutdatedFailure, websiteAnalyticsReportCache } from "../websiteAnalyticsClient";
 import {
   campaignPages,
   campaignUrl,
@@ -46,7 +37,8 @@ import {
 
 // Shared with the public tracker (site-metrics.js) and the home tile.
 const exclusionKey = "exacth2o.analytics.excluded.v2";
-const refreshMs = 60_000;
+// Matches the server's five-minute cache; a faster poll only re-reads it.
+const refreshMs = 5 * 60_000;
 
 const tabs: Array<{ id: AnalyticsReportName; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -58,7 +50,7 @@ const tabs: Array<{ id: AnalyticsReportName; label: string }> = [
   { id: "quality", label: "Data quality" },
 ];
 
-const reportCache = new ReportCache();
+const reportCache = websiteAnalyticsReportCache;
 
 function todayInDetroit() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Detroit", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -642,7 +634,7 @@ export default function WebsiteAnalyticsWorkspace({ onBack }: { onBack: () => vo
 
   return (
     <section className="sales-support-main website-analytics-page analytics-workspace" aria-label="Web Analytics">
-      <button type="button" className="support-back-button" onClick={onBack}><ArrowLeft size={15} />Home</button>
+      <PortalHomeButton onClick={onBack} />
       <header className="support-hero">
         <div>
           <p>ExactH2O website</p>

@@ -1,3 +1,4 @@
+import { vwcQuality } from "../readingQuality";
 import { useEffect, useMemo, useState } from "react";
 import type { PotBinding } from "../benchClient";
 import { sensorBoard } from "../benchLayout";
@@ -79,6 +80,7 @@ export function PocketView({
   refreshFailed,
   outbox,
   onLeave,
+  onManualWater,
 }: {
   potKey: string | null;
   writing: boolean;
@@ -96,6 +98,8 @@ export function PocketView({
   refreshFailed: boolean;
   outbox: Outbox;
   onLeave: () => void;
+  /** Opens manual watering (troubleshooting), at this pot's physical number when one is open. */
+  onManualWater?: (potNumber: number | null) => void;
 }) {
   const screen = usePortalQueryValue("screen");
   const [entry, setEntry] = useState("");
@@ -146,6 +150,12 @@ export function PocketView({
     <header className="px-pocket-top">
       <b>At the bench</b>
       <NetworkChip online={online} waiting={outbox.waiting.length} failed={outbox.failed.length} needsSignIn={outbox.needsSignIn} syncing={outbox.syncing} />
+      {onManualWater ? (
+        <button type="button" className="px-pocket-leave" onClick={() => {
+          const bound = pairingName ? bindings.find((binding) => binding.pairingName === pairingName)?.potNumber : null;
+          onManualWater(bound ?? match?.pairing.pot_number ?? null);
+        }}>Water</button>
+      ) : null}
       <button type="button" className="px-pocket-leave" onClick={onLeave}>Full portal</button>
     </header>
   );
@@ -218,7 +228,7 @@ export function PocketView({
       ? "Watering disabled on the controller"
       : `Controller target ${pairing.wtc_percent_limit}%${sensing ? " · plan sensing only" : ""}`;
     const showTarget = !pairingWateringDisabled(pairing) && !completed;
-    const invalidVwc = last != null && (last.value < 0 || last.value > 100);
+    const invalidVwc = last != null && vwcQuality(last.value) != null;
     const group = experiment ? potGroups(experiment, defaultGrouping(experimentFactors(experiment))).find((item) => item.pairingNames.includes(pairingName)) : null;
     const window = { startMs: nowMs - 6 * 3_600_000, endMs: nowMs };
     const points = (trace?.points ?? []).filter((point) => point.timestampMs >= window.startMs);
@@ -287,7 +297,7 @@ export function PocketView({
             <span>{last ? `${stale ? "Last reading" : "Measured"} ${formatMeasurementTime(last.timestampMs)}` : "Nothing in the last 72 hours"}{last && stale ? ` · ${last.value.toFixed(1)}%` : ""}</span>
             <span>{target}{assignment?.target_vwc_percent != null && !sensing && Math.abs(assignment.target_vwc_percent - pairing.wtc_percent_limit) > 0.001 ? ` · plan ${assignment.target_vwc_percent}%` : ""}</span>
           </div>
-          {invalidVwc && last ? <p className="px-notice is-bad" role="status">Reported {last.value.toFixed(1)}% VWC, outside 0–100%. This reading cannot be used for automatic watering.</p> : null}
+          {invalidVwc && last ? <p className="px-notice is-bad" role="status">Reported {last.value.toFixed(1)}% VWC, outside 0–100%. Review the raw signal and calibration.</p> : null}
           {cached ? (
             <p className="px-notice" role="status">{online ? "The portal could not check for new readings." : "This phone is offline."} The reading above is from the last successful load, not a new one.</p>
           ) : null}

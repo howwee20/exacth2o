@@ -1,0 +1,32 @@
+/* One type system for the public website and both public demos. */
+html:root {
+  --exact-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --exact-font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --sans: var(--exact-font-sans);
+  --serif: var(--exact-font-sans);
+  --mono: var(--exact-font-mono);
+  --portal-sans: var(--exact-font-sans);
+  --portal-serif: var(--exact-font-sans);
+  --portal-mono: var(--exact-font-mono);
+  --px-sans: var(--exact-font-sans);
+  --px-serif: var(--exact-font-sans);
+  --px-font: var(--exact-font-sans);
+  --px-mono: var(--exact-font-mono);
+  font-family: var(--exact-font-sans);
+}
+body, button, input, select, textarea { font-family: var(--exact-font-sans); }
+
+/* Keep the navigation type identical when moving between public pages. */
+body > nav .nav-links a {
+  font-family: var(--exact-font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+/* Controls and tab labels inherit the same family inside the demo shells. */
+.px-shell button, .px-shell input, .px-shell select, .px-shell textarea,
+.px-tabs a, .px-nav a, .px-menu > summary {
+  font-family: var(--exact-font-sans);
+}

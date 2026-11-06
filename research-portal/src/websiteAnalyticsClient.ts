@@ -65,7 +65,14 @@ export class ReportCache {
   get size() {
     return this.entries.size;
   }
+
+  clear() {
+    this.entries.clear();
+  }
 }
+
+/** One cache per page load; cleared on sign-out so reports never carry across accounts. */
+export const websiteAnalyticsReportCache = new ReportCache();
 
 /**
  * Which of two answers for the same report to show. Responses can arrive out of order, and

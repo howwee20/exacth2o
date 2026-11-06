@@ -1,0 +1,18 @@
+name: Database restore proof
+on:
+  pull_request:
+    branches: [ej-supabase-research-portal]
+    paths: ['supabase/migrations/**', 'supabase/baseline/**', 'supabase/tests/**', 'scripts/verify-database-baseline.sh']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.65.5
+      - run: bash scripts/verify-database-baseline.sh

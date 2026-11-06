@@ -8,6 +8,8 @@ export type SettingsCommandType =
   | "create_calibration"
   | "delete_calibration"
   | "apply_calibration"
+  | "remap_pairing_valves"
+  | "restore_pairing_settings"
   | "update_board_config"
   | "update_system_state"
   | "export_data";
@@ -43,6 +45,8 @@ export const stoppedSettingsCommandTypes = new Set<SettingsCommandType>([
   "create_calibration",
   "delete_calibration",
   "apply_calibration",
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "update_board_config",
 ]);
 
@@ -57,6 +61,8 @@ export function settingsCommandLabel(commandType: SettingsCommandType) {
     create_calibration: "Create calibration",
     delete_calibration: "Delete calibration",
     apply_calibration: "Apply calibration",
+    remap_pairing_valves: "Move pots to measured valves",
+    restore_pairing_settings: "Restore pot settings",
     update_board_config: "Update boards",
     update_system_state: "Change system state",
     export_data: "Export data",

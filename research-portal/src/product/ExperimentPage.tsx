@@ -1,16 +1,14 @@
-import { type ReactNode } from "react";
-import { experimentProgressText } from "../experimentMeasurement";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PortalExperiment } from "../experimentRegistry";
 import type { HomeException } from "../homeExceptions";
 import type { ExperimentTab } from "../portalRoute";
 import { PortalLink, useCopyRoute } from "./PortalLink";
-import { experimentModeLine } from "./QuietSpineHome";
 import "./product.css";
 
 export function ExperimentNotFound({ id, loading }: { id: string; loading: boolean }) {
   return (
     <section className="px-page">
-      <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
       {loading ? (
         <p className="px-empty" role="status">Loading the experiment…</p>
       ) : (
@@ -23,62 +21,80 @@ export function ExperimentNotFound({ id, loading }: { id: string; loading: boole
   );
 }
 
-/** Header and tabs shared by Overview, Pots and Record. Each tab is its own URL. */
+/** Quiet experiment header shared by the graph and its record. */
 export function ExperimentPage({
   experiment,
   tab,
-  nowMs,
+  onExport,
   exceptions,
-  tabs,
+  recordAvailable,
   actions,
+  secondaryActions,
   children,
 }: {
   experiment: PortalExperiment;
   tab: ExperimentTab;
-  nowMs: number;
+  onExport?: () => void;
   exceptions: readonly HomeException[];
-  tabs: ExperimentTab[];
+  recordAvailable: boolean;
   actions?: ReactNode;
+  secondaryActions?: ReactNode;
   children: ReactNode;
 }) {
   const { copied, copy } = useCopyRoute();
-  const count = experiment.pairingNames.length;
-  const mode = experimentModeLine(experiment, nowMs);
-  const progress = experimentProgressText(experiment, nowMs);
+  useEffect(() => { const previous = document.title; document.title = `${experiment.name} · ExactH2O`; return () => { document.title = previous; }; }, [experiment.name]);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const [compact, setCompact] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(64);
+  useEffect(() => {
+    const closeOutside = (event: globalThis.PointerEvent) => {
+      if (menuRef.current?.open && !menuRef.current.contains(event.target as Node)) menuRef.current.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside, true);
+    return () => document.removeEventListener("pointerdown", closeOutside, true);
+  }, []);
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>('.px-header');
+    let frame = 0;
+    const update = () => { frame = 0; const height = header?.getBoundingClientRect().height ?? 0; setHeaderHeight(height); setCompact((headerRef.current?.getBoundingClientRect().bottom ?? Infinity) < height); };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    const resize = new ResizeObserver(schedule);
+    if (header) resize.observe(header);
+    if (headerRef.current) resize.observe(headerRef.current);
+    window.addEventListener('scroll', schedule, { passive: true }); window.addEventListener('resize', schedule); update();
+    return () => { window.removeEventListener('scroll', schedule); window.removeEventListener('resize', schedule); resize.disconnect(); cancelAnimationFrame(frame); };
+  }, [experiment.id]);
   const own = exceptions.filter((item) => item.scope !== "experiment" || item.experimentId === experiment.id);
-  const labels: Record<ExperimentTab, string> = { overview: "Overview", pots: "Pots", record: "Record" };
   return (
-    <section className="px-page is-wide" aria-label={experiment.name}>
-      <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
-      <div className="px-exp-head">
+    <section className={`px-page is-wide px-experiment-page ${tab !== "record" ? "is-traces" : ""}`} aria-label={experiment.name}>
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
+      {compact ? <div className="px-compact-experiment" style={{ top: headerHeight }} aria-label="Current experiment">
+        <div><strong>{experiment.name}</strong></div>
+        {onExport ? <button className="px-button is-small" onClick={onExport}>Export</button> : null}
+      </div> : null}
+      <div className="px-exp-head" ref={headerRef}>
         <div className="px-exp-head-row">
           <h1 className="px-title">{experiment.name}</h1>
           <div className="px-toolbar">
             {actions}
-            <button type="button" className="px-button is-small" onClick={() => void copy({ view: "experiment", experiment: experiment.id, tab, pot: null })}>{copied ?? "Copy link"}</button>
+            <details ref={menuRef} className="px-menu px-more-actions" onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+              <summary>More</summary><div className="px-menu-panel" onClick={(event) => { if ((event.target as HTMLElement).closest("a,button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>
+              {tab === "record" ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>Back to traces</PortalLink>
+                : recordAvailable ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "record", pot: null }}>Record</PortalLink> : null}
+              {secondaryActions}
+              <button type="button" onClick={() => void copy({ view: "experiment", experiment: experiment.id, tab, pot: null })}>{copied ?? "Copy link"}</button>
+              </div>
+            </details>
           </div>
         </div>
-        <p className="px-subtitle">
-          <span className="px-mono">{count} {count === 1 ? "pot" : "pots"}</span>
-          {mode ? <span>{mode}</span> : null}
-          {progress ? <span>{progress}</span> : null}
-          {experiment.currentVersion ? <span>Revision {experiment.currentVersion}</span> : null}
-        </p>
-        {experiment.shortDescription ? <p className="px-lede">{experiment.shortDescription}</p> : null}
       </div>
       {own.map((item, index) => (
         <p key={`${item.kind}-${index}`} className={`px-notice ${item.kind === "controller-offline" || item.kind === "activation-failed" ? "is-bad" : ""}`} role="status">
           <span className="px-notice-mark" aria-hidden="true">{item.kind === "refresh-failed" ? "↻" : "!"}</span>
-          <span>{item.sentence}</span>
+          <span>{item.sentence}{item.kind === "measurement-quality" ? <> <PortalLink to={{view: "experiment", experiment: experiment.id, tab: "pots", pot: item.pairingNames[0]}}>Review reading →</PortalLink></> : null}</span>
         </p>
       ))}
-      <nav className="px-tabs" aria-label="Experiment sections">
-        {tabs.map((item) => (
-          <PortalLink key={item} to={{ view: "experiment", experiment: experiment.id, tab: item, pot: null }} aria-current={item === tab ? "page" : undefined}>
-            {labels[item]}
-          </PortalLink>
-        ))}
-      </nav>
       {children}
     </section>
   );

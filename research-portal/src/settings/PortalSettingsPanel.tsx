@@ -1,71 +1,22 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, Lock, LogOut, Menu, Radar, X } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { SettingsFrame } from "./SettingsFrame";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Download, Lock, Radar } from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationStudio } from "../CalibrationStudio";
-import { Commissioning } from "../Commissioning";
-import { SettingsAssistant } from "../SettingsAssistant";
 import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
 import { type PortalRole } from "../portalAccess";
 import { boardConfigsFromPayload, formatIntervalFromMs, formatSecondsFromMs, formatSettingsTimestamp, formatTargetVwc, numberInputString, pairingGroupName, runtimeStateIsFresh, syncedCount } from "../portalFormat";
-import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type QueueSettingsPlan, type SettingsNavItem, type SettingsSection } from "../portalTypes";
+import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type SettingsNavItem, type SettingsSection } from "../portalTypes";
 import { downloadJsonFile } from "../readingsExport";
 import { type CommandProgress, type CommandStage } from "../commandLifecycle";
-import { controllerPillText, controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText } from "../settingsPresentation";
+import { controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
 import { type PairingRow } from "../types";
 
-export const settingsNavItems: SettingsNavItem[] = [
-  {
-    id: "overview",
-    label: "Overview",
-    description: "Whether this experiment is ready, and the next useful thing to do.",
-    group: "Experiment",
-  },
-  {
-    id: "water",
-    label: "Watering",
-    description: "Start or stop the experiment and see the target each group is held to. You choose the targets; calibration only measures how each pot responds.",
-    group: "Experiment",
-  },
-  {
-    id: "pairings",
-    label: "Pairings",
-    description: "Which valve waters which pot, and the target, pulse, and check interval each pot runs with.",
-    group: "Set up",
-  },
-  {
-    id: "autocalibrate",
-    label: "Autocalibrate",
-    description: "Pulses one valve at a time and watches every sensor to find out which valve waters which pot. Nothing changes until you review it.",
-    group: "Set up",
-  },
-  {
-    id: "calibrations",
-    label: "Sensor calibration",
-    description: "Fit a sensor's raw signal to reference water-content measurements.",
-    group: "Set up",
-  },
-  {
-    id: "groups",
-    label: "Groups",
-    description: "Plant groups used for targets, charts, and exports.",
-    group: "Set up",
-  },
-  {
-    id: "exports",
-    label: "Exports",
-    description: "Download readings and configuration files.",
-    group: "Data",
-  },
-  {
-    id: "hardware",
-    label: "Hardware",
-    description: "The sensors and valve outputs this installation reports. Identity comes from the hardware; labels come from people.",
-    group: "Advanced",
-  },
-];
+export { settingsNavItems };
 
 export type PortalSettingsPanelProps = {
   open: boolean;
+  scope?: "installation" | "experiment";
   projectId: string;
   portalRole: PortalRole;
   experiment: PortalExperiment;
@@ -82,14 +33,12 @@ export type PortalSettingsPanelProps = {
   controlNotice: string | null;
   commandProgress: CommandProgress | null;
   controlError: string | null;
-  assistantInitialPrompt?: string;
   operatorEmail: string | null;
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
   onDownloadPairingsCsv: () => void;
   onQueueCommand: QueueControlCommand;
-  onQueueSettingsPlan: QueueSettingsPlan;
   onSignOut: () => void;
 };
 
@@ -111,10 +60,11 @@ function commandStageClass(current: CommandStage, stage: CommandStage) {
 
 export function PortalSettingsPanel({
   open,
+  scope = "experiment",
   projectId,
   portalRole,
   experiment,
-  activeSection,
+  activeSection: requestedSection,
   data,
   runtimeState,
   configState,
@@ -127,23 +77,15 @@ export function PortalSettingsPanel({
   controlNotice,
   commandProgress,
   controlError,
-  assistantInitialPrompt,
-  operatorEmail,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
   onDownloadPairingsCsv,
   onQueueCommand,
-  onQueueSettingsPlan,
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
-  // Autocalibrate commissions the installation, not one experiment's watering, so it
-  // stays available when an experiment is sensing-only. It is administrator-only.
-  const availableSettingsNavItems = (isObservationOnlyExperiment(experiment)
-    ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id))
-    : settingsNavItems
-  ).filter((item) => item.id !== "autocalibrate" || isAdmin);
+  const availableSettingsNavItems = settingsNavItemsFor(scope);
   const availableSettingsNavGroups = Array.from(
     availableSettingsNavItems.reduce((groups, item) => {
       groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
@@ -151,17 +93,28 @@ export function PortalSettingsPanel({
     }, new Map<SettingsNavItem["group"], SettingsNavItem[]>()),
     ([label, items]) => ({ label, items }),
   );
-  const activeItem = availableSettingsNavItems.find((item) => item.id === activeSection) ?? availableSettingsNavItems[0];
+  const activeItem = availableSettingsNavItems.find((item) => item.id === requestedSection) ?? availableSettingsNavItems[0];
+  const activeSection = activeItem.id;
   const boardConfigs = boardConfigsFromPayload(data.latestState?.latest_payload);
   const mirroredBoardCount = configState?.board_count ?? boardConfigs.length;
   const uniqueSensors = new Set(pairings.map((pairing) => pairing.sensor_key).filter(Boolean));
   const uniqueValves = new Set(pairings.map((pairing) => pairing.valve_key).filter(Boolean));
+  const controllerGroupNames = useMemo(() => Array.from(new Set(
+      (configState?.groups ?? [])
+        .map((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return "";
+          const name = (item as Record<string, unknown>).name;
+          return typeof name === "string" ? name.trim() : "";
+        })
+        .filter(Boolean),
+    )).sort((left, right) => left.localeCompare(right, undefined, { numeric: true })),
+  [configState?.groups]);
   const projectGroups = Array.from(
     pairings.reduce((groups, pairing) => {
       const label = pairingGroupName(pairing);
       groups.set(label, [...(groups.get(label) ?? []), pairing]);
       return groups;
-    }, new Map<string, PairingRow[]>()),
+    }, new Map<string, PairingRow[]>(controllerGroupNames.map((name) => [name, []]))),
     ([label, groupPairings]) => ({ label, pairings: groupPairings }),
   );
   const groupOptions = [
@@ -173,6 +126,7 @@ export function PortalSettingsPanel({
     })),
   ];
   const [bulkGroup, setBulkGroup] = useState("all");
+  const [bulkWateringEnabled, setBulkWateringEnabled] = useState(true);
   const [bulkTarget, setBulkTarget] = useState("20");
   const [bulkOpenSeconds, setBulkOpenSeconds] = useState("5");
   const [bulkIntervalSeconds, setBulkIntervalSeconds] = useState("600");
@@ -180,7 +134,8 @@ export function PortalSettingsPanel({
   const [singleNewName, setSingleNewName] = useState(pairings[0]?.name ?? "");
   const [singleGroupName, setSingleGroupName] = useState(pairings[0] ? pairingGroupName(pairings[0]) : "");
   const [deletePairingConfirm, setDeletePairingConfirm] = useState(false);
-  const [singleTarget, setSingleTarget] = useState(pairings[0] ? numberInputString(pairings[0].wtc_percent_limit) : "20");
+  const [singleWateringEnabled, setSingleWateringEnabled] = useState((pairings[0]?.wtc_percent_limit ?? -999999) >= 0);
+  const [singleTarget, setSingleTarget] = useState(pairings[0] && pairings[0].wtc_percent_limit >= 0 ? numberInputString(pairings[0].wtc_percent_limit) : "20");
   const [singleOpenSeconds, setSingleOpenSeconds] = useState(
     pairings[0] ? numberInputString(pairings[0].valve_open_time_ms / 1000) : "5",
   );
@@ -192,8 +147,8 @@ export function PortalSettingsPanel({
   const [newPairingValve, setNewPairingValve] = useState("");
   const [newPairingGroup, setNewPairingGroup] = useState("Experiment pairings");
   const [newPairingTarget, setNewPairingTarget] = useState("20");
-  const [manualGroup, setManualGroup] = useState("all");
-  const [manualSeconds, setManualSeconds] = useState("5");
+  const [newPairingOpenSeconds, setNewPairingOpenSeconds] = useState("5");
+  const [newPairingIntervalSeconds, setNewPairingIntervalSeconds] = useState("600");
   const [groupName, setGroupName] = useState("");
   const [groupType, setGroupType] = useState<"none" | "group" | "block">("none");
   const [removeGroupName, setRemoveGroupName] = useState(projectGroups[0]?.label ?? "");
@@ -205,16 +160,6 @@ export function PortalSettingsPanel({
   const [boardConfirm, setBoardConfirm] = useState(false);
   const [exportDataType, setExportDataType] = useState("readings");
   const selectedPairing = pairings.find((pairing) => pairing.name === singlePairingName) ?? pairings[0] ?? null;
-  const controllerGroupNames = useMemo(() => Array.from(new Set(
-      (configState?.groups ?? [])
-        .map((item) => {
-          if (!item || typeof item !== "object" || Array.isArray(item)) return "";
-          const name = (item as Record<string, unknown>).name;
-          return typeof name === "string" ? name.trim() : "";
-        })
-        .filter(Boolean),
-    )).sort((left, right) => left.localeCompare(right, undefined, { numeric: true })),
-  [configState?.groups]);
   const csvReady = data.readings.length > 0;
   const [navOpen, setNavOpen] = useState(false);
   const presence = controllerPresence({
@@ -241,10 +186,19 @@ export function PortalSettingsPanel({
     ));
   }, [open, pairings]);
 
+  const loadedPairingRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!open || !selectedPairing) return;
-    setSingleTarget(numberInputString(selectedPairing.wtc_percent_limit));
-    setSingleOpenSeconds(numberInputString(selectedPairing.valve_open_time_ms / 1000));
+    if (!open) {
+      loadedPairingRef.current = null;
+      return;
+    }
+    if (!selectedPairing || loadedPairingRef.current === selectedPairing.name) return;
+    // Polling replaces row objects. Keep unsaved inputs until the user changes
+    // pairing or reopens Settings; the reviewed config hash guards stale saves.
+    loadedPairingRef.current = selectedPairing.name;
+    setSingleWateringEnabled(selectedPairing.wtc_percent_limit >= 0);
+    setSingleTarget(selectedPairing.wtc_percent_limit >= 0 ? numberInputString(selectedPairing.wtc_percent_limit) : "20");
+    setSingleOpenSeconds(numberInputString(Math.max(1, selectedPairing.valve_open_time_ms / 1000)));
     setSingleIntervalSeconds(numberInputString(selectedPairing.measurement_interval_ms / 1000, 0));
     setSingleNewName(selectedPairing.name);
     setSingleGroupName(pairingGroupName(selectedPairing));
@@ -276,8 +230,7 @@ export function PortalSettingsPanel({
     event.preventDefault();
     await onQueueCommand("bulk_update_pairings", {
       pairing_names: pairingNamesForGroup(bulkGroup),
-      target_vwc: parseNumber(bulkTarget),
-      open_time_seconds: parseNumber(bulkOpenSeconds),
+      ...(bulkWateringEnabled ? { target_vwc: parseNumber(bulkTarget), open_time_seconds: parseNumber(bulkOpenSeconds) } : { disable_watering: true }),
       measurement_interval_seconds: parseNumber(bulkIntervalSeconds),
     });
   }
@@ -288,8 +241,7 @@ export function PortalSettingsPanel({
       pairing_name: selectedPairing?.name ?? singlePairingName,
       new_name: singleNewName,
       group_name: singleGroupName,
-      target_vwc: parseNumber(singleTarget),
-      open_time_seconds: parseNumber(singleOpenSeconds),
+      ...(singleWateringEnabled ? { target_vwc: parseNumber(singleTarget), open_time_seconds: parseNumber(singleOpenSeconds) } : { disable_watering: true }),
       measurement_interval_seconds: parseNumber(singleIntervalSeconds),
     });
   }
@@ -302,17 +254,9 @@ export function PortalSettingsPanel({
       valve_key: newPairingValve,
       group_name: newPairingGroup,
       target_vwc: parseNumber(newPairingTarget),
-      open_time_seconds: parseNumber(bulkOpenSeconds),
-      measurement_interval_seconds: parseNumber(bulkIntervalSeconds),
+      open_time_seconds: parseNumber(newPairingOpenSeconds),
+      measurement_interval_seconds: parseNumber(newPairingIntervalSeconds),
     });
-  }
-
-  async function submitManualWater(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await onQueueCommand("manual_water", {
-      pairing_names: pairingNamesForGroup(manualGroup),
-      duration_seconds: parseNumber(manualSeconds),
-    }, { confirm: true });
   }
 
   async function submitCreateGroup(event: FormEvent<HTMLFormElement>) {
@@ -333,7 +277,7 @@ export function PortalSettingsPanel({
   async function submitRemoveGroup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onQueueCommand("remove_group", {
-      group_name: removeGroupName || groupName,
+      group_name: removeGroupName,
     }, { confirm: true });
   }
 
@@ -405,7 +349,7 @@ export function PortalSettingsPanel({
           {controllerIsLive ? <CheckCircle2 size={18} aria-hidden="true" /> : <Clock3 size={18} aria-hidden="true" />}
           <div>
             <strong>{controlNotice}</strong>
-            {controllerIsLive ? null : <p>Queued only. The controller is offline, so this has not taken effect. It applies after the controller reconnects and confirms it.</p>}
+            {controllerIsLive ? null : <p>Waiting for controller confirmation.</p>}
           </div>
         </div>
       ) : null}
@@ -422,9 +366,21 @@ export function PortalSettingsPanel({
   );
 
   const renderSection = () => {
+    if (activeSection === "overview" && scope === "experiment") {
+      return <section className="settings-card">
+        <h3>{experiment.name}</h3>
+        <div className="settings-rows">
+          <div className="settings-row"><span>Experiment state</span><strong>{experiment.status?.replace(/_/g, " ") ?? "Not recorded"}</strong></div>
+          <div className="settings-row"><span>Pots in the plan</span><strong>{experiment.pairingNames.length}</strong></div>
+          <div className="settings-row"><span>Mode</span><strong>{experiment.mode === "observation" ? "Sensing only" : experiment.mode === "calibration" ? "Calibration" : "Controlled"}</strong></div>
+          <div className="settings-row"><span>Plan revision</span><strong>{experiment.currentVersion ?? "Not recorded"}</strong></div>
+        </div>
+        <p className="settings-muted">Edit the experiment from its page to review changes to its pots and targets. Controller operation and wiring are managed in Installation settings.</p>
+      </section>;
+    }
     if (activeSection === "overview") {
       const wateringEnabled = runtimeState?.watering_enabled ?? null;
-      const sensingOnly = isObservationOnlyExperiment(experiment);
+      const sensingOnly = scope === "experiment" && isObservationOnlyExperiment(experiment);
       const canOpen = (section: SettingsSection) => availableSettingsNavItems.some((item) => item.id === section);
       const next = overviewNextAction({
         presence: presence.status,
@@ -444,7 +400,7 @@ export function PortalSettingsPanel({
         : <span className="settings-empty-value">{empty}</span>);
       return (
         <>
-          <section className={`settings-next-step is-${next.tone}`} aria-label="Next step">
+          {!controllerIsLive || pairings.length === 0 ? <section className={`settings-next-step is-${next.tone}`} aria-label="Next step">
             <div>
               <p className="settings-next-step-eyebrow">Next step</p>
               <h3>{next.title}</h3>
@@ -455,10 +411,10 @@ export function PortalSettingsPanel({
                 {next.actionLabel} <ArrowRight size={14} aria-hidden="true" />
               </button>
             ) : null}
-          </section>
+          </section> : null}
           <div className="settings-readiness-grid">
             <ReadinessTile
-              title="Experiment"
+              title="Installation"
               tone={!presence.controllerState ? "unknown" : controllerIsLive ? (presence.controllerState === "Running" ? "ok" : "warning") : "unknown"}
               status={presence.controllerState ? `${presence.controllerState}${lastKnown}` : "Not reported"}
               lines={[
@@ -467,11 +423,11 @@ export function PortalSettingsPanel({
               ]}
             />
             <ReadinessTile
-              title="Watering"
-              tone={sensingOnly ? "info" : wateringEnabled == null || !controllerIsLive ? "unknown" : wateringEnabled ? "ok" : "warning"}
-              status={sensingOnly ? "Sensing only" : wateringEnabled == null ? "Not reported" : `${wateringEnabled ? "Automatic" : "Off"}${lastKnown}`}
+              title="Valve activity"
+              tone="info"
+              status={runtimeState?.watering_last_event_at ? "Opening recorded" : "None recorded"}
               lines={[
-                { label: "Last watering", value: when(runtimeState?.watering_last_event_at, "None recorded") },
+                { label: "Last opening", value: when(runtimeState?.watering_last_event_at, "None recorded") },
               ]}
               actionLabel={canOpen("water") ? "Open Watering" : undefined}
               onAction={() => onSectionChange("water")}
@@ -493,7 +449,7 @@ export function PortalSettingsPanel({
               lines={[
                 { label: "Checked at the bench", value: <span className="settings-empty-value">Not yet</span> },
               ]}
-              actionLabel={canOpen("pairings") ? "Open Pairings" : isAdmin && canOpen("autocalibrate") ? "Open Autocalibrate" : undefined}
+              actionLabel={canOpen("pairings") ? "Open Pairings" : canOpen("autocalibrate") ? "Open Autocalibrate" : undefined}
               onAction={() => onSectionChange(canOpen("pairings") ? "pairings" : "autocalibrate")}
             />
           </div>
@@ -533,20 +489,6 @@ export function PortalSettingsPanel({
             </div>
           </details>
           {commandStatusPanel}
-        </>
-      );
-    }
-
-    if (activeSection === "assistant") {
-      return (
-        <>
-          {commandStatusPanel}
-          <SettingsAssistant
-            projectId={projectId}
-            initialPrompt={assistantInitialPrompt}
-            controlBusy={controlBusy}
-            onApply={onQueueSettingsPlan}
-          />
         </>
       );
     }
@@ -598,16 +540,13 @@ export function PortalSettingsPanel({
           )}
           <div className="settings-toolbar">
             <p>
-              These pairings were entered by hand and have not been checked at the bench.
-              {isAdmin ? " Autocalibrate can check them; this table only changes after you review and apply its result." : ""}
+              Sensor and valve addresses identify each connection.
             </p>
             <div className="settings-toolbar-actions">
-              {isAdmin ? (
-                <button type="button" className="settings-secondary-button" onClick={() => onSectionChange("autocalibrate")}>
-                  <Radar size={14} aria-hidden="true" />
-                  Check with Autocalibrate
-                </button>
-              ) : null}
+              <button type="button" className="settings-secondary-button" onClick={() => onSectionChange("autocalibrate")}>
+                <Radar size={14} aria-hidden="true" />
+                Check with Autocalibrate
+              </button>
               <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
                 <Download size={14} aria-hidden="true" />
                 Pairings CSV
@@ -653,12 +592,21 @@ export function PortalSettingsPanel({
                     </select>
                   </label>
                   <label>
-                    Target VWC %
-                    <input type="number" min="0" max="80" step="0.1" value={singleTarget} onChange={(event) => setSingleTarget(event.target.value)} required />
+                    Watering
+                    <select value={singleWateringEnabled ? "on" : "off"} onChange={(event) => setSingleWateringEnabled(event.target.value === "on")}>
+                      <option value="off">Off · sense only</option>
+                      <option value="on">On · water to target</option>
+                    </select>
                   </label>
+                  {singleWateringEnabled ? (
+                    <label>
+                      Target VWC %
+                      <input type="number" min="0" max="80" step="0.1" value={singleTarget} onChange={(event) => setSingleTarget(event.target.value)} required />
+                    </label>
+                  ) : null}
                   <label>
                     Pulse length (sec)
-                    <input type="number" min="1" max="120" step="1" value={singleOpenSeconds} onChange={(event) => setSingleOpenSeconds(event.target.value)} required />
+                    <input type="number" min="1" max="120" step="1" value={singleOpenSeconds} onChange={(event) => setSingleOpenSeconds(event.target.value)} disabled={!singleWateringEnabled} required={singleWateringEnabled} />
                   </label>
                   <label>
                     Check every (sec)
@@ -705,12 +653,21 @@ export function PortalSettingsPanel({
                 </label>
                 <div className="settings-field-grid">
                   <label>
-                    Target VWC %
-                    <input type="number" min="0" max="80" step="0.1" value={bulkTarget} onChange={(event) => setBulkTarget(event.target.value)} required />
+                    Watering
+                    <select value={bulkWateringEnabled ? "on" : "off"} onChange={(event) => setBulkWateringEnabled(event.target.value === "on")}>
+                      <option value="off">Off · sense only</option>
+                      <option value="on">On · water to target</option>
+                    </select>
                   </label>
+                  {bulkWateringEnabled ? (
+                    <label>
+                      Target VWC %
+                      <input type="number" min="0" max="80" step="0.1" value={bulkTarget} onChange={(event) => setBulkTarget(event.target.value)} required />
+                    </label>
+                  ) : null}
                   <label>
                     Pulse length (sec)
-                    <input type="number" min="1" max="120" step="1" value={bulkOpenSeconds} onChange={(event) => setBulkOpenSeconds(event.target.value)} required />
+                    <input type="number" min="1" max="120" step="1" value={bulkOpenSeconds} onChange={(event) => setBulkOpenSeconds(event.target.value)} disabled={!bulkWateringEnabled} required={bulkWateringEnabled} />
                   </label>
                   <label>
                     Check every (sec)
@@ -760,35 +717,22 @@ export function PortalSettingsPanel({
                   Initial target VWC %
                   <input type="number" min="0" max="80" step="0.1" value={newPairingTarget} onChange={(event) => setNewPairingTarget(event.target.value)} required />
                 </label>
+                <div className="settings-field-grid is-two">
+                  <label>
+                    Pulse length (sec)
+                    <input type="number" min="1" max="120" step="1" value={newPairingOpenSeconds} onChange={(event) => setNewPairingOpenSeconds(event.target.value)} required />
+                  </label>
+                  <label>
+                    Check every (sec)
+                    <input type="number" min="30" max="3600" step="30" value={newPairingIntervalSeconds} onChange={(event) => setNewPairingIntervalSeconds(event.target.value)} required />
+                  </label>
+                </div>
                 <button type="submit" className="settings-secondary-button" disabled={controlBusy}>
                   Add pairing
                 </button>
               </form>
             </section>
           </div>
-        </>
-      );
-    }
-
-    if (activeSection === "autocalibrate") {
-      // Real hardware commissioning. Pulses go through the control-command service;
-      // pairing changes go through the same reviewed settings batch as the rest of Settings.
-      return (
-        <>
-          {commandStatusPanel}
-          <Commissioning
-            projectId={projectId}
-            deviceId={data.latestState?.device_id ?? runtimeState?.device_id ?? configState?.device_id ?? null}
-            operator={operatorEmail}
-            portalRole={portalRole}
-            experimentId={experiment.id}
-            experimentName={experiment.name}
-            pairings={pairings}
-            configHash={configState?.config_hash?.trim() || null}
-            controlBusy={controlBusy}
-            controllerOnline={controllerIsLive}
-            onQueueSettingsPlan={onQueueSettingsPlan}
-          />
         </>
       );
     }
@@ -814,10 +758,6 @@ export function PortalSettingsPanel({
         <>
           {commandStatusPanel}
           <QueuedChangeNote presence={presence} />
-          <p className="settings-principle">
-            <strong>You choose the targets.</strong> Calibration and Autocalibrate only measure how each pot responds to
-            water; they never pick a biological target for you.
-          </p>
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Current targets</h3>
@@ -830,7 +770,7 @@ export function PortalSettingsPanel({
                   return (
                     <div className="settings-row" key={group.label}>
                       <span>{group.label}</span>
-                      <strong>{targets.join(", ")}</strong>
+                      <strong>{targets.join(", ") || "No pots"}</strong>
                     </div>
                   );
                 })}
@@ -838,29 +778,13 @@ export function PortalSettingsPanel({
             </section>
             <section className="settings-card">
               <h3>Manual watering</h3>
-              <form className="settings-form" onSubmit={submitManualWater}>
-                <label>
-                  Group
-                  <select value={manualGroup} onChange={(event) => setManualGroup(event.target.value)}>
-                    {groupOptions.map((group) => (
-                      <option value={group.value} key={group.value}>
-                        {group.label} ({group.pairings.length})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Duration seconds
-                  <input type="number" min="1" max="60" step="1" value={manualSeconds} onChange={(event) => setManualSeconds(event.target.value)} required />
-                </label>
-                <button type="submit" className="settings-primary-button" disabled title="Manual watering requires the physical valve fail-safe check">
-                  Manual watering locked
-                </button>
-              </form>
-              <p className="settings-muted">Targets and automatic watering settings are live. A bounded manual pulse unlocks only after the physical valve-close check.</p>
+              <p className="settings-muted">Available after valve shutoff is verified at the bench.</p>
+              <button type="button" className="settings-locked-button" disabled>
+                <Lock size={14} aria-hidden="true" /> Awaiting bench check
+              </button>
             </section>
             <section className="settings-card">
-              <h3>Pulse and safety limits</h3>
+              <h3>Allowed setting ranges</h3>
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>Pulse length</span>
@@ -879,10 +803,11 @@ export function PortalSettingsPanel({
                   <strong><StatusChip tone="unknown">Locked</StatusChip></strong>
                 </div>
               </div>
-              <p className="settings-muted">The controller waters in short pulses, then waits and measures again before deciding whether to pulse again. Per-pot pulse length and check interval are set under Pairings.</p>
+              <p className="settings-muted">The controller waits and measures again between watering pulses.</p>
             </section>
             <section className="settings-card">
-              <h3>Experiment state</h3>
+              <h3>Controller state</h3>
+              <p className="settings-muted">Starting or stopping affects every experiment on this controller.</p>
               <div className="settings-rows">
                 <div className="settings-row">
                   <span>{controllerIsLive ? "Controller" : "Last known state"}</span>
@@ -907,14 +832,14 @@ export function PortalSettingsPanel({
                   checked={destructiveConfirm}
                   onChange={(event) => setDestructiveConfirm(event.target.checked)}
                 />
-                <span>Confirm experiment stop</span>
+                <span>Confirm stop for the whole controller</span>
               </label>
               <div className="settings-action-stack">
                 <button type="button" onClick={() => void queueSystemState("running")} disabled={controlBusy}>
-                  <CheckCircle2 size={14} /> Start experiment
+                  <CheckCircle2 size={14} /> Start controller
                 </button>
                 <button type="button" onClick={() => void queueSystemState("stopped")} disabled={controlBusy || !destructiveConfirm}>
-                  <AlertTriangle size={14} /> Stop experiment
+                  <AlertTriangle size={14} /> Stop controller
                 </button>
               </div>
             </section>
@@ -955,13 +880,13 @@ export function PortalSettingsPanel({
                 <label>
                   Group
                   <select value={removeGroupName} onChange={(event) => setRemoveGroupName(event.target.value)}>
-                    <option value="">Type custom group above</option>
+                    <option value="">Choose a group</option>
                     {groupOptions.filter((group) => group.value !== "all").map((group) => (
                       <option value={group.label} key={group.value}>{group.label}</option>
                     ))}
                   </select>
                 </label>
-                <button type="submit" className="settings-danger-button" disabled={controlBusy || (!removeGroupName && !groupName)}>
+                <button type="submit" className="settings-danger-button" disabled={controlBusy || !removeGroupName}>
                   Remove group
                 </button>
               </form>
@@ -981,7 +906,7 @@ export function PortalSettingsPanel({
                 <div className="settings-rows">
                   <div className="settings-row">
                     <span>Pots</span>
-                    <strong>{group.pairings.map((pairing) => pairing.pot_number).join(", ")}</strong>
+                    <strong>{group.pairings.map((pairing) => pairing.pot_number).join(", ") || "None"}</strong>
                   </div>
                   <div className="settings-row">
                     <span>Count</span>
@@ -989,7 +914,7 @@ export function PortalSettingsPanel({
                   </div>
                   <div className="settings-row">
                     <span>Targets</span>
-                    <strong>{Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit)))).join(", ")}</strong>
+                    <strong>{Array.from(new Set(group.pairings.map((pairing) => formatTargetVwc(pairing.wtc_percent_limit)))).join(", ") || "—"}</strong>
                   </div>
                 </div>
               </section>
@@ -1189,7 +1114,7 @@ export function PortalSettingsPanel({
           <div className="settings-grid">
             <section className="settings-card">
               <h3>Readings</h3>
-              <p className="settings-muted">Downloads the clean readings currently loaded in the portal.</p>
+              <p className="settings-muted">Download the readings currently loaded in the portal.</p>
               <button type="button" className="settings-secondary-button" onClick={onPrepareCsvDownload} disabled={exportingCsv || !csvReady}>
                 <Download size={14} />
                 {exportingCsv ? "Preparing..." : "Prepare readings CSV"}
@@ -1233,82 +1158,10 @@ export function PortalSettingsPanel({
     return null;
   };
 
-  const selectSection = (section: SettingsSection) => {
-    onSectionChange(section);
-    setNavOpen(false);
-  };
-
-  return (
-    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label="Portal settings">
-      <section className={`settings-modal${navOpen ? " is-nav-open" : ""}`}>
-        <div className="settings-mobile-bar">
-          <button
-            type="button"
-            onClick={() => setNavOpen((current) => !current)}
-            aria-expanded={navOpen}
-            aria-controls="settings-sidebar"
-          >
-            {navOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
-            Sections
-          </button>
-          <strong>{activeItem.label}</strong>
-          <button type="button" onClick={onClose} aria-label="Close settings">
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
-        {navOpen ? <button type="button" className="settings-nav-scrim" aria-label="Close sections" onClick={() => setNavOpen(false)} /> : null}
-        <aside className="settings-sidebar" id="settings-sidebar" aria-label="Settings sections">
-          <button type="button" className="settings-back-button" onClick={onClose}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            Back to portal
-          </button>
-          <nav>
-            {availableSettingsNavGroups.map((group) => (
-              <div className="settings-sidebar-group" key={group.label}>
-                <p className="settings-sidebar-group-label">{group.label}</p>
-                {group.items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={item.id === activeItem.id ? "is-active" : ""}
-                      aria-current={item.id === activeItem.id ? "page" : undefined}
-                      onClick={() => selectSection(item.id)}
-                    >
-                      <span>
-                        <strong>{item.label}</strong>
-                      </span>
-                    </button>
-                ))}
-              </div>
-            ))}
-          </nav>
-          <div className="settings-account-actions">
-            <button type="button" className="settings-sign-out-button" onClick={onSignOut}>
-              <LogOut size={16} aria-hidden="true" />
-              Sign out
-            </button>
-          </div>
-        </aside>
-        <section className={`settings-content is-${activeSection}`}>
-          <header className="settings-content-header">
-            <div>
-              <p className="settings-content-eyebrow">{activeSection === "assistant" ? "Assistant" : activeItem.group}</p>
-              <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
-              <p className="settings-content-lede">
-                {activeSection === "assistant"
-                  ? "Describe a settings change in plain language, then review it before anything is queued."
-                  : activeItem.description}
-              </p>
-            </div>
-            <div className="settings-content-actions">
-              <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip>
-            </div>
-          </header>
-          <div className="settings-section-body">
-            {renderSection()}
-          </div>
-        </section>
-      </section>
-    </div>
-  );
+  return <SettingsFrame
+    scope={scope} experiment={experiment} navOpen={navOpen} setNavOpen={setNavOpen}
+    activeItem={activeItem} activeSection={activeSection}
+    availableSettingsNavGroups={availableSettingsNavGroups} presence={presence}
+    onClose={onClose} onSectionChange={onSectionChange} onSignOut={onSignOut}
+  >{renderSection()}</SettingsFrame>;
 }

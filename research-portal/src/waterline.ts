@@ -1,3 +1,4 @@
+import { vwcQuality } from "./readingQuality";
 import type { PotGroup } from "./experimentFactors";
 import { freshnessThresholds, validCadenceMs } from "./measurementFreshness";
 import { gapThresholdMs, resolveCadence } from "./seriesStatistics";
@@ -47,8 +48,8 @@ export const measures: Record<Measure, MeasureInfo> = {
   temperature: {
     id: "temperature",
     label: "Temperature",
-    unit: "as reported by the sensor",
-    shortUnit: "",
+    unit: "sensor units",
+    shortUnit: "sensor units",
     digits: 1,
     hasTargets: false,
     definition: "The sensor's temperature channel (temperature), as reported.",
@@ -56,8 +57,8 @@ export const measures: Record<Measure, MeasureInfo> = {
   ec: {
     id: "ec",
     label: "Electrical conductivity",
-    unit: "as reported by the sensor",
-    shortUnit: "",
+    unit: "sensor units",
+    shortUnit: "sensor units",
     digits: 2,
     hasTargets: false,
     definition: "The sensor's electrical conductivity channel (electrical_conductivity), as reported.",
@@ -201,7 +202,7 @@ export function groupWaterline(
     const points = trace?.points ?? [];
     for (const point of points) {
       if (point.timestampMs < window.startMs || point.timestampMs > window.endMs) continue;
-      if (trace?.measure === "vwc" && (point.value < 0 || point.value > 100)) continue;
+      if (trace?.measure === "vwc" && vwcQuality(point.value) != null) continue;
       const index = Math.min(count - 1, Math.floor((point.timestampMs - first) / bucketMs));
       const cell = sums[index].get(name) ?? { sum: 0, n: 0 };
       cell.sum += point.value;
@@ -212,7 +213,7 @@ export function groupWaterline(
     const lastPoint = [...points].reverse().find((point) => point.timestampMs <= options.asOfMs) ?? null;
     if (lastPoint && (lastObservationMs == null || lastPoint.timestampMs > lastObservationMs)) lastObservationMs = lastPoint.timestampMs;
     const { currentMs } = freshnessThresholds(trace?.intervalMs ?? null);
-    const invalid = lastPoint != null && trace?.measure === "vwc" && (lastPoint.value < 0 || lastPoint.value > 100);
+    const invalid = lastPoint != null && trace?.measure === "vwc" && vwcQuality(lastPoint.value) != null;
     const isCurrent = lastPoint != null && !invalid && options.asOfMs - lastPoint.timestampMs <= currentMs;
     if (isCurrent && lastPoint) {
       reporting += 1;

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -31,7 +32,7 @@ const [bundle, applications, appSource, stressImage, phenotypingImage, greenhous
 ]);
 
 const requiredPortalCopy = [
-  "New Experiment",
+  "New experiment",
   "Pots in another active experiment stay visible but cannot be selected.",
   "Marker color matches VWC line",
 ];
@@ -55,10 +56,14 @@ const forbiddenPortalCopy = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "RD_WORKER_TOKEN",
 ];
+// Settings → Autocalibrate: the real-valve confirmation, the safety checks, and the
+// separate facts a result must pass through before it is relied on.
 const requiredCommissioningCopy = [
-  "REAL HARDWARE",
-  "Run preflight",
-  "Physical validation",
+  "Open real valves",
+  "Run safety checks",
+  "Controller-verified",
+  "Delivery confirmed",
+  "Hold to water",
 ];
 const forbiddenApplicationsCopy = [
   "Hover or click a run",
@@ -73,8 +78,7 @@ const forbiddenApplicationsCopy = [
   ">72 hr</text>",
 ];
 const requiredApplicationsCopy = [
-  'src="/applications-demo-app/index.html"',
-  'title="ExactH2O experiment portal with sample readings"',
+  'title="ExactH2O experiment portal"',
   "/applications-plant-stress-20260804.jpg",
   "/applications-plant-phenotyping-20260804.jpg",
   "/applications-research-greenhouse-20260804.jpg",
@@ -88,8 +92,9 @@ if (missingPortalCopy.length) {
 }
 
 const requiredMarkerColorSource = [
-  'const seriesColor = pairing ? colorForPairing(pairing) : "#64748b";',
-  "style={{ fill: seriesColor, stroke: seriesColor }}",
+  'const wateringColor = (series: ChartSeries) => series.color;',
+  'const markerColor = wateringColor(marker.series);',
+  'context.strokeStyle = markerColor;',
 ];
 const missingMarkerColorSource = requiredMarkerColorSource.filter((value) => !appSource.includes(value));
 if (missingMarkerColorSource.length) {
@@ -120,13 +125,17 @@ if (missingApplicationsCopy.length) {
 
 // The public demo must stay a separate, network-disabled build.
 const demoFrame = applications.match(/<iframe\b[^>]*class="portal-demo-frame"[^>]*>/)?.[0];
+const expectedDemoVersion = createHash("sha256").update(demoPage).digest("hex").slice(0, 12);
+if (!demoFrame?.includes(`src="/applications-demo-app/index.html?v=${expectedDemoVersion}"`)) {
+  throw new Error("Applications demo URL must match its committed release version.");
+}
 const sandbox = demoFrame?.match(/sandbox="([^"]*)"/)?.[1].split(/\s+/) || [];
 // The demo is below the fold; it must not compete with the page's first render.
 if (!/\bloading="lazy"/.test(demoFrame || "")) {
   throw new Error("Applications demo iframe must load lazily.");
 }
 if (!sandbox.includes("allow-scripts") || sandbox.some((token) =>
-  !["allow-scripts", "allow-same-origin", "allow-downloads"].includes(token))) {
+  !["allow-scripts", "allow-same-origin", "allow-downloads", "allow-modals"].includes(token))) {
   throw new Error("Applications demo iframe has missing or unexpected sandbox permissions.");
 }
 const demoPolicy = demoPage.match(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*content="([^"]+)"/)?.[1];
@@ -139,7 +148,7 @@ for (const name of ["connect-src", "form-action", "base-uri"]) {
     throw new Error(`Applications demo must disable ${name}.`);
   }
 }
-if (!demoPage.includes('src="/applications-demo-app/assets/demo.js"')) {
+if (!/src="\/applications-demo-app\/assets\/demo-[a-zA-Z0-9_-]+\.js"/.test(demoPage)) {
   throw new Error("Applications demo must load its own bundle.");
 }
 

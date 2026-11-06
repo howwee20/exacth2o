@@ -7,7 +7,8 @@ import type { PairingRow, SensorReading } from "../types";
 import { bucketSizeMs, groupWaterline, potTraces, waterlineDomain, waterlineSegments } from "../waterline";
 import { PortalLink } from "./PortalLink";
 import { TimeSeriesChart, type ChartBand, type ChartLine } from "./TimeSeriesChart";
-import { GroupGlyph, formatMeasureValue } from "./WaterlineOverview";
+import { GroupGlyph } from "./WaterlineOverview";
+import { formatMeasureValue } from "../measurementPresentation";
 import "./product.css";
 
 /** Installation trends: every running experiment's groups in Waterline form, on one time axis. */
@@ -41,9 +42,9 @@ export function TrendsView({
 
   return (
     <section className="px-page is-wide" aria-label="Trends">
-      <PortalLink className="px-crumb" to={{ view: "home" }}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
       <h1 className="px-title">Trends</h1>
-      <p className="px-lede">Calibrated VWC for every running experiment over the last {Math.round(loadedWindowMs / 3_600_000)} hours. Lines are group medians of pots; bands are the lowest to highest pot. Open an experiment for its targets, pots and record.</p>
+      <p className="px-lede">Last {Math.round(loadedWindowMs / 3_600_000)} hours · calibrated VWC. Lines show group medians; bands show the range across pots.</p>
       {blocks.length ? blocks.map(({ experiment, grouping, lines }) => {
         const domain = waterlineDomain(lines);
         const chartLines: ChartLine[] = lines.map((line) => ({
@@ -64,7 +65,7 @@ export function TrendsView({
         return (
           <article key={experiment.id} className="px-card" style={{ padding: "14px 16px", display: "grid", gap: 8 }}>
             <div className="px-toolbar">
-              <PortalLink className="px-wl-name" to={{ view: "experiment", experiment: experiment.id, tab: "overview", pot: null }}>{experiment.name}</PortalLink>
+              <PortalLink className="px-wl-name" to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>{experiment.name}</PortalLink>
               <span className="px-wl-caps">{groupingLabel(grouping)}</span>
               <span className="px-spacer" />
               <span className="px-muted px-small">{reporting} of {experiment.pairingNames.length} pots reporting</span>
@@ -82,7 +83,8 @@ export function TrendsView({
               bands={bands}
               domain={window}
               yDomain={domain}
-              height={170}
+              height={220}
+              responsive
               ariaLabel={`${experiment.name}: group medians of calibrated VWC, last ${Math.round(loadedWindowMs / 3_600_000)} hours.`}
               readout={(t) => ({
                 title: formatMeasurementTime(t) ?? "",

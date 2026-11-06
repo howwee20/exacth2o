@@ -1,3 +1,4 @@
+import type { SettingsNavItem } from "./portalTypes";
 import type { PairingRow, SensorReading } from "./types";
 
 export type StatusTone = "ok" | "warning" | "bad" | "unknown" | "info";
@@ -263,4 +264,67 @@ export function overviewNextAction(input: OverviewInput): NextAction {
     section: null,
     actionLabel: null,
   };
+}
+
+export const settingsNavItems: SettingsNavItem[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    description: "Status and configuration for the selected workspace.",
+    group: "Experiment",
+  },
+  {
+    id: "water",
+    label: "Watering",
+    description: "Targets and operation for this installation.",
+    group: "Experiment",
+  },
+  {
+    id: "pairings",
+    label: "Pairings",
+    description: "Connect pots to sensors and valves. Set targets and timing.",
+    group: "Set up",
+  },
+  {
+    id: "autocalibrate",
+    label: "Autocalibrate",
+    description: "Test valve-to-pot connections, then review the results before applying them.",
+    group: "Set up",
+  },
+  {
+    id: "calibrations",
+    label: "Sensor calibration",
+    description: "Fit a sensor's raw signal to reference water-content measurements.",
+    group: "Set up",
+  },
+  {
+    id: "groups",
+    label: "Groups",
+    description: "Plant groups used for targets, charts, and exports.",
+    group: "Set up",
+  },
+  {
+    id: "exports",
+    label: "Exports",
+    description: "Download readings and configuration files.",
+    group: "Data",
+  },
+  {
+    id: "hardware",
+    label: "Hardware",
+    description: "Sensors, valves, and controller configuration.",
+    group: "Advanced",
+  },
+];
+
+/**
+ * Settings sections for a scope. Autocalibrate checks the installation's valves, not one
+ * experiment's watering, so it is offered in both scopes (also when an experiment is
+ * sensing-only). Settings opens only for project operators, researchers and
+ * administrators: the same roles the server allows to run it.
+ */
+export function settingsNavItemsFor(scope: "installation" | "experiment") {
+  return scope === "experiment"
+    ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id))
+    : settingsNavItems;
 }

@@ -1,3 +1,4 @@
+import { checkFieldCommands } from '../_shared/field-command-policy.mjs';
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
@@ -6,6 +7,8 @@ import {
   manualWaterIntakeEnabled,
 } from "./command-policy.mjs";
 import { controllerCommandTypes } from "../_shared/platform-capabilities.mjs";
+import { MAX_TOPOLOGY_PAYLOAD_BYTES, validateRemapPayload, validateRestorePayload } from "./topology-policy.mjs";
+import { assertAutocalibrationCommandsAllowed, isFieldInstallation } from '../_shared/installation-field-map.mjs';
 import {
   ensureApprovedOperation,
   markOperationFailed,
@@ -22,6 +25,8 @@ type CommandType =
   | "create_calibration"
   | "delete_calibration"
   | "apply_calibration"
+  | "remap_pairing_valves"
+  | "restore_pairing_settings"
   | "manual_water"
   | "update_board_config"
   | "initialize_sensors"
@@ -37,6 +42,7 @@ type ControlCommandPayload = {
   experiment_id?: string | null;
   operation_id?: string | null;
   operation_intent?: string | null;
+  workflow?: string | null;
   command_type?: CommandType;
   payload?: unknown;
   batch_commands?: Array<{
@@ -75,6 +81,8 @@ const commandTypes = new Set<CommandType>(
 
 const destructiveCommands = new Set<CommandType>([
   "delete_pairing",
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "manual_water",
   "update_board_config",
   "initialize_sensors",
@@ -90,6 +98,8 @@ const stoppedConfigurationCommands = new Set<CommandType>([
   "create_calibration",
   "delete_calibration",
   "apply_calibration",
+  "remap_pairing_valves",
+  "restore_pairing_settings",
   "update_board_config",
 ]);
 
@@ -184,7 +194,8 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
   }
 
   const jsonSize = JSON.stringify(rawPayload).length;
-  if (jsonSize > 20_000) throw new Error("Command payload is too large");
+  const topology = commandType === "remap_pairing_valves" || commandType === "restore_pairing_settings";
+  if (jsonSize > (topology ? MAX_TOPOLOGY_PAYLOAD_BYTES : 20_000)) throw new Error("Command payload is too large");
 
   const payload: Record<string, unknown> = {};
   let requiresConfirmation = destructiveCommands.has(commandType);
@@ -280,6 +291,14 @@ function validateCommand(commandType: CommandType, rawPayload: unknown): Validat
     } else {
       requiresConfirmation = true;
     }
+  }
+
+  if (commandType === "remap_pairing_valves") {
+    Object.assign(payload, validateRemapPayload(rawPayload));
+  }
+
+  if (commandType === "restore_pairing_settings") {
+    Object.assign(payload, validateRestorePayload(rawPayload));
   }
 
   if (commandType === "manual_water") {
@@ -490,6 +509,15 @@ serve(async (request) => {
     return jsonResponse({ error: "Experiment settings access is required for portal controls" }, 403, origin);
   }
 
+  const autocalibrating = body.workflow === 'autocalibration' || /^Autocalibrat/i.test(operationIntent);
+  const guardAutocalibration = async (commands: Array<{command_type?: string; commandType?: string; payload: Record<string, unknown>}>) => {
+    await checkFieldCommands(admin, projectId, deviceId, commands);
+    if (!autocalibrating || !isFieldInstallation(projectId, deviceId)) return;
+    const {data, error} = await admin.from('device_config_state').select('pairings').eq('project_id', projectId).eq('device_id', deviceId).maybeSingle();
+    if (error || !Array.isArray(data?.pairings)) throw new Error('The current valve map could not be checked.');
+    assertAutocalibrationCommandsAllowed({projectId, deviceId, commands, pairings: data.pairings});
+  };
+
   if (isBatchRequest) {
     const expectedConfigHash = clean(body.expected_config_hash, 128);
     const expectedControllerState = clean(body.expected_controller_state, 24).toLowerCase();
@@ -546,6 +574,7 @@ serve(async (request) => {
           requires_confirmation: item.requiresConfirmation,
         });
       }
+      await guardAutocalibration(validatedBatch);
     } catch (error) {
       return jsonResponse({ error: errorMessage(error) }, 400, origin);
     }
@@ -633,6 +662,11 @@ serve(async (request) => {
   const accessDecision = commandAccessDecision(access.role, validated.commandType);
   if (!accessDecision.allowed) {
     return jsonResponse({ error: accessDecision.error }, accessDecision.status, origin);
+  }
+  try {
+    await guardAutocalibration([{commandType: validated.commandType, payload: validated.payload}]);
+  } catch (error) {
+    return jsonResponse({error: errorMessage(error)}, 409, origin);
   }
 
   const now = new Date().toISOString();

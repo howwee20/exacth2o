@@ -1,5 +1,7 @@
+import type { TargetGeometry } from '../product/TargetControl';
+import { timeTicks, timeZoneLabel } from "../timeAxis";
 import { Loader2 } from "lucide-react";
-import { type KeyboardEvent, memo, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, memo, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { healthNumber } from "../healthValues";
 import { formatDuration, formatMeasurementTime } from "../measurementFreshness";
 import { plantGroupLabel, treatmentLabel } from "../portalPresentation";
@@ -17,12 +19,13 @@ import { axisLabel, buildWateringOverlayMarkers, type ChartBounds, chartBounds, 
 
 const noWateringEvents: HealthWateringEvent[] = [];
 const noTargetLines: ChartTargetLine[] = [];
+const noExtraValues: readonly number[] = [];
 const targetColors: Record<ChartTargetLine["tone"], string> = {
   control: "#1d4ed8",
   drought: "#c2410c",
   neutral: "#334155",
 };
-const wateringColor = (series: ChartSeries) => (series.treatment === "drought" ? "#f97316" : "#2563eb");
+const wateringColor = (series: ChartSeries) => series.color;
 
 type SensorCanvasChartProps = {
   series: ChartSeries[];
@@ -41,6 +44,14 @@ type SensorCanvasChartProps = {
   describeTarget?: (series: ChartSeries) => string | null;
   /** Extra space above the plot for an overlaid heading. */
   headerSpace?: number;
+  /** Interactive target controls drawn above the plot; they replace the plain target labels. */
+  targetLayer?: (geometry: TargetGeometry) => ReactNode;
+  /** Values the y-axis should include besides the drawn target lines (e.g. a previewed target). */
+  extraTargetValues?: readonly number[];
+  /** Hold the y-axis still, e.g. while a target is being dragged. */
+  freezeScale?: boolean;
+  affectedNames?: Set<string>;
+  onChartMoment?: (timestampMs: number) => void;
 };
 
 function SensorCanvasChartComponent({
@@ -56,7 +67,9 @@ function SensorCanvasChartComponent({
   targetLines = noTargetLines,
   describeTarget,
   headerSpace = 0,
+  targetLayer, extraTargetValues = noExtraValues, freezeScale = false, affectedNames, onChartMoment,
 }: SensorCanvasChartProps) {
+  const [geometry, setGeometry] = useState<ChartBounds | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const boundsRef = useRef<ChartBounds | null>(null);
@@ -76,7 +89,11 @@ function SensorCanvasChartComponent({
     ])),
     [visibleSeries],
   );
-  const targetValues = useMemo(() => targetLines.map((line) => line.value), [targetLines]);
+  const targetValues = useMemo(() => [...targetLines.map((line) => line.value), ...extraTargetValues], [targetLines, extraTargetValues]);
+  // The axis captured when a drag begins; every redraw during the gesture reuses it.
+  const frozenDomainRef = useRef<ChartBounds | null>(null);
+  if (!freezeScale) frozenDomainRef.current = null;
+  else if (!frozenDomainRef.current) frozenDomainRef.current = boundsRef.current;
   const allWateringMarkers = useMemo(
     () => buildWateringOverlayMarkers(wateringEvents, visibleSeries, xDomain),
     [visibleSeries, wateringEvents, xDomain],
@@ -128,7 +145,7 @@ function SensorCanvasChartComponent({
 
     const draw = () => {
       const rect = wrapper.getBoundingClientRect();
-      const width = Math.max(compact ? 120 : 320, rect.width);
+      const width = Math.max(120, rect.width);
       const height = Math.max(compact ? 80 : 360, rect.height);
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.floor(width * dpr);
@@ -143,13 +160,16 @@ function SensorCanvasChartComponent({
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, width, height);
 
-      const bounds = chartBounds(visibleSeries, width, height, xDomain, targetValues, compact, headerSpace);
+      const frozen = frozenDomainRef.current;
+      const bounds = chartBounds(visibleSeries, width, height, xDomain, targetValues, compact, headerSpace,
+        frozen ? { yMin: frozen.yMin, yMax: frozen.yMax, ySpan: frozen.ySpan, yTicks: frozen.yTicks } : null);
       boundsRef.current = bounds;
+      setGeometry(bounds);
       const { margin, plotWidth, plotHeight, minX, maxX, spanX, xScale, yScale, yTicks } = bounds;
 
       context.save();
-      const axisFont = compact ? "500 10px Inter, Arial, sans-serif" : "500 12px Inter, Arial, sans-serif";
-      const axisColor = "#64748b";
+      const axisFont = `500 ${compact ? 10 : 12}px ${getComputedStyle(wrapper).fontFamily}`;
+      const axisColor = "#52675c";
 
       context.lineWidth = 1;
       context.fillStyle = axisColor;
@@ -172,21 +192,18 @@ function SensorCanvasChartComponent({
       // As many time labels as fit without touching: measured, not guessed from the width.
       const sampleLabel = axisLabel(maxX, spanX);
       const labelWidth = context.measureText(sampleLabel).width + (compact ? 16 : 28);
-      const xTickCount = Math.max(1, Math.min(compact ? 2 : 5, Math.floor(plotWidth / labelWidth) - 1));
-      context.textAlign = "center";
       context.textBaseline = "top";
       context.setLineDash([3, 6]);
       context.strokeStyle = "#edf2f7";
-      for (let index = 0; index <= xTickCount; index += 1) {
-        const timestamp = minX + (spanX * index) / xTickCount;
-        const x = crispLine(xScale(timestamp));
-        context.beginPath();
-        context.moveTo(x, margin.top);
-        context.lineTo(x, margin.top + plotHeight);
-        context.stroke();
-        context.textAlign = index === 0 ? "left" : index === xTickCount ? "right" : "center";
-        context.fillText(axisLabel(timestamp, spanX), index === 0 ? margin.left : index === xTickCount ? margin.left + plotWidth : x, margin.top + plotHeight + (compact ? 6 : 12));
+      const ticks = timeTicks({startMs:minX,endMs:maxX}, plotWidth, labelWidth);
+      for (const tick of ticks) {
+        const x = crispLine(xScale(tick.at));
+        context.beginPath(); context.moveTo(x, margin.top); context.lineTo(x, margin.top + plotHeight); context.stroke();
+        context.textAlign = x < margin.left + labelWidth / 2 ? "left" : x > margin.left + plotWidth - labelWidth / 2 ? "right" : "center";
+        context.fillText(tick.label, x, margin.top + plotHeight + (compact ? 6 : 12));
       }
+      context.textAlign = compact ? "right" : "left";
+      context.fillText(timeZoneLabel(minX,maxX), compact ? margin.left + plotWidth : margin.left, margin.top + plotHeight + (compact ? 20 : 28));
 
       context.setLineDash([]);
       context.strokeStyle = "#a8b3c3";
@@ -241,6 +258,7 @@ function SensorCanvasChartComponent({
           return summary.sharpDrops.count > 0 || summary.gaps.count > 0 || (summary.latest?.value ?? 100) < 8;
         })();
         context.globalAlpha =
+          affectedNames?.size && !affectedNames.has(item.name) ? 0.16 :
           selected ? 1 :
           isSummary ? (viewMode === "individual" ? 0.85 : 0.95) :
           viewMode === "group" ? 0.2 :
@@ -325,26 +343,6 @@ function SensorCanvasChartComponent({
         context.globalAlpha = 1;
       }
 
-      let previousLabelY = -Infinity;
-      for (const line of sortedTargets) {
-        const y = crispLine(yScale(line.value));
-        const color = targetColors[line.tone];
-        context.save();
-        context.font = compact ? "600 10px Inter, Arial, sans-serif" : "600 11px Inter, Arial, sans-serif";
-        const text = line.label;
-        const textWidth = context.measureText(text).width;
-        let labelY = y - (compact ? 8 : 9);
-        if (labelY - previousLabelY < (compact ? 13 : 15)) labelY = previousLabelY + (compact ? 13 : 15);
-        previousLabelY = labelY;
-        const labelX = margin.left + plotWidth - textWidth - 8;
-        context.fillStyle = "rgba(255, 255, 255, 0.94)";
-        context.fillRect(labelX - 4, labelY - 7, textWidth + 8, compact ? 13 : 15);
-        context.fillStyle = color;
-        context.textAlign = "left";
-        context.textBaseline = "middle";
-        context.fillText(text, labelX, labelY);
-        context.restore();
-      }
 
       context.restore();
     };
@@ -356,13 +354,25 @@ function SensorCanvasChartComponent({
 
     const observer = new ResizeObserver(scheduleDraw);
     observer.observe(wrapper);
+    // Moving between displays can change pixel density without changing CSS dimensions.
+    let density = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    const densityChanged = () => {
+      density.removeEventListener("change", densityChanged);
+      density = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      density.addEventListener("change", densityChanged);
+      scheduleDraw();
+    };
+    density.addEventListener("change", densityChanged);
+    window.addEventListener("resize", scheduleDraw);
     scheduleDraw();
 
     return () => {
       observer.disconnect();
+      density.removeEventListener("change", densityChanged);
+      window.removeEventListener("resize", scheduleDraw);
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [compact, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
+  }, [affectedNames, compact, freezeScale, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
 
   function plotPosition(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
@@ -548,6 +558,7 @@ function SensorCanvasChartComponent({
     <div
       ref={wrapperRef}
       className={`canvas-chart ${compact ? "is-compact" : ""}`}
+      data-target-pots={affectedNames?.size || undefined}
       tabIndex={compact ? undefined : 0}
       role={compact ? undefined : "group"}
       aria-label={compact ? undefined : chartLabel}
@@ -557,6 +568,7 @@ function SensorCanvasChartComponent({
         ref={canvasRef}
         onMouseMove={updateTooltip}
         onClick={selectNearest}
+        onDoubleClick={event => {const p = plotPosition(event.clientX,event.clientY); if(p) onChartMoment?.(p.bounds.timeAt(p.x));}}
         onMouseLeave={() => {
           if (!lockedSeriesName) {
             setTooltip(null);
@@ -567,8 +579,14 @@ function SensorCanvasChartComponent({
         aria-label={compact ? chartLabel : undefined}
         aria-hidden={compact ? undefined : true}
       />
-      {!compact && (hasTreatments || hasGaps) ? (
+      {!compact && geometry && targetLayer ? <div className="px-target-layer">
+        {targetLayer({ yScale: geometry.yScale, top: geometry.margin.top, bottom: geometry.margin.top + geometry.plotHeight,
+          left: geometry.margin.left, right: geometry.margin.left + geometry.plotWidth, pixelsPerPercent: geometry.plotHeight / geometry.ySpan,
+          low: Math.ceil(geometry.yMin), high: Math.floor(geometry.yMax) })}
+      </div> : null}
+      {!compact && (hasTreatments || hasGaps || (!targetLayer && targetLines.length > 0)) ? (
         <div className="chart-key" aria-hidden="true">
+          {targetLayer ? null : targetLines.map((line) => <span key={`${line.label}-${line.value}`} style={{ color: targetColors[line.tone] }}><i className="is-dashed" />{line.label}</span>)}
           {hasTreatments ? <span><i className="is-solid" />Control</span> : null}
           {hasTreatments ? <span><i className="is-dashed" />Drought</span> : null}
           {hasGaps ? <span><i className="is-break" />Line break = no readings</span> : null}
@@ -591,7 +609,7 @@ function SensorCanvasChartComponent({
         </div>
       ) : null}
       {!loading && !visibleSeries.length ? (
-        <div className="chart-empty-state" role="status">No readings in this time range</div>
+        <div className="chart-empty-state" role="status"><strong>{visibleNames.size ? "No readings in this time range" : "No traces selected"}</strong><span>{visibleNames.size ? "Try a wider time range or check reporting status." : "Select a pot or choose Show all to compare readings."}</span></div>
       ) : null}
       {wateringTooltip ? (
         <>

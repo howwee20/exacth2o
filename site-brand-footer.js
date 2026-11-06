@@ -1,88 +1,53 @@
-// A landing splash: recent downward input determines its height, then it drains.
+// The footer fills once as it enters view, on short and long pages alike.
 (() => {
   const logo = document.querySelector('.brand-finale');
   const surface = logo?.querySelector('.brand-water-level');
-  const water = logo?.querySelector('[clip-path="url(#brand-water-fill)"]');
-  if (!surface || !water) return;
+  if (!surface) return;
   const empty = 'M600 250H1040V260H600Z';
-  let height = 0, velocity = 0, frame = 0, previous = 0, started = 0;
-  let inputFrame = 0, pending = 0, inputAt = -Infinity;
-  let lastScroll = window.scrollY, scrollAt = performance.now(), touchY = null;
-  function atBottom() {
-    const rect = logo.getBoundingClientRect();
-    const page = document.scrollingElement || document.documentElement;
-    return rect.top < window.innerHeight && rect.bottom > 0 &&
-      page.scrollHeight - window.innerHeight - window.scrollY <= 3;
-  }
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let frame = 0, visible = false;
+  function atBottom() { return visible; }
   function settle() {
     cancelAnimationFrame(frame);
-    frame = 0; height = 0; velocity = 0;
-    water.style.opacity = '';
+    frame = 0;
     surface.setAttribute('d', empty);
   }
-  function draw(now) {
-    if (document.hidden || !atBottom()) { settle(); return; }
-    const dt = Math.min((now - previous) / 1000, .04);
-    previous = now;
-    velocity -= 3.4 * dt;
-    height += velocity * dt;
-    if (height >= 1) { height = 1; velocity = Math.min(velocity, 0); }
-    if (height <= 0) { settle(); return; }
-    const y = 218 - height * 205;
-    const ripple = Math.sin((now - started) / 110) * 10 * Math.sin(Math.PI * height);
-    surface.setAttribute('d', `M600 ${y} Q660 ${y-8-ripple} 710 ${y} T820 ${y} T930 ${y} T1040 ${y} V260 H600Z`);
-    frame = requestAnimationFrame(draw);
-  }
-  function flushInput(now) {
-    inputFrame = 0;
-    // Keep the gesture until native scrolling lands, including coarse wheel jumps.
-    if (now - inputAt > 200) { pending = 0; return; }
-    if (!pending || !atBottom()) return;
-    if (frame) { pending = 0; return; }
-    velocity = .95 + 1.85 * Math.sqrt(Math.min(1, pending));
-    pending = 0;
-    previous = started = now;
-    frame = requestAnimationFrame(draw);
-  }
-  function input(strength) {
-    const now = performance.now();
-    if (now - inputAt > 200) pending = 0;
-    pending = Math.max(pending, Math.min(1, strength));
-    inputAt = now;
-    if (!inputFrame) inputFrame = requestAnimationFrame(flushInput);
-  }
-  window.addEventListener('wheel', event => {
-    if (event.ctrlKey || event.deltaY <= 0) return;
-    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
-    input(event.deltaY * unit / 300);
-  }, { passive: true });
-  window.addEventListener('touchstart', event => {
-    touchY = event.touches[0]?.clientY ?? null;
-  }, { passive: true });
-  window.addEventListener('touchmove', event => {
-    const y = event.touches[0]?.clientY;
-    if (touchY !== null && y !== undefined && touchY > y) input((touchY - y) / 100);
-    touchY = y ?? null;
-  }, { passive: true });
-  for (const type of ['touchend', 'touchcancel']) {
-    window.addEventListener(type, () => { touchY = null; }, { passive: true });
-  }
-  window.addEventListener('scroll', () => {
-    const now = performance.now(), y = window.scrollY;
-    const distance = y - lastScroll;
-    if (distance > 0) {
-      const speed = distance / Math.max(16, Math.min(120, now - scrollAt)) * 1000;
-      input(speed / 2500);
+  function play(strength) {
+    if (frame || reducedMotion.matches || document.hidden || !atBottom()) return;
+    const rise = 100 + 400 * strength, hold = rise * .4, fall = rise * .9;
+    const rows = Math.max(1, Math.round(24 * strength));
+    let start;
+    function draw(now) {
+      if (reducedMotion.matches || document.hidden || !atBottom()) { settle(); return; }
+      start ??= now;
+      const elapsed = now - start;
+      if (elapsed >= rise + hold + fall) { settle(); return; }
+      const retreat = Math.max(0, (elapsed - rise - hold) / fall);
+      const fill = elapsed < rise ? 1 - (1 - elapsed / rise) ** 3 : 1 - retreat ** 2;
+      const count = Math.ceil(rows * fill);
+      const pulse = Math.sin(retreat * Math.PI);
+      let path = '';
+      for (let row = 0; row < count; row++) {
+        // Narrow gaps travel through the upper stripes as the fill recedes.
+        const position = row / Math.max(count, 1);
+        const spacing = .08 + pulse * .12;
+        const phase = (position % spacing) / spacing;
+        const gap = (.02 + pulse * .04) * (1 - position * .5) / spacing;
+        if (retreat > 0 && position ** 1.5 * pulse > .5 && phase > .3 && phase < .3 + gap) continue;
+        const y = 208 - row * 8;
+        path += `M600 ${y}h440v8H600Z`;
+      }
+      surface.setAttribute('d', path || empty);
+      frame = requestAnimationFrame(draw);
     }
-    lastScroll = y; scrollAt = now;
-  }, { passive: true });
-  window.addEventListener('keydown', event => {
-    const target = event.target;
-    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
-        (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]'))) return;
-    if (event.key === 'ArrowDown') input(.2);
-    else if (event.key === 'PageDown' || event.key === 'End' || (event.key === ' ' && !event.shiftKey)) input(.8);
-  });
+    frame = requestAnimationFrame(draw);
+  }
+  new IntersectionObserver(entries => {
+    const next = entries[0].isIntersecting && entries[0].intersectionRatio >= .6;
+    if (next && !visible) { visible = true; play(1); }
+    else if (!next) { visible = false; settle(); }
+  }, { threshold: .6 }).observe(logo);
   document.addEventListener('visibilitychange', () => { if (document.hidden) settle(); });
-  window.addEventListener('pageshow', () => { lastScroll = window.scrollY; scrollAt = performance.now(); });
+  reducedMotion.addEventListener('change', settle);
+  window.addEventListener('pagehide', settle);
 })();

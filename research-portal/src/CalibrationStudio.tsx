@@ -123,7 +123,7 @@ export function CalibrationStudio({
   const [observations, setObservations] = useState<CalibrationObservation[]>([]);
   const [candidates, setCandidates] = useState<CalibrationCandidate[]>([]);
   const [activeStudyId, setActiveStudyId] = useState<string>("");
-  const [studyName, setStudyName] = useState(`${experiment.name} calibration`);
+  const [studyName, setStudyName] = useState(experiment.id === "unavailable" ? "New calibration study" : `${experiment.name} calibration`);
   const [pairingName, setPairingName] = useState(pairings[0]?.name ?? "");
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [referenceRecordedAt, setReferenceRecordedAt] = useState(localDateTimeInputValue());
@@ -186,10 +186,17 @@ export function CalibrationStudio({
   }, [experiment.id, projectId]);
 
   useEffect(() => {
-    setStudyName(`${experiment.name} calibration`);
-    setPairingName(pairings[0]?.name ?? "");
+    setStudyName(experiment.id === "unavailable" ? "New calibration study" : `${experiment.name} calibration`);
+  }, [experiment.id, experiment.name]);
+
+  useEffect(() => {
+    setPairingName((current) => pairings.some((pairing) => pairing.name === current)
+      ? current : pairings[0]?.name ?? "");
+  }, [pairings]);
+
+  useEffect(() => {
     void loadStudio();
-  }, [experiment.id, experiment.name, loadStudio, pairings]);
+  }, [loadStudio]);
 
   async function createStudy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -290,7 +297,7 @@ export function CalibrationStudio({
     setNotice(null);
     try {
       const measurements = parseCsv(await file.text());
-      if (measurements.length > 250) throw new Error("V1 accepts up to 250 rows per CSV upload.");
+      if (measurements.length > 250) throw new Error("Upload up to 250 rows at a time.");
       const matched = await insertMeasurements(measurements);
       setNotice(`${measurements.length} rows uploaded; ${matched} matched to ExactH2O readings.`);
       await loadStudio();
@@ -302,6 +309,7 @@ export function CalibrationStudio({
   }
 
   async function toggleIncluded(observation: CalibrationObservation) {
+    if (portalRole === "viewer") return;
     const result = await supabase
       .from("calibration_observations")
       .update({ included: !observation.included })
@@ -311,6 +319,7 @@ export function CalibrationStudio({
   }
 
   async function deleteObservation(observation: CalibrationObservation) {
+    if (portalRole === "viewer") return;
     const result = await supabase.from("calibration_observations").delete().eq("id", observation.id);
     if (result.error) setError(messageFromError(result.error));
     else await loadStudio();
@@ -360,7 +369,7 @@ export function CalibrationStudio({
   }
 
   async function requestSetCalibration() {
-    if (!activeStudy || !activeCandidate) return;
+    if (portalRole === "viewer" || !activeStudy || !activeCandidate) return;
     const confirmed = window.confirm(
       `Request setting ${activeStudy.name} for ${activeStudy.pairing_name}? This V1 records an approval request; it does not change the live controller or existing calibration.`,
     );
@@ -392,7 +401,7 @@ export function CalibrationStudio({
     <div className="calibration-studio">
       <section className="calibration-hero">
         <div>
-          <h3>{experiment.name} calibration</h3>
+          <h3>{experiment.id === "unavailable" ? "Sensor calibration" : `${experiment.name} calibration`}</h3>
           <p>Match external VWC readings to ExactH2O data, then create an equation.</p>
         </div>
       </section>
@@ -428,7 +437,7 @@ export function CalibrationStudio({
               </select>
             </label>
             <label>Reference instrument<input value={referenceInstrument} onChange={(event) => setReferenceInstrument(event.target.value)} placeholder="Example: handheld TDR" /></label>
-            <button className="settings-secondary-button" type="submit" disabled={busy || !selectedPairing}>Start study</button>
+            <button className="settings-secondary-button" type="submit" disabled={portalRole === "viewer" || busy || !selectedPairing}>Start study</button>
           </form>
         </aside>
 
@@ -453,7 +462,7 @@ export function CalibrationStudio({
                   <form className="settings-form" onSubmit={addMeasurement}>
                     <label>Measurement time<input type="datetime-local" value={referenceRecordedAt} onChange={(event) => setReferenceRecordedAt(event.target.value)} required /></label>
                     <label>External sensor VWC %<input type="number" min="0" max="100" step="0.01" value={referenceVwc} onChange={(event) => setReferenceVwc(event.target.value)} placeholder="24.60" required /></label>
-                    <button type="submit" className="settings-primary-button" disabled={busy}>Match reading</button>
+                    <button type="submit" className="settings-primary-button" disabled={portalRole === "viewer" || busy}>Match reading</button>
                   </form>
                 </section>
                 <section className="settings-card calibration-upload-card">
@@ -461,7 +470,7 @@ export function CalibrationStudio({
                   <p>Columns: <b>timestamp</b> and <b>external_vwc</b>.</p>
                   <label className="calibration-upload-button">
                     <FileUp size={16} /> Choose CSV
-                    <input type="file" accept=".csv,text/csv" onChange={(event) => void uploadCsv(event)} disabled={busy} />
+                    <input type="file" accept=".csv,text/csv" onChange={(event) => void uploadCsv(event)} disabled={portalRole === "viewer" || busy} />
                   </label>
                   <span>Up to 250 rows</span>
                 </section>
@@ -470,7 +479,7 @@ export function CalibrationStudio({
               <section className="calibration-pairs-card">
                 <div className="calibration-section-heading">
                   <div><h3>Matched readings</h3></div>
-                  <b>{studyObservations.length} rows</b>
+                  <b>{studyObservations.length} {studyObservations.length === 1 ? "row" : "rows"}</b>
                 </div>
                 {studyObservations.length ? (
                   <div className="calibration-table-wrap">
@@ -479,13 +488,13 @@ export function CalibrationStudio({
                       <tbody>
                         {studyObservations.map((observation) => (
                           <tr key={observation.id} className={observation.match_status === "unmatched" ? "is-unmatched" : ""}>
-                            <td><input type="checkbox" checked={observation.included && observation.match_status === "matched"} disabled={observation.match_status !== "matched" || busy} onChange={() => void toggleIncluded(observation)} aria-label="Include reading in fit" /></td>
+                            <td><input type="checkbox" checked={observation.included && observation.match_status === "matched"} disabled={portalRole === "viewer" || observation.match_status !== "matched" || busy} onChange={() => void toggleIncluded(observation)} aria-label="Include reading in fit" /></td>
                             <td>{displayDate(observation.reference_recorded_at)}</td>
                             <td><strong>{displayMetric(observation.reference_vwc)}%</strong></td>
                             <td>{displayDate(observation.sensor_recorded_at)}</td>
                             <td>{observation.raw_value === null ? <em>No match</em> : <strong>{displayMetric(observation.raw_value, 3)}</strong>}</td>
                             <td>{observation.time_delta_seconds === null ? "--" : `${observation.time_delta_seconds}s`}</td>
-                            <td><button type="button" onClick={() => void deleteObservation(observation)} disabled={busy} aria-label="Delete measurement"><Trash2 size={14} /></button></td>
+                            <td><button type="button" onClick={() => void deleteObservation(observation)} disabled={portalRole === "viewer" || busy} aria-label="Delete measurement"><Trash2 size={14} /></button></td>
                           </tr>
                         ))}
                       </tbody>
@@ -498,7 +507,7 @@ export function CalibrationStudio({
                 <div className="calibration-candidate-copy">
                   <h3>Create calibration</h3>
                   <p>Creates a saved equation. It does not set it.</p>
-                  <button type="button" className="settings-primary-button" onClick={() => void createCalibration()} disabled={busy || includedMatches.length < 3}>
+                  <button type="button" className="settings-primary-button" onClick={() => void createCalibration()} disabled={portalRole === "viewer" || busy || includedMatches.length < 3}>
                     {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : <FlaskConical size={16} />} Create calibration
                   </button>
                   {includedMatches.length < 3 ? <small>Add {3 - includedMatches.length} more matched reading{3 - includedMatches.length === 1 ? "" : "s"} for a preview.</small> : null}
@@ -529,7 +538,7 @@ export function CalibrationStudio({
                   type="button"
                   className="settings-secondary-button"
                   onClick={() => void requestSetCalibration()}
-                  disabled={busy || portalRole !== "admin" || activeCandidate?.status !== "ready" || !controllerStopped || activeStudy.status === "set_requested"}
+                  disabled={portalRole === "viewer" || busy || portalRole !== "admin" || activeCandidate?.status !== "ready" || !controllerStopped || activeStudy.status === "set_requested"}
                   title={portalRole !== "admin" ? "Administrator access required" : activeCandidate?.status !== "ready" ? `Requires ${calibrationReadySampleCount} matched readings` : !controllerStopped ? "Controller must be stopped" : "Request admin approval to set this calibration"}
                 >
                   <ShieldCheck size={16} /> {activeStudy.status === "set_requested" ? "Approval requested" : "Set calibration"}

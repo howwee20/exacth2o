@@ -129,7 +129,9 @@
         "create_calibration",
         "delete_calibration",
         "apply_calibration",
-        "update_board_config"
+        "update_board_config",
+        "remap_pairing_valves",
+        "restore_pairing_settings"
       ],
       "physicalEvidenceRequired": false,
       "enabled": true

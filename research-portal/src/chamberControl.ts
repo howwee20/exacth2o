@@ -53,3 +53,19 @@ export function normalizedMixerPoint(
 export function gasMixerAccessDenied(error: { code?: string; message?: string }) {
   return error.code === "42501" || /installation access is required/i.test(error.message ?? "");
 }
+
+/**
+ * A live mixer view keeps the screen agent capturing and uploading frames, so
+ * it ends when nobody can be watching: after a minute in a background tab, or
+ * after ten minutes without any pointer or keyboard activity on the page.
+ */
+export const mixerSessionHiddenEndMs = 60_000;
+export const mixerSessionIdleEndMs = 10 * 60_000;
+
+export function mixerSessionEndReason(
+  { hiddenSinceMs, lastInteractionMs, nowMs }: { hiddenSinceMs: number | null; lastInteractionMs: number; nowMs: number },
+): "hidden" | "idle" | null {
+  if (hiddenSinceMs !== null && nowMs - hiddenSinceMs >= mixerSessionHiddenEndMs) return "hidden";
+  if (nowMs - lastInteractionMs >= mixerSessionIdleEndMs) return "idle";
+  return null;
+}

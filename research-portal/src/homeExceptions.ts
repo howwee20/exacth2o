@@ -1,3 +1,4 @@
+import { latestQualityIssues } from "./readingQuality";
 import { potRangeText } from "./experimentFactors";
 import { experimentIsCompleted } from "./experimentMeasurement";
 import { isObservationOnlyExperiment, type PortalExperiment } from "./experimentRegistry";
@@ -21,7 +22,7 @@ export type HomeException =
   | { kind: "refresh-failed"; scope: "portal"; failedAt: number; lastSuccessAt: number | null; sentence: string }
   | { kind: "controller-offline"; scope: "installation"; lastSeenAt: number | null; sentence: string }
   | {
-    kind: "missing-observations" | "configuration-discrepancy" | "activation-failed";
+    kind: "missing-observations" | "configuration-discrepancy" | "activation-failed" | "measurement-quality";
     scope: "experiment";
     experimentId: string;
     pairingNames: string[];
@@ -34,7 +35,7 @@ export type ExperimentException = Extract<HomeException, { scope: "experiment" }
 export type HomeExceptionInput = {
   experiments: readonly PortalExperiment[];
   pairings: readonly PairingRow[];
-  readings: readonly Pick<SensorReading, "pairing_name" | "device_recorded_at">[];
+  readings: readonly (Pick<SensorReading, "pairing_name" | "device_recorded_at"> & Partial<Pick<SensorReading, "calibrated_value">>)[];
   nowMs: number;
   /** Whether a successful readings check has completed in this session. */
   checked: boolean;
@@ -118,8 +119,8 @@ export function homeExceptions(input: HomeExceptionInput): HomeException[] {
       scope: "installation",
       lastSeenAt: controller?.lastSeenAt ?? null,
       sentence: controller?.lastSeenAt != null
-        ? `Controller offline since ${formatTime(controller.lastSeenAt)}: it has not reported; readings and watering status are unconfirmed.`
-        : "Controller offline: it has not reported its state recently; readings and watering status are unconfirmed.",
+        ? `Controller offline since ${formatTime(controller.lastSeenAt)}; readings and watering status are unconfirmed.`
+        : "Controller offline; readings and watering status are unconfirmed.",
     });
   }
 
@@ -141,6 +142,9 @@ export function homeExceptions(input: HomeExceptionInput): HomeException[] {
       continue;
     }
     if (experimentIsCompleted(experiment, input.nowMs)) continue;
+    const quality = latestQualityIssues(input.readings.filter((reading) => experiment.pairingNames.includes(reading.pairing_name) && reading.calibrated_value != null) as Pick<SensorReading, "pairing_name" | "device_recorded_at" | "calibrated_value">[]);
+    if (quality.length) out.push({kind: "measurement-quality", scope: "experiment", experimentId: experiment.id, pairingNames: quality.map((reading) => reading.pairing_name), short: `${quality.length} reading${quality.length === 1 ? "" : "s"} to review`, sentence: `${experiment.name}: ${quality.length} latest VWC reading${quality.length === 1 ? " is" : "s are"} outside the expected range. Open the pot to review its calibration and raw signal.`});
+
 
     if (asOfMs != null && !controllerOffline) {
       const silent = silentExperimentPots(experiment, input.pairings, latest, asOfMs);
