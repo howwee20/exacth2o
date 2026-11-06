@@ -1,6 +1,7 @@
 -- Lease tokens are private capabilities. Only the claim/renew/save RPCs may use
 -- them; project members can still inspect progress and request a stop.
 begin;
+set local lock_timeout = '5s';
 
 lock table public.commissioning_sessions in access exclusive mode;
 
@@ -183,4 +184,5 @@ grant execute on function public.claim_commissioning_run(uuid, text, text, uuid,
 grant execute on function public.renew_commissioning_run(uuid, text, text, uuid) to authenticated, service_role;
 grant execute on function public.save_commissioning_session(uuid, text, text, jsonb, uuid) to authenticated, service_role;
 
+notify pgrst, 'reload schema';
 commit;
