@@ -37,6 +37,7 @@ jobs:
 
 
   deploy:
+    timeout-minutes: 25
     needs: verify
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/ej-supabase-research-portal'
     permissions:
@@ -95,8 +96,13 @@ jobs:
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: site-dist
 
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          # File synchronization can exceed the action's ten-minute default.
+          timeout: 1200000
