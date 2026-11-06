@@ -98,11 +98,7 @@ const outputs = [
     moduleOutput,
   ],
   [
-    path.join(root, "controller-release/control-executor/src/generated/platform-capabilities.mjs"),
-    moduleOutput,
-  ],
-  [
-    path.join(root, "controller-release/matt-balena-release-4174753/control-executor/src/generated/platform-capabilities.mjs"),
+    path.join(root, "controller/control-executor/src/generated/platform-capabilities.mjs"),
     moduleOutput,
   ],
 ];

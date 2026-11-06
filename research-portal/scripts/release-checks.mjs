@@ -12,5 +12,8 @@ export const browserChecks = [
   'Control requires confirmation after the checkmark',
   'Drought requires confirmation after the checkmark',
   'assembled demo retains time range, saved views, Record, and responsive navigation',
+  'sign-in submits the entered values and displays the authentication error',
+  'password recovery keeps its form state and displays the reset confirmation',
+  'invite and password-setup URLs select their existing forms',
 ];
 export const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

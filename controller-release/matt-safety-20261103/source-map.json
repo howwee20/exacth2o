@@ -1,0 +1,14 @@
+{
+  "build": [
+    "controller/cron"
+  ],
+  "files": {
+    "cron_svc/src/StateMachine.ts": "controller/cron/src/StateMachine.ts",
+    "cron_svc/src/services/ApiService.ts": "controller/cron/src/services/ApiService.ts",
+    "cron_svc/src/services/ManualPulseManager.ts": "controller/cron/src/services/ManualPulseManager.ts",
+    "cron_svc/dist/StateMachine.js": "controller/cron/dist/StateMachine.js",
+    "cron_svc/dist/services/ApiService.js": "controller/cron/dist/services/ApiService.js",
+    "cron_svc/dist/services/ManualPulseManager.js": "controller/cron/dist/services/ManualPulseManager.js",
+    "supabase_publisher/publisher.mjs": "controller/supabase-publisher/src/publisher.mjs"
+  }
+}

@@ -1,6 +1,12 @@
 name: Verify ExactH2O release (manual)
 
 on:
+  pull_request:
+    paths:
+      - 'controller/**'
+      - 'controller-release/**'
+      - 'scripts/build-controller-release*'
+      - '.github/workflows/verify.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,12 +29,11 @@ jobs:
           cache: npm
           cache-dependency-path: |
             research-portal/package-lock.json
-            controller-release/control-executor/package-lock.json
-            controller-release/matt-balena-release-4174753/control-executor/package-lock.json
+            controller/control-executor/package-lock.json
             controller-release/walker-telemetry-publisher/package-lock.json
-            controller-release/matt-balena-release-4174753/api/package-lock.json
-            controller-release/matt-balena-release-4174753/cron/package-lock.json
-            controller-release/matt-balena-release-4174753/ui/package-lock.json
+            controller/api/package-lock.json
+            controller/cron/package-lock.json
+            controller/ui/package-lock.json
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -45,12 +50,17 @@ jobs:
 
       - name: Install controller dependencies
         run: |
-          npm ci --prefix controller-release/control-executor
-          npm ci --prefix controller-release/matt-balena-release-4174753/control-executor
+          npm ci --prefix controller/control-executor
           npm ci --prefix controller-release/walker-telemetry-publisher
-          npm ci --prefix controller-release/matt-balena-release-4174753/api
-          npm ci --prefix controller-release/matt-balena-release-4174753/cron
-          npm ci --prefix controller-release/matt-balena-release-4174753/ui
+          npm ci --prefix controller/api
+          npm ci --ignore-scripts --prefix controller/cron
+          npm ci --prefix controller/ui
+
+      - name: Verify generated controller packages
+        run: |
+          node --test scripts/build-controller-release.test.mjs
+          python3 -m unittest discover -s controller-release/matt-health-reporting-20261020 -p 'test_*.py'
+          node scripts/build-controller-release.mjs matt-safety-20261103 "$RUNNER_TEMP/exacth2o-safety-release"
 
       - name: Test control authorization and executor safety
         run: |
@@ -83,21 +93,19 @@ jobs:
           node --test supabase/functions/sync-owner-health/lease-policy.test.mjs
           node --test supabase/functions/website-analytics/report-policy.test.mjs
           node --test supabase/functions/walker-mixer-session/bridge-policy.test.mjs
-          npm test --prefix controller-release/control-executor
-          npm test --prefix controller-release/matt-balena-release-4174753/control-executor
+          npm test --prefix controller/control-executor
           npm test --prefix controller-release/walker-telemetry-publisher
           npm test --prefix platform/controller-simulator
-          npm audit --omit=dev --prefix controller-release/control-executor
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/control-executor
+          npm audit --omit=dev --prefix controller/control-executor
           npm audit --omit=dev --prefix controller-release/walker-telemetry-publisher
-          npm test --prefix controller-release/matt-balena-release-4174753/api
-          npm run build --prefix controller-release/matt-balena-release-4174753/api
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/api
-          npm test --prefix controller-release/matt-balena-release-4174753/cron -- --runInBand
-          npm run build --prefix controller-release/matt-balena-release-4174753/cron
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/cron
-          npm run build --prefix controller-release/matt-balena-release-4174753/ui
-          npm audit --omit=dev --prefix controller-release/matt-balena-release-4174753/ui
+          npm test --prefix controller/api
+          npm run build --prefix controller/api
+          npm audit --omit=dev --prefix controller/api
+          npm test --prefix controller/cron -- --runInBand
+          npm run build --prefix controller/cron
+          npm audit --omit=dev --prefix controller/cron
+          npm run build --prefix controller/ui
+          npm audit --omit=dev --prefix controller/ui
           deno check supabase/functions/accept-invite/index.ts
           deno check supabase/functions/assistant-automation-runner/index.ts
           deno check supabase/functions/create-control-command/index.ts

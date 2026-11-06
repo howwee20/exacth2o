@@ -92,7 +92,7 @@ to another checkout's preview server, which was left alone).
    `supabase/migrations/20261021160000_full_scale_autocalibration_and_manual_hold.sql`.
    Additive. Rollback: `supabase/rollbacks/20261021_full_scale_autocalibration_and_manual_hold.sql`
    (download session records first; completed remap/restore commands stay as history).
-2. **Controller release** (`controller-release/matt-balena-release-4174753`, fleet
+2. **Controller release** (`controller`, fleet
    `basyalbi/matt`): `balena push`. New: renewable hold sessions and arbitration in
    `cron_svc`, remap/restore routes in `api_svc`, executor v0.5.0, the `valve_watchdog`
    service. Set `EXACTH2O_MANUAL_HOLD_SECRET` (cron, health, Edge Function) and
