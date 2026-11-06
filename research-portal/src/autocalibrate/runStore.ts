@@ -250,7 +250,7 @@ export class AutocalRunStore {
     const hasWindow = typeof window !== "undefined" && typeof window.addEventListener === "function";
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     const pageHide = () => {
-      run.abort("This screen closed, so the run stopped before its next pulse. Resume it from Settings → Autocalibrate.", "screen_closed");
+      run.abort("This screen closed, so the run stopped before its next pulse. Resume it from Autocalibrate.", "screen_closed");
       checkpointed = -1;
       checkpoint();
     };

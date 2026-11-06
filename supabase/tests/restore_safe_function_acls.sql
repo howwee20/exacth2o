@@ -1,8 +1,8 @@
 -- Wire into scripts/verify-database-baseline.sh after the existing psql -f lines, e.g.
---   psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/security_definer_acl_snapshot.sql" >/dev/null
+--   psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/restore_safe_function_acls.sql" >/dev/null
 --
 -- Purpose: the disposable restore (baseline + newer migrations on a stock local Supabase)
--- must expose exactly the reviewed SECURITY DEFINER surface. Without 20261022090004_restore_safe_function_acls this test fails in
+-- must expose exactly the reviewed SECURITY DEFINER surface. Without 20261103040004_restore_safe_function_acls this test fails in
 -- the restore because anon/authenticated inherit EXECUTE from stock default privileges
 -- (47 baseline functions; 4 of them have no internal role check). It assumes fixes 01 and 03
 -- (03 removes PUBLIC/anon EXECUTE from is_project_member and the staff-name helpers).
@@ -30,6 +30,7 @@ declare
     'chamber_schedule_save(uuid, jsonb)',
     'complete_assistant_experiment(uuid, uuid)',
     'confirm_autocalibration_delivery(uuid, text, text, text[], text)',
+    'create_walker_portal_experiment(text, integer[], uuid)',
     'current_portal_role(uuid)',
     'delete_quote_request(uuid, uuid)',
     'edge_usage_budget()',

@@ -24,7 +24,13 @@
 @media (min-width: 2200px) { :root { --content: 1500px; } }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
-body { overflow-x: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }main, section, article { min-width: 0; }
+body { overflow-x: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+/* Clip horizontal artwork without creating another scroll container around
+   the sticky navigation. Keep hidden as a fallback for older browsers. */
+@supports (overflow-x: clip) {
+  body { overflow-x: clip; }
+}
+main, section, article { min-width: 0; }
 p { text-wrap: pretty; }
 h1 em, h2 em { font-style: normal; }
 button, input, select, textarea { font-family: var(--sans); }

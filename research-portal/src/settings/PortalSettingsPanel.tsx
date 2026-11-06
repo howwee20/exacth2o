@@ -1,16 +1,15 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Download, Lock, LogOut, Menu, Radar, X } from "lucide-react";
+import { SettingsFrame } from "./SettingsFrame";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Download, Lock, Radar } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationStudio } from "../CalibrationStudio";
-import { AutocalibrateWorkspace } from "../autocalibrate/AutocalibrateWorkspace";
-import { SettingsAssistant } from "../SettingsAssistant";
 import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
 import { type PortalRole } from "../portalAccess";
 import { boardConfigsFromPayload, formatIntervalFromMs, formatSecondsFromMs, formatSettingsTimestamp, formatTargetVwc, numberInputString, pairingGroupName, runtimeStateIsFresh, syncedCount } from "../portalFormat";
-import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type QueueSettingsPlan, type SettingsNavItem, type SettingsSection } from "../portalTypes";
+import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type SettingsNavItem, type SettingsSection } from "../portalTypes";
 import { downloadJsonFile } from "../readingsExport";
 import { type CommandProgress, type CommandStage } from "../commandLifecycle";
-import { controllerPillText, controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
+import { controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
 import { type PairingRow } from "../types";
 
 export { settingsNavItems };
@@ -26,10 +25,6 @@ export type PortalSettingsPanelProps = {
   runtimeState: DeviceRuntimeState | null;
   configState: DeviceConfigState | null;
   pairings: PairingRow[];
-  /** Every pairing on the controller, for Autocalibrate's view of the whole installation. */
-  installationPairings?: PairingRow[];
-  /** Experiments on this controller, offered as quick selections in Autocalibrate. */
-  experiments?: readonly PortalExperiment[];
   visiblePotCount: number;
   csvDownload: CsvDownload | null;
   csvError: string | null;
@@ -38,14 +33,12 @@ export type PortalSettingsPanelProps = {
   controlNotice: string | null;
   commandProgress: CommandProgress | null;
   controlError: string | null;
-  assistantInitialPrompt?: string;
   operatorEmail: string | null;
   onClose: () => void;
   onSectionChange: (section: SettingsSection) => void;
   onPrepareCsvDownload: () => void;
   onDownloadPairingsCsv: () => void;
   onQueueCommand: QueueControlCommand;
-  onQueueSettingsPlan: QueueSettingsPlan;
   onSignOut: () => void;
 };
 
@@ -76,8 +69,6 @@ export function PortalSettingsPanel({
   runtimeState,
   configState,
   pairings,
-  installationPairings,
-  experiments = [],
   visiblePotCount,
   csvDownload,
   csvError,
@@ -86,14 +77,11 @@ export function PortalSettingsPanel({
   controlNotice,
   commandProgress,
   controlError,
-  assistantInitialPrompt,
-  operatorEmail,
   onClose,
   onSectionChange,
   onPrepareCsvDownload,
   onDownloadPairingsCsv,
   onQueueCommand,
-  onQueueSettingsPlan,
   onSignOut,
 }: PortalSettingsPanelProps) {
   const isAdmin = portalRole === "admin";
@@ -505,20 +493,6 @@ export function PortalSettingsPanel({
       );
     }
 
-    if (activeSection === "assistant") {
-      return (
-        <>
-          {commandStatusPanel}
-          <SettingsAssistant
-            projectId={projectId}
-            initialPrompt={assistantInitialPrompt}
-            controlBusy={controlBusy}
-            onApply={onQueueSettingsPlan}
-          />
-        </>
-      );
-    }
-
     if (activeSection === "pairings") {
       return (
         <>
@@ -759,31 +733,6 @@ export function PortalSettingsPanel({
               </form>
             </section>
           </div>
-        </>
-      );
-    }
-
-    if (activeSection === "autocalibrate") {
-      // Valve pulses go through the control-command service; pairing and settings changes
-      // through the same reviewed settings batch as the rest of Settings.
-      return (
-        <>
-          {commandStatusPanel}
-          <AutocalibrateWorkspace
-            projectId={projectId}
-            deviceId={data.latestState?.device_id ?? runtimeState?.device_id ?? configState?.device_id ?? null}
-            operator={operatorEmail}
-            portalRole={portalRole}
-            scope={scope}
-            experiment={experiment}
-            experiments={experiments}
-            pairings={installationPairings ?? pairings}
-            configHash={configState?.config_hash?.trim() || null}
-            controllerState={runtimeStateIsFresh(runtimeState) ? runtimeState?.controller_state ?? null : null}
-            controllerOnline={controllerIsLive}
-            controlBusy={controlBusy}
-            onQueueSettingsPlan={onQueueSettingsPlan}
-          />
         </>
       );
     }
@@ -1209,82 +1158,10 @@ export function PortalSettingsPanel({
     return null;
   };
 
-  const selectSection = (section: SettingsSection) => {
-    onSectionChange(section);
-    setNavOpen(false);
-  };
-
-  return (
-    <div className="settings-backdrop" role="dialog" aria-modal="true" aria-label={scope === "installation" ? "Installation settings" : `${experiment.name} settings`}>
-      <section className={`settings-modal${navOpen ? " is-nav-open" : ""}`}>
-        <div className="settings-mobile-bar">
-          <button
-            type="button"
-            onClick={() => setNavOpen((current) => !current)}
-            aria-expanded={navOpen}
-            aria-controls="settings-sidebar"
-          >
-            {navOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
-            Sections
-          </button>
-          <strong>{activeItem.label}</strong>
-          <button type="button" onClick={onClose} aria-label="Close settings">
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
-        {navOpen ? <button type="button" className="settings-nav-scrim" aria-label="Close sections" onClick={() => setNavOpen(false)} /> : null}
-        <aside className="settings-sidebar" id="settings-sidebar" aria-label="Settings sections">
-          <button type="button" className="settings-back-button" onClick={onClose}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            Back to portal
-          </button>
-          <nav>
-            {availableSettingsNavGroups.map((group) => (
-              <div className="settings-sidebar-group" key={group.label}>
-                <p className="settings-sidebar-group-label">{scope === "installation" && group.label === "Experiment" ? "Controller" : group.label}</p>
-                {group.items.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={item.id === activeItem.id ? "is-active" : ""}
-                      aria-current={item.id === activeItem.id ? "page" : undefined}
-                      onClick={() => selectSection(item.id)}
-                    >
-                      <span>
-                        <strong>{item.label}</strong>
-                      </span>
-                    </button>
-                ))}
-              </div>
-            ))}
-          </nav>
-          <div className="settings-account-actions">
-            <button type="button" className="settings-sign-out-button" onClick={onSignOut}>
-              <LogOut size={16} aria-hidden="true" />
-              Sign out
-            </button>
-          </div>
-        </aside>
-        <section className={`settings-content is-${activeSection}`}>
-          <header className="settings-content-header">
-            <div>
-              <p className="settings-content-eyebrow">{scope === "installation" ? "Installation settings" : `${experiment.name} · Experiment settings`}</p>
-              <h2>{activeSection === "assistant" ? "Settings assistant" : activeItem.label}</h2>
-              <p className="settings-content-lede">
-                {activeSection === "assistant"
-                  ? "Describe a settings change in plain language, then review it before anything is queued."
-                  : activeSection === "overview" ? (scope === "installation" ? "Status and configuration for every pot on this controller." : "The saved plan and records for this experiment.") : activeItem.description}
-              </p>
-            </div>
-            <div className="settings-content-actions">
-              {scope === "installation" ? <StatusChip tone={presence.tone}>{controllerPillText(presence)}</StatusChip> : null}
-            </div>
-          </header>
-          <div className="settings-section-body">
-            {renderSection()}
-          </div>
-        </section>
-      </section>
-    </div>
-  );
+  return <SettingsFrame
+    scope={scope} experiment={experiment} navOpen={navOpen} setNavOpen={setNavOpen}
+    activeItem={activeItem} activeSection={activeSection}
+    availableSettingsNavGroups={availableSettingsNavGroups} presence={presence}
+    onClose={onClose} onSectionChange={onSectionChange} onSignOut={onSignOut}
+  >{renderSection()}</SettingsFrame>;
 }

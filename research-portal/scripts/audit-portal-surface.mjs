@@ -92,8 +92,9 @@ if (missingPortalCopy.length) {
 }
 
 const requiredMarkerColorSource = [
-  'const seriesColor = pairing ? colorForPairing(pairing) : "#64748b";',
-  "style={{ fill: seriesColor, stroke: seriesColor }}",
+  'const wateringColor = (series: ChartSeries) => series.color;',
+  'const markerColor = wateringColor(marker.series);',
+  'context.strokeStyle = markerColor;',
 ];
 const missingMarkerColorSource = requiredMarkerColorSource.filter((value) => !appSource.includes(value));
 if (missingMarkerColorSource.length) {

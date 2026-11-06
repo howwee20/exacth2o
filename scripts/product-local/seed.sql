@@ -290,7 +290,7 @@ select
   'vwc_pct'
 from seed_series s
 cross join seed_times t
-on conflict (event_id) do nothing;
+on conflict (device_id,event_id) do nothing;
 
 insert into public.valve_events (
   event_id, organization_id, project_id, device_id, source_valve_id, valve_key, pairing_name, action,
@@ -304,7 +304,7 @@ select
 from seed_series s
 cross join seed_times t
 where s.watered and s.ts >= t.matt2_start
-on conflict (event_id) do nothing;
+on conflict (device_id,event_id) do nothing;
 
 -- Mirror production realtime membership so the portal's live channels work locally.
 do $$

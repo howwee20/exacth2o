@@ -10,6 +10,8 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run",
+    "test:release": "node scripts/run-release-tests.mjs",
+    "test:release:browser": "node scripts/run-release-browser-tests.mjs",
     "check": "npm run lint && npm test && npm run build && npm run audit:portal-surface && npm audit",
     "preview": "vite preview --host 127.0.0.1"
   },

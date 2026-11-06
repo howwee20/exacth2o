@@ -25,8 +25,7 @@
 @font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site.css?v=20261014">
-<link rel="stylesheet" href="/site-brand-footer.css?v=20261014">
+<link rel="stylesheet" href="/site.css?v=20261104-header1">
 <style>
 .applications { box-sizing: content-box; max-width: var(--content); margin: 0 auto; padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(2.5rem, 5vw, 4rem); scroll-margin-top: 6rem; }
 .app-intro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: end; margin-bottom: clamp(2.5rem, 5vw, 3.5rem); padding: 1rem 0; --ambient-opacity: .08; }
@@ -41,20 +40,11 @@
 .app-card-title { margin-bottom: .5rem; font-size: 1.25rem; font-weight: 600; line-height: 1.3; letter-spacing: -.02em; }
 .app-card-desc { max-width: 48ch; font-size: .95rem; line-height: 1.6; color: var(--muted); }
 
-/* Public, isolated portal demonstration. */
-.portal-opening { padding: 1.5rem clamp(16px, 3vw, 48px) 3rem; }
-.portal-demo-frame { display: block; width: 100%; max-width: 900px; height: min(710px, calc(100svh - var(--applications-header-height, 72px) - 48px)); margin: 0 auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--bg); box-shadow: 0 1px 2px rgba(14, 26, 20, .04), 0 16px 48px rgba(14, 26, 20, .06); scroll-margin-top: 7rem; }
-.portal-demo-stage { position: relative; inset: auto; width: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: var(--ink); }
-.demo-focus-bar { display: none; }
-.portal-demo-stage:modal { position: fixed; inset: 0; display: flex; flex-direction: column; width: min(1480px, calc(100vw - 48px)); height: min(960px, calc(100svh - 48px)); margin: auto; overflow: hidden; border: 1px solid var(--rule); border-radius: 14px; background: var(--bg); box-shadow: 0 24px 100px #071a2440; animation: experiment-focus-in .28s var(--ease); }
-.portal-demo-stage::backdrop { background: #0e1a1452; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.portal-demo-stage:modal .demo-focus-bar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1.25rem; border-bottom: 1px solid var(--rule); background: #fff; }
-.demo-focus-bar h2 { margin: 0; font: 600 .95rem var(--sans); letter-spacing: -.015em; }
-.demo-focus-bar button { padding: .5rem .75rem; border: 1px solid var(--rule); border-radius: 6px; background: #fff; color: var(--ink); font: 500 .85rem var(--sans); cursor: pointer; transition: background .2s var(--ease); }
-.demo-focus-bar button:hover { background: var(--mist); }
-.portal-demo-stage:modal .portal-demo-frame { flex: 1; min-height: 0; width: 100%; max-width: none; height: 100% !important; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
-body:has(.portal-demo-stage:modal) { overflow: hidden; }
-@keyframes experiment-focus-in { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: none; } }
+/* Public demos remain in the page, under the website navigation. */
+.portal-opening { padding: 24px max(24px, var(--gutter)) 64px; scroll-margin-top: calc(var(--applications-header-height, 54px) + 20px); }
+.portal-demo-stage { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--rule); border-radius: 18px; background: var(--bg); box-shadow: 0 16px 48px rgba(14,26,20,.06); }
+.portal-demo-frame { display: block; width: 100%; height: 470px; margin: 0; border: 0; background: var(--bg); }
+@media (max-width: 600px) { .portal-opening { padding: 16px 12px 40px; } .portal-demo-stage { border-radius: 12px; } }
 
 /* Capabilities */
 .why-section { padding: clamp(2.5rem, 5vw, 4rem) var(--gutter) clamp(4rem, 8vw, 6rem); }
@@ -72,18 +62,10 @@ body:has(.portal-demo-stage:modal) { overflow: hidden; }
   .app-card-image { max-height: 340px; }
   .why-bullets { grid-template-columns: 1fr; }
 }
-@media (max-width: 600px) {
-  .portal-demo-stage:modal { width: calc(100vw - 16px); height: calc(100svh - 16px); border-radius: 10px; }
-  .portal-demo-stage:modal .demo-focus-bar { padding: .7rem .85rem; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .portal-demo-stage:modal { animation: none; }
-  .portal-demo-stage::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: #0e1a14b3; }
-}
 </style>
-<script src="/site-navigation.js" defer></script>
+<script src="/site-navigation.js?v=20261104-header1" defer></script>
 <script src="/site-ambient.js?v=20261015-2" defer></script>
-<script src="/site-brand-footer.js?v=20261014" defer></script>
+<script src="/site-brand-footer.js?v=20261104-arrival1" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/applications">
@@ -93,6 +75,9 @@ body:has(.portal-demo-stage:modal) { overflow: hidden; }
 <meta property="og:url" content="https://exacth2o.com/applications">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/site-typography.css?v=20261103-type1">
+<link rel="stylesheet" href="/site-components.css?v=20261104-header1">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261103-footer3">
 </head>
 <body>
 
@@ -174,13 +159,7 @@ body:has(.portal-demo-stage:modal) { overflow: hidden; }
 
 <!-- PORTAL -->
 <section class="portal-opening" aria-label="Explore the portal">
-  <dialog class="portal-demo-stage" open role="presentation" aria-labelledby="demo-focus-title">
-    <div class="demo-focus-bar">
-      <h2 id="demo-focus-title">Experiment</h2>
-      <button type="button" class="demo-focus-close" aria-label="Close experiment">Close <span aria-hidden="true">×</span></button>
-    </div>
-    <iframe class="portal-demo-frame" src="/applications-demo-app/index.html?v=9963b4f1c0d9" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe>
-  </dialog>
+  <div class="portal-demo-stage"><iframe class="portal-demo-frame" src="/applications-demo-app/index.html?v=67b557646549" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe></div>
 </section>
 
 <!-- WHY EXACTH2O -->
@@ -237,21 +216,7 @@ body:has(.portal-demo-stage:modal) { overflow: hidden; }
 
 </main>
 
-<footer>
-<div class="brand-finale" role="img" aria-label="ExactH2O">
-<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
-    <defs>
-      <pattern id="brand-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#a6b7ae"/></pattern>
-      <pattern id="brand-water-lines" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="2" fill="#91e4d2"/></pattern>
-      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
-    </defs>
-    <g class="brand-finale-type">
-      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
-      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
-    </g>
-  </svg>
-  </div>
+<footer class="site-footer">
   <div class="footer-details">
     <a class="footer-support" href="mailto:support@exacth2o.com">support@exacth2o.com</a>
     <div class="site-policy-links" role="navigation" aria-label="Company information"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/data-access">Data &amp; access</a></div>
@@ -261,75 +226,49 @@ body:has(.portal-demo-stage:modal) { overflow: hidden; }
       <span>MADE IN USA</span>
     </div>
   </div>
+  <a class="brand-finale" href="/" aria-label="ExactH2O home">
+<svg viewBox="0 0 1040 210" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="brand-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#c5cdc7"/></pattern>
+      <pattern id="brand-water-lines" width="8" height="6" patternUnits="userSpaceOnUse"><rect width="8" height="1.5" fill="#87b6a9"/></pattern>
+      <clipPath id="brand-water-fill"><path class="brand-water-level" d="M600 250H1040V260H600Z"/></clipPath>
+    </defs>
+    <g class="brand-finale-type">
+      <text x="20" y="210" textLength="595" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">Exact</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-lines)">H2O</text>
+      <text x="625" y="210" textLength="380" lengthAdjust="spacingAndGlyphs" fill="url(#brand-water-lines)" clip-path="url(#brand-water-fill)">H2O</text>
+    </g>
+  </svg>
+  </a>
 </footer>
 
 <script>
-  // Keep the overview frame close to its list; detail screens retain their scrolling viewport.
+  // Size the embedded document to its content instead of opening a modal.
   const portalDemo = document.querySelector('.portal-demo-frame');
-  const demoStage = document.querySelector('.portal-demo-stage');
-  const demoClose = document.querySelector('.demo-focus-close');
-  const demoTitle = document.getElementById('demo-focus-title');
-  let focusedDemo = false;
-  function focusDemo(title) {
-    if (title) demoTitle.textContent = title;
-    if (focusedDemo) return;
-    focusedDemo = true;
-    demoStage.close();
-    demoStage.removeAttribute('role');
-    demoStage.setAttribute('aria-modal', 'true');
-    demoStage.showModal();
-    demoClose.focus({preventScroll: true});
-  }
-  function unfocusDemo() {
-    if (!focusedDemo) return;
-    focusedDemo = false;
-    demoStage.close();
-    demoStage.setAttribute('role', 'presentation');
-    demoStage.removeAttribute('aria-modal');
-    demoStage.show();
-  }
-  function closeDemo() {
-    portalDemo.contentWindow.postMessage({type: 'exacth2o-demo-focus', action: 'close'}, window.location.origin);
-    unfocusDemo();
-  }
-  demoClose.addEventListener('click', closeDemo);
-  demoStage.addEventListener('cancel', event => { event.preventDefault(); closeDemo(); });
-  demoStage.addEventListener('click', event => {
-    const rect = demoStage.getBoundingClientRect();
-    if (focusedDemo && event.target === demoStage && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) closeDemo();
-  });
-  window.addEventListener('message', event => {
-    if (event.origin !== window.location.origin || event.source !== portalDemo.contentWindow || event.data?.type !== 'exacth2o-demo-focus') return;
-    if (event.data.action === 'open') focusDemo(typeof event.data.title === 'string' ? event.data.title : 'Experiment');
-    if (event.data.action === 'escape') closeDemo();
-  });
-  function fitPortalOverview() {
-    const demoDocument = portalDemo.contentDocument;
-    if (!demoDocument?.getElementById('root')) return;
-    let overview = null;
-    const resize = new ResizeObserver(() => fit());
+  const portalOpening = document.querySelector('.portal-opening');
+  let frameResize, frameMutation;
+  function fitPortal() {
+    frameResize?.disconnect();
+    frameMutation?.disconnect();
+    const doc = portalDemo.contentDocument;
+    const content = doc?.getElementById('root');
+    if (!content) return;
     const fit = () => {
-      const nextOverview = demoDocument.querySelector('.px-home');
-      if (nextOverview !== overview) {
-        resize.disconnect();
-        overview = nextOverview;
-        if (overview) resize.observe(overview);
-      }
-      if (overview) {
-        // A route can change before React has replaced the overview. Keep the focus
-        // view open during that render, including the first lazy-loaded experiment.
-        const openingExperiment = new URLSearchParams(portalDemo.contentWindow.location.search).has('experiment');
-        if (!openingExperiment) unfocusDemo();
-        if (!focusedDemo) portalDemo.style.height = `${Math.ceil(overview.getBoundingClientRect().height) + 2}px`;
-      } else if (focusedDemo) {
-        focusDemo(demoDocument.querySelector('.px-title, .dashboard-title')?.textContent || 'Experiment');
-      }
+      const height = Math.max(240, Math.ceil(content.getBoundingClientRect().height));
+      if (Math.abs(portalDemo.getBoundingClientRect().height - height) > 1) portalDemo.style.height = `${height}px`;
     };
-    new MutationObserver(fit).observe(demoDocument.getElementById('root'), {childList: true, subtree: true});
+    frameResize = new ResizeObserver(fit);
+    frameResize.observe(content);
+    frameMutation = new MutationObserver(fit);
+    frameMutation.observe(content, {childList: true, subtree: true});
     fit();
   }
-  portalDemo.addEventListener('load', fitPortalOverview);
-  if (portalDemo.contentDocument?.readyState === 'complete') fitPortalOverview();
+  portalDemo.addEventListener('load', fitPortal);
+  if (portalDemo.contentDocument?.readyState === 'complete') fitPortal();
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== portalDemo.contentWindow || event.data?.type !== 'exacth2o-demo-focus') return;
+    if (event.data.action === 'open') portalOpening.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+  });
 
   const applicationsHeader = document.querySelector('nav');
   new ResizeObserver(() => document.documentElement.style.setProperty('--applications-header-height', applicationsHeader.getBoundingClientRect().height + 'px')).observe(applicationsHeader);

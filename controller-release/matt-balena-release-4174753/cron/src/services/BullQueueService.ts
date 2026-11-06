@@ -169,6 +169,41 @@ export class BullQueueService {
     }
   }
 
+  /** Stable FIFO position, persisted with the delayed transition in Redis. */
+  async registerValveWaiter(pairing: PairingState): Promise<void> {
+    if (!Number.isSafeInteger(pairing.valveWaitOrder)) {
+      pairing.valveWaitOrder = await this.queue.client.incr(this.queue.toKey('valve-wait-sequence'))
+    }
+  }
+
+  private async valveWaiters(): Promise<Array<Bull.Job<StateTransitionEvent>>> {
+    // Bull reads all three ID collections in one Redis transaction. Separate
+    // getWaiting/getDelayed calls could miss a job moving between those states.
+    const jobs = await this.queue.getJobs(['waiting', 'paused', 'delayed'])
+    return jobs.filter(job => job.data.newState === 'DELAY' && Number.isSafeInteger(job.data.pairing.valveWaitOrder))
+      .sort((a, b) => a.data.pairing.valveWaitOrder! - b.data.pairing.valveWaitOrder!)
+  }
+
+  async hasEarlierValveWaiter(pairing: PairingState): Promise<boolean> {
+    const head = (await this.valveWaiters())[0]
+    return Boolean(head && head.data.pairing.valveWaitOrder! < pairing.valveWaitOrder!)
+  }
+
+  /** Promote only the FIFO head. Its normal transition rechecks every opening guard. */
+  async wakeNextValveWaiter(): Promise<void> {
+    const head = (await this.valveWaiters())[0]
+    // An already-ready head must run before any later request is promoted.
+    if (!head || !await head.isDelayed()) return
+    const data = head.data
+    await head.update({
+      ...data,
+      pairing: { ...data.pairing, nextTransitionTime: Date.now() },
+    })
+    // Updating data before promotion retains the original timed retry if we crash
+    // between these operations. No job is deleted or recreated for a wake-up.
+    await head.promote()
+  }
+
   private getTimingContext(currentState: PairingStateType, newState: PairingStateType, timingRules: any): string | null {
     const stateTransitions: { [key: string]: string } = {
       'STARTUP->MEASURING': `Using start delay time: ${timingRules.startDelayTime}ms`,

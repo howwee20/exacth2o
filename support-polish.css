@@ -1,0 +1,55 @@
+/* Original help content, with a presentation matching the homepage. */
+.support-page .support-shell{box-sizing:border-box;max-width:1160px;padding:0 32px 100px}
+.support-page .support-heading{max-width:780px;margin:0 auto;padding:82px 0 64px;text-align:center}
+.support-page .section-label{display:block;margin-bottom:18px;font-size:17px;font-weight:600;color:#6e6e73}
+.support-page .section-label::before{display:none}
+.support-page .support-heading h1{margin-bottom:22px;font-size:clamp(42px,5.6vw,72px);font-weight:650;line-height:1.04;letter-spacing:-.05em;text-wrap:balance}
+.support-page .support-heading>p{max-width:580px;margin:0 auto;font-size:22px;line-height:1.4;letter-spacing:-.025em;color:#6e6e73}
+.support-page .support-workspace{grid-template-columns:minmax(270px,.85fr) minmax(0,1.4fr);gap:72px 48px}
+.support-page .support-situations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:18px;padding:40px;border:0;border-radius:28px;background:#f5f5f7}
+.support-page .support-situations h2{grid-column:1/-1;margin-bottom:14px;font-size:32px;font-weight:650;line-height:1.15;letter-spacing:-.035em;text-align:center;text-wrap:balance}
+.support-page .support-situations details{min-width:0;padding:0;border:0;border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 2px 7px rgba(0,0,0,.025)}
+.support-page .support-situations summary{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:170px;padding:28px 36px;list-style:none;color:#1d1d1f;text-align:center;font-size:20px;font-weight:600;line-height:1.3;letter-spacing:-.025em}
+.support-page .support-situations summary::-webkit-details-marker{display:none}
+.support-page .support-topic-toggle{position:absolute;right:18px;top:13px;font-size:23px;line-height:1;font-weight:300;color:#86868b;transition:transform .2s ease}
+.support-page .support-situations details[open] .support-topic-toggle{transform:rotate(45deg)}
+.support-page .support-situations summary:hover{color:var(--action)}
+.support-page .support-situations summary:focus-visible{outline-offset:-5px;border-radius:18px}
+.support-page .support-topic-icon{flex:none;width:42px;height:42px;color:var(--action)}
+.support-page .support-situations details>p{margin:0;padding:0 28px 20px;color:#6e6e73;font-size:16px;line-height:1.6}
+.support-page .support-situations details>a{display:inline-block;margin:0 28px 26px;color:var(--action);font-size:16px;line-height:1.4;text-decoration:none;text-underline-offset:3px}
+.support-page .support-situations details>a:hover{text-decoration:underline}
+.support-page #support-context{grid-column:1/-1;margin:4px 0 0;font-size:14px;color:#6e6e73}
+.support-page #support-context:empty{display:none}
+.support-page .support-contact{position:sticky;top:82px;padding:36px;border:0;border-radius:24px;background:#f5f5f7}
+.support-page .support-contact-icon{width:38px;height:38px;margin-bottom:24px;color:var(--action)}
+.support-page .support-contact h2{margin-bottom:16px;font-size:30px;font-weight:650;letter-spacing:-.035em}
+.support-page .support-contact>p{color:#6e6e73;font-size:17px;line-height:1.5}
+.support-page .support-contact .btn-primary{margin-top:26px}
+.support-page .support-address{display:block;margin-top:16px;color:var(--action);font-size:16px;text-align:center}
+.support-page .support-message-guide{margin-top:32px;padding-top:28px;border-color:#d2d2d7}
+.support-page .support-message-guide h3{font-size:18px;line-height:1.3;letter-spacing:-.02em;margin-bottom:12px}
+.support-page .support-message-guide p{font-size:16px;color:#6e6e73}
+.support-page .support-message-guide .text-link{color:var(--action);font-size:16px;font-weight:400}
+@media(max-width:800px){.support-page .support-workspace{grid-template-columns:1fr;gap:48px}.support-page .support-contact{position:static}}
+@media(max-width:600px){
+.support-page .support-shell{padding:0 20px 64px}.support-page .support-heading{padding:54px 0 42px}
+.support-page .support-heading h1{font-size:44px}.support-page .support-heading>p{font-size:19px}
+.support-page .section-label{font-size:15px;margin-bottom:14px}
+.support-page .support-situations{margin-inline:-8px;padding:28px 14px 14px;gap:12px;border-radius:22px}
+.support-page .support-situations h2{margin-inline:12px;margin-bottom:12px;font-size:28px}
+.support-page .support-situations summary{min-height:166px;padding:30px 12px 22px;gap:14px;font-size:17px}
+.support-page .support-topic-icon{width:34px;height:34px}
+.support-page .support-situations details>p{padding:0 18px 16px;font-size:15px}
+.support-page .support-situations details>a{margin:0 18px 22px;font-size:15px}
+.support-page .support-situations details[open]{grid-column:1/-1}
+.support-page .support-contact{padding:28px;border-radius:22px}.support-page .support-contact h2{font-size:29px}
+}
+
+/* Four practical entry points, followed by direct support and installation help. */
+.support-page .support-workspace{grid-template-columns:minmax(0,1fr);gap:32px}
+.support-page .support-contact{position:static;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.support-page .support-message-guide{margin:0;padding:24px 0 24px 48px;border-top:0;border-left:1px solid #d2d2d7}
+.support-page .support-contact .btn-primary{width:auto;min-width:180px}
+.support-page .support-address{text-align:left}
+@media(max-width:600px){.support-page .support-contact{grid-template-columns:1fr;gap:28px}.support-page .support-message-guide{padding:28px 0 0;border-left:0;border-top:1px solid #d2d2d7}}

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 /**
  * What this browser tab is currently doing with the controller's valves, shared by
- * autocalibration (Settings → Autocalibrate) and manual hold-to-water troubleshooting.
+ * autocalibration (Autocalibrate) and manual hold-to-water troubleshooting.
  *
  * The controller arbitrates ownership itself (one output at a time, manual control
  * first). This store is the portal's side of the same rule: before a hold starts, an

@@ -1,4 +1,5 @@
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { PortalHomeButton } from "../product/PortalHomeButton";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { advanceCurrentBootUptime, reconstructCurrentBootUptime, restartOutagePresentation } from "../healthUptime";
 import { formatHealthDetailValue, healthBoolean, healthDateWithAge, healthNumber, healthString, healthTimestampMs } from "../healthValues";
@@ -222,10 +223,7 @@ export function SystemHealthView({
         detail={selectedDetail}
         onClose={() => setSelectedDetail(null)}
       />
-      <button type="button" className="support-back-button" onClick={onBackHome}>
-        <ArrowLeft size={15} />
-        Home
-      </button>
+      <PortalHomeButton onClick={onBackHome} />
 
       {error ? (
         <div className="banner error">

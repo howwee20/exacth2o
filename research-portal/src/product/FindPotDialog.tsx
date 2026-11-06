@@ -9,7 +9,7 @@ import type { PairingRow } from "../types";
 type ManualControl = { projectId: string; deviceId: string; controllerName: string };
 /** A search result. With manual control, `pot` is the physical pot its valve waters. */
 type Result = { key: string; pot: number | null; pairing: PairingRow | null; experiment: PortalExperiment | null; route: PotRoute | null };
-const statusText = { ready: "Ready", needs_confirmation: "Needs check", no_water_line: "No water line", unmapped: "No route", conflict: "Conflict" } as const;
+const statusText = { ready: "Watering ready", needs_confirmation: "Needs check", no_water_line: "No water line", unmapped: "No route", conflict: "Conflict" } as const;
 
 export function routeSourceText(route: PotRoute) {
   if (!route.source) return "—";
@@ -153,10 +153,10 @@ export function FindPotDialog({
           value={query}
           inputMode="search"
           role="combobox"
-          aria-label="Pot number, pairing or experiment"
+          aria-label="Pot number or experiment"
           aria-expanded={Boolean(query.trim() && results.length)}
           aria-autocomplete="list"
-          placeholder={client ? "Pot number 1–100, pairing or experiment" : "Pot number, pairing or experiment"}
+          placeholder={client ? "Pot number 1–100 or experiment" : "Pot number or experiment"}
           aria-controls={listId}
           aria-activedescendant={results[active] ? `${listId}-${active}` : undefined}
           onChange={(event) => {
@@ -193,7 +193,7 @@ export function FindPotDialog({
                     }}
                   >
                     <b>{result.pot != null ? `Pot ${result.pot}` : result.pairing?.name}</b>
-                    <span>{result.experiment?.name ?? (result.pairing ? (client ? result.pairing.name : "Not in a current experiment") : "No sensor pairing")}</span>
+                    <span>{result.experiment?.name ?? (result.route ? (result.route.pairing?.sensorKey ? "Sensor linked" : "No sensor linked") : "Not in a current experiment")}</span>
                     {result.route
                       ? <span className="px-route-badge" data-status={result.route.status}>{statusText[result.route.status]}</span>
                       : client ? <span className="px-route-badge" data-status="unmapped">Valve not confirmed</span> : <span className="px-mono">{result.pairing?.name}</span>}
@@ -217,22 +217,13 @@ function PotPanel({ titleId, pot, route, experiment, controllerName, client, boo
   titleId: string; pot: number; route: PotRoute | null; experiment: PortalExperiment | null; controllerName: string;
   client: ManualWaterClient; book: RouteBook | null; onBook: (book: RouteBook) => void; recordHref: string | null; onClose: () => void;
 }) {
-  const valve = route?.relayAddress != null && route.channel != null ? routeLabel(route.relayAddress, route.channel) : null;
-  const renamed = route?.pairing && route.pairing.namedPot != null && route.pairing.namedPot !== pot;
-  const solenoid = route?.relayAddress != null ? book?.outputs?.find((output) => output.relayAddress === route.relayAddress && output.channel === route.channel)?.solenoidNumber ?? null : null;
   return (
     <div className="px-pot-panel">
       <header>
         <h2 id={titleId}>Pot {pot}</h2>
-        <p>{experiment?.name ?? (route?.pairing ? "Not in a current experiment" : "No sensor pairing on this valve")}</p>
+        <p>{experiment?.name ?? controllerName}</p>
       </header>
-      <dl className="px-pot-facts">
-        <div><dt>Valve</dt>{valve ? <dd className="px-mono">{valve}{solenoid != null ? ` · solenoid ${solenoid}` : ""}</dd> : <dd className="px-muted">{route?.status === "no_water_line" ? "No water line" : "Not confirmed"}</dd>}</div>
-        <div><dt>Sensor pairing</dt>{route?.pairing ? <dd><span>{route.pairing.name}</span>{route.pairing.sensorKey ? <span className="px-mono px-muted"> · {route.pairing.sensorKey}</span> : null}</dd> : <dd className="px-muted">None</dd>}</div>
-        <div><dt>Route record</dt><dd>{route ? routeSourceText(route) : "Loading…"}</dd></div>
-        <div><dt>Controller</dt><dd>{controllerName}</dd></div>
-      </dl>
-      {renamed ? <p className="px-pot-note">This valve's sensor pairing is named {route?.pairing?.name}. Pot numbers here are the physical bench numbers.</p> : null}
+      <PotRouteFacts route={route} admin={Boolean(book?.canConfirm)} />
       {!route ? <p className="px-muted px-small">Loading valve routes…</p>
         : route.status === "ready" ? <HoldWaterControl key={`${pot}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber: pot }} label={`Pot ${pot}`}
             renewMs={book?.renewMs} leaseMs={book?.leaseMs} canTakeover={book?.canTakeover} />
@@ -240,6 +231,25 @@ function PotPanel({ titleId, pot, route, experiment, controllerName, client, boo
       {recordHref ? <a className="px-pot-record" href={recordHref} onClick={onClose}>Open sensor record <span aria-hidden="true">→</span></a> : null}
     </div>
   );
+}
+
+/** Watering confirmation and sensor configuration are separate facts. */
+export function PotRouteFacts({ route, admin }: { route: PotRoute | null; admin: boolean }) {
+  return <>
+    <dl className="px-pot-facts">
+      <div><dt>Watering</dt><dd>{route ? (route.status === "ready" ? "Ready" : "Needs setup") : "Loading…"}</dd></div>
+      <div><dt>Sensor</dt><dd>{route ? (route.pairing?.sensorKey ? "Linked" : "No sensor linked") : "Loading…"}</dd></div>
+    </dl>
+    {admin && route ? <details className="px-details">
+      <summary>Hardware details</summary>
+      <dl className="px-pot-facts">
+        <div><dt>Valve</dt><dd>{route.relayAddress != null && route.channel != null ? routeLabel(route.relayAddress, route.channel) : "Not confirmed"}</dd></div>
+        <div><dt>Sensor</dt><dd>{route.pairing?.sensorKey ?? "Not linked"}</dd></div>
+        <div><dt>Pairing</dt><dd>{route.pairing?.name ?? "None"}</dd></div>
+        <div><dt>Verified</dt><dd>{routeSourceText(route)}</dd></div>
+      </dl>
+    </details> : null}
+  </>;
 }
 
 const neededCopy = {
@@ -269,8 +279,9 @@ export function RouteNeeded({ route, canConfirm, book, client, onBook }: { route
     if (result.ok) onBook(result.data); else setError(result.error);
   };
   const [title, body] = neededCopy[route.status];
+  if (!canConfirm) return <p className="px-muted">Watering needs setup. Contact your administrator.</p>;
   return (
-    <section className="px-route-needed" data-status={route.status}>
+    <details className="px-details"><summary>Setup details</summary><section className="px-route-needed" data-status={route.status}>
       <h3>{title}</h3>
       <p>{route.status === "conflict" ? route.reason : body}</p>
       {route.evidence ? <p className="px-route-evidence">{route.evidence}</p> : null}
@@ -307,6 +318,6 @@ export function RouteNeeded({ route, canConfirm, book, client, onBook }: { route
         </form>
       ) : route.status !== "conflict" ? <p className="px-muted px-small">A project admin confirms routes after watching the valve water the pot.</p> : null}
       {error ? <p className="px-route-error" role="alert">{error}</p> : null}
-    </section>
+    </section></details>
   );
 }

@@ -71,6 +71,8 @@ export interface PairingState extends IPairing {
   wateringWindowStartedAt: number | null,
   wateringWindowPulseCount: number,
   nextTransitionTime: number | null
+  // Redis sequence retained across valve-capacity retries; cleared on leaving the wait.
+  valveWaitOrder?: number
 }
 
 export type PairingStateType = PairingState['state'];

@@ -5,6 +5,8 @@ import {
   notificationRetryState,
   resendPayload,
   retryDelaySeconds,
+  UnverifiedDestinationError,
+  verifiedDestination,
 } from "./notification-policy.mjs";
 
 test("notification delivery stays disabled without provider secrets", () => {
@@ -51,4 +53,13 @@ test("provider payload includes only the intended message fields", () => {
       text: "Pot 15 is below target.",
     },
   );
+});
+
+test("email goes only to the owner's confirmed sign-in address", () => {
+  const account = { email: "Owner@Example.org", email_confirmed_at: "2026-07-01T00:00:00Z" };
+  assert.equal(verifiedDestination({ destination: " owner@example.org " }, account), "owner@example.org");
+  assert.throws(() => verifiedDestination({ destination: "someone-else@example.org" }, account), UnverifiedDestinationError);
+  assert.throws(() => verifiedDestination({ destination: "owner@example.org" }, { ...account, email_confirmed_at: null }), UnverifiedDestinationError);
+  assert.throws(() => verifiedDestination({ destination: "owner@example.org" }, null), UnverifiedDestinationError);
+  assert.throws(() => verifiedDestination({ destination: "" }, account), UnverifiedDestinationError);
 });

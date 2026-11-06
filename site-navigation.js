@@ -3,20 +3,23 @@
   const trigger = document.getElementById('hamburger');
   const background = document.querySelectorAll('main, footer, nav .nav-logo, nav .nav-links');
   const mobile = window.matchMedia('(max-width: 900px)');
+  const scrollRoot = document.documentElement;
   let previousOverflow = '';
 
   function setOpen(open, restoreFocus = true) {
     const wasOpen = menu.classList.contains('active');
-    if (open && !wasOpen) previousOverflow = document.body.style.overflow;
+    if (open && !wasOpen) previousOverflow = scrollRoot.style.overflow;
     menu.classList.toggle('active', open);
     trigger.classList.toggle('active', open);
     trigger.setAttribute('aria-expanded', String(open));
     trigger.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
-    if (!open && wasOpen && restoreFocus) trigger.focus();
     menu.setAttribute('aria-hidden', String(!open));
     background.forEach(element => { element.inert = open; });
-    document.body.style.overflow = open ? 'hidden' : previousOverflow;
-    if (open) menu.querySelector('.mob-close').focus();
+    scrollRoot.style.overflow = open ? 'hidden' : previousOverflow;
+    // Restore the scroll container before returning focus. Focusing the sticky
+    // trigger while scrolling is locked can scroll the page back to the top.
+    if (!open && wasOpen && restoreFocus) trigger.focus({ preventScroll: true });
+    if (open) menu.querySelector('.mob-close').focus({ preventScroll: true });
   }
 
   window.toggleMenu = () => setOpen(!menu.classList.contains('active'));
@@ -39,7 +42,7 @@
   mobile.addEventListener('change', () => {
     if (!mobile.matches && menu.classList.contains('active')) {
       setOpen(false, false);
-      document.querySelector('nav .nav-logo').focus();
+      document.querySelector('nav .nav-logo').focus({ preventScroll: true });
     }
   });
 })();

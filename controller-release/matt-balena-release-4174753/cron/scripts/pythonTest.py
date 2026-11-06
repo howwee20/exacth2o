@@ -18,7 +18,7 @@
 
 # Credentials
 thingspeak_channelID = "359964"
-thingspeak_api_key = "GTOEBKK8ZQHI1V1B"
+thingspeak_api_key = os.environ["THINGSPEAK_WRITE_API_KEY"]
 
 min_VWC_percent={
     'A': 1,

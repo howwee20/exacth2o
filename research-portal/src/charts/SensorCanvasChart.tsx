@@ -25,7 +25,7 @@ const targetColors: Record<ChartTargetLine["tone"], string> = {
   drought: "#c2410c",
   neutral: "#334155",
 };
-const wateringColor = (series: ChartSeries) => (series.treatment === "drought" ? "#f97316" : "#2563eb");
+const wateringColor = (series: ChartSeries) => series.color;
 
 type SensorCanvasChartProps = {
   series: ChartSeries[];
@@ -168,7 +168,7 @@ function SensorCanvasChartComponent({
       const { margin, plotWidth, plotHeight, minX, maxX, spanX, xScale, yScale, yTicks } = bounds;
 
       context.save();
-      const axisFont = compact ? "500 10px Instrument Sans, Arial, sans-serif" : "500 12px Instrument Sans, Arial, sans-serif";
+      const axisFont = `500 ${compact ? 10 : 12}px ${getComputedStyle(wrapper).fontFamily}`;
       const axisColor = "#52675c";
 
       context.lineWidth = 1;

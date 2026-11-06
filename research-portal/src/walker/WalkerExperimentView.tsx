@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Maximize2, Minimize2 } from "lucide-react";
+import { AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SensorCanvasChart } from "../charts/SensorCanvasChart";
 import { TimeRangeControl } from "../charts/TimeRangeControl";
@@ -15,6 +15,8 @@ import { colorForPotNumber } from "../potColors";
 import { type SensorReading } from "../types";
 import { isWalkerAccessDenied, toggleWalkerSensorSelection, walkerFreshness, type WalkerLiveSensor, type WalkerLiveSnapshot, walkerSensorsByBoard } from "../walkerObservation";
 import { loadWalkerLiveSnapshot } from "../walkerObservationClient";
+import { scopeWalkerSnapshot, type WalkerPortalExperiment } from "../walkerExperiments";
+import { PortalHomeButton } from "../product/PortalHomeButton";
 
 export const walkerLivePollMs = 60_000;
 
@@ -66,9 +68,10 @@ export function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
   });
 }
 
-export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
+export function WalkerExperimentView({ onBack, experiment }: { onBack: () => void; experiment?: WalkerPortalExperiment | null }) {
   const [lastRecorded, setLastRecorded] = useState(false);
-  const [snapshot, setSnapshot] = useState<WalkerLiveSnapshot | null>(null);
+  const [sourceSnapshot, setSnapshot] = useState<WalkerLiveSnapshot | null>(null);
+  const snapshot = useMemo(() => sourceSnapshot && experiment ? scopeWalkerSnapshot(sourceSnapshot, experiment) : sourceSnapshot, [sourceSnapshot, experiment]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSensorIds, setSelectedSensorIds] = useState<Set<number>>(new Set());
@@ -193,14 +196,7 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
 
   return (
     <section className="dashboard-shell experiment-shell walker-experiment-shell">
-      <div className="experiment-corner-actions" aria-label="Machine actions">
-        <div className="header-actions">
-          <button className="header-action" type="button" onClick={onBack}>
-            <ArrowLeft size={14} />
-            Home
-          </button>
-        </div>
-      </div>
+      <PortalHomeButton onClick={onBack} />
 
       {error ? (
         <div className="banner error" role="alert">
@@ -212,7 +208,7 @@ export function WalkerExperimentView({ onBack }: { onBack: () => void }) {
         </div>
       ) : null}
 
-      <h1 className="experiment-view-title">Walker Pi 5</h1>
+      <h1 className="experiment-view-title">{experiment?.name ?? "Walker Pi"}</h1>
       {snapshot && freshness ? (
         <MeasurementStatusBar
           freshness={freshness}

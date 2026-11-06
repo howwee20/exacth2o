@@ -40,6 +40,9 @@ class StateMachine {
   private eventQueueService: BullQueueService
   private openValvePairId: string | null = null
   private lastValveClosedAt: number | null = null
+  private valveWakeTimer?: ReturnType<typeof setTimeout>
+  private valveWakeInProgress = false
+  private valveWakeStopped = false
   private manualHoldManager: ManualHoldManager
   private manualPulseManager: ManualPulseManager
   private wateringPulseLedger: WateringPulseLedger
@@ -192,6 +195,7 @@ class StateMachine {
 
     this.eventQueueService.setLoadingPairings(false)
     console.log('Starting event loop')
+    this.valveWakeStopped = false
     this.runEventLoop()
   }
 
@@ -223,6 +227,11 @@ class StateMachine {
   }
 
   async stopEventLoop(): Promise<void> {
+    this.valveWakeStopped = true
+    if (this.valveWakeTimer) clearTimeout(this.valveWakeTimer)
+    this.valveWakeTimer = undefined
+    // Close hardware before logs or queue shutdown can block.
+    this.valveService.closeAllValves()
     await this.manualHoldManager.stopAll()
     console.log('Stopping StateMachine event queue...')
     await this.apiService.postData(API_ENDPOINTS.LOGS, {
@@ -245,7 +254,6 @@ class StateMachine {
       message: `Closing all valves as part of stopping StateMachine`,
       source: 'StateMachine'
     })
-    this.valveService.closeAllValves()
     // STOPPED cancels the queued close transition. Retire its active marker
     // only after close-all succeeds; retain the per-pot pulse history/limits.
     const activePulse = this.wateringPulseLedger.activePulse()
@@ -290,7 +298,53 @@ class StateMachine {
   private async processStateTransition(event: StateTransitionEvent): Promise<void> {
     const { pairing, newState } = event
     console.log(`[PROCESS] Executing transition job for ${pairing.sensorId}-${pairing.valveId}: current=${pairing.state} queued=${newState} at ${new Date().toISOString()}`)
+    const wasWaiting = Number.isSafeInteger(pairing.valveWaitOrder)
     await this.checkRulesForPair(pairing, newState)
+    // A rejected/stale head must hand off too, not leave the next request asleep.
+    if (wasWaiting || Number.isSafeInteger(pairing.valveWaitOrder) || newState === 'VALVE_OPEN') {
+      await this.wakeNextValveWaiter()
+    }
+  }
+
+  private scheduleValveWake(delay: number): void {
+    if (this.valveWakeStopped || this.state !== MachineState.RUNNING) return
+    if (this.valveWakeTimer) clearTimeout(this.valveWakeTimer)
+    this.valveWakeTimer = setTimeout(() => {
+      this.valveWakeTimer = undefined
+      void this.wakeNextValveWaiter()
+    }, Math.max(1, delay))
+    this.valveWakeTimer.unref()
+  }
+
+  private async wakeNextValveWaiter(): Promise<void> {
+    if (this.valveWakeStopped || this.state !== MachineState.RUNNING || this.openValvePairId || this.valveWakeInProgress) return
+    const arbitration = this.arbiter?.automaticOpen()
+    if (arbitration && !arbitration.allowed) {
+      if (arbitration.retryInMs != null) this.scheduleValveWake(arbitration.retryInMs)
+      return
+    }
+    const remainingRecovery = this.lastValveClosedAt == null ? 0
+      : this.lastValveClosedAt + DEFAULT_TIMING.VALVE_RECOVERY_DELAY - Date.now()
+    if (remainingRecovery > 0) {
+      this.scheduleValveWake(remainingRecovery)
+      return
+    }
+    this.valveWakeInProgress = true
+    try {
+      await this.eventQueueService.wakeNextValveWaiter()
+    } catch (error) {
+      // Notification failure must never turn a successful physical close into a
+      // failed-close state. Delayed Bull jobs also retain their timed fallback.
+      console.error('Valve queue wake-up failed; retaining timed retry', error)
+      this.scheduleValveWake(DEFAULT_TIMING.VALVE_CONFLICT_RETRY_DELAY)
+    } finally {
+      this.valveWakeInProgress = false
+    }
+  }
+
+  private async queueNextTransition(pairing: PairingState, nextState: PairingStateType): Promise<void> {
+    if (nextState !== 'DELAY') delete pairing.valveWaitOrder
+    await this.eventQueueService.queueStateTransition(pairing, nextState)
   }
 
   private async checkRulesForPair(pairing: PairingState, newState: PairingStateType): Promise<void> {
@@ -330,7 +384,7 @@ class StateMachine {
     const { events } = await this.rulesEngineService.evaluateRules(facts)
 
     if (events.length === 0) {
-      await this.eventQueueService.queueStateTransition(pairing, newState)
+      await this.queueNextTransition(pairing, newState)
     } else {
       let finalState: PairingStateType = newState
       // Process all state transitions but only queue the final one
@@ -341,7 +395,7 @@ class StateMachine {
         finalState = handledState ?? nextState
       }
       // Only queue the final state transition to prevent out-of-order execution
-      await this.eventQueueService.queueStateTransition(pairing, finalState)
+      await this.queueNextTransition(pairing, finalState)
     }
   }
 
@@ -524,6 +578,11 @@ class StateMachine {
         return decision.fault ? 'SENSOR_FAULT' : 'IDLE'
       }
 
+      // Admission order belongs to eligible watering requests, not sensor jobs.
+      // Retain this ticket across retries and Bull worker reconnections.
+      await this.eventQueueService.registerValveWaiter(pairing)
+      const earlierWaiter = await this.eventQueueService.hasEarlierValveWaiter(pairing)
+
       const arbitration = this.arbiter ? this.arbiter.automaticOpen() : { allowed: true as const }
       if (!arbitration.allowed) {
         // Manual troubleshooting, its settling window, a topology rewrite or a valve
@@ -540,6 +599,11 @@ class StateMachine {
           `another valve is already open: ${this.openValvePairId}; retrying in ${DEFAULT_TIMING.VALVE_CONFLICT_RETRY_DELAY}ms`,
           'info'
         )
+        pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.VALVE_CONFLICT_RETRY_DELAY
+        return 'DELAY'
+      }
+
+      if (earlierWaiter) {
         pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.VALVE_CONFLICT_RETRY_DELAY
         return 'DELAY'
       }
@@ -597,21 +661,25 @@ class StateMachine {
         address,
         Date.now(),
       )
+      // Awaited ledger operations allow a hold/stop to acquire the controller.
+      // Recheck and acquire immediately before OPEN, without an intervening await.
+      const finalAdmission = this.arbiter ? this.arbiter.automaticOpen() : { allowed: true as const }
+      if (this.valveWakeStopped || !finalAdmission.allowed || (this.openValvePairId && this.openValvePairId !== pairId)) {
+        await this.wateringPulseLedger.completeActive(pairId)
+        pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.VALVE_CONFLICT_RETRY_DELAY
+        return 'DELAY'
+      }
       this.openValvePairId = pairId
       pairing.valveOpened = true
       pairing.nextTransitionTime = Date.now() + pairing.timingRules.valveOpenTime
-      await this.apiService.postData(API_ENDPOINTS.LOGS, {
-        level: 'info',
-        message: `Valve open phase: ${pairId}`,
-        source: 'StateMachine'
-      })
-      console.log(`Opening valve: ${pairId}`)
-
       this.operateAutomaticPulseValve(activePulse, 'OPEN')
+      void this.apiService.postData(API_ENDPOINTS.LOGS, {
+        level: 'info', message: `Valve open phase: ${pairId}`, source: 'StateMachine'
+      }).catch(error => console.error('Valve-open log failed:', error))
       recordValveOpen(pairing, Date.now(), DEFAULT_TIMING.WATERING_SETTLE_WINDOW)
       console.log(`Valve ${pairId} opened successfully`)
       try {
-        await this.apiService.postData(API_ENDPOINTS.LOGS, {
+        void this.apiService.postData(API_ENDPOINTS.LOGS, {
           level: 'info',
           message: `Opened Valve: ${pairId}; measured=${isFiniteNumber(pairing.WTCPercentMeasured) ? pairing.WTCPercentMeasured.toFixed(2) : 'unknown'} floor=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).floor.toFixed(2)} trigger=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).trigger.toFixed(2)} recovery=${getWateringBand(pairing, DEFAULT_TIMING.WATERING_TRIGGER_OFFSET_PERCENT, DEFAULT_TIMING.WATERING_RECOVERY_OFFSET_PERCENT).recoveryMax.toFixed(2)} pulseCount=${pairing.wateringWindowPulseCount}`,
           source: 'StateMachine'
@@ -657,11 +725,6 @@ class StateMachine {
     }
 
     pairing.nextTransitionTime = Date.now() + DEFAULT_TIMING.STANDARD_VALVE_CLOSE
-    await this.apiService.postData(API_ENDPOINTS.LOGS, {
-      level: 'info',
-      message: `Valve close phase: ${pairId}`,
-      source: 'StateMachine'
-    })
     console.log(`Closing valve: ${pairId}`)
 
     try {
@@ -955,6 +1018,7 @@ class StateMachine {
       this.lastValveClosedAt = Date.now()
     }
     this.arbiter.endManualControl(session.sessionId)
+    void this.wakeNextValveWaiter()
     if (reason !== 'released' && reason !== 'stopped_before_start') {
       console.warn(`Manual hold ${session.sessionId} ended: ${reason}`)
     }
@@ -1036,6 +1100,7 @@ class StateMachine {
 
   endConfigRewrite(id: string) {
     this.arbiter.endConfigRewrite(id)
+    void this.wakeNextValveWaiter()
   }
 
   /** The independent watchdog forced every output off. Nothing opens until reconciled. */
@@ -1056,6 +1121,7 @@ class StateMachine {
     this.arbiter.clearFault()
     this.manualHoldManager.reconcileFault()
     this.watchdogReconciled = true
+    void this.wakeNextValveWaiter()
     try {
       await this.apiService.postData(API_ENDPOINTS.LOGS, { level: 'warn', message: `Valve fault reconciled: ${note.slice(0, 300)}`, source: 'StateMachine' })
     } catch (error) {
@@ -1097,6 +1163,7 @@ class StateMachine {
     if (state === 'CLOSE' && this.openValvePairId === `manual:${request.pulseId}`) {
       this.openValvePairId = null
       this.lastValveClosedAt = Date.now()
+      void this.wakeNextValveWaiter()
     }
   }
 

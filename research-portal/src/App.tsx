@@ -1,14 +1,20 @@
+import { toggleTraceSelection } from "./product/traceSelection";
+import { formatLoadedReadingsCsv, formatPairingsCsv } from "./portalCsv";
+import { useExpandedGraph } from "./charts/useExpandedGraph";
+import { ExperimentPotGroups } from "./product/ExperimentPotGroups";
 import { PotInspector } from './product/PotInspector';
 import { DirectExperiment } from './product/DirectExperiment';
 import { SavedTraceViews } from "./product/SavedTraceViews";
-import { ExperimentHistory } from "./product/ExperimentHistory";
-import { AlertTriangle, ArrowRight, Droplets, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
-import { type CSSProperties, type FormEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { clearExperimentArchives, useExperimentReadings } from "./useExperimentReadings";
+import { experimentTraceReadings } from "./experimentTraceReadings";
+import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
+import { SystemSection } from "./product/SystemSection";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
-import { SoftwareTermsModal } from "./auth/SoftwareTermsModal";
+import { AuthScreen } from "./auth/AuthScreen";
 import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
 import {
   authEventReload,
@@ -19,28 +25,27 @@ import {
 import { SensorCanvasChart } from "./charts/SensorCanvasChart";
 import { TimeRangeControl } from "./charts/TimeRangeControl";
 import { filterSeriesByTime, timeBoundsForSeries } from "./charts/chartGeometry";
-import { chartSeries, compareGroup, describeVwcReading, formatVwcReading, latestPoint } from "./charts/chartSeries";
-import { MeasurementStatusBar } from "./experiment/MeasurementStatus";
-import { experimentFreshness, experimentIsCompleted, experimentProgressText, groupTarget, pairingTargetText, targetLinesForPairings, withReportingCoverage } from "./experimentMeasurement";
-import { formatAge, formatMeasurementTime, measurementFreshness } from "./measurementFreshness";
+import { chartSeries } from "./charts/chartSeries";
+import { pairingTargetText, targetLinesForPairings } from "./experimentMeasurement";
+import { formatMeasurementTime } from "./measurementFreshness";
 import { controllerPresence } from "./settingsPresentation";
 import { isCommandStatus, settingsBatchCommandType, type TrackedCommand, trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { experimentGraphGroups, experimentSidebarGroups } from "./experimentPresentation";
 import { levelLabel } from "./experimentFactors";
-import { type ExperimentId, isObservationOnlyExperiment, mergePortalExperiments, pairingsForExperiment, type PortalExperiment, portalExperimentById, portalExperimentsForRole, readingsForExperiment, valveEventsForExperiment } from "./experimentRegistry";
+import { deduplicateExperimentCatalog, type ExperimentId, isObservationOnlyExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, hasSalesSupportAccess, parsePortalRole } from "./portalAccess";
-import { autoRefreshMs, defaultExpandedPanelSize, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, minExpandedPanelSize, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
+import { autoRefreshMs, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
 import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
-import { controlCommandLabel, errorMessage, formatTargetVwc, functionErrorMessage, pairingCalibrationName, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
-import { colorForPairing, orderedPairings, plantGroupForPairing, treatmentForPairing } from "./portalPresentation";
+import { controlCommandLabel, errorMessage, functionErrorMessage, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
+import { orderedPairings, plantGroupForPairing, treatmentForPairing } from "./portalPresentation";
 import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectContext";
-import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime, sourceLabelForReading } from "./portalReadings";
-import { adminOnlyControlCommandTypes, type AuthMode, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type InviteAcceptResponse, type LoadState, type PanelPosition, type PanelSize, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
-import { csvEscape, dedupeReadingsForExport, downloadJsonFile } from "./readingsExport";
+import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime } from "./portalReadings";
+import { adminOnlyControlCommandTypes, type AuthMode, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type InviteAcceptResponse, type LoadState, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
+import { dedupeReadingsForExport, downloadJsonFile } from "./readingsExport";
 import { type SettingsCommandDraft, stoppedSettingsCommandTypes } from "./settingsSpec";
-import { softwareTermsVersion, supportEmail } from "./softwareTerms";
+import { softwareTermsVersion } from "./softwareTerms";
 import { supabase } from "./supabase";
 import { withSupabaseTimeout } from "./supabaseTimeout";
 import { type LatestState, type PairingRow, type SensorReading, type ValveEvent } from "./types";
@@ -51,9 +56,9 @@ import { usePageClock } from "./pageClock";
 import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
 import { homeExceptions } from "./homeExceptions";
-import { type ExperimentTab, navigatePortal, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
+import { navigatePortal, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
 import { resolvePot } from "./potIdentity";
-import { readingsForPairings, valveEventsForPairings } from "./pairingHistory";
+import { readingsForPairings } from "./pairingHistory";
 import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
 import { FindPotDialog } from "./product/FindPotDialog";
 import type { ManualWaterTarget } from "./product/ManualWaterPanel";
@@ -71,30 +76,26 @@ import { loadLatestBenchLayout, loadPotBindings, recordBenchLayout, type BenchLa
 // reach researchers' browsers unless opened.
 const loadSettingsPanel = () => import("./settings/PortalSettingsPanel").then((module) => ({ default: module.PortalSettingsPanel }));
 const PortalSettingsPanel = lazyFeature(loadSettingsPanel);
+const AutocalibratePage = lazyFeature(() => import("./autocalibrate/AutocalibratePage").then((module) => ({ default: module.AutocalibratePage })));
 const ArchiveExperimentDialog = lazyFeature(() => import("./product/ArchiveExperimentDialog").then((module) => ({ default: module.ArchiveExperimentDialog })));
 const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
 const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
 const SalesSupportView = lazyFeature(() => import("./support/SalesSupportView").then((module) => ({ default: module.SalesSupportView })));
-const WalkerExperimentView = lazyFeature(() => import("./walker/WalkerExperimentView").then((module) => ({ default: module.WalkerExperimentView })));
+const WalkerExperimentView = lazyFeature(() => import("./walker/WalkerExperimentPage").then((module) => ({ default: module.WalkerExperimentPage })));
 const WebsiteAnalyticsWorkspace = lazyFeature(() => import("./analytics/WebsiteAnalyticsWorkspace"));
 // Experiment, pot and trend views load when first opened; the home and header stay in the entry.
-const WaterlineOverview = lazyFeature(() => import("./product/WaterlineOverview").then((module) => ({ default: module.WaterlineOverview })));
 const PotPage = lazyFeature(() => import("./product/PotPage").then((module) => ({ default: module.PotPage })));
-const PotsTable = lazyFeature(() => import("./product/PotsTable").then((module) => ({ default: module.PotsTable })));
 const TrendsView = lazyFeature(() => import("./product/TrendsView").then((module) => ({ default: module.TrendsView })));
 const BenchView = lazyFeature(() => import("./product/BenchView").then((module) => ({ default: module.BenchView })));
 const PocketView = lazyFeature(() => import("./product/PocketView").then((module) => ({ default: module.PocketView })));
 const ExperimentExport = lazyFeature(() => import("./product/ExperimentExport").then((module) => ({ default: module.ExperimentExport })));
 const AccountPage = lazyFeature(() => import("./product/AccountPage").then((module) => ({ default: module.AccountPage })));
 const RecordView = lazyFeature(() => import("./product/RecordView").then((module) => ({ default: module.RecordView })));
-const PotNotesSection = lazyFeature(() => import("./product/PotNotesSection").then((module) => ({ default: module.PotNotesSection })));
 const ManualWaterPanel = lazyFeature(() => import("./product/ManualWaterPanel").then((module) => ({ default: module.ManualWaterPanel })));
 const prefetchSettings = () => {
   void loadSettingsPanel().catch(() => undefined);
 };
 
-const emptyNameSet = new Set<string>();
-const ignoreSeriesSelection = () => undefined;
 const clockTickMs = 30_000;
 /** Realtime readings arriving within this window are merged together. */
 const realtimeBatchMs = 400;
@@ -196,30 +197,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [loginError, setLoginError] = useState<string | null>(() => new URLSearchParams(window.location.hash.slice(1)).has("error") ? "This access link has expired or is invalid. Request a fresh password reset below." : null);
   const [selectedMode] = useState<DataMode>("auto");
   const [experimentGraphMode, setExperimentGraphMode] = useState<ExperimentGraphMode>("vwc");
-  const [potPreset, setPotPreset] = useState<PotPreset>("all");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
   const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
   const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
-  const [graphExpanded, setGraphExpanded] = useState(false);
-  useEffect(() => {
-    if (!graphExpanded) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setGraphExpanded(false);
-        window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.expand-button')?.focus());
-      }
-    };
-    window.addEventListener("keydown", close);
-    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", close); };
-  }, [graphExpanded]);
-
-  const [selectedExperimentGraphGroupId, setSelectedExperimentGraphGroupId] =
-    useState("");
-  const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
-  const [panelSize, setPanelSize] = useState<PanelSize>(defaultExpandedPanelSize);
+  const [potsPanelOpen, setPotsPanelOpen] = useState(false);
+  const { graphExpanded, setGraphExpanded, dashboardMainRef, toggleExpandedGraph } = useExpandedGraph();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The settings panel loads on first open and then stays mounted so its form state survives closing.
   const [settingsMounted, setSettingsMounted] = useState(false);
@@ -237,7 +220,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const route = usePortalRoute();
   const portalView: PortalView = route.view === "experiment" || route.view === "pot"
     ? "experiment"
-    : route.view === "health" || route.view === "support" || route.view === "walker" || route.view === "chamber" || route.view === "analytics" || route.view === "controller" || route.view === "account"
+    : route.view === "health" || route.view === "support" || route.view === "walker" || route.view === "chamber" || route.view === "analytics" || route.view === "controller" || route.view === "account" || route.view === "autocalibrate"
       ? route.view
       : "home";
   const setPortalView = useCallback((view: PortalView) => {
@@ -264,8 +247,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [exportOpen, setExportOpen] = useState(false);
   const [duplicateExperiment, setDuplicateExperiment] = useState<PortalExperiment | null>(null);
   const [editingExperiment, setEditingExperiment] = useState<PortalExperiment | null>(null);
-  const [experimentBuilderPrompt, setExperimentBuilderPrompt] = useState("");
-  const [settingsAssistantPrompt, setSettingsAssistantPrompt] = useState("");
   const [experimentCatalogError, setExperimentCatalogError] = useState<string | null>(null);
   const [healthSnapshot, setHealthSnapshot] = useState<DeviceHealthSnapshot | null>(null);
   const [healthHistory, setHealthHistory] = useState<DeviceHealthSnapshot[]>([]);
@@ -295,9 +276,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     commandIds: string[];
     createdAt: number;
   }>());
-  const dashboardMainRef = useRef<HTMLElement | null>(null);
-  const controlPanelRef = useRef<HTMLElement | null>(null);
-  const panelDragOffsetRef = useRef<PanelPosition | null>(null);
 
   useEffect(() => {
     dataRef.current = data;
@@ -307,21 +285,25 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     valveEventsRef.current = valveEvents;
   }, [valveEvents]);
 
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    // Installation tools open over a transient controller route. Back returns
+    // straight to Experiments; experiment settings keep their original graph.
+    if (route.view === "controller") navigatePortal({ view: "home" }, { replace: true });
+  }, [route.view]);
+
   useEffect(() => {
     if (!settingsOpen) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSettingsOpen(false);
+      if (event.key === "Escape") closeSettings();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [settingsOpen]);
+  }, [closeSettings, settingsOpen]);
 
   const availableExperiments = useMemo(
-    () => mergePortalExperiments(
-      portalExperimentsForRole(portalAccess?.role),
-      experimentCatalog,
-    ),
-    [experimentCatalog, portalAccess?.role],
+    () => deduplicateExperimentCatalog(experimentCatalog),
+    [experimentCatalog],
   );
   const selectedExperiment = useMemo(
     () => portalExperimentById(selectedExperimentId, availableExperiments),
@@ -341,9 +323,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
   );
+  const experimentArchive = useExperimentReadings(selectedExperiment, portalAccess?.projectId ?? "", portalAccess?.deviceId ?? "",
+    sessionReady && route.view === "experiment" && route.tab !== "record" && document.documentElement.dataset.portalMode !== "demo", portalAccess?.userId);
   const experimentReadings = useMemo(
-    () => readingsForExperiment(data.readings, selectedExperiment),
-    [data.readings, selectedExperiment],
+    () => experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
+    [data.readings, experimentArchive.readings, selectedExperiment],
   );
   const series = useMemo(
     () => chartSeries(sortedPairings, experimentReadings, selectedExperiment),
@@ -357,7 +341,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       return a.name.localeCompare(b.name);
     });
   }, [series, selectedSeriesName]);
-  const timeBounds = useMemo(() => timeBoundsForSeries(series), [series]);
+  const timeBounds = useMemo(() => {
+    const loaded = timeBoundsForSeries(series);
+    if (!loaded) return null;
+    const start = selectedExperiment.startedAt ? Date.parse(selectedExperiment.startedAt) : loaded.startMs;
+    const end = selectedExperiment.endedAt ? Date.parse(selectedExperiment.endedAt) : loaded.endMs;
+    return { startMs: Number.isFinite(start) ? Math.min(start, loaded.startMs) : loaded.startMs,
+      endMs: Number.isFinite(end) ? Math.max(end, loaded.endMs) : loaded.endMs };
+  }, [series, selectedExperiment.startedAt, selectedExperiment.endedAt]);
   const timeFilteredSeries = useMemo(
     () => filterSeriesByTime(chartDisplaySeries, timeBounds, timeWindow),
     [chartDisplaySeries, timeBounds, timeWindow],
@@ -380,43 +371,18 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => sortedPairings.filter((pairing) => !hiddenPots.has(pairing.name)),
     [hiddenPots, sortedPairings],
   );
+  const fullExperimentValveEvents = useMemo(() => [...new Map(
+    [...experimentArchive.valveEvents, ...valveEvents].map((event) => [event.event_id || event.id, event]),
+  ).values()], [experimentArchive.valveEvents, valveEvents]);
   const experimentWateringEvents = useMemo(
     () => resolveHealthWateringEvents(
       valveEventsToHealthWateringEvents(
-        valveEventsForExperiment(valveEvents, selectedExperiment),
+        valveEventsForExperiment(fullExperimentValveEvents, selectedExperiment),
         sortedPairings,
       ),
       sortedPairings,
     ),
-    [selectedExperiment, sortedPairings, valveEvents],
-  );
-  const selectPot = useCallback((name: string) => {setSelectedSeriesName(name);navigatePortal({view:"experiment",experiment:selectedExperiment.id,tab:"pots",pot:name});}, [selectedExperiment.id]);
-  const groupVisibleNameSets = useMemo(
-    () => new Map(selectedExperimentGraphGroups.map((group) => [group.id, new Set(group.pairingNames)])),
-    [selectedExperimentGraphGroups],
-  );
-  const groupTargets = useMemo(
-    () => new Map(selectedExperimentGraphGroups.map((group) => [group.id, groupTarget(group, selectedExperiment, sortedPairings)])),
-    [selectedExperiment, selectedExperimentGraphGroups, sortedPairings],
-  );
-  // Treatment comparison from full-resolution readings inside the selected time window.
-  const groupComparisons = useMemo(
-    () => new Map(selectedExperimentGraphGroups.map((group) => {
-      const names = groupVisibleNameSets.get(group.id) ?? new Set<string>();
-      return [group.id, compareGroup(series.filter((item) => names.has(item.name)), selectedVwcTimeBounds)];
-    })),
-    [groupVisibleNameSets, selectedExperimentGraphGroups, selectedVwcTimeBounds, series],
-  );
-  const groupTargetLines = useMemo(
-    () => new Map(selectedExperimentGraphGroups.map((group) => {
-      const names = groupVisibleNameSets.get(group.id) ?? new Set<string>();
-      return [group.id, targetLinesForPairings(
-        sortedPairings.filter((pairing) => names.has(pairing.name)),
-        (pairing) => treatmentForPairing(pairing, selectedExperiment),
-        selectedExperiment,
-      )];
-    })),
-    [groupVisibleNameSets, selectedExperiment, selectedExperimentGraphGroups, sortedPairings],
+    [selectedExperiment, sortedPairings, fullExperimentValveEvents],
   );
   const chartVisibleNames = experimentGraphMode === "overlay" ? overlayVisibleNames : visibleNames;
   const visibleTargetLines = useMemo(
@@ -431,13 +397,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     (item: ChartSeries) => pairingTargetText(pairingByName.get(item.name), selectedExperiment),
     [pairingByName, selectedExperiment],
   );
-  const latestMeasuredAt = useMemo(
-    () => series.reduce<number | null>((latest, item) => {
-      const point = latestPoint(item);
-      return point && (latest == null || point.timestampMs > latest) ? point.timestampMs : latest;
-    }, null),
-    [series],
-  );
   const controllerOffline = runtimeState
     ? controllerPresence({
       stateFreshUntil: runtimeState.state_fresh_until,
@@ -446,18 +405,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
     }, clockNowMs).status === "offline"
     : false;
-  const reportingPotCount = series.filter((item) => measurementFreshness({
-    measuredAt: latestPoint(item)?.timestampMs,
-    expectedIntervalMs: item.expectedIntervalMs,
-    nowMs: clockNowMs,
-  }).state === "current").length;
-  const experimentStatusFreshness = withReportingCoverage(experimentFreshness({
-    experiment: selectedExperiment,
-    pairings: sortedPairings,
-    latestMeasuredAt,
-    controllerOffline,
-    nowMs: clockNowMs,
-  }), { reporting: reportingPotCount, total: series.length });
 
   const visiblePotCount = series.filter(
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
@@ -497,11 +444,17 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (activeProjectId && activeDeviceId) autocalRunStore.stopUnlessFor(activeProjectId, activeDeviceId);
   }, [activeProjectId, activeDeviceId]);
 
-  // ?settings=<section> opens Settings at that section; Settings → Autocalibrate is
-  // ?view=controller&settings=autocalibrate. The parameter is consumed once.
+  // Settings links open the requested section. Old Autocalibrate links now resolve
+  // to the dedicated page and retain a reloadable URL.
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return;
+    if (!sessionReady) return;
     const requested = settingsSectionFromSearch(window.location.search);
+    if (route.view === "autocalibrate") {
+      setSettingsOpen(false);
+      if (requested) navigatePortal({view: "autocalibrate"}, {replace: true});
+      return;
+    }
+    if (!canUseExperimentSettings) return;
     if (!requested) return;
     if (route.view !== "experiment" && route.view !== "controller") {
       navigatePortal({ view: "controller" }, { replace: true, extra: { settings: requested } });
@@ -560,13 +513,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   if (uiExperimentId !== selectedExperimentId) {
     setUiExperimentId(selectedExperimentId);
     setExperimentGraphMode("vwc");
-    setPotPreset("all");
     setHiddenPots(new Set());
-    setSelectedExperimentGraphGroupId("");
     setSelectedSeriesName(null);
     setSelectedWateringDetail(null);
     setTimeWindow(fullTimeWindow);
     setGraphExpanded(false);
+    setPotsPanelOpen(false);
   }
 
   const openExperiment = useCallback((experimentId: ExperimentId) => {
@@ -579,11 +531,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setExperimentCatalog([]);
       return;
     }
+    const scope = scopeKeyRef.current;
     try {
       const catalog = await loadPortalExperimentCatalog(activeProjectId);
+      if (scope !== scopeKeyRef.current) return;
       setExperimentCatalog(catalog);
       setExperimentCatalogError(null);
     } catch (nextError) {
+      if (scope !== scopeKeyRef.current) return;
       setExperimentCatalogError(errorMessage(nextError));
     }
   }, [activeProjectId, canReadProjectData]);
@@ -617,7 +572,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     }
   }, [expirePortalSession]);
 
+  const [accessCheckError, setAccessCheckError] = useState<string | null>(null);
   const loadPortalAccess = useCallback(async () => {
+    setAccessCheckError(null);
     setAccessLoading(true);
     try {
       const queryAccess = async () => {
@@ -655,9 +612,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             check_device_id: "gas-mixer:b827eb548a44",
             check_capability: "remote_view",
           }), portalAccessTimeoutMs, "Gas mixer access",
-        );
-        if (mixerAccess.error) throw mixerAccess.error;
-        const gas_mixer_allowed = mixerAccess.data === true;
+        ).catch(() => null);
+        const gas_mixer_allowed = mixerAccess?.error == null && mixerAccess?.data === true;
         // A failed capability check hides only the inbox; research access remains usable.
         const supportAccess = accessRow.role === "admin" ? await withSupabaseTimeout(
           supabase.rpc("is_sales_support_staff", { check_project_id: accessRow.project_id }),
@@ -724,6 +680,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         expirePortalSession();
         return;
       }
+      setAccessCheckError("We could not check your portal access. Please retry.");
       setPortalAccess(null);
       setExperimentCatalog([]);
       setExperimentBuilderOpen(false);
@@ -741,6 +698,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setHealthError(null);
     }
 
+    const scope = scopeKeyRef.current;
     try {
       const response = await withSupabaseTimeout(
         supabase
@@ -755,11 +713,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         "Health snapshot",
       );
 
+      if (scope !== scopeKeyRef.current) return;
       if (response.error) throw response.error;
       const snapshots = (response.data ?? []) as DeviceHealthSnapshot[];
       setHealthHistory(snapshots);
       setHealthSnapshot(selectHealthSnapshot(snapshots));
     } catch (err) {
+      if (scope !== scopeKeyRef.current) return;
       if (!silent) setHealthError(errorMessage(err));
     }
   }, [activeDeviceId, activeProjectId, isAdmin]);
@@ -771,6 +731,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       return;
     }
 
+    const scope = scopeKeyRef.current;
     try {
       const [runtimeResponse, configResponse] = await Promise.all([
         withSupabaseTimeout(
@@ -795,6 +756,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         ),
       ]);
 
+      if (scope !== scopeKeyRef.current) return;
       if (!runtimeResponse.error) {
         setRuntimeState((runtimeResponse.data ?? null) as DeviceRuntimeState | null);
       }
@@ -957,6 +919,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const runPortalRefresh = useCallback(
     async ({ incremental }: RefreshOptions) => {
       if (!activeProjectId || !activeDeviceId) return;
+      const scope = scopeKeyRef.current;
       const token = loadTokenRef.current + 1;
       loadTokenRef.current = token;
       setError(null);
@@ -1025,7 +988,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           previous.latestIngestTime ??
           null;
 
-        if (token !== loadTokenRef.current) return;
+        if (token !== loadTokenRef.current || scope !== scopeKeyRef.current) return;
         const startedAtMs = Date.now();
 
         let pairingsData = pairingsFromDeviceConfigState(
@@ -1044,7 +1007,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             "Legacy pairings",
           );
           if (legacyPairings.error) throw legacyPairings.error;
-          if (token !== loadTokenRef.current) return;
+          if (token !== loadTokenRef.current || scope !== scopeKeyRef.current) return;
           pairingsData = (legacyPairings.data ?? []) as PairingRow[];
         }
         pairingsData = visibleExperimentPairings(pairingsData);
@@ -1070,7 +1033,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         }));
 
         const applyReadingsBatch = (incomingReadings: SensorReading[]) => {
-          if (token !== loadTokenRef.current || incomingReadings.length === 0) return;
+          if (token !== loadTokenRef.current || scope !== scopeKeyRef.current || incomingReadings.length === 0) return;
           setData((current) => readingsState(current, mergeRollingExperimentReadings(current.readings, incomingReadings), incomingReadings, nowIso, effectiveMode));
         };
 
@@ -1081,7 +1044,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           newerThan,
           reconcileInPlace ? undefined : applyReadingsBatch,
         );
-        if (reconcileInPlace && token === loadTokenRef.current) {
+        if (reconcileInPlace && token === loadTokenRef.current && scope === scopeKeyRef.current) {
           setData((current) => {
             // Keep realtime rows that arrived while the reconciliation was running.
             const arrivedDuring = current.readings.filter((reading) =>
@@ -1091,14 +1054,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
             return readingsState(current, reconciled, fetched, nowIso, effectiveMode);
           });
         }
-        if (token === loadTokenRef.current) {
+        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
           // Only a completed check may make the home quiet; a failed one is stated, with the
           // time of the last good data.
           setLastSuccessfulCheckAt(Date.now());
           setRefreshFailedAt(null);
         }
       } catch (err) {
-        if (token === loadTokenRef.current) {
+        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
           if (isSessionAuthorizationError(err)) {
             expirePortalSession();
             return;
@@ -1107,7 +1070,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           setRefreshFailedAt(Date.now());
         }
       } finally {
-        if (token === loadTokenRef.current) {
+        if (token === loadTokenRef.current && scope === scopeKeyRef.current) {
           setLoading(false);
         }
       }
@@ -1163,6 +1126,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     }
   }, [activeDeviceId, activeProjectId]);
 
+  const runPortalRefreshRef = useRef(runPortalRefresh);
+  runPortalRefreshRef.current = runPortalRefresh;
+
   const refresh = useCallback(
     async (options: RefreshOptions) => {
       if (refreshInFlightRef.current) {
@@ -1184,7 +1150,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         while (nextOptions) {
           const currentOptions = nextOptions;
           nextOptions = null;
-          await runPortalRefresh(currentOptions);
+          await runPortalRefreshRef.current(currentOptions);
           nextOptions = pendingRefreshRef.current;
           pendingRefreshRef.current = null;
         }
@@ -1192,7 +1158,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         refreshInFlightRef.current = false;
       }
     },
-    [refreshLatestReadings, runPortalRefresh],
+    [refreshLatestReadings],
   );
 
   const sendSingleControlCommand = useCallback<QueueControlCommand>(
@@ -1225,7 +1191,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
             body: {
               project_id: activeProjectId,
-              device_id: dataRef.current.latestState?.device_id ?? activeDeviceId,
+              device_id: activeDeviceId,
               client_request_id: clientRequestId,
               command_type: commandType,
               payload,
@@ -1420,13 +1386,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           (signal) => supabase.functions.invoke<ControlCommandResponse>("create-control-command", {
             body: {
               project_id: activeProjectId,
-              device_id: dataRef.current.latestState?.device_id ?? activeDeviceId,
+              device_id: activeDeviceId,
               client_request_id: commandIds[0],
               batch_id: batchId,
               expected_config_hash: reviewedConfigHash,
               expected_controller_state: reviewedControllerState,
               batch_commands: batchCommands,
               operation_intent: plan.summary,
+              ...(/^Autocalibrat/i.test(plan.summary) ? { workflow: "autocalibration" } : {}),
             },
             signal,
           }),
@@ -1683,7 +1650,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
 
   function applyPotPreset(preset: Exclude<PotPreset, "custom">) {
-    setPotPreset(preset);
     setHiddenPots(() => {
       if (preset === "all") return new Set();
       const hidden = new Set<string>();
@@ -1699,45 +1665,19 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     });
   }
 
-  function openExperimentGraphGroup(groupId: string) {
-    const group = selectedExperimentGraphGroups.find((item) => item.id === groupId);
+  function toggleExperimentGraphGroup(groupId: string) {
+    const group = selectedExperimentGraphGroups.find(item => item.id === groupId);
     if (!group) return;
-    const includedPairings = new Set(group.pairingNames);
-    setSelectedExperimentGraphGroupId(groupId);
-    setPotPreset("custom");
     setSelectedSeriesName(null);
-    setHiddenPots(new Set(
-      sortedPairings
-        .filter((pairing) => !includedPairings.has(pairing.name))
-        .map((pairing) => pairing.name),
-    ));
-    setExperimentGraphMode("vwc");
-    setGraphExpanded(true);
+    setHiddenPots(current => toggleTraceSelection(current, group.pairingNames));
   }
 
   function togglePot(name: string) {
-    setPotPreset("custom");
     setSelectedSeriesName(name);
-    setHiddenPots((current) => {
-      const allNames = sortedPairings.map((pairing) => pairing.name);
-      const visibleCount = allNames.filter((pairingName) => !current.has(pairingName)).length;
-
-      if (visibleCount === allNames.length) {
-        return new Set(allNames.filter((pairingName) => pairingName !== name));
-      }
-
-      const next = new Set(current);
-      if (next.has(name)) {
-        next.delete(name);
-      } else if (visibleCount > 1) {
-        next.add(name);
-      }
-      return next;
-    });
+    setHiddenPots(current => toggleTraceSelection(current, [name]));
   }
 
   function setGroupVisibility(pairings: PairingRow[], visible: boolean) {
-    setPotPreset("custom");
     setHiddenPots((current) => {
       const next = new Set(current);
       for (const pairing of pairings) {
@@ -1746,88 +1686,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }
       return next;
     });
-  }
-
-  function startPanelDrag(event: PointerEvent<HTMLElement>) {
-    if (!graphExpanded || !dashboardMainRef.current || !controlPanelRef.current) return;
-    const containerRect = dashboardMainRef.current.getBoundingClientRect();
-    const panelRect = controlPanelRef.current.getBoundingClientRect();
-    const dragOffset = {
-      x: event.clientX - panelRect.left,
-      y: event.clientY - panelRect.top,
-    };
-    panelDragOffsetRef.current = dragOffset;
-    setPanelPosition({
-      x: panelRect.left - containerRect.left,
-      y: panelRect.top - containerRect.top,
-    });
-
-    const movePanel = (moveEvent: globalThis.PointerEvent) => {
-      if (!dashboardMainRef.current || !controlPanelRef.current) return;
-      const currentContainerRect = dashboardMainRef.current.getBoundingClientRect();
-      const currentPanelRect = controlPanelRef.current.getBoundingClientRect();
-      const nextX = moveEvent.clientX - currentContainerRect.left - dragOffset.x;
-      const nextY = moveEvent.clientY - currentContainerRect.top - dragOffset.y;
-      setPanelPosition({
-        x: Math.max(8, Math.min(nextX, currentContainerRect.width - currentPanelRect.width - 8)),
-        y: Math.max(8, Math.min(nextY, currentContainerRect.height - currentPanelRect.height - 8)),
-      });
-    };
-
-    const stopPanel = () => {
-      panelDragOffsetRef.current = null;
-      window.removeEventListener("pointermove", movePanel);
-      window.removeEventListener("pointerup", stopPanel);
-      window.removeEventListener("pointercancel", stopPanel);
-    };
-
-    window.addEventListener("pointermove", movePanel);
-    window.addEventListener("pointerup", stopPanel);
-    window.addEventListener("pointercancel", stopPanel);
-  }
-
-  function startPanelResize(event: PointerEvent<HTMLElement>) {
-    if (!graphExpanded || !dashboardMainRef.current || !controlPanelRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const containerRect = dashboardMainRef.current.getBoundingClientRect();
-    const panelRect = controlPanelRef.current.getBoundingClientRect();
-    const startPanelX = panelRect.left - containerRect.left;
-    const startPanelY = panelRect.top - containerRect.top;
-    const maxWidth = Math.max(minExpandedPanelSize.width, containerRect.width - 16);
-    const maxHeight = Math.max(minExpandedPanelSize.height, containerRect.height - 16);
-
-    const resizePanel = (moveEvent: globalThis.PointerEvent) => {
-      const nextWidth = panelRect.width + moveEvent.clientX - startX;
-      const nextHeight = panelRect.height + moveEvent.clientY - startY;
-      const width = Math.max(minExpandedPanelSize.width, Math.min(nextWidth, maxWidth));
-      const height = Math.max(minExpandedPanelSize.height, Math.min(nextHeight, maxHeight));
-      setPanelSize({
-        width,
-        height,
-      });
-      setPanelPosition({
-        x: Math.max(8, Math.min(startPanelX, containerRect.width - width - 8)),
-        y: Math.max(8, Math.min(startPanelY, containerRect.height - height - 8)),
-      });
-    };
-
-    const stopResize = () => {
-      window.removeEventListener("pointermove", resizePanel);
-      window.removeEventListener("pointerup", stopResize);
-      window.removeEventListener("pointercancel", stopResize);
-    };
-
-    window.addEventListener("pointermove", resizePanel);
-    window.addEventListener("pointerup", stopResize);
-    window.addEventListener("pointercancel", stopResize);
-  }
-
-  function toggleExpandedGraph() {
-    setGraphExpanded((expanded) => !expanded);
   }
 
   async function prepareCsvDownload() {
@@ -1840,42 +1698,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       if (readings.length === 0) {
         throw new Error("Readings are still loading. Try again after the chart appears.");
       }
-      const headers = [
-        "source",
-        "event_id",
-        "pairing_name",
-        "plant_group",
-        "treatment",
-        "zone",
-        "pot_number",
-        "sensor_key",
-        "device_recorded_at",
-        "server_received_at",
-        "calibrated_vwc",
-        "raw_value",
-        "temperature",
-        "electrical_conductivity",
-      ];
-      const rows = readings.map((reading) => {
-        const pairing = pairingByName.get(reading.pairing_name);
-        return [
-          sourceLabelForReading(reading),
-          reading.event_id,
-          reading.pairing_name,
-          selectedExperiment.assignments?.find((item) => item.pairing_name === reading.pairing_name)?.crop ?? "",
-          selectedExperiment.assignments?.find((item) => item.pairing_name === reading.pairing_name)?.treatment ?? "",
-          pairing?.zone ?? "",
-          pairing?.pot_number ?? "",
-          reading.sensor_key,
-          reading.device_recorded_at,
-          reading.server_received_at,
-          reading.calibrated_value,
-          reading.raw_value,
-          reading.temperature,
-          reading.electrical_conductivity,
-        ].map(csvEscape).join(",");
-      });
-      const csv = [headers.join(","), ...rows].join("\n");
+      const csv = formatLoadedReadingsCsv(readings, pairingByName, selectedExperiment);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       setCsvDownload({
@@ -1891,33 +1714,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
 
   function downloadPairingsCsv() {
-    const headers = [
-      "name",
-      "zone",
-      "pot_number",
-      "plant_group",
-      "treatment",
-      "sensor_key",
-      "valve_key",
-      "target_vwc",
-      "valve_open_seconds",
-      "measurement_interval_seconds",
-      "calibration",
-    ];
-    const rows = (route.view === "controller" ? visibleExperimentPairings(data.pairings) : sortedPairings).map((pairing) => [
-      pairing.name,
-      pairing.zone,
-      pairing.pot_number,
-      selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.crop ?? "",
-      selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.treatment ?? "",
-      pairing.sensor_key,
-      pairing.valve_key,
-      formatTargetVwc(pairing.wtc_percent_limit),
-      Number((pairing.valve_open_time_ms / 1000).toFixed(3)),
-      Number((pairing.measurement_interval_ms / 1000).toFixed(3)),
-      pairingCalibrationName(pairing),
-    ].map(csvEscape).join(","));
-    const csv = [headers.join(","), ...rows].join("\n");
+    const csv = formatPairingsCsv(route.view === "controller" ? visibleExperimentPairings(data.pairings) : sortedPairings, selectedExperiment);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -2032,6 +1829,16 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     // own loading reset, and the sign-in form shares that flag. Clear it here; the refresh for the
     // new scope, declared below, sets it again. A request being tracked belongs to the old scope.
     setLoading(false);
+    setData(initialLoadState);
+    dataRef.current = initialLoadState;
+    setValveEvents([]);
+    valveEventsRef.current = [];
+    setRuntimeState(null);
+    setConfigState(null);
+    setHealthSnapshot(null);
+    setHealthHistory([]);
+    setExperimentCatalog([]);
+    setExperimentCatalogError(null);
     setTrackedCommand(null);
     // Check outcomes belong to the previous account, project or device.
     setLastSuccessfulCheckAt(null);
@@ -2050,8 +1857,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setSettingsSection("overview");
       setExperimentBuilderOpen(false);
       setEditingExperiment(null);
-      setExperimentBuilderPrompt("");
-      setSettingsAssistantPrompt("");
       setHealthSnapshot(null);
       setHealthHistory([]);
       setRuntimeState(null);
@@ -2064,6 +1869,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       // Nothing from the previous account stays visible to the next one.
       setExperimentCatalog([]);
       websiteAnalyticsReportCache.clear();
+      clearExperimentArchives();
       return;
     }
     void loadPortalAccess();
@@ -2493,176 +2299,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }, [activeProjectId, canUseSalesSupport, loadSalesSupport, sessionReady]);
 
   if (!sessionReady) {
-    const isInviteAccept = authMode === "accept-invite";
-    const isPasswordSetup = authMode === "set-password";
-    const isRecovery = authMode === "recover";
-    const showTermsAgreement = isInviteAccept;
-    const termsRequired = isInviteAccept;
-    const authTitle = isRecovery ? "Reset your password" : isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign in";
-    const authNote = isRecovery ? "Enter your account email. We’ll send a secure reset link." : isPasswordSetup
-      ? "Choose a password for this exactH2O account."
-      : isInviteAccept
-        ? "Use the invited email and choose a password."
-        : null;
-    const authSubmitText = isRecovery ? (loading ? "Sending…" : "Send reset link") : loading
-      ? isPasswordSetup
-        ? "Saving..."
-        : isInviteAccept
-          ? "Accepting..."
-          : "Signing in..."
-      : isPasswordSetup
-        ? "Save Password"
-        : isInviteAccept
-          ? "Accept Invite"
-          : "Sign in";
-
-    return (
-      <main className="portal-login-shell">
-        <header className="portal-topbar">
-          <a href="/" className="portal-logo" aria-label="ExactH2O website home">
-            <img src={exactH2OLogo} alt="ExactH2O" />
-          </a>
-          <div className="portal-top-links">
-            <a href="/support">Support</a>
-          </div>
-        </header>
-
-        <section className="portal-login-panel" aria-label="Portal sign in">
-          <div className="portal-login-card">
-            <h2>{authTitle}</h2>
-            {authNote ? <p className="portal-login-note">{authNote}</p> : null}
-
-            <form onSubmit={isRecovery ? requestPasswordReset : isPasswordSetup ? setAccountPassword : isInviteAccept ? acceptInvite : signIn}>
-              {!isPasswordSetup ? (
-                <div className="portal-form-group">
-                  <label htmlFor="portalEmail">Email</label>
-                  <input
-                    id="portalEmail"
-                    name="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    autoComplete="username"
-                    required
-                  />
-                </div>
-              ) : null}
-              {!isRecovery ? <div className="portal-form-group">
-                <label htmlFor="portalPassword">Password</label>
-                <input
-                  id="portalPassword"
-                  name="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete={isInviteAccept || isPasswordSetup ? "new-password" : "current-password"}
-                  required
-                />
-              </div> : null}
-              <div className="portal-form-row">
-                {!isPasswordSetup && !isRecovery ? (
-                  <label className="portal-check">
-                    <input
-                      type="checkbox"
-                      name="remember"
-                      checked={rememberDevice}
-                      onChange={(event) => setRememberDevice(event.target.checked)}
-                    />
-                    <span>Remember email</span>
-                  </label>
-                ) : (
-                  <span />
-                )}
-                {isInviteAccept || isPasswordSetup || isRecovery ? (
-                  <button
-                    className="portal-inline-action"
-                    type="button"
-                    onClick={() => switchAuthMode("sign-in")}
-                  >
-                    Sign in
-                  </button>
-                ) : (
-                  <button className="portal-inline-action" type="button" onClick={() => switchAuthMode("recover")}>Forgot password?</button>
-                )}
-              </div>
-              {showTermsAgreement ? (
-                <div className="portal-terms-prompt">
-                  <label className="portal-check portal-terms-check">
-                    <input
-                      type="checkbox"
-                      name="terms"
-                      checked={termsAccepted}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setTermsOpen(true);
-                          return;
-                        }
-                        setTermsAccepted(false);
-                      }}
-                    />
-                    <span>
-                      I agree to the{" "}
-                      <button
-                        type="button"
-                        className="portal-inline-action"
-                        onClick={() => setTermsOpen(true)}
-                      >
-                        Software Access Terms
-                      </button>
-                      .
-                    </span>
-                  </label>
-                  <p>
-                    {termsRequired
-                      ? "Required before accepting this invite."
-                      : "Invite users will review and accept these terms before access."}
-                  </p>
-                </div>
-              ) : null}
-              <button
-                className="portal-submit-btn"
-                type="submit"
-                disabled={loading || (!isPasswordSetup && !email) || (!isRecovery && !password) || (termsRequired && !termsAccepted)}
-              >
-                {authSubmitText}
-              </button>
-              {authNotice ? <p className="portal-success-line" role="status">{authNotice}</p> : null}
-              {loginError ? <p className="portal-error-line" role="alert">{loginError}</p> : null}
-            </form>
-
-            <div className="portal-support-line">
-              Need access? Ask for an invite or contact{" "}
-              <a href={`mailto:${supportEmail}`}>{supportEmail}</a>.
-            </div>
-          </div>
-        </section>
-        <SoftwareTermsModal
-          open={termsOpen}
-          accepted={termsAccepted}
-          onAgree={() => setTermsAccepted(true)}
-          onClose={() => setTermsOpen(false)}
-        />
-      </main>
-    );
+    return <AuthScreen authMode={authMode} email={email} password={password} rememberDevice={rememberDevice} termsOpen={termsOpen} termsAccepted={termsAccepted} loading={loading} authNotice={authNotice} loginError={loginError} setEmail={setEmail} setPassword={setPassword} setRememberDevice={setRememberDevice} setTermsOpen={setTermsOpen} setTermsAccepted={setTermsAccepted} switchAuthMode={switchAuthMode} requestPasswordReset={requestPasswordReset} setAccountPassword={setAccountPassword} acceptInvite={acceptInvite} signIn={signIn} />;
   }
 
   const groupedPairings = experimentSidebarGroups(sortedPairings, selectedExperiment);
-  const hasExperimentGraphOverview = selectedExperimentGraphGroups.length > 1;
-  // Group comparison cards were replaced by the Waterline overview tab; Pots shows every pot.
-  const showExperimentGraphOverview = false;
-  const activeExperimentGraphGroup = selectedExperimentGraphGroups.find(
-    (group) => group.id === selectedExperimentGraphGroupId,
-  ) ?? selectedExperimentGraphGroups[0];
-  const controlPanelStyle: CSSProperties | undefined = graphExpanded
-    ? {
-        width: panelSize.width,
-        height: panelSize.height,
-        ...(panelPosition
-          ? { left: panelPosition.x, top: panelPosition.y, right: "auto" }
-          : {}),
-      }
-    : undefined;
-  const productSections = { bench: true };
+
   const recordAvailable = true;
   const visiblePairings = visibleExperimentPairings(data.pairings);
   const currentPairingReadings = readingsForPairings(data.readings, visiblePairings);
@@ -2693,7 +2334,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     controller: presence ? { offline: presence.status === "offline", lastSeenAt: presenceLastSeenMs } : null,
     formatTime: (ms) => formatMeasurementTime(ms) ?? "",
   });
-  const dataSourceLabel = data.effectiveMode === "live" ? "live controller readings" : "imported snapshot readings";
   const routeExperiment = route.view === "experiment"
     ? availableExperiments.find((experiment) => experiment.id === route.experiment) ?? null
     : null;
@@ -2716,7 +2356,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}
-      initialPrompt={experimentBuilderPrompt}
       direct
       experiment={editingExperiment}
       template={duplicateExperiment}
@@ -2724,14 +2363,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         setExperimentBuilderOpen(false);
         setEditingExperiment(null);
         setDuplicateExperiment(null);
-        setExperimentBuilderPrompt("");
       }}
       onCreated={async (slug) => {
         await loadExperimentCatalog();
         setExperimentBuilderOpen(false);
         setEditingExperiment(null);
         setDuplicateExperiment(null);
-        setExperimentBuilderPrompt("");
         openExperiment(slug);
       }}
     /></FeatureBoundary>
@@ -2769,7 +2406,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         {portalHeader}
         <section className="portal-loading-screen" aria-live="polite">
           <ShieldCheck size={32} aria-hidden="true" />
-          <p>This account does not currently have portal access.</p>
+          <p>{accessCheckError ?? "This account does not currently have portal access."}</p>
+          {accessCheckError && <button className="header-action" type="button" onClick={() => void loadPortalAccess()}>Retry access check</button>}
           <button className="header-action" type="button" onClick={() => void signOut()}>
             Sign out
           </button>
@@ -2804,113 +2442,46 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         </div>
       ) : null}
 
-      <MeasurementStatusBar
-        freshness={experimentStatusFreshness}
-        checkedAt={data.lastCheckedAt}
-        refreshing={loading && series.some((item) => item.points.length > 0)}
-        reportingPots={reportingPotCount}
-        totalPots={sortedPairings.length}
-        fetchError={data.readings.length ? error : null}
-        progress={experimentProgressText(selectedExperiment, clockNowMs)}
-      />
 
       <section
         ref={dashboardMainRef}
-        className={`dashboard-main ${direct.groups ? "is-direct-groups" : ""} ${graphExpanded ? "is-expanded" : ""} ${showExperimentGraphOverview ? "is-experiment-overview" : ""}`}
+        className={`dashboard-main has-top-pots ${graphExpanded ? "is-expanded" : ""}`}
       >
-        {direct.groups ? <WaterlineOverview leading={direct.viewToggle} experiment={selectedExperiment} pairings={sortedPairings.filter(p=>chartVisibleNames.has(p.name))} readings={experimentReadings} valveEvents={valveEventsForExperiment(valveEvents,selectedExperiment)} nowMs={clockNowMs} asOfMs={lastGoodCheckAt} loadedWindowMs={rollingExperimentHistoryMs} dataSourceLabel={dataSourceLabel} windowOverride={selectedVwcTimeBounds ?? undefined}/> : showExperimentGraphOverview ? (
-          <section className="experiment-graph-overview">
-            <div className="experiment-graph-toolbar">
-              <div className="chart-view-toggle" aria-label="Graph view">
-                <button type="button" className="is-selected">
-                  VWC
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExperimentGraphMode("watering")}
-                >
-                  Watering
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedWateringDetail(null);
-                    setExperimentGraphMode("overlay");
-                  }}
-                >
-                  Overlay
-                </button>
-              </div>
+          <aside
+            className={`control-panel px-pots-panel ${potsPanelOpen ? "is-open" : ""}`}
+            aria-label="Pots"
+          >
+          <div className="px-trace-heading">
+            <h2>Pots</h2>
+            <button className="px-pots-disclosure" type="button" aria-expanded={potsPanelOpen} aria-controls="experiment-pots" onClick={() => setPotsPanelOpen(!potsPanelOpen)}>Pots <span aria-hidden="true">{potsPanelOpen ? "▴" : "▾"}</span></button>
+            <span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span>
+          </div>
+          <div className="px-pots-body" id="experiment-pots">
+          <section className="px-trace-controls">
+            <div className="px-trace-actions">
+              <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
+              <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
+            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
+              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
+              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
+              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setSelectedSeriesName(null); }} />
             </div>
-            <div className="experiment-graph-grid">
-              {selectedExperimentGraphGroups.map((group) => {
-                const target = groupTargets.get(group.id);
-                const comparison = groupComparisons.get(group.id);
-                const nowText = comparison?.latestMedian == null
-                  ? "No readings in range"
-                  : `Latest ${formatVwcReading(comparison.latestMedian)} median${comparison.reportingCount > 1 ? ` (${formatVwcReading(comparison.latestMin)}–${formatVwcReading(comparison.latestMax)})` : ""}${comparison.silentCount ? ` · ${comparison.silentCount} ${comparison.silentCount === 1 ? "pot" : "pots"} not reporting` : ""}`;
-                return (
-                  <button
-                    type="button"
-                    className="experiment-graph-card"
-                    key={group.id}
-                    aria-label={`Expand ${group.label} graph. ${target?.detail ?? ""} ${nowText}.`}
-                    onClick={() => openExperimentGraphGroup(group.id)}
-                  >
-                    <span className="experiment-graph-card-head">
-                      <strong>{group.label}</strong>
-                      <em>{group.pairingNames.length} pots</em>
-                      <Maximize2 size={16} aria-hidden="true" />
-                      <span className="graph-card-facts">
-                        {target ? (
-                          <span className={`graph-target ${target.planMismatch ? "is-warning" : ""}`} title={target.detail}>
-                            {target.label}
-                          </span>
-                        ) : null}
-                        <span className="graph-now">{nowText}</span>
-                      </span>
-                    </span>
-                    <span className="experiment-graph-chart">
-                      <SensorCanvasChart
-                        series={timeFilteredSeries}
-                        visibleNames={groupVisibleNameSets.get(group.id) ?? emptyNameSet}
-                        selectedName={null}
-                        viewMode="traces"
-                        onSelectSeries={ignoreSeriesSelection}
-                        loading={loading && !series.some((item) => item.points.length)}
-                        xDomain={selectedVwcTimeBounds}
-                        compact
-                        targetLines={groupTargetLines.get(group.id)}
-                      />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="experiment-graph-range">
-              <TimeRangeControl
-                bounds={timeBounds}
-                value={timeWindow}
-                onChange={setTimeWindow}
-              />
-            </div>
+            {selectedExperimentGraphGroups.length > 1 ? <div className="preset-buttons research-presets">
+              {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${group.pairingNames.every(name => !hiddenPots.has(name)) ? "is-selected" : ""}`} aria-pressed={group.pairingNames.every(name => !hiddenPots.has(name))} onClick={() => toggleExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
+            </div> : null}
           </section>
-        ) : (
+
+          <ExperimentPotGroups
+            groupedPairings={groupedPairings} hiddenPots={hiddenPots}
+            selectedExperiment={selectedExperiment} seriesByName={seriesByName}
+            clockNowMs={clockNowMs} affectedPots={direct.affected}
+            selectedSeriesName={selectedSeriesName}
+            setGroupVisibility={setGroupVisibility} togglePot={togglePot}
+          />
+          </div>
+          </aside>
           <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
-            {hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" && activeExperimentGraphGroup ? (
-              <div className="expanded-graph-label">
-                <strong>{activeExperimentGraphGroup.label}</strong>
-                <span>
-                  {activeExperimentGraphGroup.pairingNames.length} pots
-                  {groupTargets.get(activeExperimentGraphGroup.id)
-                    ? ` · ${groupTargets.get(activeExperimentGraphGroup.id)?.label}`
-                    : ""}
-                </span>
-              </div>
-            ) : null}
             <div className="chart-tools">
-              {direct.viewToggle}
-              <span className="px-chart-caption"><span>{visibleWateringPairings.length} / {sortedPairings.length} visible</span></span>
               <div className="chart-view-toggle" aria-label="Graph view">
                 <button
                   type="button"
@@ -2969,18 +2540,30 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               }
             >
               {experimentGraphMode === "watering" ? (
+                <>
+                <div className="chart-bottom-controls watering-time-controls">
+                  <TimeRangeControl bounds={timeBounds} value={timeWindow} onChange={setTimeWindow} />
+                </div>
                 <ResearchWateringActivity
                   events={experimentWateringEvents}
+                  experiment={selectedExperiment}
+                  windowOverride={selectedVwcTimeBounds ?? undefined}
                   pairings={visibleWateringPairings}
                   onSelectDetail={setSelectedWateringDetail}
+                  onZoom={(bounds) => {
+                    if (!timeBounds) return;
+                    const span = Math.max(1, timeBounds.endMs - timeBounds.startMs);
+                    setTimeWindow({ start: (bounds.startMs - timeBounds.startMs) / span * 100, end: (bounds.endMs - timeBounds.startMs) / span * 100 });
+                  }}
                 />
+                </>
               ) : (
                 <SensorCanvasChart
                   series={timeFilteredSeries}
                   visibleNames={chartVisibleNames}
                   selectedName={selectedSeriesName}
                   viewMode="traces"
-                  onSelectSeries={selectPot}
+                  onSelectSeries={setSelectedSeriesName}
                   loading={loading && !series.some((item) => item.points.length)}
                   xDomain={selectedVwcTimeBounds}
                   wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : undefined}
@@ -2990,134 +2573,19 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   extraTargetValues={direct.extraTargetValues}
                   freezeScale={direct.freezeScale}
                   affectedNames={direct.affected}
-                  headerSpace={hasExperimentGraphOverview && graphExpanded && experimentGraphMode === "vwc" ? 26 : 0}
                 />
               )}
             </section>
-            {experimentGraphMode !== "watering" ? (
-              <div className="chart-bottom-controls">
+            {experimentGraphMode !== "watering" ? <div className="chart-bottom-controls">
                 <TimeRangeControl
                   bounds={timeBounds}
                   value={timeWindow}
                   onChange={setTimeWindow}
                 />
-              </div>
-            ) : null}
-          </section>
-        )}
-
-        {!showExperimentGraphOverview ? (
-          <aside
-            ref={controlPanelRef}
-            className="control-panel"
-            style={controlPanelStyle}
-          >
-          <section className="px-trace-controls">
-            <div className="px-trace-heading"><h2>Visible traces</h2><span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span></div>
-            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
-              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
-              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
-              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setPotPreset("custom"); setSelectedSeriesName(null); }} />
-            <div className="px-trace-actions">
-              <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
-              <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
-            </div>
-            {graphExpanded ? (
-              <div
-                className="control-heading"
-                onPointerDown={startPanelDrag}
-                aria-label="Move controls"
-              >
-                <span />
-              </div>
-            ) : null}
-            {selectedExperimentGraphGroups.length > 1 ? <div className="preset-buttons research-presets">
-              <button
-                type="button"
-                className={`preset-filter preset-all ${potPreset === "all" ? "is-selected" : ""}`}
-                onClick={() => applyPotPreset("all")}
-              >
-                All
-              </button>
-              {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${selectedExperimentGraphGroupId === group.id ? "is-selected" : ""}`} onClick={() => openExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
-            </div> : null}
+              </div> : null}
           </section>
 
-          {groupedPairings.map(({ id, label, pairings: groupPairings }) => {
-            const allVisible = groupPairings.every((pairing) => !hiddenPots.has(pairing.name));
-            const treatments = new Set(groupPairings.map((pairing) =>
-              selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.treatment?.trim(),
-            ).filter((treatment): treatment is string => Boolean(treatment)));
-            const treatment = treatments.size === 1 ? levelLabel([...treatments][0]) : null;
-            return (
-              <section className="pot-group" key={id}>
-                <div className="pot-group-head">
-                  <div className="pot-group-title">
-                    <h3>{label}</h3>
-                    <span className="pot-group-treatment">{groupPairings.length} pots{treatment && treatment.toLowerCase() !== "observation" ? ` · ${treatment}` : ""}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={`group-toggle ${allVisible ? "is-on" : ""}`}
-                    aria-pressed={allVisible}
-                    aria-label={`${allVisible ? "Hide" : "Show"} all ${label} pots`}
-                    title={allVisible ? "Hide all" : "Show all"}
-                    onClick={() => setGroupVisibility(groupPairings, !allVisible)}
-                  >
-                    <span />
-                  </button>
-                </div>
-                <div>
-                  {groupPairings.map((pairing) => {
-                    const visible = !hiddenPots.has(pairing.name);
-                    const potTreatment = selectedExperiment.assignments?.find((item) => item.pairing_name === pairing.name)?.treatment?.trim();
-                    const potSeries = seriesByName.get(pairing.name);
-                    const latest = latestPoint(potSeries);
-                    const latestValue = latest?.value ?? null;
-                    const potFreshness = measurementFreshness({
-                      measuredAt: latest?.timestampMs,
-                      expectedIntervalMs: potSeries?.expectedIntervalMs,
-                      completed: experimentIsCompleted(selectedExperiment, clockNowMs),
-                      nowMs: clockNowMs,
-                    });
-                    const showAge = latest != null && potFreshness.state !== "current" && potFreshness.state !== "historical";
-                    return (
-                      <div className="px-trace-row" key={pairing.name}>
-                      <button
-                        type="button"
-                        className={`pot-toggle ${direct.affected.has(pairing.name) ? "is-target-selected" : ""} ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
-                        onClick={() => togglePot(pairing.name)}
-                        aria-pressed={visible}
-                        aria-label={`Pot ${pairing.pot_number}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings in the last 72 hours"}`}
-                        title={latest ? `${formatMeasurementTime(latest.timestampMs)} · ${potFreshness.detail}` : "No readings in the last 72 hours"}
-                      >
-                        <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
-                        <span className="pot-reading">
-                          <b>Pot {pairing.pot_number}</b>
-                          <strong>{formatVwcReading(latestValue)}</strong>
-                          {!treatment && potTreatment ? <span className="pot-treatment">{levelLabel(potTreatment)}</span> : null}
-                          {showAge ? <span className="pot-age">{formatAge(potFreshness.ageMs)}</span> : null}
-                        </span>
-                      </button>
-                      <PortalLink className="px-trace-detail" to={{view: "experiment", experiment: selectedExperiment.id, tab: "pots", pot: pairing.name}} aria-label={`Inspect Pot ${pairing.pot_number}`} title={`Open Pot ${pairing.pot_number} details`}>↗</PortalLink>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
-          {graphExpanded ? (
-            <button
-              type="button"
-              className="panel-resize-grip"
-              aria-label="Resize controls"
-              title="Resize"
-              onPointerDown={startPanelResize}
-            />
-          ) : null}
-          </aside>
-        ) : null}
+
       </section>
     </>}</DirectExperiment>
   );
@@ -3131,23 +2599,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     ? <FeatureBoundary name="Manual water" fallback={null}><ManualWaterPanel open onClose={() => setManualWaterOpen(false)} projectId={activeProjectId} deviceId={activeDeviceId} controllerName="Controller" initial={manualWaterTarget} /></FeatureBoundary>
     : null;
   const openAutocalibrate = () => {
-    if (route.view !== "experiment" && route.view !== "controller") navigatePortal({ view: "controller" });
-    setSettingsSection("autocalibrate");
-    prefetchSettings();
-    setSettingsOpen(true);
+    setSettingsOpen(false);
+    navigatePortal({ view: "autocalibrate" });
   };
   const productHeader = (
     <ProductHeader
         demo={isDemo}
-      route={route}
-      sections={productSections}
       onFindPot={() => setFindPotOpen(true)}
-      extra={manualWaterAvailable ? (
-        <button type="button" className="px-header-button" onClick={() => { setManualWaterTarget(null); setManualWaterOpen(true); }} aria-label="Manual water">
-          <Droplets size={14} aria-hidden="true" />
-          <span className="px-label-wide">Manual water</span>
-        </button>
-      ) : undefined}
       onOpenAccount={!isDemo ? () => navigatePortal({ view: "account" }) : undefined}
       atBench={atBench}
       onToggleAtBench={projectAccess ? () => {
@@ -3173,8 +2631,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       runtimeState={runtimeState}
       configState={configState}
       pairings={route.view === "controller" ? visiblePairings : sortedPairings}
-      installationPairings={visiblePairings}
-      experiments={availableExperiments}
       visiblePotCount={visiblePotCount}
       csvDownload={csvDownload}
       csvError={csvError}
@@ -3183,14 +2639,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       controlNotice={controlNotice}
       commandProgress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
       controlError={controlError}
-      assistantInitialPrompt={settingsAssistantPrompt}
       operatorEmail={portalAccess.email ?? null}
-      onClose={() => setSettingsOpen(false)}
-      onSectionChange={setSettingsSection}
+      onClose={closeSettings}
+      onSectionChange={(section) => section === "autocalibrate" ? openAutocalibrate() : setSettingsSection(section)}
       onPrepareCsvDownload={prepareCsvDownload}
       onDownloadPairingsCsv={downloadPairingsCsv}
       onQueueCommand={queueControlCommand}
-      onQueueSettingsPlan={queueSettingsPlan}
       onSignOut={signOut}
     /></FeatureBoundary>
   ) : null;
@@ -3235,9 +2689,27 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   if (route.view === "account" && !isDemo) {
     return productShell(<FeatureBoundary name="Account"><AccountPage key={activeProjectId} access={portalAccess} /></FeatureBoundary>);
   }
+  if (route.view === "autocalibrate" && canReadProjectData) {
+    return productShell(<FeatureBoundary name="Autocalibrate"><AutocalibratePage
+      projectId={activeProjectId}
+      deviceId={activeDeviceId || null}
+      operator={portalAccess.email ?? null}
+      portalRole={portalAccess.role}
+      experiment={selectedExperiment}
+      experiments={availableExperiments}
+      pairings={visiblePairings}
+      configHash={configState?.config_hash?.trim() || null}
+      controllerState={runtimeStateIsFresh(runtimeState) ? runtimeState?.controller_state ?? null : null}
+      controllerOnline={presence?.status === "online"}
+      controlBusy={controlBusy}
+      onQueueSettingsPlan={queueSettingsPlan}
+      error={controlError}
+      notice={controlNotice}
+    /></FeatureBoundary>);
+  }
   if (route.view === "controller" && canReadProjectData) {
     return productShell(<section className="px-page">
-      <PortalLink className="px-crumb" to={{view:"home"}}>← Experiments</PortalLink>
+      <PortalLink className="px-home-button" to={{view:"home"}}>← Home</PortalLink>
       <div className="px-exp-head-row"><h1 className="px-title">Installation</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
       <p className="px-subtitle">Shared sensing and irrigation for this installation</p>
       <dl className="px-facts px-card px-account-section">
@@ -3327,12 +2799,10 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         </section>
       );
     }
-    const potName = match.pairing.name;
     return (
       <FeatureBoundary name="Pot" fallback={<FeatureLoading name="Pot" />}><PotPage
         match={match}
         readings={readingsForPairings(data.readings, [match.pairing])}
-        valveEvents={valveEventsForPairings(valveEvents, [match.pairing])}
         nowMs={clockNowMs}
         asOfMs={lastGoodCheckAt}
         loadedWindowMs={rollingExperimentHistoryMs}
@@ -3341,31 +2811,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           : experimentContext
             ? { label: `${experimentContext.name} · Traces`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
             : { label: "Experiments", route: { view: "home" } }}
-      >
-        <FeatureBoundary name="Notes" fallback={<FeatureLoading name="Notes" />}>
-          <PotNotesSection
-            key={`${outboxScope?.userId}:${activeProjectId}:${activeDeviceId}:${potName}`}
-            userId={outboxScope?.userId ?? null}
-            projectId={activeProjectId}
-            deviceId={activeDeviceId}
-            pairingName={potName}
-            potNumber={match.pairing.pot_number}
-            experimentId={match.current?.databaseId ?? null}
-            binding={currentBench?.bindings.find((binding) => binding.pairingName === potName) ?? null}
-            canWrite={canWriteNotes}
-            outbox={noteOutbox}
-          />
-        </FeatureBoundary>
-        {manualWaterAvailable ? (
-          <section className="px-card px-pot-manual" aria-label="Manual watering">
-            <h2 className="px-section-title">Manual watering</h2>
-            <p className="px-muted">For troubleshooting: hold to water this pot through its recorded valve route, or test any solenoid directly. A hold overrides targets and schedules for that hold only.</p>
-            <button type="button" className="px-button" onClick={() => openManualWater(currentBench?.bindings.find((binding) => binding.pairingName === potName)?.potNumber ?? match.pairing.pot_number)}>
-              <Droplets size={14} aria-hidden="true" /> Water by hand…
-            </button>
-          </section>
-        ) : null}
-      </PotPage></FeatureBoundary>
+      /></FeatureBoundary>
     );
   };
 
@@ -3440,39 +2886,22 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (!routeExperiment) {
       return productShell(<ExperimentNotFound id={route.experiment} loading={!catalogReady || accessLoading} />);
     }
-    const experimentTabs: ExperimentTab[] = recordAvailable ? ["pots", "overview", "record"] : ["pots", "overview"];
-    const tab: ExperimentTab = experimentTabs.includes(route.tab) ? route.tab : "pots";
+    const tab = route.tab === "record" && !recordAvailable ? "pots" : route.tab;
     return productShell(
       <ExperimentPage
         experiment={routeExperiment}
         tab={tab}
-        readingStatus={experimentStatusFreshness.detail}
         onExport={() => setExportOpen(true)}
-        nowMs={clockNowMs}
         exceptions={portalExceptions}
-        tabs={experimentTabs}
-        secondaryActions={canUseExperimentSettings ? <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate experiment</button> : null}
-        actions={<>
-          <button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button>
-          {canUseExperimentSettings ? <>
-            <button className="px-button is-small" onClick={() => { setEditingExperiment(routeExperiment);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Edit experiment</button>
-            <button className="px-button is-small" onClick={() => { setSettingsSection("overview");prefetchSettings();setSettingsOpen(true); }}>Settings</button>
-
-          </> : null}
-        </>}
+        recordAvailable={recordAvailable}
+        secondaryActions={canUseExperimentSettings ? <>
+          <button onClick={() => { setEditingExperiment(routeExperiment);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Edit experiment</button>
+          <button onClick={() => { setSettingsSection("overview");prefetchSettings();setSettingsOpen(true); }}>Settings</button>
+          <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate experiment</button>
+        </> : null}
+        actions={<button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button>}
       >
-        {tab === "overview" ? (
-          <FeatureBoundary name="Overview" fallback={<FeatureLoading name="Overview" />}><WaterlineOverview
-            experiment={routeExperiment}
-            pairings={sortedPairings}
-            readings={experimentReadings}
-            valveEvents={valveEventsForExperiment(valveEvents, routeExperiment)}
-            nowMs={clockNowMs}
-            asOfMs={lastGoodCheckAt}
-            loadedWindowMs={rollingExperimentHistoryMs}
-            dataSourceLabel={dataSourceLabel}
-          /></FeatureBoundary>
-        ) : tab === "record" ? (
+        {tab === "record" ? (
           <FeatureBoundary name="Record" fallback={<FeatureLoading name="Record" />}><RecordView
             key={`${portalAccess.userId}:${activeProjectId}:${activeDeviceId}:${routeExperiment.id}`}
             experiment={routeExperiment}
@@ -3484,16 +2913,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           /></FeatureBoundary>
         ) : (
           <div className="px-pots-tab">
-            <ExperimentHistory key={routeExperiment.id} experiment={routeExperiment} pairings={sortedPairings} projectId={activeProjectId} deviceId={activeDeviceId} nowMs={clockNowMs}/>
-            <p className="px-loaded-range">Loaded: {timeBounds ? `${formatMeasurementTime(timeBounds.startMs)}–${formatMeasurementTime(timeBounds.endMs)}` : "No readings"}</p>
-            <div className="px-pot-chart" aria-label="Individual pot traces">{potsTabContent}</div>
-            <details className="px-details px-pot-readings"><summary>Pot readings</summary><FeatureBoundary name="Pots" fallback={<FeatureLoading name="Pots" />}><PotsTable
-              experiment={routeExperiment}
-              pairings={sortedPairings}
-              readings={experimentReadings}
-              nowMs={clockNowMs}
-              asOfMs={lastGoodCheckAt}
-            /></FeatureBoundary></details>
+            {experimentArchive.loading ? <p className="px-loaded-range" role="status">Loading experiment data… {experimentArchive.progress.toLocaleString()} readings</p> : null}
+            {experimentArchive.error ? <p className="px-notice is-bad" role="alert">Full experiment data could not be loaded. The graph shows the available readings. <button className="px-button is-small" onClick={experimentArchive.retry}>Retry</button></p> : null}
+            <div className="px-pot-chart" aria-label="Pot traces">{potsTabContent}</div>
           </div>
         )}
         {route.pot ? <PotInspector onClose={()=>navigatePortal({view:"experiment",experiment:routeExperiment.id,tab,pot:null})}>{renderPotPage(route.pot,routeExperiment)}</PotInspector> : null}
@@ -3536,6 +2958,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   return productShell(
     <QuietSpineHome
       experiments={availableExperiments}
+      systemName={isDemo ? undefined : "Rhee Lab"}
       exceptions={portalExceptions}
       nowMs={clockNowMs}
       checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
@@ -3553,13 +2976,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       }}
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }}>Installation settings →</PortalLink> : null}
-        {canUseExperimentSettings ? <PortalLink to={{ view: "controller" }} extra={{ settings: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
+        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
       </div> : undefined}
       machines={!isDemo ? <>
-        {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} /> : null}
-        {isAdmin || portalAccess.gasMixerAllowed ? <button className="px-machine-card" onClick={() => setPortalView("chamber")}><span className="px-exp-name">Chamber</span><span className="px-exp-count">Gas mixer · Lighting</span><span className="px-exp-mode">Control and schedules</span></button> : null}
+        {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
+        {isAdmin || portalAccess.gasMixerAllowed ? <SystemSection name="Chamber" defaultExpanded={false} description="Gas mixer · Lighting" action={<button type="button" className="px-button" onClick={() => setPortalView("chamber")}>Open system</button>}><p className="px-system-description">Control and schedules</p></SystemSection> : null}
       </> : undefined}
       tools={isDemo ? undefined : adminTools ?? (portalAccess.gasMixerAllowed ? <GasMixerResearcherTile onOpen={() => setPortalView("chamber")} /> : undefined)}
       recordAvailable={recordAvailable}

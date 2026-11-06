@@ -50,7 +50,7 @@ export function PrepareStep({ ctx }: { ctx: WorkspaceContext }) {
     setError(null);
     try {
       const queued = await ctx.queuePlan("prepare", buildPreparePlan(ctx.snapshot), { pairingNames: names }, "preparing");
-      if (!queued) setError("The change was not queued. See the message at the top of Settings, then try again.");
+      if (!queued) setError("The change was not queued. Check the message above, then try again.");
       setAck(false);
     } catch (nextError) {
       setError(messageOf(nextError));
@@ -66,9 +66,8 @@ export function PrepareStep({ ctx }: { ctx: WorkspaceContext }) {
         <StatusChip tone={state.notPrepared.length === 0 ? "ok" : "unknown"}>{state.prepared.length} of {names.length} ready</StatusChip>
       </div>
       <p className="settings-muted">
-        The server recorded every selected pot's settings at {formatWhen(ctx.session.started_at)}: target, pulse length and measurement interval, exactly as the
-        controller reported them. They are restored, pot by pot, when the session ends.
-        {ctx.record.carriedForward.length ? ` ${ctx.record.carriedForward.length} pot(s) were still sensing-only from an earlier run; their original settings were carried forward.` : ""}
+        Original settings saved at {formatWhen(ctx.session.started_at)}. Restore them when the session ends.
+        {ctx.record.carriedForward.length ? ` Original settings carried forward for ${ctx.record.carriedForward.length} pots from an earlier run.` : ""}
       </p>
       {!ctx.controllerOnline ? <p className="ac-notice">The controller is offline. A change queued now waits until it reconnects and confirms it.</p> : null}
       {state.notPrepared.length === 0 && !batch ? (
@@ -83,9 +82,8 @@ export function PrepareStep({ ctx }: { ctx: WorkspaceContext }) {
       ) : !batch ? (
         <>
           <p className="settings-muted">
-            During the run the controller keeps measuring but must not water these pots on its own. {automatic.length} selected pot(s) still have automatic watering on and{" "}
-            {slow.length} measure less often than every {commissioningIntervalSeconds} s. One reviewed settings change turns watering off and measures every {commissioningIntervalSeconds} s on all {names.length};
-            other pots on the controller are not touched. Applying it briefly stops and restarts the controller.
+            Turn automatic watering off and measure every {commissioningIntervalSeconds} s for these {names.length} pots.
+            {" "}{automatic.length} need watering disabled; {slow.length} need faster readings. Applying the change briefly restarts the controller.
           </p>
           <label className="settings-check">
             <input type="checkbox" checked={ack} onChange={(event) => setAck(event.target.checked)} />
@@ -202,7 +200,7 @@ export function CheckStep({ ctx, staleRun }: { ctx: WorkspaceContext; staleRun: 
   };
 
   const start = () => {
-    if (!fresh?.report.canStart) return;
+    if (!fresh?.report.canStart || ctx.fieldBlockReason) return;
     setStarting(true);
     setStartError(null);
     autocalRunStore.start({
@@ -259,11 +257,11 @@ export function CheckStep({ ctx, staleRun }: { ctx: WorkspaceContext; staleRun: 
         <legend>What this run does</legend>
         <label>
           <input type="radio" name="ac-mode" checked={mode === "dry_run"} onChange={() => setMode("dry_run")} />
-          <span><strong>Rehearsal</strong>Every check and step against the live controller and sensors, with no valve command.</span>
+          <span><strong>Rehearsal</strong>Check sensors and timing without opening valves.</span>
         </label>
         <label>
           <input type="radio" name="ac-mode" checked={mode === "real"} onChange={() => setMode("real")} />
-          <span><strong>Open real valves</strong>One bounded pulse at a time through the controller's command queue.</span>
+          <span><strong>Open real valves</strong>Pulse each selected valve and measure the response.</span>
         </label>
       </fieldset>
 
@@ -327,10 +325,10 @@ export function CheckStep({ ctx, staleRun }: { ctx: WorkspaceContext; staleRun: 
             </label>
           </>
         ) : (
-          <p className="settings-muted"><ShieldCheck size={14} aria-hidden="true" /> A rehearsal sends no valve command and cannot produce a mapping. It proves the checks, the sensor feed and the timing first.</p>
+          <p className="settings-muted"><ShieldCheck size={14} aria-hidden="true" /> Rehearsal checks the setup. Measuring a mapping requires water.</p>
         )}
         <button type="button" className={mode === "real" ? "settings-danger-button" : "settings-primary-button"}
-          disabled={!fresh?.report.canStart || starting || autocalRunStore.running || (mode === "real" && confirmation !== phrase)}
+          disabled={Boolean(ctx.fieldBlockReason) || !fresh?.report.canStart || starting || autocalRunStore.running || (mode === "real" && confirmation !== phrase)}
           onClick={start}>
           <Play size={14} aria-hidden="true" /> {starting ? "Starting…" : mode === "real" ? (resumable ? "Resume with real valves" : `Open ${pots.length} real valves, one at a time`) : "Start rehearsal"}
         </button>

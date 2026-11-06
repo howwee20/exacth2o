@@ -20,9 +20,9 @@ class DemoLoadBoundary extends Component<{children: ReactNode}, {failed: boolean
 export function DemoEntry() {
   const route = usePortalRoute();
   const [search, setSearch] = useState(false);
-  if (route.view !== 'home' || search) return <DemoLoadBoundary><Suspense fallback={<main className="px-shell"><ProductHeader route={route} sections={{bench:true}} onFindPot={() => setSearch(true)} onSignOut={() => {}} demo /><div className="px-page" role="status">Loading…</div></main>}><FullDemo initialFindPot={search}/></Suspense></DemoLoadBoundary>;
+  if (route.view !== 'home' || search) return <DemoLoadBoundary><Suspense fallback={<main className="px-shell"><ProductHeader onFindPot={() => setSearch(true)} onSignOut={() => {}} demo /><div className="px-page" role="status">Loading…</div></main>}><FullDemo initialFindPot={search}/></Suspense></DemoLoadBoundary>;
   return <main className="px-shell">
-    <ProductHeader route={route} sections={{bench:true}} onFindPot={() => setSearch(true)} onSignOut={() => {}} demo />
+    <ProductHeader onFindPot={() => setSearch(true)} onSignOut={() => {}} demo />
     <QuietSpineHome experiments={catalog} exceptions={[]} nowMs={Date.now()} checking={false} catalogError={null}
       installation={{status:'online',lastSeenAt:Date.now()}} canCreate={false} onNewExperiment={() => {}} onEditExperiment={() => {}} recordAvailable />
   </main>;

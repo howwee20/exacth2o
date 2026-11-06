@@ -4,9 +4,8 @@ import {
   activeExperimentPotOccupancy,
   experimentCardDescription,
   isCalibrationExperiment,
-  mergePortalExperiments,
+  deduplicateExperimentCatalog,
   portalExperimentById,
-  portalExperimentsForRole,
   readingsForExperiment,
   pairingsForExperiment,
   type PortalExperiment,
@@ -70,14 +69,18 @@ describe("experiment registry", () => {
     startedAt,
   };
 
-  it("does not embed installation-specific experiment fallbacks", () => {
-    expect(portalExperimentsForRole("admin")).toEqual([]);
-    expect(portalExperimentsForRole("researcher")).toEqual([]);
+  it("returns an unavailable experiment for a missing catalog record", () => {
     expect(portalExperimentById("missing").id).toBe("unavailable");
   });
 
-  it("merges only supplied catalog records", () => {
-    expect(mergePortalExperiments([], [history, calibration])).toEqual([
+  it("keeps the supplied catalog order and the last version of each experiment", () => {
+    const updatedHistory = { ...history, name: "Updated historical trial" };
+    expect(deduplicateExperimentCatalog([history, calibration, updatedHistory])).toEqual([
+      updatedHistory,
+      calibration,
+    ]);
+    expect(deduplicateExperimentCatalog([])).toEqual([]);
+    expect(deduplicateExperimentCatalog([history, calibration])).toEqual([
       history,
       calibration,
     ]);

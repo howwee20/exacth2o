@@ -10,4 +10,5 @@ const embedVersion = createHash('sha256').update(readFileSync('applications-demo
 const applications = readFileSync('applications.html', 'utf8').replace(/src="\/applications-demo-app\/index\.html(?:\?v=[a-f0-9]+)?"/, `src="/applications-demo-app/index.html?v=${embedVersion}"`);
 writeFileSync('applications.html', applications);
 run('node', ['demo-preview/build.mjs']);
+run('node', ['scripts/build-homepage-traces.mjs']);
 console.log('Website, portal, standalone demo and embedded demo are ready to commit together.');
