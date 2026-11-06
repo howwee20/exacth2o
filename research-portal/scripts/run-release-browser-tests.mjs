@@ -11,6 +11,6 @@ const report = JSON.parse(readFileSync(new URL('../.release-results/browser.json
 function specs(suites) { return suites.flatMap((suite) => [...(suite.specs ?? []), ...specs(suite.suites ?? [])]); }
 const executed = specs(report.suites);
 if (executed.length !== browserChecks.length || browserChecks.some((name) => !executed.some((spec) => spec.title === name && spec.tests.length === 1 && spec.tests[0].status === 'expected' && spec.tests[0].results.at(-1)?.status === 'passed'))) {
-  throw new Error('The release gate did not pass all three named browser checks.');
+  throw new Error('The release gate did not pass every named browser check.');
 }
-console.log('UI release gate: 3 browser checks passed; 10 focused checks total.');
+console.log(`UI release gate: ${browserChecks.length} browser checks passed; ${browserChecks.length + 7} focused checks total.`);

@@ -19,6 +19,15 @@ and all 6 publisher tests passed. Regression cases cover final valve admission,
 close-timer installation before persistence, manual-hold preemption during a
 pending write, and preservation of a new publisher epoch across restart.
 
+The maintained inputs are in `controller/cron/` and `controller/supabase-publisher/`.
+Generate the payload and its compiled JavaScript from those inputs.
+
+```sh
+npm ci --prefix controller/cron
+node scripts/build-controller-release.mjs matt-safety-20261103 /tmp/exacth2o-safety-release
+balena push basyalbi/matt --source /tmp/exacth2o-safety-release --draft
+```
+
 Build as a draft, compare all image digests and the normalized composition,
 then pin only the intended device. Read back installed payload hashes, controller
 status, unchanged pairing settings, publisher cursor progress and backend

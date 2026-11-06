@@ -1,0 +1,8 @@
+{
+  "build": [],
+  "files": {
+    "health_svc/server.py": "controller/health/server.py",
+    "health_svc/static/app.js": "controller/health/static/app.js",
+    "health_svc/static/index.html": "controller/health/static/index.html"
+  }
+}

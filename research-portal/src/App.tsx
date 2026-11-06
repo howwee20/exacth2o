@@ -8,13 +8,14 @@ import { SavedTraceViews } from "./product/SavedTraceViews";
 import { clearExperimentArchives, useExperimentReadings } from "./useExperimentReadings";
 import { experimentTraceReadings } from "./experimentTraceReadings";
 import { AlertTriangle, ArrowRight, Loader2, Mail, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChamberControlView, GasMixerResearcherHome, GasMixerResearcherTile, GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
 import { SystemSection } from "./product/SystemSection";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import { AuthScreen } from "./auth/AuthScreen";
+import { usePortalAuth } from "./usePortalAuth";
 import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
 import {
   authEventReload,
@@ -36,16 +37,15 @@ import { levelLabel } from "./experimentFactors";
 import { deduplicateExperimentCatalog, type ExperimentId, isObservationOnlyExperiment, pairingsForExperiment, type PortalExperiment, portalExperimentById, valveEventsForExperiment } from "./experimentRegistry";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { hasExperimentSettingsAccess, hasProjectDataReadAccess, hasSalesSupportAccess, parsePortalRole } from "./portalAccess";
-import { autoRefreshMs, demoAccountEmail, demoHandoffKey, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
+import { autoRefreshMs, fullReconciliationEveryPolls, fullTimeWindow, healthSnapshotPollMs, healthSnapshotSelectColumns, incrementalCursorOverlapMs, incrementalValveEventRows, livePrefix, maxValveEventRows, portalAccessTimeoutMs, rememberEmailKey, supabaseQueryTimeoutMs, supportPollMs, wateringHistoryMs } from "./portalConstants";
 import { type DataMode, type EffectiveMode, isIgnoredDiagnosticReading, isIgnoredDiagnosticValveEvent, mergeRollingExperimentReadings, pairingsFromDeviceConfigState, resolveEffectiveMode, rollingExperimentHistoryMs, visibleExperimentPairings } from "./portalData";
 import { controlCommandLabel, errorMessage, functionErrorMessage, runtimeStateIsFresh, selectHealthSnapshot } from "./portalFormat";
 import { orderedPairings, plantGroupForPairing, treatmentForPairing } from "./portalPresentation";
 import { selectPortalAccessRow, selectProjectDevice } from "./portalProjectContext";
 import { fetchReadingsForMode, incrementalReadingCursor, loadedReadingCounts, newestByTime } from "./portalReadings";
-import { adminOnlyControlCommandTypes, type AuthMode, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type InviteAcceptResponse, type LoadState, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
+import { adminOnlyControlCommandTypes, type ChartSeries, type ControlCommandResponse, type CsvDownload, type DeviceConfigState, type DeviceHealthSnapshot, type DeviceRuntimeState, type ExperimentGraphMode, type HealthSelectedDetail, type LoadState, type PortalAccess, type PortalView, type PotPreset, type QueueControlCommand, type QueueSettingsPlan, type QuoteRequestRow, type RefreshOptions, type SalesSupportData, type SettingsSection, type SupportMessageRow, type SupportThreadRow, type TimeWindow } from "./portalTypes";
 import { dedupeReadingsForExport, downloadJsonFile } from "./readingsExport";
 import { type SettingsCommandDraft, stoppedSettingsCommandTypes } from "./settingsSpec";
-import { softwareTermsVersion } from "./softwareTerms";
 import { supabase } from "./supabase";
 import { withSupabaseTimeout } from "./supabaseTimeout";
 import { type LatestState, type PairingRow, type SensorReading, type ValveEvent } from "./types";
@@ -56,7 +56,7 @@ import { usePageClock } from "./pageClock";
 import { FeatureBoundary, FeatureLoading, lazyFeature } from "./lazyFeature";
 import { overlayTimeBounds } from "./wateringOverlay";
 import { homeExceptions } from "./homeExceptions";
-import { navigatePortal, type PortalRoute, settingsSectionFromSearch, stripAuthQuery, usePortalRoute } from "./portalRoute";
+import { navigatePortal, type PortalRoute, settingsSectionFromSearch, usePortalRoute } from "./portalRoute";
 import { resolvePot } from "./potIdentity";
 import { readingsForPairings } from "./pairingHistory";
 import { ExperimentNotFound, ExperimentPage } from "./product/ExperimentPage";
@@ -156,36 +156,7 @@ const initialSalesSupportData: SalesSupportData = {
   messages: [],
 };
 
-function inviteTokenFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("invite") ?? params.get("token") ?? "";
-}
-
-function initialEmail() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("email") ?? "";
-}
-
-function initialAuthMode(): AuthMode {
-  const params = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const authType = params.get("type") ?? hashParams.get("type");
-
-  if (inviteTokenFromUrl()) return "accept-invite";
-  if (authType === "recovery") return "set-password";
-  return "sign-in";
-}
-
-
 export default function App({ initialFindPot = false }: { initialFindPot?: boolean } = {}) {
-  const [email, setEmail] = useState(() => initialEmail());
-  const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState<AuthMode>(() => initialAuthMode());
-  const [inviteToken] = useState(() => inviteTokenFromUrl());
-  const [authNotice, setAuthNotice] = useState<string | null>(null);
-  const [rememberDevice, setRememberDevice] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [sessionRevision, setSessionRevision] = useState(0);
   const authReloadState = useRef<AuthReloadState>({ userId: null, tokenExpiresAtMs: null });
@@ -194,7 +165,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [csvDownload, setCsvDownload] = useState<CsvDownload | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(() => new URLSearchParams(window.location.hash.slice(1)).has("error") ? "This access link has expired or is invalid. Request a fresh password reset below." : null);
+  const auth = usePortalAuth({
+    setLoading,
+    clearError: () => setError(null),
+    resetPortalSessionUi: () => resetPortalSessionUi(),
+    setSessionReady,
+  });
+  const { authMode, setAuthMode, setLoginError, setAuthNotice, setTermsOpen, setTermsAccepted, setEmail, setRememberDevice } = auth;
   const [selectedMode] = useState<DataMode>("auto");
   const [experimentGraphMode, setExperimentGraphMode] = useState<ExperimentGraphMode>("vwc");
   const [hiddenPots, setHiddenPots] = useState<Set<string>>(() => new Set());
@@ -508,7 +485,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     setTermsAccepted(false);
     setExperimentGraphMode("vwc");
     setSelectedWateringDetail(null);
-  }, []);
+  }, [setTermsAccepted, setTermsOpen]);
 
   if (uiExperimentId !== selectedExperimentId) {
     setUiExperimentId(selectedExperimentId);
@@ -548,7 +525,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     setLoginError(null);
     setAuthNotice(expiredPortalSessionNotice);
     setSessionReady(false);
-  }, []);
+  }, [setAuthNotice, setLoginError]);
 
   const recoverPortalSession = useCallback(async () => {
     if (authRecoveryInFlightRef.current) return authRecoveryInFlightRef.current;
@@ -1471,156 +1448,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       await sendSingleControlCommand(commandType, payload, options);
   };
 
-  async function signIn(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    if (
-      email.trim().toLowerCase() === demoAccountEmail &&
-      !window.location.pathname.startsWith("/demo")
-    ) {
-      window.sessionStorage.setItem(demoHandoffKey, JSON.stringify({ email: email.trim().toLowerCase(), password }));
-      window.location.assign("/demo");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setLoginError(null);
-    setAuthNotice(null);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
-    if (signInError) {
-      setLoginError(errorMessage(signInError));
-      return;
-    }
-    if (rememberDevice) {
-      window.localStorage.setItem(rememberEmailKey, email);
-    } else {
-      window.localStorage.removeItem(rememberEmailKey);
-    }
-    resetPortalSessionUi();
-    setPassword("");
-    setSessionReady(true);
-  }
-
-  async function acceptInvite(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    setLoading(true);
-    setError(null);
-    setLoginError(null);
-    setAuthNotice(null);
-
-    if (!inviteToken) {
-      setLoading(false);
-      setLoginError("Use a valid invite link to create an account.");
-      return;
-    }
-
-    if (password.length < 8) {
-      setLoading(false);
-      setLoginError("Use at least 8 characters.");
-      return;
-    }
-
-    if (!termsAccepted) {
-      setLoading(false);
-      setLoginError("Review and accept the Software Access Terms to continue.");
-      return;
-    }
-
-    const { data: inviteData, error: inviteError } =
-      await supabase.functions.invoke<InviteAcceptResponse>("accept-invite", {
-        body: {
-          token: inviteToken,
-          email,
-          password,
-          termsAccepted: true,
-          termsVersion: softwareTermsVersion,
-        },
-      });
-
-    if (inviteError) {
-      setLoading(false);
-      setLoginError(await functionErrorMessage(inviteError));
-      return;
-    }
-
-    const session = inviteData?.session;
-    if (!session?.access_token || !session.refresh_token) {
-      setLoading(false);
-      setLoginError("Invite accepted, but sign-in did not complete.");
-      return;
-    }
-
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
-
-    setLoading(false);
-
-    if (sessionError) {
-      setLoginError(errorMessage(sessionError));
-      return;
-    }
-
-    if (rememberDevice) {
-      window.localStorage.setItem(rememberEmailKey, email);
-    } else {
-      window.localStorage.removeItem(rememberEmailKey);
-    }
-
-    stripAuthQuery();
-    resetPortalSessionUi();
-    setPassword("");
-    setAuthMode("sign-in");
-    setSessionReady(true);
-  }
-
-  async function requestPasswordReset(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setLoading(true); setLoginError(null); setAuthNotice(null);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {redirectTo: `${window.location.origin}/portal?type=recovery`});
-    setLoading(false);
-    if (resetError) { setLoginError("The reset email could not be requested. Please try again or contact support."); return; }
-    setAuthNotice("If an account exists for this email, a password reset link is on its way. Check your inbox and spam folder.");
-  }
-
-  async function setAccountPassword(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    setLoading(true);
-    setError(null);
-    setLoginError(null);
-    setAuthNotice(null);
-
-    if (password.length < 8) {
-      setLoading(false);
-      setLoginError("Use at least 8 characters.");
-      return;
-    }
-
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-
-    if (updateError) {
-      setLoginError(errorMessage(updateError));
-      return;
-    }
-
-    stripAuthQuery();
-    resetPortalSessionUi();
-    setPassword("");
-    setAuthMode("sign-in");
-    setSessionReady(true);
-  }
-
-  function switchAuthMode(nextMode: AuthMode) {
-    setAuthMode(nextMode);
-    setLoginError(null);
-    setAuthNotice(null);
-    if (nextMode !== "set-password") stripAuthQuery();
-  }
-
   async function signOut() {
     const unsent = noteOutbox.waiting.length;
     if (unsent && !window.confirm(`${unsent} ${unsent === 1 ? "note has" : "notes have"} not reached the record yet. ${unsent === 1 ? "It stays" : "They stay"} on this device, visible only to this account, and ${unsent === 1 ? "sends" : "send"} when you sign in here again. Sign out?`)) return;
@@ -1766,7 +1593,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       active = false;
       authListener.subscription.unsubscribe();
     };
-  }, [authMode]);
+  }, [authMode, setAuthMode, setEmail, setRememberDevice]);
 
   useEffect(() => {
     if (!sessionReady) return undefined;
@@ -2299,7 +2126,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }, [activeProjectId, canUseSalesSupport, loadSalesSupport, sessionReady]);
 
   if (!sessionReady) {
-    return <AuthScreen authMode={authMode} email={email} password={password} rememberDevice={rememberDevice} termsOpen={termsOpen} termsAccepted={termsAccepted} loading={loading} authNotice={authNotice} loginError={loginError} setEmail={setEmail} setPassword={setPassword} setRememberDevice={setRememberDevice} setTermsOpen={setTermsOpen} setTermsAccepted={setTermsAccepted} switchAuthMode={switchAuthMode} requestPasswordReset={requestPasswordReset} setAccountPassword={setAccountPassword} acceptInvite={acceptInvite} signIn={signIn} />;
+    return <AuthScreen {...auth} loading={loading} />;
   }
 
   const groupedPairings = experimentSidebarGroups(sortedPairings, selectedExperiment);

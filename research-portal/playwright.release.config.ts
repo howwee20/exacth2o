@@ -5,7 +5,7 @@ const previewPort = process.env.EXACTH2O_PREVIEW_PORT || '4899';
 const harnessPort = process.env.EXACTH2O_HARNESS_PORT || '5178';
 export default defineConfig({
   testDir: './browser-tests',
-  testMatch: 'experiment-controls.spec.ts',
+  testMatch: ['experiment-controls.spec.ts', 'auth.spec.ts'],
   grep: new RegExp(`(?:${browserChecks.map(escapeRegex).join('|')})$`),
   timeout: 30_000,
   expect: { timeout: 10_000 },

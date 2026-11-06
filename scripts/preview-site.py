@@ -14,4 +14,6 @@ class Handler(SimpleHTTPRequestHandler):
         if path != '/' and '.' not in path.rsplit('/', 1)[-1] and Path('.' + path + '.html').is_file():
             self.path = path + '.html'
         super().do_GET()
+# Parallel browser checks request many modules at once.
+ThreadingHTTPServer.request_queue_size = 64
 ThreadingHTTPServer(('127.0.0.1',int(os.environ.get('EXACTH2O_PREVIEW_PORT', '4899'))), Handler).serve_forever()

@@ -24,7 +24,7 @@ jobs:
           git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js
           test -z "$(git ls-files --others --exclude-standard -- portal-app demo-app applications-demo-app)"
       - name: Controller dashboard authentication checks
-        run: python3 -m unittest discover -s controller-release/matt-balena-release-4174753/health -p 'test_*.py'
+        run: python3 -m unittest discover -s controller/health -p 'test_*.py'
   verify-database:
     runs-on: ubuntu-latest
     steps:

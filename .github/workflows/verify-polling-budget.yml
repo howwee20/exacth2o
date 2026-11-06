@@ -16,7 +16,7 @@ on:
       - 'research-portal/src/useExperimentReadings.ts'
       - 'research-portal/src/experimentExportClient.ts'
       - 'research-portal/src/workbenchClient.ts'
-      - 'controller-release/matt-balena-release-4174753/health/**'
+      - 'controller/health/**'
       - 'controller-release/matt-health-reporting-20261020/**'
       - 'supabase/functions/*-agent/**'
       - 'controller-release/gas-mixer*/**'
@@ -37,7 +37,7 @@ on:
       - 'research-portal/src/useExperimentReadings.ts'
       - 'research-portal/src/experimentExportClient.ts'
       - 'research-portal/src/workbenchClient.ts'
-      - 'controller-release/matt-balena-release-4174753/health/**'
+      - 'controller/health/**'
       - 'controller-release/matt-health-reporting-20261020/**'
       - 'supabase/functions/*-agent/**'
       - 'controller-release/gas-mixer*/**'
@@ -65,6 +65,6 @@ jobs:
           node --test supabase/functions/_shared/agent-polling.test.mjs supabase/functions/_shared/agent-wake.test.mjs supabase/functions/_shared/gas-mixer-native-policy.test.mjs supabase/functions/_shared/lighting-native-policy.test.mjs
           node --test scripts/budget/edge-budget-model.test.mjs
           python3 -m unittest discover -s controller-release/gas-mixer-native-bridge -p 'test_*.py'
-          python3 -m unittest discover -s controller-release/matt-balena-release-4174753/health -p 'test_*.py'
+          python3 -m unittest discover -s controller/health -p 'test_*.py'
           python3 -m unittest discover -s controller-release/matt-health-reporting-20261020 -p 'test_*.py'
           python3 -m unittest discover -s scripts -p 'test_supabase_usage_audit.py'

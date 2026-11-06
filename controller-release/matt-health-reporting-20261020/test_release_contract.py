@@ -2,17 +2,33 @@
 import json
 from pathlib import Path
 import unittest
+import subprocess
+import tempfile
 
 RELEASE = Path(__file__).resolve().parent
-CANONICAL = RELEASE.parent / "matt-balena-release-4174753" / "health"
+ROOT = RELEASE.parents[1]
+CANONICAL = ROOT / "controller" / "health"
 
 
 class ReleaseContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temporary = tempfile.TemporaryDirectory()
+        cls.generated = Path(cls.temporary.name) / "release"
+        subprocess.run([
+            "node", str(ROOT / "scripts" / "build-controller-release.mjs"),
+            "matt-health-reporting-20261020", str(cls.generated),
+        ], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temporary.cleanup()
+
     def test_health_payload_matches_maintained_source(self):
         for relative in ("server.py", "static/app.js", "static/index.html"):
             with self.subTest(file=relative):
                 self.assertEqual(
-                    (RELEASE / "health_svc" / relative).read_bytes(),
+                    (self.generated / "health_svc" / relative).read_bytes(),
                     (CANONICAL / relative).read_bytes(),
                     "Refresh the release payload after changing maintained health source",
                 )
@@ -27,7 +43,7 @@ class ReleaseContractTests(unittest.TestCase):
             if service == "health_svc":
                 expected += "COPY server.py /app/server.py\nCOPY static/app.js /app/static/app.js\nCOPY static/index.html /app/static/index.html\n"
             with self.subTest(service=service):
-                self.assertEqual((RELEASE / service / "Dockerfile").read_text(), expected)
+                self.assertEqual((self.generated / service / "Dockerfile").read_text(), expected)
 
 
 if __name__ == "__main__":
