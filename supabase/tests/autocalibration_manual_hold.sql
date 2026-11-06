@@ -78,9 +78,9 @@ end $$;
 insert into public.commissioning_sessions(project_id,device_id,run_id,pot_count,original_snapshot)
 values ('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-first',100,'[{"pairingName":"Zone1-Pot1"}]');
 select autocal_test.rejected($q$insert into public.commissioning_sessions(project_id,device_id,run_id,pot_count,original_snapshot) values ('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',2,'[]')$q$,'duplicate key');
-select autocal_test.rejected($q$update public.commissioning_sessions set original_snapshot='[]' where run_id='hw-20261021-first'$q$,'cannot be changed');
-update public.commissioning_sessions set status='restored', active=false where run_id='hw-20261021-first';
-select autocal_test.rejected($q$update public.commissioning_sessions set active=true where run_id='hw-20261021-first'$q$,'cannot become active again');
+select autocal_test.rejected($q$update public.commissioning_sessions set original_snapshot='[]' where run_id='hw-20261021-first'$q$,'permission denied');
+select public.save_commissioning_session('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-first','{"status":"restored","active":false}');
+select autocal_test.rejected($q$update public.commissioning_sessions set active=true where run_id='hw-20261021-first'$q$,'permission denied');
 insert into public.commissioning_sessions(project_id,device_id,run_id,pot_count,original_snapshot)
 values ('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',2,'[]');
 reset role;
@@ -112,26 +112,27 @@ declare
   claimed public.commissioning_sessions;
   lease jsonb;
 begin
-  claimed := public.claim_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',first_token);
+  claimed := public.claim_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',first_token,lease_protocol => 2);
   if claimed.status <> 'running' or claimed.run_token <> first_token or claimed.heartbeat_at is null then raise exception 'Claim did not take the session'; end if;
   lease := public.renew_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',first_token);
   if lease->>'stop_requested_at' is not null then raise exception 'No stop was requested yet: %', lease; end if;
   begin
-    perform public.claim_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',second_token);
+    perform public.claim_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',second_token,lease_protocol => 2);
     raise exception 'second claim accepted';
   exception when others then
     if sqlerrm not ilike '%Another screen%' then raise exception 'A second screen must not take a run with a fresh heartbeat (%)', sqlerrm; end if;
   end;
   -- A browser's clock never sets the times.
-  update public.commissioning_sessions set stop_requested_at='2000-01-01', heartbeat_at='2000-01-01' where run_id='hw-20261021-second';
+  update public.commissioning_sessions set stop_requested_at='2000-01-01' where run_id='hw-20261021-second';
+  perform public.save_commissioning_session('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second','{"heartbeat_at":"2000-01-01"}',first_token);
   lease := public.renew_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',first_token);
   if (lease->>'stop_requested_at')::timestamptz < now() - interval '1 minute' or (lease->>'heartbeat_at')::timestamptz < now() - interval '1 minute' then
     raise exception 'Stop and heartbeat times must come from the database clock: %', lease;
   end if;
   if (lease->>'stop_requested_by')::uuid is distinct from (select auth.uid()) then raise exception 'The stop request must record who asked'; end if;
   -- The evidence matrix is an object, saved apart from the record.
-  update public.commissioning_sessions set run_result='{"proposals":[],"evidence":[]}' where run_id='hw-20261021-second';
-  perform autocal_test.rejected($q$update public.commissioning_sessions set run_result='[]' where run_id='hw-20261021-second'$q$,'check constraint');
+  perform public.save_commissioning_session('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second','{"run_result":{"proposals":[],"evidence":[]}}',first_token);
+  perform autocal_test.rejected(format($q$select public.save_commissioning_session('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second','{"run_result":[]}',%L)$q$,first_token),'check constraint');
 end $$;
 reset role;
 -- The first screen goes quiet (simulated without the trigger, which would stamp now()).
@@ -144,9 +145,9 @@ declare
   first_token uuid := (select id from autocal_test.ids where label='first-screen');
   second_token uuid := (select id from autocal_test.ids where label='second-screen');
   claimed public.commissioning_sessions;
-  touched integer;
+  saved public.commissioning_sessions;
 begin
-  claimed := public.claim_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',second_token);
+  claimed := public.claim_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',second_token,lease_protocol => 2);
   if claimed.run_token <> second_token or claimed.stop_requested_at is not null then raise exception 'A stale run must pass to the new screen with its stop request cleared'; end if;
   begin
     perform public.renew_commissioning_run('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second',first_token);
@@ -154,9 +155,8 @@ begin
   exception when others then
     if sqlerrm not ilike '%no longer holds%' then raise exception 'The first screen must learn it lost the run (%)', sqlerrm; end if;
   end;
-  update public.commissioning_sessions set status='interrupted' where run_id='hw-20261021-second' and run_token=first_token;
-  get diagnostics touched = row_count;
-  if touched <> 0 then raise exception 'A screen that lost the run must not save over it'; end if;
+  saved := public.save_commissioning_session('22222222-2222-4222-8222-222222222222','autocal-test-device','hw-20261021-second','{"status":"interrupted","run_token":null}',first_token);
+  if saved.id is not null then raise exception 'A screen that lost the run must not save over it'; end if;
 end $$;
 reset role;
 

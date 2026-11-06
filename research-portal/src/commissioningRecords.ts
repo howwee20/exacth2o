@@ -30,7 +30,7 @@ export type CommissioningSessionRow = {
   record: Record<string, unknown>;
   config_hash_at_start: string | null;
   heartbeat_at: string | null;
-  run_token: string | null;
+  run_token?: string | null;
   stop_requested_at: string | null;
   stop_requested_by: string | null;
   started_at: string;
@@ -38,7 +38,7 @@ export type CommissioningSessionRow = {
   ended_at: string | null;
 };
 
-const sessionColumns = "id,run_id,status,active,pot_count,operator_label,created_by,original_snapshot,record,config_hash_at_start,heartbeat_at,run_token,stop_requested_at,stop_requested_by,started_at,updated_at,ended_at";
+const sessionColumns = "id,run_id,status,active,pot_count,operator_label,created_by,original_snapshot,record,config_hash_at_start,heartbeat_at,stop_requested_at,stop_requested_by,started_at,updated_at,ended_at";
 
 /** Server-side records of autocalibration sessions: one active session per controller. */
 export function createCommissioningStore(input: { projectId: string; deviceId: string }) {
@@ -82,7 +82,7 @@ export function createCommissioningStore(input: { projectId: string; deviceId: s
     },
     async update(runId: string, patch: { status?: string; active?: boolean; record?: Record<string, unknown>; run_result?: Record<string, unknown> | null; operator_label?: string | null; heartbeat_at?: string | null }) {
       const result = await withSupabaseTimeout(
-        supabase.from("commissioning_sessions").update(patch).eq("project_id", projectId).eq("device_id", deviceId).eq("run_id", runId).select(sessionColumns).single(),
+        supabase.rpc("save_commissioning_session", { save_project_id: projectId, save_device_id: deviceId, save_run_id: runId, save_patch: patch }),
         timeoutMs, "Save autocalibration session");
       if (result.error) throw new Error(result.error.message);
       return result.data as CommissioningSessionRow;
@@ -93,7 +93,7 @@ export function createCommissioningStore(input: { projectId: string; deviceId: s
      */
     async claimRun(runId: string, token: string) {
       const result = await withSupabaseTimeout(
-        supabase.rpc("claim_commissioning_run", { claim_project_id: projectId, claim_device_id: deviceId, claim_run_id: runId, claim_token: token }),
+        supabase.rpc("claim_commissioning_run", { claim_project_id: projectId, claim_device_id: deviceId, claim_run_id: runId, claim_token: token, lease_protocol: 2 }),
         timeoutMs, "Claim autocalibration run");
       if (result.error) throw new Error(result.error.message);
       return result.data as CommissioningSessionRow;
@@ -109,7 +109,7 @@ export function createCommissioningStore(input: { projectId: string; deviceId: s
     /** Saves the running segment's record, only while this screen still holds the run. */
     async saveRun(runId: string, token: string, patch: { status?: string; record?: Record<string, unknown>; run_result?: Record<string, unknown> | null; heartbeat_at?: string | null; run_token?: string | null }) {
       const result = await withSupabaseTimeout(
-        supabase.from("commissioning_sessions").update(patch).eq("project_id", projectId).eq("device_id", deviceId).eq("run_id", runId).eq("run_token", token).select(sessionColumns).maybeSingle(),
+        supabase.rpc("save_commissioning_session", { save_project_id: projectId, save_device_id: deviceId, save_run_id: runId, save_patch: patch, save_token: token }),
         patch.run_result ? 60_000 : timeoutMs, "Save autocalibration run");
       if (result.error) throw new Error(result.error.message);
       return (result.data as CommissioningSessionRow | null) ?? null;
