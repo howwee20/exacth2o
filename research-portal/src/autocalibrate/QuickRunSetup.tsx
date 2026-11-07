@@ -35,7 +35,7 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
   useEffect(() => () => pending.current?.abort(), []);
 
   const start = async () => {
-    if (busy || confirmation !== phrase || ctx.fieldBlockReason || configProblems.length || evidenceUnavailable) return;
+    if (pending.current || busy || confirmation !== phrase || ctx.fieldBlockReason || configProblems.length || evidenceUnavailable) return;
     const controller = new AbortController();
     pending.current = controller;
     const assertActive = () => { if (controller.signal.aborted) throw new Error("Setup stopped. No further valve pulse will be requested."); };
@@ -108,6 +108,10 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
         await ports.sleep(15_000, controller.signal);
       }
       assertActive();
+      if (latest.current.projectId !== ctx.projectId || latest.current.deviceId !== ctx.deviceId
+        || latest.current.session.run_id !== ctx.session.run_id || latest.current.fieldBlockReason) {
+        throw new Error("The selected controller or session changed during setup. Review it before running again.");
+      }
       setStatus("Starting the valve test…");
       await autocalRunStore.start({ projectId: ctx.projectId, deviceId: ctx.deviceId, session: latest.current.session,
         store: ctx.store, ports, mode: "real", pots, config, confirmation, resumeFrom: resume, operator: ctx.operator, signal: controller.signal });
