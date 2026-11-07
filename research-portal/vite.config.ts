@@ -6,7 +6,8 @@ export default defineConfig({
   publicDir: false,
   build: {
     outDir: "../portal-app",
-    // Keep content-hashed files available to tabs opened before a deployment.
+    manifest: "asset-manifest.json",
+    // The release builder retains the current and previous manifest, then prunes older assets.
     emptyOutDir: false,
     // The entry's stylesheet is assets/portal.css; a feature that imports its own stylesheet
     // (Web Analytics) gets a hashed CSS file loaded together with its chunk.

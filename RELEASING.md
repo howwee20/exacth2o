@@ -42,3 +42,10 @@ Building the portal republishes the committed gas-mixer agent and native-bridge 
 Use the actual public wrapper, not only the Vite entry. Check desktop and a 390px viewport. A complete product pass covers Home → Demo → Experiment → Pot → Record → Export; copied demo links, refresh and Back; Account from Home and Bench; experiment-scoped settings; installation-scoped settings; completed experiment records/exports; and a stale machine's last recorded window. The demo must stay under `/demo`, including on the production hostname. Verify viewer and admin permissions using isolated accounts. Never submit a hardware operation as a cosmetic smoke test.
 
 The demo workspace and Applications embed use offline fixtures and cannot operate a controller. Local preview servers are task-specific; do not stop or modify a server owned by another chat.
+
+Generated browser assets are retained for the current and previous build.
+`node scripts/build-product-release.mjs` reads each Vite asset manifest, updates
+`scripts/browser-asset-retention.json` when the output changes, and removes older
+files from the three generated `assets/` directories. Rebuilding identical source
+preserves the previous build. Commit the manifests and retention file with the
+generated output. Original images, videos, and source files are outside this cleanup.
