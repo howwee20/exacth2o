@@ -6,7 +6,7 @@ isSessionAuthorizationError
 import { type PortalExperiment } from "./experimentRegistry";
 import { parsePortalRole } from "./portalAccess";
 import { portalAccessTimeoutMs } from "./portalConstants";
-import { selectPortalAccessRow,selectProjectDevice } from "./portalProjectContext";
+import { needsProjectDirectory,projectDirectoryIds,scopedProjectDirectory,selectPortalAccessRow,selectProjectDevice } from "./portalProjectContext";
 import { type PortalAccess } from "./portalTypes";
 import { supabase } from "./supabase";
 import { withSupabaseTimeout } from "./supabaseTimeout";
@@ -60,6 +60,17 @@ export function usePortalAccess({ setAccessLoading, recoverPortalSession, setPor
         );
         if (!accessRow) return { data: null };
         const signedInUserId = userId;
+        const directoryIds = projectDirectoryIds(accessResponse.data ?? []);
+        const directoryResponse = needsProjectDirectory(directoryIds) ? await withSupabaseTimeout(
+          supabase.from("projects").select("id,name").in("id", directoryIds),
+          portalAccessTimeoutMs,
+          "Project directory",
+        ).catch(() => null) : null;
+        const project_directory = scopedProjectDirectory(
+          accessResponse.data ?? [],
+          directoryResponse?.error == null ? directoryResponse?.data ?? [] : [],
+        );
+        const project_name = project_directory.find(project => project.id === accessRow.project_id)?.name;
 
         const mixerAccess = await withSupabaseTimeout(
           supabase.rpc("has_gas_mixer_native_access", {
@@ -76,7 +87,7 @@ export function usePortalAccess({ setAccessLoading, recoverPortalSession, setPor
         ).catch(() => null) : null;
         const sales_support_allowed = supportAccess?.error == null && supportAccess?.data === true;
         if (accessRow.access_scope !== "project") {
-          return { data: { ...accessRow, device_id: null, gas_mixer_allowed, sales_support_allowed, user_id: signedInUserId } };
+          return { data: { ...accessRow, device_id: null, gas_mixer_allowed, sales_support_allowed, user_id: signedInUserId, project_name, project_directory } };
         }
 
         const deviceResponse = await withSupabaseTimeout(
@@ -91,13 +102,27 @@ export function usePortalAccess({ setAccessLoading, recoverPortalSession, setPor
           "Project device",
         );
         if (deviceResponse.error) throw deviceResponse.error;
+        // A newly registered controller has no observation yet. Registration
+        // identifies it without inventing a config snapshot or online status.
+        const registeredResponse = !deviceResponse.data ? await withSupabaseTimeout(
+          supabase.from("devices").select("id").eq("project_id", accessRow.project_id)
+            .order("created_at", { ascending: true }).limit(1).maybeSingle(),
+          portalAccessTimeoutMs,
+          "Registered project device",
+        ) : null;
+        if (registeredResponse?.error) throw registeredResponse.error;
         return {
           data: {
             ...accessRow,
             gas_mixer_allowed,
             sales_support_allowed,
             user_id: signedInUserId,
-            device_id: selectProjectDevice(deviceResponse.data ? [deviceResponse.data] : []),
+            project_name,
+            project_directory,
+            device_id: selectProjectDevice(
+              deviceResponse.data ? [deviceResponse.data] : [],
+              registeredResponse?.data ? [registeredResponse.data] : [],
+            ),
           },
         };
       };
@@ -120,6 +145,8 @@ export function usePortalAccess({ setAccessLoading, recoverPortalSession, setPor
         userId: response.data?.user_id ?? undefined,
         email: response.data?.email ?? null,
         projectId: response.data?.project_id ?? "",
+        projectName: response.data?.project_name,
+        projectDirectory: response.data?.project_directory,
         deviceId: response.data?.device_id ?? null,
         accessScope: response.data?.access_scope ?? "none",
         gasMixerAllowed: response.data?.gas_mixer_allowed === true,

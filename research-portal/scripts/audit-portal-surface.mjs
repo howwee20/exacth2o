@@ -33,8 +33,7 @@ const [bundle, applications, appSource, stressImage, phenotypingImage, greenhous
 
 const requiredPortalCopy = [
   "New experiment",
-  "Pots in another active experiment stay visible but cannot be selected.",
-  "Marker color matches VWC line",
+  "Show pots in use",
 ];
 const forbiddenPortalCopy = [
   "Research workspace",
@@ -62,7 +61,7 @@ const requiredCommissioningCopy = [
   "Open real valves",
   "Run safety checks",
   "Controller-verified",
-  "Delivery confirmed",
+  "Confirm delivery at the bench",
   "Hold to water",
 ];
 const forbiddenApplicationsCopy = [
@@ -99,6 +98,17 @@ const requiredMarkerColorSource = [
 const missingMarkerColorSource = requiredMarkerColorSource.filter((value) => !appSource.includes(value));
 if (missingMarkerColorSource.length) {
   throw new Error("Portal source is missing per-pot watering marker colors.");
+}
+
+// The current builder hides occupied pots unless requested, and always disables
+// them when shown. Check that behavior rather than retired explanatory copy.
+const requiredOccupiedPotSource = [
+  'const occupancy = occupiedByName.get(pairing.name) ?? [];',
+  'const occupied = occupancy.length > 0;',
+  'disabled={occupied}',
+];
+if (requiredOccupiedPotSource.some((value) => !appSource.includes(value))) {
+  throw new Error("Portal source is missing occupied-pot selection protection.");
 }
 
 const missingCommissioningCopy = requiredCommissioningCopy.filter((value) => !bundle.includes(value));

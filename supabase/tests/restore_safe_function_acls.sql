@@ -17,6 +17,7 @@ declare
     'device_claim_control_command(text, text)',
     'device_complete_control_command(text, uuid, text, jsonb, text)',
     'device_ingest(text, jsonb)',
+    'device_publish_configuration(text, jsonb)', -- Scoped ingestion token; verified by device_push_configuration.sql.
     'device_quarantine_control_command(text, uuid, text)',
     'device_renew_control_command_lease(text, uuid)',
     'device_report_control_executor_status(text, text, boolean, boolean, boolean, boolean, text, text)'

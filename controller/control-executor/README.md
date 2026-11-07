@@ -49,6 +49,26 @@ The claim RPC only claims commands whose `device_id` exactly matches the token's
 - `EXACTH2O_SYNC_OWNER_HEALTH_URL`, default `${SUPABASE_URL}/functions/v1/sync-owner-health`
 - `SYNC_OWNER_HEALTH_SECRET` or `EXACTH2O_SYNC_OWNER_HEALTH_SECRET`, required whenever dry-run is disabled
 
+### Outbound-only installations
+
+Set `EXACTH2O_STATE_SYNC_MODE=device_push` when the Pi has no inbound URL. The
+default remains `owner_health` for existing installations. Device-push mode uses
+`EXACTH2O_INGEST_TOKEN` for configuration observations and keeps
+`EXACTH2O_DEVICE_TOKEN` as the separate command-queue token. It also requires the
+project/device IDs and the usual Supabase URL and public anon key. Live commands
+still require the controller command secret; dry-run and manual-water gates are
+unchanged.
+
+The executor reads every configuration section before posting to
+`device_publish_configuration`. It uses this path both periodically and after
+a successful command, so a failed or incomplete upload cannot be reported as a
+verified command completion. The RPC binds observations to the ingestion
+token's registered device and project. It records connectivity and controller
+state, not proof of physical valve delivery; unreported watering state remains
+unknown. Apply `20261107190000_device_push_configuration.sql` before enabling
+this mode, and run `supabase/tests/device_push_configuration.sql` against a
+disposable database or inside a transaction that is rolled back.
+
 ## Token creation
 
 Apply the control-command migrations through `supabase/migrations/20260709190000_optimize_control_and_portal_data.sql`, then create a token through reviewed service-role PostgREST/RPC automation. The function intentionally rejects a normal SQL-editor session without a service-role JWT claim:

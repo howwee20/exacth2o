@@ -11,7 +11,7 @@ import "./product.css";
 export type InstallationState =
   | { status: "online"; lastSeenAt?: number | null }
   | { status: "offline"; lastSeenAt: number | null }
-  | { status: "unknown" }
+  | { status: "unknown"; message?: string }
   | { status: "hidden" };
 
 const editableStatuses = new Set(["published_sensing", "active", "activation_failed"]);
@@ -145,7 +145,7 @@ function InstallationNode({ state, checking, healthLink }: { state: Installation
             Offline{state.lastSeenAt ? ` since ${formatMeasurementTime(state.lastSeenAt)}` : ""}
           </span>
         ) : state.status === "unknown" ? (
-          <span className="px-node-detail">Status unavailable</span>
+          <span className="px-node-detail">{state.message ?? "Status unavailable"}</span>
         ) : checking ? (
           <span className="px-node-detail">Checking readings…</span>
         ) : <span className="px-node-detail">Online{state.lastSeenAt ? ` · seen ${formatMeasurementTime(state.lastSeenAt)}` : ""}</span>}
@@ -260,9 +260,10 @@ export function QuietSpineHome({
               </li> : null}
             </ol>
             </div>
-          ) : (
+          ) : <>
             <p className="px-empty">{checking ? "Loading experiments…" : "No experiments are visible to this account yet."}</p>
-          )}
+            <InstallationNode state={installation} checking={checking} healthLink={healthLink} />
+          </>}
           {completed.length ? (
             <details className="px-completed-experiments">
               <summary>Completed experiments <span>{completed.length}</span></summary>
