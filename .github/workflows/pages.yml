@@ -30,6 +30,7 @@ jobs:
         run: node --test supabase/functions/_shared/field-map-golden.test.mjs
       - name: Rebuild and require the committed release
         run: |
+          node --test scripts/prune-browser-assets.test.mjs
           node scripts/build-product-release.mjs
           node scripts/assert-demo-offline.mjs
           git diff --exit-code -- applications.html portal.html portal-app demo.html demo-app applications-demo-app site-metrics.js homepage-traces-data.json

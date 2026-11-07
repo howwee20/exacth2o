@@ -11,4 +11,5 @@ const applications = readFileSync('applications.html', 'utf8').replace(/src="\/a
 writeFileSync('applications.html', applications);
 run('node', ['demo-preview/build.mjs']);
 run('node', ['scripts/build-homepage-traces.mjs']);
+run('node', ['scripts/prune-browser-assets.mjs']);
 console.log('Website, portal, standalone demo and embedded demo are ready to commit together.');
