@@ -68,6 +68,8 @@ export type StartRunInput = {
   operator: string | null;
   /** Fixed token for tests; a fresh one otherwise. */
   token?: string;
+  /** Cancel setup before this screen has actually acquired and started the run. */
+  signal?: AbortSignal;
 };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -132,9 +134,15 @@ export class AutocalRunStore {
     try {
       ({ CommissioningRun: Run } = await import("../commissioning/orchestrator"));
       // Take the session for this screen. Refused while another screen's heartbeat is fresh.
+      if (input.signal?.aborted) throw new Error("Setup stopped before the run started.");
       claimed = await input.store.claimRun(runId, token);
     } finally {
       this.starting = false;
+    }
+
+    if (input.signal?.aborted) {
+      await input.store.saveRun(runId, token, { status: input.session.status, heartbeat_at: null, run_token: null });
+      throw new Error("Setup stopped before the run started.");
     }
 
     let record = withEvent(
@@ -171,6 +179,7 @@ export class AutocalRunStore {
         return input.ports.requestPulse(request);
       },
     };
+    let persistProgress: (() => void) | null = null;
     run = new Run({
       runId,
       mode: input.mode,
@@ -178,7 +187,7 @@ export class AutocalRunStore {
       ports,
       config: input.config,
       resumeFrom: input.resumeFrom,
-      onUpdate: () => this.bump(),
+      onUpdate: () => { this.bump(); persistProgress?.(); },
     });
 
     const live: LiveRunView = {
@@ -242,6 +251,7 @@ export class AutocalRunStore {
       checkpointed = done;
       void save({ record: { ...record, progress: progress() } as unknown as Record<string, unknown>, run_result: run.checkpoint() as unknown as Record<string, unknown> });
     };
+    persistProgress = checkpoint;
     const heartbeat = setInterval(() => {
       void holdLease().then(() => { live.leaseError = null; }, (error) => { live.leaseError = messageOf(error); }).finally(() => this.bump());
     }, this.timing.heartbeatMs);

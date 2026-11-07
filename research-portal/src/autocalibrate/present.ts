@@ -1,5 +1,5 @@
 import type { AerialPotState } from "../product/AerialBench";
-import type { CommissioningConfig, CommissioningResult, PulseEvidence, RunOutcome, SelectedPot } from "../commissioning/types";
+import type { CommissioningConfig, CommissioningResult, ProposedMapping, PulseEvidence, RunOutcome, SelectedPot } from "../commissioning/types";
 import type { StatusTone } from "../settingsPresentation";
 import type { PairingRow } from "../types";
 import type { PotAvailability } from "./selection";
@@ -33,7 +33,7 @@ export const faultText: Record<string, string> = {
 export const faultAdvice: Record<string, string> = {
   no_response: "The hose may be disconnected or blocked, the valve may water a pot outside this selection, or the pot was too wet to respond. Check the outlet, or include its neighbours or its whole zone and run again.",
   multiple_responses: "Two pots responded about equally: a split or shared hose, or two hoses crossed at the same outlet. Check at the bench.",
-  cross_talk: "Water reached a second pot (runoff, a shared tray or a leak). The strongest response is proposed but needs review.",
+  cross_talk: "Water reached a second pot (runoff, a shared tray or a leak). No match is made until the response is clear.",
   duplicate_claim: "Two valves both raised this sensor. One of them is miswired or shares a line; check both at the bench.",
   overshoot: "The pot rose far more than a short pulse should cause. Check the outlet for a stuck or leaking valve.",
   low_confidence: "The rise was small compared with the sensor's noise. Re-run with a longer pulse or check the sensor.",
@@ -72,9 +72,11 @@ export function minutesPerValve(config: Pick<CommissioningConfig, "cooldownSecon
   return (config.cooldownSeconds + config.settleSkipSeconds + cadenceSeconds * (config.minPostReadings + 1)) / 60;
 }
 
-export function estimateRun(count: number, config: Pick<CommissioningConfig, "cooldownSeconds" | "settleSkipSeconds" | "minPostReadings" | "baselineTimeoutSeconds">) {
+export function estimateRun(count: number, config: Pick<CommissioningConfig, "cooldownSeconds" | "settleSkipSeconds" | "minPostReadings" | "baselineTimeoutSeconds"> & Partial<Pick<CommissioningConfig, "maxObserveSeconds" | "maxSettleSeconds" | "commandTimeoutSeconds" | "retryUnmatched">>) {
   const perValve = minutesPerValve(config);
-  return { typicalMinutes: count * perValve + 10, worstMinutes: 2 * count * perValve + config.baselineTimeoutSeconds / 60 };
+  const attempts = config.retryUnmatched === false ? 1 : 2;
+  const maximum = ((config.maxObserveSeconds ?? perValve * 60) + (config.maxSettleSeconds ?? 0) + config.cooldownSeconds + (config.commandTimeoutSeconds ?? 0)) / 60;
+  return { typicalMinutes: count * perValve + 10, worstMinutes: attempts * count * maximum + config.baselineTimeoutSeconds / 60 };
 }
 
 /** Selection stage: availability, selection and references. */
@@ -113,6 +115,7 @@ export function liveStates(input: {
   completedValves: readonly string[];
   activeValveKey: string | null;
   potForSensor: ReadonlyMap<string, number | null>;
+  matches?: readonly ProposedMapping[];
 }) {
   const states = new Map<string, AerialPotState>();
   const final = finalEvidence(input.evidence);
@@ -124,8 +127,9 @@ export function liveStates(input: {
     else if (item && item.acknowledgement.status !== "succeeded" && item.acknowledgement.status !== "not_sent") {
       state = { available: true, status: "failed", reference: pot.reference, detail: "the controller did not confirm its pulse" };
     } else if (item && completed.has(pot.valveKey)) {
-      const top = strongest(item);
-      if (!top) state = { available: true, status: "unresolved", reference: pot.reference, detail: "its valve raised no selected sensor (preliminary)" };
+      const match = input.matches?.find(match => match.valveKey === pot.valveKey);
+      const top = input.matches ? (match ? {sensorKey: match.proposedSensorKey} : null) : strongest(item);
+      if (!top) state = { available: true, status: "unresolved", reference: pot.reference, detail: "no clear valve-to-sensor match was accepted" };
       else if (top.sensorKey === pot.sensorKey) state = { available: true, status: "matched", reference: pot.reference, detail: "its valve raised its own sensor (preliminary)" };
       else {
         const other = input.potForSensor.get(top.sensorKey);

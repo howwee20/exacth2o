@@ -82,11 +82,24 @@ describe("autocalibration run store", () => {
     expect(store.renewals).toBeGreaterThanOrEqual(controller.pulseRequests.length);
     const last = store.saves[store.saves.length - 1];
     expect(last).toMatchObject({ status: "analyzed", heartbeat_at: null, run_token: null });
-    expect((last.run_result as { proposals: unknown[] }).proposals).toHaveLength(pots.length);
+    expect((last.run_result as { proposals: unknown[] }).proposals).toEqual(finished.result.proposals);
+    expect(finished.result.proposals.length + finished.result.unresolved.length).toBe(pots.length);
     expect((last.record as { progress: { completed: number } }).progress.completed).toBe(pots.length);
     expect(runs.running).toBe(false);
     expect(controllerOwnership.getSnapshot().autocal).toBeNull();
   }, 60_000);
+
+  it("does not claim or pulse after setup confirmation is canceled", async () => {
+    const { controller, pots } = setup();
+    const store = fakeStore();
+    const runs = new AutocalRunStore(fastTiming);
+    const signal = new AbortController();
+    signal.abort();
+    await expect(runs.start({ projectId: "p", deviceId: "d", session: store.row, store, ports: controller.ports(), mode: "real",
+      pots, config: configForSelection(pots.length), confirmation: requiredConfirmation(pots), resumeFrom: null, operator: null, signal: signal.signal })).rejects.toThrow("Setup stopped");
+    expect(store.row.status).toBe("prepared");
+    expect(controller.pulseRequests).toHaveLength(0);
+  });
 
   it("stops before the next pulse once another screen takes the session, and never saves over it", async () => {
     const { controller, pots } = setup();

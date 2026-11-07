@@ -36,12 +36,15 @@ function LiveRun({ ctx, live }: { ctx: WorkspaceContext; live: LiveRunView }) {
   const active = progress.activeValveKey ? live.potByValve.get(progress.activeValveKey) ?? null : null;
   const activeName = active ? potName(active.potNumber, active.pairingName) : null;
   const evidence = run.evidenceSoFar();
+  const matches = run.matchesSoFar();
+  const readings = new Map(run.latestReadings().map(reading => [reading.sensorKey, reading]));
   const states = useMemo(() => liveStates({
     pots: run.pots,
     evidence,
     completedValves: run.completedValves(),
     activeValveKey: progress.activeValveKey,
     potForSensor: ctx.potForSensor,
+    matches,
   }), [run, evidence, evidence.length, progress.activeValveKey, progress.completed, ctx.potForSensor]); // eslint-disable-line react-hooks/exhaustive-deps
   const segmentMs = Date.now() - live.startedAtMs;
   const perValve = minutesPerValve(run.config);
@@ -75,8 +78,10 @@ function LiveRun({ ctx, live }: { ctx: WorkspaceContext; live: LiveRunView }) {
       <dl className="ac-stats">
         <div><dt>Measured</dt><dd>{progress.completed} of {progress.total} valves</dd></div>
         <div><dt>Remaining</dt><dd>{progress.remaining}{progress.remaining ? ` · about ${formatDuration(remainingMinutes)}` : ""}</dd></div>
+        <div><dt>Matched</dt><dd>{matches.length} of {progress.total} sensors</dd></div>
         <div><dt>Pulses</dt><dd>{progress.pulsesRequested} of at most {progress.maxPulses}</dd></div>
         <div><dt>Valve time</dt><dd>{progress.valveSecondsRequested} of {progress.maxTotalValveSeconds} s</dd></div>
+        <div><dt>Observation window</dt><dd>{Math.round(run.config.maxObserveSeconds / 60)} min per valve</dd></div>
         <div><dt>Running for</dt><dd>{elapsed(segmentMs)}{progress.segment > 1 ? ` (segment ${progress.segment})` : ""}</dd></div>
         <div><dt>Saved</dt><dd>{live.saveError ? <span className="settings-error-line">{live.saveError}</span> : live.savedAtMs ? formatClock(live.savedAtMs) : "—"}</dd></div>
       </dl>
@@ -86,6 +91,29 @@ function LiveRun({ ctx, live }: { ctx: WorkspaceContext; live: LiveRunView }) {
         anywhere on this controller also stops the run; its evidence is kept and the run can be resumed after the pots settle.
       </p>
       <PhysicalPotMap map={ctx.fieldMap ?? null} pairings={ctx.pairings} availability={potAvailability({pairings: ctx.pairings, lastReadingAt: null, nowMs: Date.now()})} states={states} selected={selected} />
+      <section aria-label="Matches so far" className="ac-live-matches">
+        <h4>Matches so far</h4>
+        {matches.length ? <ul>{matches.map(match => <li key={match.valveKey}>Valve {valveLabel(match.valveKey)} → {potName(ctx.potForSensor.get(match.proposedSensorKey), match.proposedSensorKey)}</li>)}</ul> : <p>No clear matches yet.</p>}
+        <p className="settings-muted">{progress.total - matches.length} sensors remain unmatched. All sensors stay monitored for conflicting responses.</p>
+      </section>
+      <details className="ac-evidence" open={run.pots.length <= 8}>
+        <summary>Live sensor readings</summary>
+        <div className="settings-table-wrap">
+          <table className="settings-table">
+            <thead><tr><th>Pot</th><th>Latest VWC</th><th>Read at</th><th>Match</th></tr></thead>
+            <tbody>{run.pots.map(pot => {
+              const reading = readings.get(pot.sensorKey);
+              const match = matches.find(item => item.proposedSensorKey === pot.sensorKey);
+              return <tr key={pot.sensorKey}>
+                <td>{potName(pot.potNumber, pot.pairingName)}</td>
+                <td>{reading ? `${reading.vwc.toFixed(1)}%` : "Waiting"}</td>
+                <td>{reading ? formatClock(reading.atMs) : "—"}</td>
+                <td>{match ? `Valve ${valveLabel(match.valveKey)}` : "Unmatched"}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+      </details>
       <details className="ac-evidence">
         <summary>Log ({run.log.length} entries)</summary>
         <ol className="commission-log">

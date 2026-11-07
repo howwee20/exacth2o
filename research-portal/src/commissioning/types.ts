@@ -86,6 +86,8 @@ export type CommissioningPorts = {
 export type CommissioningConfig = {
   pulseSeconds: number;
   escalatedPulseSeconds: number;
+  /** Advanced runs may retry once; the simple flow uses one observation window. */
+  retryUnmatched?: boolean;
   maxTotalValveSeconds: number;
   maxPulses: number;
   baselineReadings: number;

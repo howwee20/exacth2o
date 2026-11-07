@@ -17,6 +17,9 @@ const identity = (count: number) => Array.from({ length: count }, (_, index) => 
 function setup(options: { preset?: PresetId; seed?: number; count?: number; hoseTargets?: number[]; mock?: MockOptions } = {}) {
   const count = options.count ?? 100;
   const world = buildWorld({ presetId: options.preset ?? "clean-100", seed: options.seed ?? 11, potCount: count, hoseTargets: options.hoseTargets });
+  // These full-scale topology/transport cases require a clear response at every
+  // outlet; noisy/weak evidence is covered separately and now remains unmatched.
+  if (!options.preset || options.preset === "clean-100") world.sensors.forEach(sensor => { sensor.noiseSigma = 0.02; });
   const controller = new MockController(world, options.mock ?? {});
   return { world, controller, pots: controller.pots() };
 }
@@ -212,7 +215,7 @@ describe("full 100-pot installation", () => {
     const run: CommissioningRun = new CommissioningRun({
       runId: "hw-checkpoint", mode: "real", pots: input.pots, ports: input.controller.ports(), config: configForSelection(input.pots.length),
       onUpdate: () => {
-        if (!saved && run.completedValves().length === 4 && run.activeStep === "observing") {
+        if (!saved && run.completedValves().length === 4 && run.evidence.length === 5 && run.activeStep === "observing") {
           // What the server holds when the browser disappears: the checkpoint, nothing later.
           saved = JSON.parse(JSON.stringify(run.checkpoint()));
           run.abort("The screen closed.", "screen_closed");
@@ -234,15 +237,14 @@ describe("full 100-pot installation", () => {
     expect(resumed.result.proposals.every((proposal) => proposal.proposedSensorKey === truthSensor(input, proposal.valveKey))).toBe(true);
   }, 120_000);
 
-  it("flags a proposal that contradicts a confirmed reference pot instead of treating it as routine", async () => {
+  it("leaves a response that contradicts a confirmed reference pot unmatched", async () => {
     const layout = identity(12);
     [layout[0], layout[1]] = [layout[1], layout[0]];
     const input = setup({ count: 12, seed: 17, hoseTargets: layout });
     const pots = input.pots.map((pot, index) => ({ ...pot, reference: index === 0 || index === 5 }));
     const { result } = await execute(input, pots);
-    const conflict = result.proposals.find((proposal) => proposal.valveKey === pots[0].valveKey);
-    expect(conflict?.faults).toContain("reference_conflict");
-    expect(conflict?.status).toBe("needs_review");
+    expect(result.proposals.find(proposal => proposal.valveKey === pots[0].valveKey)).toBeUndefined();
+    expect(result.unresolved.find(item => item.valveKey === pots[0].valveKey)?.reason).toBe("reference_conflict");
     const confirmed = result.proposals.find((proposal) => proposal.valveKey === pots[5].valveKey);
     expect(confirmed?.matchesRecord).toBe(true);
     expect(confirmed?.faults).not.toContain("reference_conflict");

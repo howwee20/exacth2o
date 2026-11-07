@@ -84,12 +84,16 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(harness());
   await page.getByRole('button', { name: 'Select all ready (100)' }).click();
+  await page.getByText('Selection options', { exact: true }).click();
+  await page.getByRole('button', { name: 'Advanced setup', exact: true }).click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Prepare 100 pots' })).toBeVisible();
   await page.getByText('I understand these 100 pots will not be watered automatically').click();
   await page.getByRole('button', { name: /Queue the change: prepare 100 pots/ }).click();
   await setSpeed(page, 30);
   await expect(page.getByRole('heading', { name: 'Check and start' })).toBeVisible({ timeout: 30_000 });
+  await setSpeed(page, 600);
+  await page.waitForTimeout(600); // Four fresh 60 s reports replace the old slow cadence.
   await setSpeed(page, 1);
   // Preparation is in force on the simulated controller: watering off, 60 s cadence.
   const prepared = await page.evaluate(() => (window as unknown as { __preview: { portalPairings(): Array<{ wtc_percent_limit: number; measurement_interval_ms: number }> } }).__preview.portalPairings());
@@ -154,11 +158,15 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   test.setTimeout(4 * 60_000);
   await page.goto(harness());
   for (const pot of [1, 2, 3, 4, 5, 6]) await page.locator(`.ac-map-pot[data-pot="${pot}"]`).click();
+  await page.getByText('Selection options', { exact: true }).click();
+  await page.getByRole('button', { name: 'Advanced setup', exact: true }).click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByText('I understand these 6 pots will not be watered automatically').click();
   await page.getByRole('button', { name: /Queue the change: prepare 6 pots/ }).click();
   await setSpeed(page, 30);
   await expect(page.getByRole('heading', { name: 'Check and start' })).toBeVisible({ timeout: 30_000 });
+  await setSpeed(page, 600);
+  await page.waitForTimeout(600); // Wait for fresh readings after preparation.
   await setSpeed(page, 1);
   await page.getByText('Open real valves', { exact: true }).click();
   await page.getByRole('button', { name: 'Run safety checks' }).click();
