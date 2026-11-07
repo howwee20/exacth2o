@@ -84,12 +84,16 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(harness());
   await page.getByRole('button', { name: 'Select all ready (100)' }).click();
+  await page.getByText('Selection options', { exact: true }).click();
+  await page.getByRole('button', { name: 'Advanced setup', exact: true }).click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Prepare 100 pots' })).toBeVisible();
   await page.getByText('I understand these 100 pots will not be watered automatically').click();
   await page.getByRole('button', { name: /Queue the change: prepare 100 pots/ }).click();
   await setSpeed(page, 30);
   await expect(page.getByRole('heading', { name: 'Check and start' })).toBeVisible({ timeout: 30_000 });
+  await setSpeed(page, 600);
+  await page.waitForTimeout(600); // Four fresh 60 s reports replace the old slow cadence.
   await setSpeed(page, 1);
   // Preparation is in force on the simulated controller: watering off, 60 s cadence.
   const prepared = await page.evaluate(() => (window as unknown as { __preview: { portalPairings(): Array<{ wtc_percent_limit: number; measurement_interval_ms: number }> } }).__preview.portalPairings());
@@ -99,15 +103,17 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await page.getByRole('button', { name: 'Run safety checks' }).click();
   await expect(page.getByText('Ready to start')).toBeVisible();
   await page.getByRole('textbox', { name: /Type OPEN 100 REAL VALVES/ }).fill('OPEN 100 REAL VALVES');
+  // Speed up before the first run timer is scheduled. A timer created at x1
+  // cannot be retroactively shortened when the virtual clock changes to x600.
+  await setSpeed(page, 600);
   await page.getByRole('button', { name: 'Open 100 real valves, one at a time' }).click();
   await expect(page.getByRole('button', { name: 'Stop now' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Autocalibration in progress' })).toBeVisible();
 
   await setSpeed(page, 600);
   await expect.poll(async () => Number((await page.locator('.ac-stats dd').first().textContent())?.split(' ')[0] ?? 0), { timeout: 120_000 }).toBeGreaterThanOrEqual(35);
-  await setSpeed(page, 1);
+  // Keep the accelerated clock steady while a run owns pending timers.
   await shot(page, info, 'run-progress');
-  await setSpeed(page, 600);
   await expect(page.getByRole('heading', { name: /^Results ·/ })).toBeVisible({ timeout: 240_000 });
   await setSpeed(page, 1);
   await expect(page.locator('.ac-stats.is-results')).toContainText('100 of 100');
@@ -119,7 +125,13 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await expect(page.locator('.ac-cycles')).toContainText('Swap: Pot 3 ↔ Pot 97');
   await expect(page.locator('.ac-cycles')).toContainText('Swap: Pot 31 ↔ Pot 32');
   await expect(page.locator('.ac-cycles')).toContainText(/Cycle of 3: Pot 55 → Pot 5[67] → Pot 5[67] → Pot 55/);
-  await expect(page.getByText(/Unresolved valves \(1\)/)).toBeVisible();
+  const unresolved = await page.evaluate(() => {
+    const rows = (window as unknown as { __preview: { rows: (table: string) => Array<{run_result: {unresolved: Array<{pairingName: string; reason: string}>}}> } }).__preview.rows('commissioning_sessions');
+    return rows[0].run_result.unresolved;
+  });
+  expect(unresolved.find(item => item.pairingName === 'Zone4-Pot80')?.reason).toBe('no_response');
+  expect(unresolved.filter(item => item.pairingName !== 'Zone4-Pot80').every(item => item.reason === 'low_confidence')).toBe(true);
+  await expect(page.getByText(`Unresolved valves (${unresolved.length})`, { exact: true })).toBeVisible();
   for (const ack of await page.getByRole('checkbox', {name: /^I checked .* at the bench:/}).all()) await ack.check();
   for (let index = 0; index < 3; index += 1) await cycles.nth(index).locator('.ac-cycle-head input').check();
   await page.getByRole('textbox', { name: /Type APPLY 7 VALVE CHANGES/ }).fill('APPLY 7 VALVE CHANGES');
@@ -136,14 +148,17 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await page.getByRole('button', { name: 'Continue to restore' }).click();
   await expect(page.getByRole('heading', { name: 'Restore and finish' })).toBeVisible();
   await expect(page.locator('.ac-held')).toContainText('Pot 80');
-  await page.getByRole('button', { name: 'Queue the restore: 99 pots' }).click();
+  const restoreCount = 100 - unresolved.length;
+  await page.getByRole('button', { name: `Queue the restore: ${restoreCount} pots` }).click();
   await setSpeed(page, 30);
   await expect(page.getByRole('heading', { name: /^Last session ·/ })).toBeVisible({ timeout: 60_000 });
   await setSpeed(page, 1);
-  await expect(page.locator('.ac-step.is-closed')).toContainText('1 stayed sensing-only: Pot 80');
+  await expect(page.locator('.ac-step.is-closed')).toContainText(`${unresolved.length} stayed sensing-only:`);
+  await expect(page.locator('.ac-step.is-closed')).toContainText('Pot 80');
   const restored = await page.evaluate(() => (window as unknown as { __preview: { portalPairings(): Array<{ name: string; wtc_percent_limit: number; measurement_interval_ms: number }> } }).__preview.portalPairings());
-  expect(restored.filter((pairing) => pairing.name !== 'Zone4-Pot80').every((pairing) => pairing.wtc_percent_limit >= 22 && pairing.measurement_interval_ms === 600_000)).toBe(true);
-  expect(restored.find((pairing) => pairing.name === 'Zone4-Pot80')?.wtc_percent_limit).toBeLessThan(0);
+  const unresolvedNames = new Set(unresolved.map(item => item.pairingName));
+  expect(restored.filter(pairing => !unresolvedNames.has(pairing.name)).every(pairing => pairing.wtc_percent_limit >= 22 && pairing.measurement_interval_ms === 600_000)).toBe(true);
+  expect(restored.filter(pairing => unresolvedNames.has(pairing.name)).every(pairing => pairing.wtc_percent_limit < 0)).toBe(true);
   // Ready for another session: every pot can take part again.
   await expect(page.getByRole('button', { name: 'Select all ready (100)' })).toBeVisible();
   await shot(page, info, 'restored');
@@ -154,11 +169,15 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   test.setTimeout(4 * 60_000);
   await page.goto(harness());
   for (const pot of [1, 2, 3, 4, 5, 6]) await page.locator(`.ac-map-pot[data-pot="${pot}"]`).click();
+  await page.getByText('Selection options', { exact: true }).click();
+  await page.getByRole('button', { name: 'Advanced setup', exact: true }).click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByText('I understand these 6 pots will not be watered automatically').click();
   await page.getByRole('button', { name: /Queue the change: prepare 6 pots/ }).click();
   await setSpeed(page, 30);
   await expect(page.getByRole('heading', { name: 'Check and start' })).toBeVisible({ timeout: 30_000 });
+  await setSpeed(page, 600);
+  await page.waitForTimeout(600); // Wait for fresh readings after preparation.
   await setSpeed(page, 1);
   await page.getByText('Open real valves', { exact: true }).click();
   await page.getByRole('button', { name: 'Run safety checks' }).click();

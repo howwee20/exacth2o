@@ -23,6 +23,8 @@ import { RestoreStep } from "./RestorePots";
 import { downloadJson, ReviewStep } from "./ReviewResults";
 import { RunProgress } from "./RunProgress";
 import { autocalRunStore, useAutocalRun } from "./runStore";
+import { QuickRunSetup } from "./QuickRunSetup";
+import { SimpleResults } from "./SimpleResults";
 import { SelectPots } from "./SelectPots";
 import { buildSelectedPots, confirmedReferences, potAvailability, pruneSelection, readingLookbackMs } from "./selection";
 import {
@@ -120,6 +122,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
   const [inspected, setInspected] = useState<string | null>(null);
   const [manual, setManual] = useState<ManualWaterTarget>(null);
   const [restoreView, setRestoreView] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const sessionRef = useRef<CommissioningSessionRow | null>(null);
@@ -381,7 +384,9 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
     },
   } : null;
 
-  const stepIndex = Math.max(0, steps.findIndex((item) => item.stage === stage));
+  const shownSteps = advanced ? steps : [steps[0], {stage: "run" as const, label: "Run"}, {stage: "review" as const, label: "Results"}];
+  const shownStage = ["prepare", "check"].includes(stage) ? "run" : stage === "restore" ? "review" : stage;
+  const stepIndex = Math.max(0, shownSteps.findIndex(item => item.stage === (advanced ? stage : shownStage)));
   const lastClosed = recent.find((row) => !row.active && row.ended_at && nowMs - Date.parse(row.ended_at) < 6 * 3600_000) ?? null;
   const unsaved = finishedHere && !finishedHere.saved ? finishedHere : null;
 
@@ -391,13 +396,13 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
         <div>
           <Title className="ac-title">Autocalibrate</Title>
           <p className="settings-muted">
-            Choose pots. Measure their response. Review the results.
+            Select pots, then run. Each clear valve-to-sensor match is recorded as it is measured.
           </p>
         </div>
         {session ? <StatusChip tone="info">Session {session.run_id.slice(-8)} · {session.pot_count} pots</StatusChip> : null}
       </header>
       <ol className="ac-stepper" aria-label="Autocalibration steps">
-        {steps.map((item, index) => {
+        {shownSteps.map((item, index) => {
           const state = !session && stage !== "closed" ? (index === 0 ? "current" : "upcoming") : index < stepIndex ? "done" : index === stepIndex ? "current" : "upcoming";
           return (
             <li key={item.stage} data-state={state} aria-current={state === "current" ? "step" : undefined}>
@@ -448,6 +453,8 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
             onCheckReadings={() => void checkReadings()}
             onInspect={setInspected}
             onPrepare={() => void createSession()}
+            advanced={advanced}
+            onAdvanced={() => setAdvanced(value => !value)}
             preparing={preparing}
             canPrepare={!blockedReason && !autocalRunStore.running}
             blockedReason={blockedReason}
@@ -456,11 +463,12 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
           />
           {recent.length ? <SessionHistory rows={recent} store={store} /> : null}
         </>
-      ) : stage === "prepare" ? <PrepareStep ctx={ctx} />
+      ) : !advanced && (stage === "prepare" || stage === "check") ? <QuickRunSetup key={ctx.session.run_id} ctx={ctx} onAdvanced={() => setAdvanced(true)} />
+        : stage === "prepare" ? <PrepareStep ctx={ctx} />
         : stage === "check" ? <CheckStep ctx={ctx} staleRun={derived.staleRun} />
           : stage === "run" ? <RunProgress ctx={ctx} live={runningHere ? live : null} />
-            : stage === "review" ? <ReviewStep ctx={ctx} />
-              : stage === "restore" ? <RestoreStep ctx={ctx} onBack={restoreView && session?.status !== "restoring" ? () => setRestoreView(false) : null} />
+            : stage === "review" ? advanced ? <ReviewStep ctx={ctx} /> : <SimpleResults ctx={ctx} onReview={() => setAdvanced(true)} />
+              : stage === "restore" ? <RestoreStep ctx={ctx} compact={!advanced} onBack={restoreView && session?.status !== "restoring" ? () => setRestoreView(false) : null} />
                 : null}
 
       <ManualWaterPanel open={manual != null} onClose={() => setManual(null)} projectId={projectId} deviceId={deviceId} controllerName="Controller" initial={manual} />

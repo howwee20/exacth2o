@@ -91,16 +91,17 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
   }
 
   const configProblems = validateConfig(facts.config, facts.pots.length);
-  const worstCaseValveSeconds = facts.pots.length * (facts.config.pulseSeconds + facts.config.escalatedPulseSeconds);
+  const retries = facts.config.retryUnmatched === false ? 0 : 1;
+  const worstCaseValveSeconds = facts.pots.length * (facts.config.pulseSeconds + retries * facts.config.escalatedPulseSeconds);
   add("limits", "Pulse and water budget within limits",
     configProblems.length === 0,
     configProblems.length
       ? configProblems.join(" ")
-      : `${facts.config.pulseSeconds}s pulses, at most one ${facts.config.escalatedPulseSeconds}s retry per valve; budget ${facts.config.maxTotalValveSeconds} valve-seconds and ${facts.config.maxPulses} pulses.`);
+      : `${facts.config.pulseSeconds}s pulses${retries ? `, at most one ${facts.config.escalatedPulseSeconds}s retry per valve` : ", one per valve"}; budget ${facts.config.maxTotalValveSeconds} valve-seconds and ${facts.config.maxPulses} pulses.`);
   add("budget_covers", "Budget covers the planned pulses",
     facts.config.maxTotalValveSeconds >= facts.pots.length * facts.config.pulseSeconds,
     facts.config.maxTotalValveSeconds >= worstCaseValveSeconds
-      ? `Worst case is ${worstCaseValveSeconds} valve-seconds (${facts.pots.length} × ${facts.config.pulseSeconds + facts.config.escalatedPulseSeconds}s), inside the budget.`
+      ? `Worst case is ${worstCaseValveSeconds} valve-seconds (${facts.pots.length} × ${facts.config.pulseSeconds + retries * facts.config.escalatedPulseSeconds}s), inside the budget.`
       : facts.config.maxTotalValveSeconds >= facts.pots.length * facts.config.pulseSeconds
         ? `The budget covers one pulse per valve but not every possible retry (worst case ${worstCaseValveSeconds}). The run stops safely if it runs out.`
         : `The budget is smaller than one pulse per valve (${facts.pots.length * facts.config.pulseSeconds} valve-seconds needed).`);
@@ -173,7 +174,7 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
   const perValveSeconds = cadence == null ? null : facts.config.cooldownSeconds + facts.config.settleSkipSeconds + cadence * (facts.config.minPostReadings + 1);
   const cadenceOk = cadence != null && perValveSeconds != null && perValveSeconds <= facts.config.maxObserveSeconds;
   const estimatedMinutes = perValveSeconds == null ? null : Math.round((facts.pots.length * perValveSeconds) / 60);
-  const estimatedMaxMinutes = perValveSeconds == null ? null : Math.round((2 * facts.pots.length * perValveSeconds) / 60);
+  const estimatedMaxMinutes = Math.ceil((facts.config.baselineTimeoutSeconds + (1 + retries) * facts.pots.length * (facts.config.maxObserveSeconds + facts.config.maxSettleSeconds + facts.config.cooldownSeconds + facts.config.commandTimeoutSeconds)) / 60);
   add("cadence", "Sensors report often enough to see a response",
     cadenceOk,
     cadence == null
@@ -188,7 +189,7 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
     const limitMinutes = facts.config.maxRunSeconds / 60;
     add("duration", "Run fits its time limit",
       (estimatedMaxMinutes ?? 0) <= limitMinutes,
-      `About ${formatDuration(estimatedMinutes)} (up to ${formatDuration(estimatedMaxMinutes ?? estimatedMinutes)} if every valve needs its retry). The run stops itself after ${formatDuration(limitMinutes)}. Keep this screen open: closing it stops further pulses, and the run can be resumed later from its recorded evidence.`,
+      `About ${formatDuration(estimatedMinutes)} (up to ${formatDuration(estimatedMaxMinutes ?? estimatedMinutes)} including full observation and settling windows). The run stops itself after ${formatDuration(limitMinutes)}. Keep this screen open: closing it stops further pulses, and the run can be resumed later from its recorded evidence.`,
       true,
       true);
   }

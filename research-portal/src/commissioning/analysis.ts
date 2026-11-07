@@ -1,8 +1,6 @@
-import { assignOneToOne } from "../topology/assignment";
 import { pairConfidence } from "../topology/confidence";
 import type {
   CommissioningConfig,
-  ProposalFault,
   ProposedMapping,
   PulseEvidence,
   Reading,
@@ -129,135 +127,95 @@ export function proposeTopology(
   evidence: readonly PulseEvidence[],
   config: Pick<CommissioningConfig, "minZ" | "rivalZ" | "minDeltaVwc" | "ambiguousRatio" | "overshootLimitVwc" | "reviewConfidence">,
 ): { proposals: ProposedMapping[]; unresolved: UnresolvedValve[] } {
-  const sensorKeys = pots.map((pot) => pot.sensorKey);
-  const sensorIndex = new Map(sensorKeys.map((key, index) => [key, index]));
-  // The last evidence recorded for a valve is the one that counts (an escalation supersedes the first pulse).
+  // Resolve in pulse-completion order. A retry replaces its first attempt; a
+  // matched sensor leaves the candidate set. Never fill the last slot by elimination.
   const finalEvidence = new Map<string, PulseEvidence>();
-  evidence.forEach((item) => finalEvidence.set(item.valveKey, item));
-
-  const detectedFor = (valveKey: string) =>
-    (finalEvidence.get(valveKey)?.responses ?? [])
-      .filter((response) => response.detected && sensorIndex.has(response.sensorKey))
-      .sort((a, b) => b.deltaVwc - a.deltaVwc);
-
-  const rowMax = pots.map((pot) => detectedFor(pot.valveKey)[0]?.deltaVwc ?? 0);
-  const columnMax = new Array<number>(sensorKeys.length).fill(0);
-  pots.forEach((pot) => detectedFor(pot.valveKey).forEach((response) => {
-    const column = sensorIndex.get(response.sensorKey) as number;
-    columnMax[column] = Math.max(columnMax[column], response.deltaVwc);
-  }));
-  const weights = pots.map((pot, row) => {
-    const line = new Array<number>(sensorKeys.length).fill(0);
-    detectedFor(pot.valveKey).forEach((response) => {
-      const column = sensorIndex.get(response.sensorKey) as number;
-      line[column] = (response.deltaVwc / rowMax[row]) * (response.deltaVwc / columnMax[column]);
-    });
-    return line;
-  });
-  const assignment = assignOneToOne(weights);
-
-  const claimants = new Map<string, string[]>();
-  pots.forEach((pot) => {
-    const strongest = detectedFor(pot.valveKey)[0];
-    if (strongest) claimants.set(strongest.sensorKey, [...(claimants.get(strongest.sensorKey) ?? []), pot.valveKey]);
-  });
-
+  for (const item of evidence) {
+    finalEvidence.delete(item.valveKey);
+    finalEvidence.set(item.valveKey, item);
+  }
+  const selected = new Set(pots.map(pot => pot.sensorKey));
+  const byValve = new Map(pots.map(pot => [pot.valveKey, pot]));
+  const reserved = new Map<string, string>();
+  const proposals = new Map<string, ProposedMapping>();
+  const unresolved = new Map<string, UnresolvedValve>();
+  const reject = (pot: SelectedPot, reason: UnresolvedValve["reason"], detail: string) => {
+    proposals.delete(pot.valveKey);
+    unresolved.set(pot.valveKey, { valveKey: pot.valveKey, pairingName: pot.pairingName, reason, detail });
+  };
   const isRival = (response: SensorResponse) => response.z >= config.rivalZ && response.deltaVwc >= 0.5 * config.minDeltaVwc;
-  const proposals: ProposedMapping[] = [];
-  const unresolved: UnresolvedValve[] = [];
 
-  pots.forEach((pot, row) => {
-    const item = finalEvidence.get(pot.valveKey);
-    if (!item) {
-      unresolved.push({ valveKey: pot.valveKey, pairingName: pot.pairingName, reason: "not_reached", detail: "The run ended before this valve was pulsed." });
-      return;
+  for (const [valveKey, item] of finalEvidence) {
+    const pot = byValve.get(valveKey);
+    if (!pot) continue;
+    if (item.invalidated) {
+      reject(pot, "invalidated", "This pulse observation was interrupted or invalidated. No match is made.");
+      continue;
     }
     if (item.acknowledgement.status !== "succeeded") {
-      unresolved.push({
-        valveKey: pot.valveKey,
-        pairingName: pot.pairingName,
-        reason: "command_failed",
-        detail: item.acknowledgement.status === "not_sent"
-          ? "Dry run: no valve command was sent, so there is nothing to measure."
-          : `The controller did not confirm the pulse (${item.acknowledgement.status}).`,
-      });
-      return;
+      reject(pot, "command_failed", "The controller did not confirm the pulse; no match is made.");
+      continue;
     }
-    const responders = detectedFor(pot.valveKey);
-    if (responders.length === 0) {
-      unresolved.push({
-        valveKey: pot.valveKey,
-        pairingName: pot.pairingName,
-        reason: "no_response",
-        detail: "The controller acknowledged the pulse but no selected sensor rose. The hose may be disconnected, outside the selected pots, or the pulse was too short.",
-      });
-      return;
+    const responders = item.responses.filter(response => selected.has(response.sensorKey) && response.detected)
+      .sort((a, b) => b.deltaVwc - a.deltaVwc);
+    if (!responders.length) {
+      reject(pot, "no_response", "No selected sensor rose clearly. The hose may be outside the selected pots or disconnected. This valve remains unmatched.");
+      continue;
     }
-
-    const faults: ProposalFault[] = [];
-    if (responders.length > 1) {
-      faults.push(responders[1].deltaVwc / responders[0].deltaVwc >= config.ambiguousRatio ? "multiple_responses" : "cross_talk");
+    // Keep watching matched sensors as a safety signal. A later valve raising
+    // one contradicts the earlier match; never assign its weaker runner-up.
+    const consumed = responders.filter(response => reserved.has(response.sensorKey));
+    if (consumed.length) {
+      for (const response of consumed) {
+        const earlier = byValve.get(reserved.get(response.sensorKey)!);
+        if (earlier) reject(earlier, "duplicate_claim", "Another valve also raised this sensor. Check both outlets before matching either.");
+      }
+      reject(pot, "duplicate_claim", "This pulse raised a sensor already matched to another valve. No remaining sensor is assigned by elimination.");
+      continue;
     }
-    if ((claimants.get(responders[0].sensorKey) ?? []).length > 1) faults.push("duplicate_claim");
-
-    const column = assignment[row];
-    if (column == null) {
-      unresolved.push({
-        valveKey: pot.valveKey,
-        pairingName: pot.pairingName,
-        reason: faults.includes("duplicate_claim") ? "duplicate_claim" : "multiple_responses",
-        detail: "Every sensor this valve moved is better explained by another valve, so no one-to-one pairing is proposed.",
-      });
-      return;
+    const response = responders[0];
+    const rowRivalDeltaVwc = Math.max(0, ...item.responses.filter(candidate => selected.has(candidate.sensorKey) && candidate.sensorKey !== response.sensorKey && isRival(candidate)).map(candidate => candidate.deltaVwc));
+    if (responders.length > 1 || rowRivalDeltaVwc >= response.deltaVwc * config.ambiguousRatio) {
+      reject(pot, "multiple_responses", "More than one sensor rose clearly. No match is made; all remain available for later pulses.");
+      continue;
     }
-
-    const proposedSensorKey = sensorKeys[column];
-    const response = responders.find((candidate) => candidate.sensorKey === proposedSensorKey) as SensorResponse;
-    if (response.deltaVwc > config.overshootLimitVwc) faults.push("overshoot");
-    const rowRivalDeltaVwc = Math.max(0, ...item.responses.filter((candidate) => candidate.sensorKey !== proposedSensorKey && isRival(candidate)).map((candidate) => candidate.deltaVwc));
-    let columnRivalDeltaVwc = 0;
-    finalEvidence.forEach((other, valveKey) => {
-      if (valveKey === pot.valveKey) return;
-      const rival = other.responses.find((candidate) => candidate.sensorKey === proposedSensorKey);
-      if (rival && isRival(rival)) columnRivalDeltaVwc = Math.max(columnRivalDeltaVwc, rival.deltaVwc);
+    if (response.deltaVwc > config.overshootLimitVwc) {
+      reject(pot, "overshoot", "The rise exceeds the diagnostic pulse limit. Check the outlet before matching it.");
+      continue;
+    }
+    const referenceSensor = pots.find(candidate => candidate.sensorKey === response.sensorKey)?.reference === true;
+    if ((pot.reference || referenceSensor) && response.sensorKey !== pot.sensorKey) {
+      reject(pot, "reference_conflict", "The response contradicts a known-correct reference pot. No match is made.");
+      continue;
+    }
+    const confidence = pairConfidence({ deltaVwc: response.deltaVwc, z: response.z, rowRivalDeltaVwc, columnRivalDeltaVwc: 0 }, config);
+    if (confidence < config.reviewConfidence) {
+      reject(pot, "low_confidence", "The response is too weak to match confidently. No sensor is removed from the remaining candidates.");
+      continue;
+    }
+    reserved.set(response.sensorKey, valveKey);
+    proposals.set(valveKey, {
+      valveKey, pairingName: pot.pairingName, proposedSensorKey: response.sensorKey,
+      recordedSensorKey: pot.sensorKey, matchesRecord: response.sensorKey === pot.sensorKey,
+      confidence, status: "proposed", faults: [], deltaVwc: response.deltaVwc, z: response.z,
+      pulseSeconds: item.requestedSeconds, rowRivalDeltaVwc, columnRivalDeltaVwc: 0, commandId: item.commandId,
     });
-    const confidence = pairConfidence({ deltaVwc: response.deltaVwc, z: response.z, rowRivalDeltaVwc, columnRivalDeltaVwc }, config);
-    if (confidence < config.reviewConfidence) faults.push("low_confidence");
-    // A pot the researchers confirmed is a positive control. A proposal to move it, or
-    // to give its sensor to another valve, contradicts known-good wiring: review first.
-    const referenceSensor = pots.find((candidate) => candidate.sensorKey === proposedSensorKey)?.reference === true;
-    if ((pot.reference || referenceSensor) && proposedSensorKey !== pot.sensorKey) faults.push("reference_conflict");
-
-    proposals.push({
-      valveKey: pot.valveKey,
-      pairingName: pot.pairingName,
-      proposedSensorKey,
-      recordedSensorKey: pot.sensorKey,
-      matchesRecord: proposedSensorKey === pot.sensorKey,
-      confidence,
-      status: faults.length ? "needs_review" : "proposed",
-      faults,
-      deltaVwc: response.deltaVwc,
-      z: response.z,
-      pulseSeconds: item.requestedSeconds,
-      rowRivalDeltaVwc,
-      columnRivalDeltaVwc,
-      commandId: item.commandId,
-    });
-  });
-
-  return { proposals, unresolved };
+  }
+  for (const pot of pots) if (!finalEvidence.has(pot.valveKey)) {
+    reject(pot, "not_reached", "This valve has no complete pulse observation yet.");
+  }
+  return { proposals: [...proposals.values()], unresolved: [...unresolved.values()] };
 }
 
 /**
  * Selected sensors that no selected valve moved. Their water source is outside the
  * selection, disconnected, or too weak to measure; no pairing is proposed for them.
  */
-export function findUnclaimedSensors(pots: readonly SelectedPot[], evidence: readonly PulseEvidence[]): UnclaimedSensor[] {
+export function findUnclaimedSensors(pots: readonly SelectedPot[], evidence: readonly PulseEvidence[], proposals?: readonly ProposedMapping[]): UnclaimedSensor[] {
   const finalEvidence = new Map<string, PulseEvidence>();
   evidence.forEach((item) => finalEvidence.set(item.valveKey, item));
-  const claimed = new Set<string>();
-  finalEvidence.forEach((item) => item.responses.filter((response) => response.detected).forEach((response) => claimed.add(response.sensorKey)));
+  const claimed = new Set<string>(proposals?.map(proposal => proposal.proposedSensorKey));
+  if (!proposals) finalEvidence.forEach((item) => item.responses.filter((response) => response.detected).forEach((response) => claimed.add(response.sensorKey)));
   const measured = new Set<string>();
   finalEvidence.forEach((item) => item.responses.forEach((response) => measured.add(response.sensorKey)));
   return pots
@@ -265,6 +223,6 @@ export function findUnclaimedSensors(pots: readonly SelectedPot[], evidence: rea
     .map((pot) => ({
       sensorKey: pot.sensorKey,
       pairingName: pot.pairingName,
-      detail: "No selected valve raised this sensor. Its valve may be outside the selection (select its neighbours, its whole zone, or all pots), disconnected, or too weak to measure.",
+      detail: "No clear valve match was accepted for this sensor. Its source may be outside the selection or unresolved; it is not assigned by elimination.",
     }));
 }

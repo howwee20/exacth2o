@@ -60,7 +60,7 @@ export const defaultCommissioningConfig: CommissioningConfig = {
   preReadings: 3,
   minPostReadings: 3,
   settleSkipSeconds: 60,
-  maxObserveSeconds: 25 * 60,
+  maxObserveSeconds: 15 * 60,
   maxSettleSeconds: 30 * 60,
   quietRangeVwc: 0.25,
   dryRunObserveSeconds: 10,
@@ -90,9 +90,9 @@ export function configForSelection(potCount: number, overrides: Partial<Commissi
   const count = Math.max(1, potCount);
   return {
     ...base,
-    maxTotalValveSeconds: overrides.maxTotalValveSeconds ?? count * (base.pulseSeconds + base.escalatedPulseSeconds),
-    maxPulses: overrides.maxPulses ?? count * hardLimits.maxPulsesPerPot,
-    maxRunSeconds: overrides.maxRunSeconds ?? Math.min(hardLimits.maxRunSeconds, Math.max(2 * 3600, count * hardLimits.runSecondsPerPot)),
+    maxTotalValveSeconds: overrides.maxTotalValveSeconds ?? count * (base.pulseSeconds + (base.retryUnmatched === false ? 0 : base.escalatedPulseSeconds)),
+    maxPulses: overrides.maxPulses ?? count * (base.retryUnmatched === false ? 1 : hardLimits.maxPulsesPerPot),
+    maxRunSeconds: overrides.maxRunSeconds ?? Math.min(hardLimits.maxRunSeconds, Math.max(2 * 3600, base.baselineTimeoutSeconds + count * (base.retryUnmatched === false ? 1 : 2) * (base.maxObserveSeconds + base.maxSettleSeconds + base.cooldownSeconds + base.commandTimeoutSeconds))),
   };
 }
 
@@ -132,6 +132,7 @@ export function validateConfig(config: CommissioningConfig, potCount = 1) {
   within(config.maxTotalValveSeconds, config.pulseSeconds, Math.max(300, count * hardLimits.maxValveSecondsPerPot), "Water budget (valve-seconds)");
   within(config.maxPulses, 1, Math.max(40, count * hardLimits.maxPulsesPerPot), "Pulse budget");
   within(config.maxRunSeconds, 60, hardLimits.maxRunSeconds, "Run time limit (sec)");
+  within(config.maxObserveSeconds, 60, 60 * 60, "Observation window (sec)");
   return problems;
 }
 
@@ -219,7 +220,7 @@ export class CommissioningRun {
     this.mode = input.mode;
     this.pots = input.pots.map((pot) => ({ ...pot }));
     this.ports = input.ports;
-    this.config = { ...configForSelection(this.pots.length), ...input.config };
+    this.config = configForSelection(this.pots.length, input.config);
     this.onUpdate = input.onUpdate ?? (() => undefined);
     const prior = input.resumeFrom ?? null;
     this.segment = prior ? prior.segments + 1 : 1;
@@ -230,7 +231,12 @@ export class CommissioningRun {
     this.pulsesRequested = this.priorPulses;
     this.valveSecondsRequested = this.priorValveSeconds;
     for (const valve of prior?.completedValves ?? []) {
-      if (this.pots.some((pot) => pot.valveKey === valve)) this.completed.add(valve);
+      const evidence = this.priorEvidence.filter(item => item.valveKey === valve).at(-1);
+      if (this.pots.some(pot => pot.valveKey === valve) && evidence && !evidence.invalidated
+        && evidence.acknowledgement.status === "succeeded"
+        && this.pots.every(pot => evidence.responses.some(response => response.sensorKey === pot.sensorKey && response.postCount >= this.config.minPostReadings))) {
+        this.completed.add(valve);
+      }
     }
     // The server's manual-water cooldown runs from the previous segment's last pulse.
     for (const item of this.priorEvidence) {
@@ -273,6 +279,18 @@ export class CommissioningRun {
   /** Every pulse's evidence so far, earlier segments included (read-only view). */
   evidenceSoFar(): readonly PulseEvidence[] {
     return this.allEvidence();
+  }
+
+  /** Accepted matches from complete observations only; all sensors stay monitored. */
+  matchesSoFar() {
+    return proposeTopology(this.pots, this.allEvidence().filter(item => this.completed.has(item.valveKey) && !item.invalidated), this.config).proposals;
+  }
+
+  latestReadings() {
+    return this.pots.flatMap(pot => {
+      const reading = this.readings.forSensor(pot.sensorKey).at(-1);
+      return reading ? [reading] : [];
+    });
   }
 
   /**
@@ -379,8 +397,8 @@ export class CommissioningRun {
     this.activeValveKey = null;
     this.activeStep = null;
     const usable = this.allEvidence().filter((item) => !item.invalidated);
-    const { proposals, unresolved } = proposeTopology(this.pots, usable, this.config);
-    const unclaimed = findUnclaimedSensors(this.pots, usable);
+    const { proposals, unresolved } = proposeTopology(this.pots, this.allEvidence(), this.config);
+    const unclaimed = findUnclaimedSensors(this.pots, usable, proposals);
     // Only a run that pulsed every selected valve yields a mapping. A partial
     // matrix cannot rule out rival valves, so a dry run, an interrupted run, or a
     // run stopped by an interlock keeps its evidence but proposes nothing.
@@ -595,8 +613,15 @@ export class CommissioningRun {
         const first = await this.pulseAndObserve(pot, this.config.pulseSeconds, false);
         if (first.responses.some((response) => response.detected)) {
           this.completed.add(pot.valveKey);
+          this.onUpdate();
           continue;
         }
+      }
+      if (this.config.retryUnmatched === false) {
+        this.completed.add(pot.valveKey);
+        this.write("decision", `Valve ${pot.valveKey}: its observation window ended without a clear match. Left unmatched; moving to the next valve.`);
+        this.onUpdate();
+        continue;
       }
       // One bounded escalation, then flag and move on. Never an open-ended retry.
       this.write("decision", `Valve ${pot.valveKey}: no selected sensor rose after ${this.config.pulseSeconds}s. Escalating once to ${this.config.escalatedPulseSeconds}s.`);
@@ -605,6 +630,7 @@ export class CommissioningRun {
         this.write("decision", `Valve ${pot.valveKey}: still no response after the escalated pulse. Flagged as unresolved; it will not be pulsed again.`);
       }
       this.completed.add(pot.valveKey);
+      this.onUpdate();
     }
     this.activeValveKey = null;
     this.activeStep = null;
@@ -804,10 +830,9 @@ export class CommissioningRun {
       evidence.responses = measure();
       evidence.observedSeconds = Math.round((this.ports.now() - pulseEndMs) / 1000);
       this.onUpdate();
-      // Complete once every sensor has its settled readings and none is still mid-rise.
-      // A strong rise whose last readings have not levelled off yet is not judged
-      // from the rising part: observation continues (within the window) until it
-      // plateaus, so a slower-wetting pot is not misread as "no response".
+      // Watch the whole selection until a unique clear match is supported by
+      // enough readings, or this valve's deadline. Flat early samples never end
+      // observation; the next pulse still waits for all sensors to settle.
       const stillRising = evidence.responses.some((response) => !response.detected
         && response.postCount >= this.config.minPostReadings
         && response.deltaVwc >= this.config.minDeltaVwc
@@ -815,7 +840,8 @@ export class CommissioningRun {
       const complete = evidence.responses.length === validSensors.length
         && evidence.responses.every((response) => response.postCount >= this.config.minPostReadings)
         && !stillRising;
-      if (complete || this.ports.now() >= deadline) break;
+      const match = complete ? proposeTopology(this.pots, this.allEvidence().filter(item => !item.invalidated), this.config).proposals.find(proposal => proposal.valveKey === pot.valveKey) : null;
+      if (match || this.ports.now() >= deadline) break;
       await this.pause(this.config.pollSeconds);
       await this.checkManualInterventions();
     }

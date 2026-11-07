@@ -286,3 +286,6 @@
   .ac-workspace .ac-stepper { gap: 12px; font-size: 12px; }
   .ac-selection-footer { align-items: flex-start; }
 }
+
+.ac-observation-window { display: grid; gap: 6px; margin: 16px 0; }
+.ac-observation-window input { max-width: 120px; min-height: 44px; }

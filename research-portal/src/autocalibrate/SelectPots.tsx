@@ -24,6 +24,8 @@ type Props = {
   onCheckReadings: () => void;
   onInspect: (name: string) => void;
   onPrepare: () => void;
+  advanced: boolean;
+  onAdvanced: () => void;
   preparing: boolean;
   canPrepare: boolean;
   blockedReason: string | null;
@@ -63,6 +65,7 @@ export function SelectPots(props: Props) {
     <details className="ac-options">
       <summary>Selection options</summary>
       <div className="ac-toolbar">
+        <button type="button" className="ac-link" onClick={props.onAdvanced}>{props.advanced ? "Use simple Run" : "Advanced setup"}</button>
         {groups.map(({experiment, names}) => <button key={experiment.id} type="button" className="settings-secondary-button" onClick={() => setSelection(toggleGroupSelection(selected, names, availability))}>{experiment.name}</button>)}
         <button type="button" className="settings-secondary-button" aria-pressed={referenceMode} onClick={() => setReferenceMode(value => !value)}>{referenceMode ? 'Done marking references' : 'Mark references'}</button>
         {props.confirmedReferenceNames.length ? <button type="button" className="settings-secondary-button" onClick={() => {
@@ -73,7 +76,7 @@ export function SelectPots(props: Props) {
     </details>
     <div className="ac-selection-footer">
       <div aria-live="polite"><strong>{summary.count} selected</strong>{summary.count ? <span> · about {formatDuration(estimate.typicalMinutes)}</span> : null}</div>
-      <button type="button" className="settings-primary-button" onClick={props.onPrepare} disabled={!props.canPrepare || props.preparing || summary.count < hardLimits.minPots}>{props.preparing ? 'Saving settings…' : 'Continue'}</button>
+      <button type="button" className="settings-primary-button" onClick={props.onPrepare} disabled={!props.canPrepare || props.preparing || summary.count < hardLimits.minPots}>{props.preparing ? 'Saving selection…' : props.advanced ? 'Continue' : 'Run'}</button>
     </div>
     {props.blockedReason ? <p className="settings-error-line">{props.blockedReason}</p> : null}
     {props.notice ? <p className="ac-notice" role="status">{props.notice}</p> : null}

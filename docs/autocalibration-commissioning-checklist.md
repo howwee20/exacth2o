@@ -79,14 +79,18 @@ In the portal (Autocalibrate, researcher or administrator):
 1. Select pots on the overhead view: a zone, or **Select only verified, unprotected pots**. Pots that cannot
    take part are hatched with the reason; fix or leave them. Mark pots whose wiring
    you have confirmed at the bench as known-correct references (positive controls).
-2. Continue: the server records each pot's settings. Queue the preparation change
-   (watering off, every 60 s) and wait for "Confirmed by controller readback".
-3. Wait a few minutes for 60 s readings, then run the safety checks. Run a
-   **rehearsal** first (no valve command), then switch to **Open real valves**,
-   check again, type the confirmation phrase and start. A first real run on one
-   zone (25 pots) before a verified group is sensible.
+2. Press **Run**, choose the response window (default **15 minutes per valve**),
+   and confirm **Yes, run**. The window is observation time: the valve
+   itself opens for only the short diagnostic pulse. Preparation disables automatic
+   watering, requests 60 s measurements, and waits for controller readback.
+3. Safety checks run automatically. A clear, unique sensor rise is recorded as a
+   match and removed from the remaining candidates immediately. All sensors remain
+   monitored for conflicting responses. An ambiguous or silent valve stays
+   unmatched at the end of its window; the simple flow does not retry it or guess
+   the last pairing. **Advanced setup and rehearsal** retains the separate dry-run
+   and preparation workflow when needed.
 4. Stay reachable. The floating bar shows progress and Stop on every page; closing
-   the tab stops the run before its next pulse.
+   the tab stops the run before its next pulse. Stop setup cancels a pending start.
 
 What correct evidence looks like, for each valve, never two at once:
 
