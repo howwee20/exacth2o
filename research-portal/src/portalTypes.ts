@@ -79,6 +79,8 @@ export type PortalAccess = {
   userId?: string;
   email: string | null;
   projectId: string;
+  projectName?: string;
+  projectDirectory?: { id: string; name: string }[];
   deviceId: string | null;
   accessScope: string;
   gasMixerAllowed: boolean;

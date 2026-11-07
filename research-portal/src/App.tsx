@@ -36,7 +36,8 @@ import { fullTimeWindow,rememberEmailKey } from "./portalConstants";
 import { type DataMode,rollingExperimentHistoryMs,visibleExperimentPairings } from "./portalData";
 import { errorMessage,runtimeStateIsFresh } from "./portalFormat";
 import { orderedPairings,plantGroupForPairing,treatmentForPairing } from "./portalPresentation";
-import { navigatePortal,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
+import { navigatePortal,portalRouteHref,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
+import { portalSystemName } from "./portalProjectContext";
 import { initialSalesSupportData } from "./portalState";
 import { type ChartSeries,type DeviceConfigState,type DeviceHealthSnapshot,type DeviceRuntimeState,type ExperimentGraphMode,type HealthSelectedDetail,type LoadState,type PortalAccess,type PortalView,type PotPreset,type RefreshOptions,type SettingsSection,type TimeWindow } from "./portalTypes";
 import { resolvePot } from "./potIdentity";
@@ -739,7 +740,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     : null;
   const presenceLastSeenMs = presence?.lastSeenAt ? Date.parse(presence.lastSeenAt) : null;
   const installationState: InstallationState = !presence
-    ? { status: "hidden" }
+    ? activeDeviceId
+      ? { status: "unknown", message: lastGoodCheckAt == null ? "Checking controller…" : "Awaiting first connection" }
+      : { status: "hidden" }
     : presence.status === "offline"
       ? { status: "offline", lastSeenAt: presenceLastSeenMs }
       : presence.status === "never"
@@ -1379,7 +1382,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   return productShell(
     <QuietSpineHome
       experiments={availableExperiments}
-      systemName={isDemo ? undefined : "Rhee Lab"}
+      systemName={isDemo ? undefined : portalSystemName(activeProjectId, portalAccess.projectName)}
       exceptions={portalExceptions}
       nowMs={clockNowMs}
       checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
@@ -1401,6 +1404,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
       </div> : undefined}
       machines={!isDemo ? <>
+        {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
+          <SystemSection key={project.id} name={project.name} defaultExpanded={false}
+            action={<a className="px-button" href={portalRouteHref({ view: "home" }, { project: project.id })}>Open system</a>}>
+            <p className="px-system-description">Open this system to view its experiments and controller status.</p>
+          </SystemSection>,
+        )}
         {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
         {isAdmin || portalAccess.gasMixerAllowed ? <SystemSection name="Chamber" defaultExpanded={false} description="Gas mixer · Lighting" action={<button type="button" className="px-button" onClick={() => setPortalView("chamber")}>Open system</button>}><p className="px-system-description">Control and schedules</p></SystemSection> : null}
       </> : undefined}
