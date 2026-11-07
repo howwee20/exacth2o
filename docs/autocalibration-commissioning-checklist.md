@@ -80,7 +80,7 @@ In the portal (Autocalibrate, researcher or administrator):
    take part are hatched with the reason; fix or leave them. Mark pots whose wiring
    you have confirmed at the bench as known-correct references (positive controls).
 2. Press **Run**, choose the response window (default **15 minutes per valve**),
-   and type the real-valve confirmation. The window is observation time: the valve
+   and confirm **Yes, run**. The window is observation time: the valve
    itself opens for only the short diagnostic pulse. Preparation disables automatic
    watering, requests 60 s measurements, and waits for controller readback.
 3. Safety checks run automatically. A clear, unique sensor rise is recorded as a

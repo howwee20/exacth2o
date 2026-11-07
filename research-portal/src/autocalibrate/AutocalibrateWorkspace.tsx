@@ -24,6 +24,7 @@ import { downloadJson, ReviewStep } from "./ReviewResults";
 import { RunProgress } from "./RunProgress";
 import { autocalRunStore, useAutocalRun } from "./runStore";
 import { QuickRunSetup } from "./QuickRunSetup";
+import { SimpleResults } from "./SimpleResults";
 import { SelectPots } from "./SelectPots";
 import { buildSelectedPots, confirmedReferences, potAvailability, pruneSelection, readingLookbackMs } from "./selection";
 import {
@@ -466,8 +467,8 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
         : stage === "prepare" ? <PrepareStep ctx={ctx} />
         : stage === "check" ? <CheckStep ctx={ctx} staleRun={derived.staleRun} />
           : stage === "run" ? <RunProgress ctx={ctx} live={runningHere ? live : null} />
-            : stage === "review" ? <ReviewStep ctx={ctx} />
-              : stage === "restore" ? <RestoreStep ctx={ctx} onBack={restoreView && session?.status !== "restoring" ? () => setRestoreView(false) : null} />
+            : stage === "review" ? advanced ? <ReviewStep ctx={ctx} /> : <SimpleResults ctx={ctx} onReview={() => setAdvanced(true)} />
+              : stage === "restore" ? <RestoreStep ctx={ctx} compact={!advanced} onBack={restoreView && session?.status !== "restoring" ? () => setRestoreView(false) : null} />
                 : null}
 
       <ManualWaterPanel open={manual != null} onClose={() => setManual(null)} projectId={projectId} deviceId={deviceId} controllerName="Controller" initial={manual} />

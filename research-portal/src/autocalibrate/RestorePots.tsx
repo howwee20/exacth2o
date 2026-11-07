@@ -17,7 +17,7 @@ function settingsText(pot: PotSettingsSnapshot) {
 }
 
 /** Final step: return the pots to their own recorded settings, holding back the ones that are not resolved. */
-export function RestoreStep({ ctx, onBack }: { ctx: WorkspaceContext; onBack: (() => void) | null }) {
+export function RestoreStep({ ctx, onBack, compact = false }: { ctx: WorkspaceContext; onBack: (() => void) | null; compact?: boolean }) {
   const result = ctx.result;
   const complete = Boolean(result && (result.outcome === "completed" || result.outcome === "completed_with_findings"));
   const applyBatch = latestBatch(ctx.record, "apply");
@@ -90,21 +90,22 @@ export function RestoreStep({ ctx, onBack }: { ctx: WorkspaceContext; onBack: ((
   return (
     <section className="settings-card ac-step" aria-labelledby="ac-restore-title">
       <div className="settings-card-head">
-        <h3 id="ac-restore-title">Restore and finish</h3>
+        <h3 id="ac-restore-title">{compact ? "Finish" : "Restore and finish"}</h3>
         <StatusChip tone={restoreBatch?.readback === "verified" ? "ok" : scope.heldBack.length ? "warning" : "info"}>
           {scope.restore.length} to restore · {scope.heldBack.length} held back
         </StatusChip>
       </div>
-      {!complete ? (
+      {!complete && !compact ? (
         <p className="settings-muted">
           {result ? "The run did not finish, so no valve change is proposed." : "No run took place."} Every pot returns to its recorded settings and its pairing stays as it was.
         </p>
       ) : null}
-      <p className="settings-muted">
+      <p className="settings-muted" hidden={compact}>
         Restore each pot’s target, pulse length and measurement interval saved at {new Date(ctx.session.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.
         The controller will confirm the restored settings.
       </p>
-      {scope.heldBack.length ? (
+      {compact ? <p className="settings-muted">Finish restores the original settings on {scope.restore.length} pots. {scope.heldBack.length} uncertain or unapplied connections stay sensing-only.</p> : null}
+      {scope.heldBack.length && !compact ? (
         <div className="ac-findings">
           <h4>Held back: stays sensing-only ({scope.heldBack.length})</h4>
           <p className="settings-muted">These pots keep automatic watering off, so the controller cannot water a pot whose valve is in doubt. Their original settings stay recorded and are carried into the next run.</p>
@@ -127,7 +128,7 @@ export function RestoreStep({ ctx, onBack }: { ctx: WorkspaceContext; onBack: ((
           </ul>
         </div>
       ) : null}
-      <details className="ac-advanced">
+      <details className="ac-advanced" hidden={compact}>
         <summary>Recorded settings for the {scope.restore.length} pots being restored</summary>
         <ul className="commission-plain">
           {scope.restore.map((item) => <li key={item.pairingName}><span>{pot(item.pairingName)}: {settingsText(item)}</span></li>)}
@@ -136,7 +137,7 @@ export function RestoreStep({ ctx, onBack }: { ctx: WorkspaceContext; onBack: ((
       {!restoreBatch || restoreBatch.readback === "not_applied" ? (
         <div className="ac-actions">
           <button type="button" className="settings-primary-button" disabled={busy || ctx.controlBusy || (!ctx.configHash && scope.restore.length > 0)} onClick={() => void queue()}>
-            {busy ? "Queuing…" : scope.restore.length ? `Queue the restore: ${scope.restore.length} pots` : "Close the session"}
+            {busy ? "Finishing…" : compact ? "Finish" : scope.restore.length ? `Queue the restore: ${scope.restore.length} pots` : "Close the session"}
           </button>
           {onBack ? <button type="button" className="settings-secondary-button" onClick={onBack}>Back</button> : null}
         </div>

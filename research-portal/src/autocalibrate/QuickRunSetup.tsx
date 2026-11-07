@@ -17,7 +17,6 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
   const latest = useRef(ctx);
   latest.current = ctx;
   const pending = useRef<AbortController | null>(null);
-  const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +34,7 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
   useEffect(() => () => pending.current?.abort(), []);
 
   const start = async () => {
-    if (pending.current || busy || confirmation !== phrase || ctx.fieldBlockReason || configProblems.length || evidenceUnavailable) return;
+    if (pending.current || busy || ctx.fieldBlockReason || configProblems.length || evidenceUnavailable) return;
     const controller = new AbortController();
     pending.current = controller;
     const assertActive = () => { if (controller.signal.aborted) throw new Error("Setup stopped. No further valve pulse will be requested."); };
@@ -114,7 +113,7 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
       }
       setStatus("Starting the valve test…");
       await autocalRunStore.start({ projectId: ctx.projectId, deviceId: ctx.deviceId, session: latest.current.session,
-        store: ctx.store, ports, mode: "real", pots, config, confirmation, resumeFrom: resume, operator: ctx.operator, signal: controller.signal });
+        store: ctx.store, ports, mode: "real", pots, config, confirmation: phrase, resumeFrom: resume, operator: ctx.operator, signal: controller.signal });
       await latest.current.refresh();
     } catch (next) {
       if (!controller.signal.aborted) setError(next instanceof Error ? next.message : String(next));
@@ -124,10 +123,17 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     }
   };
 
+  const cancel = async () => {
+    if (pending.current || busy) return;
+    if (latestBatch(ctx.record, "prepare")) { ctx.showRestore(); return; }
+    await ctx.update(record => ({ status: "abandoned", active: false,
+      record: withEvent(record, ctx.operator, "Cancelled before preparation or valve pulses.") }));
+  };
+
   return <section className="settings-card ac-step" aria-labelledby="ac-quick-title">
-    <h3 id="ac-quick-title">{resume ? "Resume autocalibration" : "Run autocalibration"}</h3>
-    <p>Automatic watering pauses on these {pots.length} pots. Each valve opens by itself for {config.pulseSeconds} seconds, then the sensors are watched for a clear rise. A match removes that valve and sensor from the remaining candidates. Unclear results stay unmatched.</p>
-    <p className="settings-muted">At most {config.maxTotalValveSeconds} valve-seconds. Keep this tab open and stay at the testbed. Results are reviewed before connections change.</p>
+    <h3 id="ac-quick-title">Are you sure?</h3>
+    <p>{resume ? "Resume testing" : "Test"} {pots.length} pots by opening {pots.length} real valves, one at a time, for {config.pulseSeconds} seconds each? Automatic watering pauses while we watch the sensors.</p>
+    <p className="settings-muted">Keep this tab open and stay at the testbed. Clear matches are recorded; uncertain results stay unmatched. Connections are changed only if you choose to apply the results.</p>
     <label className="ac-observation-window">
       <span>Wait for sensor response (minutes per valve)</span>
       <input type="number" min="1" max="60" step="1" value={resume ? String(config.maxObserveSeconds / 60) : windowMinutes} disabled={busy || Boolean(resume)} onChange={event => setWindowMinutes(event.target.value)} />
@@ -135,19 +141,15 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     </label>
     {configProblems.map(problem => <p className="settings-error-line" key={problem}>{problem}</p>)}
     {evidenceUnavailable ? <p role="status">Waiting for this session's saved evidence before another run can start.</p> : null}
-    <label className="commission-confirm">
-      <span>Type <code>{phrase}</code> to confirm preparation and real valve pulses</span>
-      <input value={confirmation} onChange={event => setConfirmation(event.target.value)} disabled={busy} autoComplete="off" spellCheck={false} />
-    </label>
     <div className="ac-actions">
-      <button type="button" className="settings-danger-button" disabled={busy || confirmation !== phrase || configProblems.length > 0 || evidenceUnavailable || Boolean(ctx.fieldBlockReason) || autocalRunStore.running} onClick={() => void start()}><Play size={14} aria-hidden="true" />{resume ? "Resume" : "Run"}</button>
-      {busy ? <button type="button" className="ac-stop" onClick={() => { pending.current?.abort(); setBusy(false); setStatus(null); setConfirmation(""); setError("Setup stopped. Restore the recorded settings before leaving this session."); }}><Square size={14} aria-hidden="true" />Stop setup</button> : null}
+      <button type="button" className="settings-danger-button" disabled={busy || configProblems.length > 0 || evidenceUnavailable || Boolean(ctx.fieldBlockReason) || autocalRunStore.running} onClick={() => void start()}><Play size={14} aria-hidden="true" />{resume ? "Yes, resume" : "Yes, run"}</button>
+      {busy ? <button type="button" className="ac-stop" onClick={() => { pending.current?.abort(); setBusy(false); setStatus(null); setError("Setup stopped. Restore the recorded settings before leaving this session."); }}><Square size={14} aria-hidden="true" />Stop setup</button>
+        : <button type="button" className="settings-secondary-button" onClick={() => void cancel()}>Cancel</button>}
     </div>
     {status ? <p role="status">{status}</p> : null}
     {error ? <p className="settings-error-line" role="alert">{error}</p> : null}
     {report?.checks.some(check => check.blocks) ? <ul className="commission-checks">{report.checks.filter(check => check.blocks).map(check => <li key={check.id}><div><strong>{check.label}</strong><p>{check.detail}</p></div></li>)}</ul> : null}
     <div className="ac-secondary-actions">
-      <button type="button" className="ac-link" disabled={busy} onClick={ctx.showRestore}>Cancel and restore settings</button>
       <button type="button" className="ac-link" disabled={busy} onClick={onAdvanced}>Advanced setup and rehearsal</button>
     </div>
   </section>;
