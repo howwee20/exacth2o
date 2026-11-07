@@ -1,4 +1,5 @@
 import { controllerCommandTypes } from "./generated/platform-capabilities.mjs";
+import { publishConfiguration } from "./device-config-push.mjs";
 
 const VERSION = "exacth2o-control-executor/0.5.0";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,6 +49,8 @@ export function getConfig(env = process.env) {
     supabaseUrl: stripTrailingSlash(env.SUPABASE_URL || env.VITE_SUPABASE_URL || ""),
     supabaseAnonKey: env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "",
     deviceToken: env.EXACTH2O_DEVICE_TOKEN || "",
+    ingestToken: env.EXACTH2O_INGEST_TOKEN || "",
+    stateSyncMode: String(env.EXACTH2O_STATE_SYNC_MODE || "owner_health").trim().toLowerCase(),
     projectId: env.EXACTH2O_PROJECT_ID || env.CONTROL_BRIDGE_PROJECT_ID || "",
     deviceId: env.EXACTH2O_DEVICE_ID || env.CONTROL_BRIDGE_DEVICE_ID || "",
     controllerCommandSecret: env.EXACTH2O_CONTROLLER_COMMAND_SECRET || "",
@@ -83,12 +86,22 @@ export function assertRuntimeConfig(config) {
   if (!config.supabaseUrl) missing.push("SUPABASE_URL");
   if (!config.supabaseAnonKey) missing.push("SUPABASE_ANON_KEY");
   if (!config.deviceToken) missing.push("EXACTH2O_DEVICE_TOKEN");
-  if (!config.dryRun) {
+  if (!["owner_health", "device_push"].includes(config.stateSyncMode || "owner_health")) {
+    throw new Error("Invalid EXACTH2O_STATE_SYNC_MODE");
+  }
+  if (config.stateSyncMode === "device_push") {
     if (!config.projectId) missing.push("EXACTH2O_PROJECT_ID");
     if (!config.deviceId) missing.push("EXACTH2O_DEVICE_ID");
+    if (!config.ingestToken) missing.push("EXACTH2O_INGEST_TOKEN");
+  }
+  if (!config.dryRun) {
+    if (!config.projectId && config.stateSyncMode !== "device_push") missing.push("EXACTH2O_PROJECT_ID");
+    if (!config.deviceId && config.stateSyncMode !== "device_push") missing.push("EXACTH2O_DEVICE_ID");
     if (!config.controllerCommandSecret) missing.push("EXACTH2O_CONTROLLER_COMMAND_SECRET");
-    if (!config.syncOwnerHealthUrl) missing.push("EXACTH2O_SYNC_OWNER_HEALTH_URL");
-    if (!config.syncOwnerHealthSecret) missing.push("SYNC_OWNER_HEALTH_SECRET");
+    if (config.stateSyncMode !== "device_push") {
+      if (!config.syncOwnerHealthUrl) missing.push("EXACTH2O_SYNC_OWNER_HEALTH_URL");
+      if (!config.syncOwnerHealthSecret) missing.push("SYNC_OWNER_HEALTH_SECRET");
+    }
   }
   if (config.manualWaterEnabled && !config.controllerCommandSecret) {
     missing.push("EXACTH2O_CONTROLLER_COMMAND_SECRET");
@@ -265,8 +278,9 @@ export function createSupabaseRpcClient(config, fetchImpl = globalThis.fetch) {
           config.projectId &&
           config.deviceId &&
           config.controllerCommandSecret &&
-          config.syncOwnerHealthUrl &&
-          config.syncOwnerHealthSecret
+          (config.stateSyncMode === "device_push"
+            ? config.ingestToken
+            : config.syncOwnerHealthUrl && config.syncOwnerHealthSecret)
         ),
         executor_local_api_reachable: status.localApiReachable,
         executor_controller_state: status.controllerState,
@@ -897,9 +911,19 @@ const syncAfterCommandTypes = new Set([
   "update_system_state",
 ]);
 
-async function refreshOwnerHealthMirror(command, config, fetchImpl = globalThis.fetch) {
+export async function refreshOwnerHealthMirror(command, config, fetchImpl = globalThis.fetch) {
   if (command && config.dryRun) return { skipped: true, reason: "dry_run" };
   if (command && !syncAfterCommandTypes.has(command.command_type)) return { skipped: true, reason: "command_type" };
+  if (config.stateSyncMode === "device_push") {
+    if (command && (command.project_id !== config.projectId || command.device_id !== config.deviceId)) {
+      return { ok: false, error: "Command and device-push scope differ" };
+    }
+    try {
+      return await publishConfiguration(config, fetchImpl);
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  }
   if (!config.syncOwnerHealthUrl || !config.syncOwnerHealthSecret) {
     return { skipped: true, reason: "missing_sync_owner_health_config" };
   }
