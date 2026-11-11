@@ -42,8 +42,9 @@ import {
 } from "./experimentValidation";
 import type { PairingRow } from "./types";
 import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
+import { autocalRunStore, useAutocalRun } from "./autocalibrate/runStore";
 
-type BuilderStep = "prompt" | "review" | "complete";
+type BuilderStep = "prompt" | "review" | "calibrate" | "complete";
 const noPortalExperiments: readonly PortalExperiment[] = [];
 
 type ExperimentBuilderProps = {
@@ -57,6 +58,8 @@ type ExperimentBuilderProps = {
   template?: PortalExperiment | null;
   experiments?: readonly PortalExperiment[];
   presentation?: "modal" | "inline";
+  systemName?: string;
+  renderCalibration?: (draft: ExperimentDraft) => ReactNode;
   onClose: () => void;
   onCreated: (slug: string) => void;
 };
@@ -122,10 +125,13 @@ function ExperimentBuilderContent({
   template = null,
   experiments = noPortalExperiments,
   presentation = "modal",
+  systemName,
+  renderCalibration,
   onClose,
   onCreated,
 }: ExperimentBuilderProps) {
   const editing = Boolean(experiment);
+  const calibrationRunning = Boolean(useAutocalRun().live);
   const [step, setStep] = useState<BuilderStep>(direct ? "review" : "prompt");
   const [prompt, setPrompt] = useState(initialPrompt);
   const templateAssignments = useMemo(() => template ? experimentDraftFromPortalExperiment(template, pairings).assignments : [], [template, pairings]);
@@ -355,7 +361,7 @@ function ExperimentBuilderContent({
   };
 
   const reviewExperiment = async () => {
-    if (busy) return;
+    if (busy || autocalRunStore.running) return;
     setAttemptedReview(true);
     const normalized = normalizeExperimentDraft(draft);
     const issues = validateExperimentDraft(normalized, pairings);
@@ -391,7 +397,7 @@ function ExperimentBuilderContent({
   };
 
   const startExperiment = async () => {
-    if (busy) return;
+    if (busy || autocalRunStore.running) return;
     if (!controlPlan || !reviewedConfigHash || !draftInventoryUpdatedAt || !confirmed) {
       setError("Review and confirm the experiment first.");
       return;
@@ -463,6 +469,7 @@ function ExperimentBuilderContent({
             <h2 id="experiment-builder-title">
               {editing ? `Edit ${experiment?.name ?? "experiment"}` : template ? "Duplicate experiment" : "New experiment"}
             </h2>
+            {systemName ? <p>{systemName}</p> : null}
           </div>
           <ol className="experiment-builder-steps" aria-label="Experiment workflow">
             {(direct
@@ -771,6 +778,15 @@ function ExperimentBuilderContent({
                   </details>
                 </div>
               ) : null}
+              {renderCalibration ? <section className="experiment-builder-optional-calibration">
+                <div>
+                  <h3>Autocalibrate <span>Optional</span></h3>
+                  <p>Check the selected pots before creating the experiment, or continue with their current calibration.</p>
+                </div>
+                <button type="button" className="is-secondary" disabled={!draft.assignments.length} onClick={() => setStep("calibrate")}>
+                  Open autocalibration
+                </button>
+              </section> : null}
               </> : null}
 
               {draft.questions.length ? (
@@ -829,6 +845,7 @@ function ExperimentBuilderContent({
                 </section>
               ) : null}
               {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
+              {calibrationRunning ? <p className="settings-muted" role="status">Finish or stop autocalibration before reviewing this experiment.</p> : null}
               {attemptedReview && !error && validationIssues.length ? (
                 <p className="experiment-builder-error" role="alert">
                   {validationIssues.map((issue) => issue.message).join(" ")}
@@ -858,7 +875,7 @@ function ExperimentBuilderContent({
                   type="button"
                   className="is-primary"
                   onClick={() => void startExperiment()}
-                  disabled={busy || validationIssues.length > 0 || !confirmed}
+                  disabled={busy || calibrationRunning || validationIssues.length > 0 || !confirmed}
                 >
                   {busy
                     ? <Loader2 className="chart-loading-spinner" size={16} />
@@ -870,7 +887,7 @@ function ExperimentBuilderContent({
                   type="button"
                   className="is-primary"
                   onClick={() => void reviewExperiment()}
-                  disabled={busy || !draft.name.trim() || !draft.assignments.length}
+                  disabled={busy || calibrationRunning || !draft.name.trim() || !draft.assignments.length}
                 >
                   {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
                   Review experiment
@@ -879,6 +896,15 @@ function ExperimentBuilderContent({
             </footer>
           </>
         ) : null}
+
+        {step === "calibrate" && renderCalibration ? <>
+          <div className="experiment-builder-calibration">{renderCalibration(draft)}</div>
+          <footer className="experiment-builder-actions">
+            <button type="button" className="is-secondary" onClick={() => setStep("review")}>
+              <ArrowLeft size={16} /> Back to experiment setup
+            </button>
+          </footer>
+        </> : null}
 
         {step === "complete" ? (
           <div className="experiment-builder-complete">

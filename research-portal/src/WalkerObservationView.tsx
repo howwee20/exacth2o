@@ -49,7 +49,7 @@ export function WalkerMachineTile() {
     status={failed ? "Status unavailable" : status ? `${status.current_sensor_count ?? status.evidenced_sensor_count} / ${status.expected_sensor_count} sensors` : "Checking sensors…"}
     to={{ view: "walker" }}
     healthTo={{ view: "walker-health" }}
-    calibration={{ unavailable: "Walker Pi currently provides moisture observations without irrigation calibration control." }}
+    creation={{ to: { view: "walker-new-experiment" } }}
   />;
 }
 

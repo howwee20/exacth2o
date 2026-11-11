@@ -7,6 +7,7 @@ const user = { id: userId, email: 'test@example.invalid', aud: 'authenticated', 
 
 for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
   test(`direct system traces and scoped health for ${email}`, async ({ page }) => {
+    page.setDefaultTimeout(15_000);
     const account = { ...user, email };
     const now = new Date().toISOString();
     const walkerStatus = { expected_sensor_count: 100, current_sensor_count: 98, evidenced_sensor_count: 100, freshness: 'live', overall_status: 'operational', latest_live_reading_at: now, publisher: { status: 'healthy', last_success_at: now } };
@@ -16,8 +17,18 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
     const deviceLookups: string[] = [];
+    const builderRequests: Array<{ action: string; project_id: string }> = [];
+    const calibrationWrites: string[] = [];
+    let createdExperiment: Record<string, unknown> | null = null;
+    const configPairings = [1, 2].map(number => ({
+      name: `Zone1-Pot${number}`, sensorId: number, valveId: number,
+      Sensor: { boardSerialId: 'test-sensor', address: String(number) },
+      Valve: { relayAddress: 'test-relay', address: String(number) },
+      WTCPercentLimit: -1000, ValveOpenTime: 2000, MeasurementInterval: 60000,
+    }));
     await page.route('https://*.supabase.co/**', async route => {
       const url = new URL(route.request().url());
+      if (route.request().method() === 'POST' && /commissioning_sessions|controller-command|settings-plan|command-plan/.test(url.pathname)) calibrationWrites.push(url.pathname);
       let data: unknown = [];
       if (url.pathname === '/auth/v1/user') data = account;
       else if (url.pathname === '/rest/v1/portal_access') data = [
@@ -33,11 +44,28 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         const project = url.searchParams.get('project_id')?.replace(/^eq\./, '') ?? '';
         deviceLookups.push(project);
         data = [{ id: project === testbedProject ? 'testbed-device' : 'main-device' }];
-      } else if (url.pathname === '/rest/v1/portal_experiment_catalog' && url.searchParams.get('project_id') === `eq.${mainProject}`) {
-        data = [
+      } else if (url.pathname === '/rest/v1/device_config_state') {
+        data = url.searchParams.get('select') === '*' ? { pairings: configPairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
+      } else if (url.pathname === '/rest/v1/device_runtime_state' || url.pathname === '/rest/v1/latest_device_state') {
+        data = null;
+      } else if (url.pathname === '/rest/v1/commissioning_sessions') {
+        data = url.searchParams.has('active') ? null : [];
+      } else if (url.pathname === '/functions/v1/experiment-builder') {
+        const body = route.request().postDataJSON();
+        builderRequests.push(body);
+        if (body.action === 'preflight') data = { draft: body.draft, plan: { change_count: 0, changes: [], commands: [], pairing_count: body.draft.assignments.length, requires_controller_stop: false, final_controller_state: 'running' }, config_hash: 'test-config', inventory_updated_at: now, validation_messages: [] };
+        else if (body.action === 'launch') {
+          createdExperiment = { id: 'new-study-id', slug: 'new-study', name: body.draft.name, mode: body.draft.mode, status: 'active', watering_state: 'off', pairing_names: body.draft.assignments.map((assignment: { pairing_name: string }) => assignment.pairing_name), assignments: body.draft.assignments, project_id: body.project_id };
+          data = { experiment_slug: 'new-study', experiment_id: 'new-study-id', operation_id: 'test-operation', command_ids: [], status: 'active' };
+        }
+      } else if (url.pathname === '/rest/v1/portal_experiment_catalog') {
+        const project = url.searchParams.get('project_id');
+        data = [...(project === `eq.${mainProject}` ? [
           { id: 'completed', slug: 'completed', name: 'Completed experiment', mode: 'observation', status: 'completed', watering_state: 'off', pairing_names: [], assignments: [] },
           { id: 'pan', slug: 'pan', name: 'Huiqiao Pan experiment', mode: 'observation', status: 'active', watering_state: 'off', pairing_names: [], assignments: [] },
-        ];
+        ] : []), ...(createdExperiment && project === `eq.${createdExperiment.project_id}` ? [createdExperiment] : [])];
+      } else if (url.pathname === '/rest/v1/walker_observation_sensor_metadata') {
+        data = [{ source_sensor_id: 1, display_label: 'Sensor 1', position_number: 1 }];
       } else if (url.pathname === '/rest/v1/rpc/walker_live_observation_status') {
         data = walkerStatus;
       } else if (url.pathname === '/rest/v1/rpc/walker_live_observation_snapshot') {
@@ -85,16 +113,37 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(administration.getByText('Autocalibrate', { exact: true })).toHaveCount(0);
     await administration.locator('summary').click();
     await page.screenshot({ path: test.info().outputPath('machine-home-desktop.png'), fullPage: true });
-    const rheeCalibration = page.getByRole('link', { name: 'Rhee Lab Autocalibrate', exact: true });
-    const testbedCalibration = page.getByRole('link', { name: 'Four-pot testbed Autocalibrate', exact: true });
-    await expect(rheeCalibration).toHaveAttribute('href', /view=autocalibrate/);
-    await expect(testbedCalibration).toHaveAttribute('href', new RegExp(`view=autocalibrate&project=${testbedProject}`));
-    await expect(page.getByRole('button', { name: 'Walker Pi Autocalibrate unavailable', exact: true })).toBeDisabled();
-    await rheeCalibration.click();
-    await expect(page).toHaveURL(/view=autocalibrate/);
-    await expect(page.getByLabel('Autocalibrate', { exact: true })).toBeVisible();
+    const rheeCreation = page.getByRole('link', { name: 'New experiment on Rhee Lab', exact: true });
+    const testbedCreation = page.getByRole('link', { name: 'New experiment on Four-pot testbed', exact: true });
+    await expect(rheeCreation).toHaveAttribute('href', /view=new-experiment/);
+    await expect(testbedCreation).toHaveAttribute('href', new RegExp(`view=new-experiment&project=${testbedProject}`));
+    await expect(page.getByText('Autocalibrate', { exact: true })).toHaveCount(0);
+    await rheeCreation.click();
+    await expect(page).toHaveURL(/view=new-experiment/);
+    await expect(page.getByRole('heading', { name: 'New experiment', exact: true })).toBeVisible();
     await expect(page.getByText('Rhee Lab', { exact: true })).toBeVisible();
+    await page.getByLabel('Experiment name', { exact: true }).fill('Draft with optional calibration');
+    await page.getByRole('button', { name: 'Select zone', exact: true }).click();
+    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Autocalibrate', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('optional-autocalibration.png'), fullPage: true });
+    expect(calibrationWrites).toEqual([]);
+    await page.getByRole('button', { name: 'Back to experiment setup' }).click();
+    await expect(page.getByLabel('Experiment name', { exact: true })).toHaveValue('Draft with optional calibration');
+    await expect(page.getByText('2 selected · 2 available')).toBeVisible();
+    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath('new-experiment-desktop.png'), fullPage: true });
     await page.getByRole('link', { name: /Home/ }).click();
+
+    await page.getByRole('link', { name: 'New experiment on Walker Pi', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'New experiment', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Experiment name')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create experiment', exact: true })).toBeDisabled();
+    await page.reload();
+    await expect(page.getByRole('dialog', { name: 'New experiment', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Home', exact: true }).click();
 
     await rhee.click();
     await expect(page.getByRole('heading', { name: 'Huiqiao Pan experiment', exact: true })).toBeVisible();
@@ -122,13 +171,14 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('button', { name: 'Home', exact: true }).click();
 
     if (email === 'alamriek@msu.edu') {
+      await expect(page.getByRole('button', { name: 'New experiment on Chamber unavailable', exact: true })).toBeDisabled();
       await page.getByRole('link', { name: 'Chamber system health', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Chamber system health', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Home', exact: true }).click();
     }
-    await testbedCalibration.click();
-    await expect(page).toHaveURL(new RegExp(`view=autocalibrate&project=${testbedProject}`));
-    await expect(page.getByLabel('Autocalibrate', { exact: true })).toBeVisible();
+    await testbedCreation.click();
+    await expect(page).toHaveURL(new RegExp(`view=new-experiment&project=${testbedProject}`));
+    await expect(page.getByRole('heading', { name: 'New experiment', exact: true })).toBeVisible();
     await expect(page.getByText('Four-pot testbed', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: /Home/ }).click();
     await rhee.click();
@@ -146,5 +196,21 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('link', { name: 'Four-pot testbed system health', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`view=health&project=${testbedProject}`));
     await expect(page.getByRole('heading', { name: 'Four-pot testbed system health', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Home', exact: true }).click();
+    await testbedCreation.click();
+    await page.getByLabel('Experiment name', { exact: true }).fill('Testbed observation trial');
+    await page.getByRole('button', { name: 'Observation', exact: false }).click();
+    await page.getByRole('button', { name: 'Select zone', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath('new-experiment-mobile.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Review experiment', exact: true }).click();
+    await page.getByLabel('Apply these settings now.').check();
+    await page.getByRole('button', { name: 'Confirm and create', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Experiment created', exact: true })).toBeVisible();
+    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', testbedProject], ['launch', testbedProject]]);
+    expect(calibrationWrites).toEqual([]);
+    await page.getByRole('button', { name: 'View experiment', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Testbed observation trial', exact: true })).toBeVisible();
   });
 }

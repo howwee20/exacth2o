@@ -78,6 +78,7 @@ import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
 const loadSettingsPanel = () => import("./settings/PortalSettingsPanel").then((module) => ({ default: module.PortalSettingsPanel }));
 const PortalSettingsPanel = lazyFeature(loadSettingsPanel);
 const AutocalibratePage = lazyFeature(() => import("./autocalibrate/AutocalibratePage").then((module) => ({ default: module.AutocalibratePage })));
+const AutocalibrateWorkspace = lazyFeature(() => import("./autocalibrate/AutocalibrateWorkspace").then((module) => ({ default: module.AutocalibrateWorkspace })));
 const ArchiveExperimentDialog = lazyFeature(() => import("./product/ArchiveExperimentDialog").then((module) => ({ default: module.ArchiveExperimentDialog })));
 const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
 const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
@@ -792,20 +793,39 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     </div>
   );
 
-  const experimentBuilder = experimentBuilderOpen && canCreateExperiment ? (
+  const newExperimentPage = route.view === "new-experiment";
+  const experimentBuilder = (experimentBuilderOpen || newExperimentPage) && canCreateExperiment ? (
     <FeatureBoundary name="Experiment builder"><ExperimentBuilder
-      key={editingExperiment?.currentRevisionId ?? duplicateExperiment?.id ?? "new-experiment"}
+      key={`${activeProjectId}:${newExperimentPage ? "new-experiment" : editingExperiment?.currentRevisionId ?? duplicateExperiment?.id ?? "new-experiment"}`}
       projectId={activeProjectId}
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}
       direct
-      experiment={editingExperiment}
-      template={duplicateExperiment}
+      experiment={newExperimentPage ? null : editingExperiment}
+      template={newExperimentPage ? null : duplicateExperiment}
+      presentation={newExperimentPage ? "inline" : "modal"}
+      systemName={portalSystemName(activeProjectId, portalAccess?.projectName)}
+      renderCalibration={(draft) => <FeatureBoundary name="Autocalibrate"><AutocalibrateWorkspace
+        projectId={activeProjectId}
+        deviceId={activeDeviceId || null}
+        operator={portalAccess?.email ?? null}
+        portalRole={portalAccess?.role ?? "viewer"}
+        scope="experiment"
+        experiment={{ id: !newExperimentPage && editingExperiment ? editingExperiment.id : "new-experiment", name: draft.name || "New experiment", shortDescription: draft.description, mode: draft.mode, groupNames: [], pairingNames: draft.assignments.map(assignment => assignment.pairing_name) }}
+        experiments={availableExperiments}
+        pairings={visiblePairings}
+        configHash={configState?.config_hash?.trim() || null}
+        controllerState={runtimeStateIsFresh(runtimeState) ? runtimeState?.controller_state ?? null : null}
+        controllerOnline={presence?.status === "online"}
+        controlBusy={controlBusy}
+        onQueueSettingsPlan={queueSettingsPlan}
+      /></FeatureBoundary>}
       onClose={() => {
         setExperimentBuilderOpen(false);
         setEditingExperiment(null);
         setDuplicateExperiment(null);
+        if (newExperimentPage) navigatePortal({ view: "home" });
       }}
       onCreated={async (slug) => {
         await loadExperimentCatalog();
@@ -1111,7 +1131,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       {productHeader}
       <AutocalRunBanner onOpen={openAutocalibrate} />
       {content}
-      {experimentBuilder}
+      {!newExperimentPage ? experimentBuilder : null}
       {archivingExperiment && canCreateExperiment ? <FeatureBoundary name="Archive experiment"><ArchiveExperimentDialog
         projectId={activeProjectId} experiment={archivingExperiment.id}
         onClose={() => setArchivingExperiment(null)}
@@ -1161,6 +1181,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
   if (route.view === "account" && !isDemo) {
     return productShell(<FeatureBoundary name="Account"><AccountPage key={activeProjectId} access={portalAccess} /></FeatureBoundary>);
+  }
+  if (newExperimentPage) {
+    return productShell(<section className="px-page px-new-experiment-page">
+      <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
+      {!canCreateExperiment ? <p role="alert">Researcher or administrator access is required to create an experiment.</p>
+        : experimentBuilder}
+    </section>);
   }
   if (route.view === "autocalibrate" && canReadProjectData) {
     return productShell(<FeatureBoundary name="Autocalibrate"><AutocalibratePage
@@ -1225,7 +1252,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     return productShell(<ChamberHealthView onBack={() => setPortalView("home")} />);
   }
 
-  if (isAdmin && (portalView === "walker" || route.view === "walker-home")) {
+  if (isAdmin && (portalView === "walker" || route.view === "walker-home" || route.view === "walker-new-experiment")) {
     return productShell(<FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>);
   }
 
@@ -1444,14 +1471,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       <MachineTile name={systemName}
         detail={`${availableExperiments.length} ${availableExperiments.length === 1 ? "experiment" : "experiments"} · ${visiblePairings.length} pots`}
         status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }}
-        calibration={canUseExperimentSettings ? { to: { view: "autocalibrate" } } : { unavailable: "Researcher or administrator access is required." }} />
+        creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
         <MachineTile key={project.id} name={project.name}
           to={{ view: "controller" }} healthTo={{ view: "health" }} extra={{ project: project.id }}
-          calibration={{ to: { view: "autocalibrate" } }} />,
+          creation={{ to: { view: "new-experiment" } }} />,
       )}
       {isAdmin ? <WalkerMachineTile /> : null}
-      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} calibration={{ unavailable: "Irrigation autocalibration is unavailable for the gas mixer and lighting system." }} /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} creation={{ unavailable: "Experiment creation is not available for Chamber yet." }} /> : null}
     </MachineHome>,
   );
 }

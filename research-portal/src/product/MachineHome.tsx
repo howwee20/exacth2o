@@ -4,14 +4,14 @@ import type { PortalRoute } from "../portalRoute";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
 
-export function MachineTile({ name, detail, status, to, extra, healthTo, calibration }: {
+export function MachineTile({ name, detail, status, to, extra, healthTo, creation }: {
   name: string;
   detail?: string;
   status?: ReactNode;
   to: PortalRoute;
   extra?: Record<string, string | null>;
   healthTo: PortalRoute;
-  calibration: { to: PortalRoute } | { unavailable: string };
+  creation: { to: PortalRoute } | { unavailable: string };
 }) {
   return <div className="px-system-card">
     <div className="px-system-tile-wrap">
@@ -19,11 +19,11 @@ export function MachineTile({ name, detail, status, to, extra, healthTo, calibra
         <span className="px-system-tile-name">{name}</span>
         {detail ? <span className="px-system-tile-detail">{detail}</span> : null}
       </PortalLink>
-    {"to" in calibration ? <PortalLink className="px-system-calibrate" to={calibration.to} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`${name} Autocalibrate`}>
-      Autocalibrate
-    </PortalLink> : <button type="button" className="px-system-calibrate" disabled title={calibration.unavailable} aria-label={`${name} Autocalibrate unavailable`}>
-      Autocalibrate
-    </button>}
+      {"to" in creation ? <PortalLink className="px-system-create" to={creation.to} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`New experiment on ${name}`}>
+        New experiment
+      </PortalLink> : <button type="button" className="px-system-create" disabled title={creation.unavailable} aria-label={`New experiment on ${name} unavailable`}>
+        New experiment
+      </button>}
     </div>
     <PortalLink className="px-system-health-link" to={healthTo} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`${name} system health`}>
       <span>System health</span><span className="px-system-health-status">{status}<ArrowRight size={14} aria-hidden="true" /></span>

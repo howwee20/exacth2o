@@ -224,6 +224,24 @@
   max-height: 720px;
 }
 
+.experiment-builder-optional-calibration {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--px-rule, #e2e5e3);
+}
+
+.experiment-builder-optional-calibration h3 { margin: 0; }
+.experiment-builder-optional-calibration h3 span { margin-left: 8px; color: #68746e; font-size: 13px; font-weight: 400; }
+.experiment-builder-optional-calibration p { margin: 8px 0 0; color: #68746e; }
+.experiment-builder-calibration { min-height: 0; overflow-y: auto; padding: 24px; }
+.experiment-builder.is-inline .experiment-builder-calibration { max-height: 720px; }
+.px-new-experiment-page { width: min(1180px, 100%); }
+
 .portal-inline-settings {
   overflow: hidden;
   border: 1px solid rgba(24, 37, 55, 0.1);
