@@ -227,10 +227,25 @@
 /* The home page opens each machine from one card. */
 .px-shell .px-machine-home { width: min(1280px, 100%); gap: 28px; }
 .px-system-tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
-.px-system-card { display: grid; grid-template-rows: 1fr auto; min-width: 0; gap: 10px; }
+.px-system-card { --px-system-health-gap: 28px; display: grid; grid-template-rows: 1fr auto; min-width: 0; gap: var(--px-system-health-gap); }
 .px-system-tile-wrap { position: relative; display: flex; min-width: 0; }
 .px-system-tile-wrap > .px-system-tile { width: 100%; }
-.px-system-tile-wrap .px-system-tile-open { padding-right: 106px; }
+.px-system-tile-wrap::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: var(--px-system-health-gap);
+  background-image: repeating-linear-gradient(to bottom, var(--px-water) 0 5px, transparent 5px 10px);
+  background-size: 2px 10px;
+  animation: px-system-health-flow 1.2s linear infinite;
+  pointer-events: none;
+}
+@keyframes px-system-health-flow {
+  from { background-position-y: 0; }
+  to { background-position-y: 10px; }
+}
 .px-system-calibrate { position: absolute; right: 28px; bottom: 16px; z-index: 1; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 0; border: 0; background: transparent; color: #0071e3; font: 500 14px var(--px-sans); text-decoration: none; }
 .px-system-calibrate:hover { text-decoration: underline; }
 .px-system-calibrate:disabled { color: var(--px-muted); cursor: not-allowed; opacity: .65; text-decoration: none; }
@@ -253,9 +268,7 @@
 }
 .px-system-tile:hover { border-color: #b8c8bf; box-shadow: 0 6px 20px #101f1a08; }
 .px-system-tile-name { font-size: 24px; font-weight: 600; letter-spacing: -.035em; line-height: 1.2; overflow-wrap: anywhere; }
-.px-system-tile-description { margin-top: 9px; color: var(--px-muted); font-size: 14px; }
 .px-system-tile-detail { margin-top: 6px; color: var(--px-muted); font-size: 13px; }
-.px-system-tile-open { display: inline-flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 24px; color: #0071e3; font-size: 14px; font-weight: 500; }
 .px-home-administration { margin-top: 16px; padding-top: 28px; border-top: 1px solid var(--px-rule); }
 .px-home-administration > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; list-style: none; cursor: pointer; font-size: 22px; font-weight: 600; letter-spacing: -.025em; }
 .px-home-administration > summary::-webkit-details-marker { display: none; }
@@ -281,4 +294,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .px-system-tile { transition: none; }
+  .px-system-tile-wrap::after { animation: none; }
 }

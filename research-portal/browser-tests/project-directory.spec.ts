@@ -50,18 +50,33 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
 
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto('/portal');
-    const testbed = page.getByRole('link', { name: /Four-pot testbed.*Open traces/ });
-    const rhee = page.getByRole('link', { name: /Rhee Lab.*Open traces/ });
+    const testbed = page.getByRole('link', { name: 'Open Four-pot testbed', exact: true });
+    const rhee = page.getByRole('link', { name: 'Open Rhee Lab', exact: true });
     await expect(testbed).toBeVisible();
     await expect(rhee).toBeVisible();
     await expect(page.locator('.px-system-tile-grid > .px-system-card')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
     await expect(page.locator('.px-system-tile-grid > .px-system-card > .px-system-health-link')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
     await expect(page.locator('.px-system-tile-icon')).toHaveCount(0);
+    await expect(page.getByText(/^(Open traces|Sensing and irrigation|Moisture sensing|Gas mixer and lighting)$/)).toHaveCount(0);
     await expect(page.getByText('Unrelated installation')).toHaveCount(0);
     const health = page.getByRole('link', { name: 'Rhee Lab system health', exact: true });
     const tileBox = await rhee.boundingBox();
     const healthBox = await health.boundingBox();
-    expect(healthBox!.y).toBeGreaterThanOrEqual(tileBox!.y + tileBox!.height);
+    expect(healthBox!.y - tileBox!.y - tileBox!.height).toBeCloseTo(28);
+    const tileWrap = page.locator('.px-system-tile-wrap').first();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const connector = await tileWrap.evaluate(element => {
+      const style = getComputedStyle(element, '::after');
+      return { height: style.height, top: style.top, animation: style.animationName, background: style.backgroundImage };
+    });
+    expect(connector.height).toBe('28px');
+    expect(parseFloat(connector.top)).toBeCloseTo(tileBox!.height);
+    expect(connector.background).toContain('repeating-linear-gradient');
+    expect(connector.animation).toBe('px-system-health-flow');
+    const firstPosition = await tileWrap.evaluate(element => getComputedStyle(element, '::after').backgroundPositionY);
+    await expect.poll(() => tileWrap.evaluate(element => getComputedStyle(element, '::after').backgroundPositionY)).not.toBe(firstPosition);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(await tileWrap.evaluate(element => getComputedStyle(element, '::after').animationName)).toBe('none');
     const administration = page.locator('details.px-home-administration');
     await expect(administration).not.toHaveAttribute('open');
     await administration.locator('summary').click();
@@ -94,7 +109,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('heading', { name: 'Rhee Lab system health', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Home', exact: true }).click();
 
-    await page.getByRole('link', { name: /Walker Pi.*Open traces/ }).click();
+    await page.getByRole('link', { name: 'Open Walker Pi', exact: true }).click();
     await expect(page).toHaveURL(/view=walker/);
     await expect(page.getByLabel('Walker VWC observation chart')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create experiment on Walker Pi' })).toBeVisible();
@@ -116,7 +131,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByLabel('Autocalibrate', { exact: true })).toBeVisible();
     await expect(page.getByText('Four-pot testbed', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: /Home/ }).click();
-    await page.getByRole('link', { name: /Rhee Lab.*Open traces/ }).click();
+    await rhee.click();
     await page.getByRole('link', { name: /Home/ }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
