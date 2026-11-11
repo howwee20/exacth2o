@@ -1164,6 +1164,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
   if (route.view === "autocalibrate" && canReadProjectData) {
     return productShell(<FeatureBoundary name="Autocalibrate"><AutocalibratePage
+      systemName={portalSystemName(activeProjectId, portalAccess.projectName)}
       projectId={activeProjectId}
       deviceId={activeDeviceId || null}
       operator={portalAccess.email ?? null}
@@ -1438,25 +1439,19 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     : installationState.status === "offline" ? "Offline"
     : installationState.status === "unknown" && installationState.message ? installationState.message
     : "Status unavailable";
-  const administration = <>
-    {adminTools}
-    {canUseExperimentSettings ? <PortalLink className="portal-launch-card" to={{ view: "autocalibrate" }}>
-      <span className="portal-launch-copy"><span className="portal-launch-title">Autocalibrate</span><strong>{systemName}</strong></span>
-      <span className="portal-launch-action">Open <ArrowRight size={14} /></span>
-    </PortalLink> : null}
-  </>;
-
   return productShell(
-    <MachineHome tools={isAdmin || canUseExperimentSettings ? administration : undefined}>
+    <MachineHome tools={adminTools}>
       <MachineTile name={systemName} description="Sensing and irrigation"
         detail={`${availableExperiments.length} ${availableExperiments.length === 1 ? "experiment" : "experiments"} · ${visiblePairings.length} pots`}
-        status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }} />
+        status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }}
+        calibration={canUseExperimentSettings ? { to: { view: "autocalibrate" } } : { unavailable: "Researcher or administrator access is required." }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
         <MachineTile key={project.id} name={project.name} description="Sensing and irrigation"
-          to={{ view: "controller" }} healthTo={{ view: "health" }} extra={{ project: project.id }} />,
+          to={{ view: "controller" }} healthTo={{ view: "health" }} extra={{ project: project.id }}
+          calibration={{ to: { view: "autocalibrate" } }} />,
       )}
       {isAdmin ? <WalkerMachineTile /> : null}
-      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" description="Gas mixer and lighting" actionLabel="Open controls" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" description="Gas mixer and lighting" actionLabel="Open controls" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} calibration={{ unavailable: "Irrigation autocalibration is unavailable for the gas mixer and lighting system." }} /> : null}
     </MachineHome>,
   );
 }

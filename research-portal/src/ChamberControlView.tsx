@@ -434,9 +434,12 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
 export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="px-system-card">
-    <button type="button" className="portal-launch-card is-chamber-control" onClick={onOpen}>
+    <div className="px-system-tile-wrap">
+    <button type="button" className="portal-launch-card is-chamber-control px-system-tile" onClick={onOpen}>
       <span className="portal-launch-copy"><strong>Gas Mixer</strong></span>
     </button>
+    <button type="button" className="px-system-calibrate" disabled title="Irrigation autocalibration is unavailable for the gas mixer and lighting system.">Autocalibrate</button>
+    </div>
     <PortalLink className="px-system-health-link" to={{ view: "chamber-health" }}>System health</PortalLink>
     </div>
   );
