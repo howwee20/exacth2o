@@ -40,7 +40,7 @@ for (const size of [sizes[1], sizes[3], sizes[5]]) test(`visual baseline ${size.
   for (const [name,route] of [['home','/'],['traces','/demo?experiment=experiment-2'],['sign-in','/portal']]) {
     await page.goto(route);
     await expect(page.locator(name==='sign-in' ? 'h2' : 'h1').first()).toBeVisible();
-    if(name==='traces') await expect(page.getByRole('complementary',{name:'Pots',exact:true})).toBeVisible();
+    if(name==='traces') await expect(page.locator('.px-pots-panel')).toBeHidden();
     await page.evaluate(() => document.fonts.ready);
     await expect(page).toHaveScreenshot(`${name}-${size.width}.png`, {animations:'disabled',maxDiffPixelRatio:0.015});
   }
@@ -97,7 +97,7 @@ test('mobile Applications embed loads the current release and returns home inlin
   if (await potsToggle.isVisible()) await potsToggle.click();
   await frame.getByText('Saved views',{exact:true}).click();
   await frame.getByRole('combobox',{name:'Saved view'}).selectOption({label:'Crop water use'});
-  await expect(frame.locator('.px-trace-heading')).toContainText('3 of 24');
+  await expect(potsToggle).toContainText('3 shown');
   await frame.getByRole('link',{name:'← Home',exact:true}).click();
   await expect(frame.getByRole('link',{name:'Crop comparison 24 pots',exact:true})).toBeVisible();
 });

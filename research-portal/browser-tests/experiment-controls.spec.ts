@@ -92,18 +92,33 @@ test('assembled demo retains time range, saved views, Record, and responsive nav
   await expect(page.getByRole('button', { name: 'VWC', exact: true })).toBeVisible();
   for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    const pots = page.getByRole('complementary', { name: 'Pots', exact: true });
-    if (viewport.width < 1000) {
-      const toggle = pots.getByRole('button', { name: 'Pots', exact: true });
-      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      await expect(pots.getByRole('button', { name: 'Show all', exact: true })).toBeHidden();
-      await toggle.click();
-      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    } else {
-      await expect(pots.getByRole('heading', { name: 'Pots', exact: true })).toBeVisible();
-    }
+    const pots = page.locator('.px-pots-panel');
+    const toggle = page.getByRole('button', { name: 'Pots', exact: true });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(pots).toBeHidden();
+    const toggleBox = await toggle.boundingBox();
+    const modeBox = await page.getByRole('button', { name: 'VWC', exact: true }).boundingBox();
+    expect(Math.abs(toggleBox!.y + toggleBox!.height / 2 - modeBox!.y - modeBox!.height / 2)).toBeLessThan(3);
+    await page.screenshot({ path: test.info().outputPath(`compact-traces-${viewport.width}.png`), fullPage: true });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(pots.locator('.px-trace-row')).toHaveCount(24);
     expect(await pots.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    const chip = pots.locator('.px-trace-row').first();
+    const visibility = chip.getByRole('button');
+    await visibility.click();
+    await expect(visibility).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggle).toContainText('23 shown');
+    await visibility.click();
+    await expect(toggle).toContainText('24 shown');
+    const detail = chip.getByRole('link');
+    const chipBox = await chip.boundingBox();
+    const detailBox = await detail.boundingBox();
+    expect(detailBox!.x + detailBox!.width).toBeLessThanOrEqual(chipBox!.x + chipBox!.width);
+    await detail.click();
+    await expect(page.getByRole('complementary', { name: 'Pot inspector', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Close pot details', exact: true }).click();
+    await expect(visibility).toHaveAttribute('aria-pressed', 'true');
     await expect(pots.getByRole('combobox', { name: 'Saved view' })).toBeHidden();
     await pots.getByText('Saved views', { exact: true }).click();
     await expect(pots.getByRole('combobox', { name: 'Saved view' })).toBeVisible();
@@ -113,10 +128,17 @@ test('assembled demo retains time range, saved views, Record, and responsive nav
     await page.getByRole('button', { name: 'Export', exact: true }).first().click();
     await expect(page.getByRole('dialog', { name: 'Export experiment' })).toBeVisible();
     await page.keyboard.press('Escape');
-    if (viewport.width < 1000) {
-      await pots.getByRole('button', { name: 'Pots', exact: true }).click();
-      await expect(pots.getByRole('button', { name: 'Show all', exact: true })).toBeHidden();
-    }
+    await page.screenshot({ path: test.info().outputPath(`expanded-pots-${viewport.width}.png`), fullPage: true });
+    await toggle.click();
+    await expect(pots).toBeHidden();
+    await page.getByRole('button', { name: 'Expand graph', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Close expanded graph', exact: true })).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+    await expect(pots).toBeVisible();
+    await toggle.click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Expand graph', exact: true })).toBeFocused();
   }
   await page.getByRole('link', { name: '← Home', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Experiments', exact: true })).toBeVisible();

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import type { PortalExperiment } from "../experimentRegistry";
 import type { HomeException } from "../homeExceptions";
 import type { ExperimentTab } from "../portalRoute";
@@ -25,6 +26,8 @@ export function ExperimentNotFound({ id, loading }: { id: string; loading: boole
 export function ExperimentPage({
   experiment,
   tab,
+  experiments = [],
+  onExperimentChange,
   onExport,
   exceptions,
   recordAvailable,
@@ -34,6 +37,8 @@ export function ExperimentPage({
 }: {
   experiment: PortalExperiment;
   tab: ExperimentTab;
+  experiments?: readonly PortalExperiment[];
+  onExperimentChange?: (id: string) => void;
   onExport?: () => void;
   exceptions: readonly HomeException[];
   recordAvailable: boolean;
@@ -75,7 +80,13 @@ export function ExperimentPage({
       </div> : null}
       <div className="px-exp-head" ref={headerRef}>
         <div className="px-exp-head-row">
-          <h1 className="px-title">{experiment.name}</h1>
+          {experiments.length > 1 && onExperimentChange ? <h1 className="px-title px-experiment-switcher" aria-label={experiment.name}>
+            <span aria-hidden="true">{experiment.name}</span>
+            <ChevronDown size={22} aria-hidden="true" />
+            <select aria-label="Experiment" value={experiment.id} onChange={event => onExperimentChange(event.target.value)}>
+              {experiments.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+            </select>
+          </h1> : <h1 className="px-title">{experiment.name}</h1>}
           <div className="px-toolbar">
             {actions}
             <details ref={menuRef} className="px-menu px-more-actions" onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
