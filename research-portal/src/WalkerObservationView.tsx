@@ -7,10 +7,11 @@ import { loadWalkerExperiments } from "./walkerExperimentClient";
 import type { WalkerPortalExperiment } from "./walkerExperiments";
 import { SystemSection } from "./product/SystemSection";
 import { WalkerCreateExperiment } from "./walker/WalkerCreateExperiment";
+import { MachineTile } from "./product/MachineHome";
 
 const walkerStatusPollMs = 60_000;
 
-export function WalkerMachineTile({ onOpen, onOpenExperiment }: { onOpen: () => void; onOpenExperiment: (id: string) => void }) {
+export function WalkerMachineTile({ onOpen, onOpenExperiment, expanded = false }: { onOpen: () => void; onOpenExperiment: (id: string) => void; expanded?: boolean }) {
   const [status, setStatus] = useState<WalkerLiveStatus | null>(null);
   const [experiments, setExperiments] = useState<WalkerPortalExperiment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,13 @@ export function WalkerMachineTile({ onOpen, onOpenExperiment }: { onOpen: () => 
   }, []);
 
   if (!visible) return null;
+  if (!expanded) return <MachineTile
+    name="Walker Pi"
+    description="Moisture sensing"
+    detail={loading ? "Loading experiments…" : catalogFailed ? "Experiment list unavailable" : `${experiments.length} ${experiments.length === 1 ? "experiment" : "experiments"}`}
+    status={failed ? "Status unavailable" : status ? `${status.current_sensor_count ?? status.evidenced_sensor_count} / ${status.expected_sensor_count} sensors` : "Checking sensors…"}
+    to={{ view: "walker-home" }}
+  />;
   return <>
     <SystemSection name="Walker Pi" action={<button type="button" className="px-button is-primary" onClick={() => setCreating(true)} aria-label="Create experiment on Walker Pi"><Plus size={16} aria-hidden="true" />Create experiment</button>}>
       {loading ? <p className="px-system-empty" role="status">Loading experiments…</p> : catalogFailed ? <p className="px-system-empty" role="alert">Could not load experiments. <button type="button" className="px-button" onClick={() => void refreshCatalog()}>Retry</button></p> : experiments.length ? experiments.map(experiment => <button key={experiment.id} type="button" className="px-walker-experiment" onClick={() => onOpenExperiment(experiment.id)}>

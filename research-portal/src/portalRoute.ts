@@ -20,7 +20,7 @@ import type { SettingsSection } from "./portalTypes";
  */
 
 export type ExperimentTab = "overview" | "pots" | "record";
-export type ToolView = "health" | "support" | "walker" | "chamber" | "analytics" | "controller" | "account" | "autocalibrate";
+export type ToolView = "health" | "support" | "walker" | "walker-home" | "chamber" | "analytics" | "controller" | "account" | "autocalibrate";
 
 export type PortalRoute =
   | { view: "home" }
@@ -32,7 +32,7 @@ export type PortalRoute =
   | { view: "pocket"; pot: string | null; note: boolean }
   | { view: ToolView };
 
-const toolViews = new Set<ToolView>(["health", "support", "walker", "chamber", "analytics", "controller", "account", "autocalibrate"]);
+const toolViews = new Set<ToolView>(["health", "support", "walker", "walker-home", "chamber", "analytics", "controller", "account", "autocalibrate"]);
 const tabs = new Set<ExperimentTab>(["overview", "pots", "record"]);
 
 /** Keys that identify the account context and survive every navigation. */

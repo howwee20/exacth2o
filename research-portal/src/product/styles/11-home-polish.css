@@ -223,3 +223,51 @@
 .px-pot-chart .has-top-pots .px-saved-views { position:absolute; left:0; right:auto; top:calc(100% + 6px); width:min(290px,calc(100vw - 56px)); margin:0; }
 
 .px-pot-page .px-pot-grid.is-reading-only { grid-template-columns:minmax(0,1fr); }
+
+/* The home page opens each machine from one card. */
+.px-shell .px-machine-home { width: min(1280px, 100%); gap: 28px; }
+.px-system-tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.px-system-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 240px;
+  padding: 28px;
+  border: 1px solid var(--px-rule);
+  border-radius: 22px;
+  background: #fff;
+  color: var(--px-text);
+  text-decoration: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.px-system-tile:hover { border-color: #b8c8bf; box-shadow: 0 6px 20px #101f1a08; }
+.px-system-tile-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; margin-bottom: 26px; }
+.px-system-tile-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 12px; color: var(--px-water); background: #f0f5f2; }
+.px-system-tile-status { color: var(--px-muted); font-size: 12px; text-align: right; }
+.px-system-tile-name { font-size: 24px; font-weight: 600; letter-spacing: -.035em; line-height: 1.2; overflow-wrap: anywhere; }
+.px-system-tile-description { margin-top: 9px; color: var(--px-muted); font-size: 14px; }
+.px-system-tile-detail { margin-top: 6px; color: var(--px-muted); font-size: 13px; }
+.px-system-tile-open { display: inline-flex; align-items: center; gap: 7px; margin-top: auto; padding-top: 24px; color: #0071e3; font-size: 14px; font-weight: 500; }
+.px-home-administration { margin-top: 16px; padding-top: 28px; border-top: 1px solid var(--px-rule); }
+.px-home-administration h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -.025em; }
+.px-home-administration .px-admin-tools-body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 0; }
+.px-home-administration .px-admin-tools-body .portal-launch-card { padding: 22px; border-radius: 18px; text-decoration: none; }
+.px-home-administration .px-admin-tools-body .portal-launch-title { font-size: 16px; }
+.px-home-administration .px-admin-tools-body .portal-compact-row > .is-website-analytics { grid-column: 1 / -1; order: 1; }
+.px-home-administration .portal-launch-action { text-transform: none; letter-spacing: 0; }
+.px-installation-summary + .px-home { padding-top: 0; }
+.px-walker-home .px-system-section { padding: 28px; }
+@media (max-width: 1000px) {
+  .px-system-tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .px-home-administration .px-admin-tools-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .px-system-tile-grid, .px-home-administration .px-admin-tools-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .px-system-tile { min-height: 220px; padding: 24px; border-radius: 18px; }
+  .px-system-tile-top { margin-bottom: 20px; }
+  .px-home-administration { margin-top: 4px; padding-top: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .px-system-tile { transition: none; }
+}

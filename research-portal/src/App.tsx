@@ -1,6 +1,6 @@
 import { AlertTriangle,ArrowRight,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
-import { ChamberControlView,GasMixerResearcherHome,GasMixerResearcherTile,GasMixerResearcherView } from "./ChamberControlView";
+import { ChamberControlView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerMachineTile } from "./WalkerObservationView";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
@@ -36,7 +36,7 @@ import { fullTimeWindow,rememberEmailKey } from "./portalConstants";
 import { type DataMode,rollingExperimentHistoryMs,visibleExperimentPairings } from "./portalData";
 import { errorMessage,runtimeStateIsFresh } from "./portalFormat";
 import { orderedPairings,plantGroupForPairing,treatmentForPairing } from "./portalPresentation";
-import { navigatePortal,portalRouteHref,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
+import { navigatePortal,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
 import { portalSystemName } from "./portalProjectContext";
 import { initialSalesSupportData } from "./portalState";
 import { type ChartSeries,type DeviceConfigState,type DeviceHealthSnapshot,type DeviceRuntimeState,type ExperimentGraphMode,type HealthSelectedDetail,type LoadState,type PortalAccess,type PortalView,type PotPreset,type RefreshOptions,type SettingsSection,type TimeWindow } from "./portalTypes";
@@ -51,7 +51,8 @@ import { PotInspector } from './product/PotInspector';
 import { ProductHeader } from "./product/ProductHeader";
 import { type InstallationState,QuietSpineHome } from "./product/QuietSpineHome";
 import { SavedTraceViews } from "./product/SavedTraceViews";
-import { SystemSection } from "./product/SystemSection";
+import { MachineHome, MachineTile } from "./product/MachineHome";
+import { PortalHomeButton } from "./product/PortalHomeButton";
 import { atBenchRemembered,rememberAtBench } from "./product/pocketMode";
 import { toggleTraceSelection } from "./product/traceSelection";
 import { useNoteOutbox } from "./product/useNoteOutbox";
@@ -1110,6 +1111,33 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     </main>
   );
 
+  const experimentHome = (
+    <QuietSpineHome
+      experiments={availableExperiments}
+      exceptions={portalExceptions}
+      nowMs={clockNowMs}
+      checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
+      catalogError={experimentCatalogError}
+      installation={installationState}
+      canCreate={canCreateExperiment && catalogReady && Boolean(configState?.updated_at)}
+      onNewExperiment={() => {
+        setEditingExperiment(null);
+        setDuplicateExperiment(null);
+        setExperimentBuilderOpen(true);
+      }}
+      onEditExperiment={(experiment) => {
+        setEditingExperiment(experiment);
+        setExperimentBuilderOpen(true);
+      }}
+      onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
+      healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
+        {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
+        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
+      </div> : undefined}
+      recordAvailable={recordAvailable}
+    />
+  );
+
   if (route.view === "account" && !isDemo) {
     return productShell(<FeatureBoundary name="Account"><AccountPage key={activeProjectId} access={portalAccess} /></FeatureBoundary>);
   }
@@ -1132,9 +1160,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     /></FeatureBoundary>);
   }
   if (route.view === "controller" && canReadProjectData) {
-    return productShell(<section className="px-page">
+    return productShell(<><section className="px-page px-installation-summary">
       <PortalLink className="px-home-button" to={{view:"home"}}>← Home</PortalLink>
-      <div className="px-exp-head-row"><h1 className="px-title">Installation</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
+      <div className="px-exp-head-row"><h1 className="px-title">{portalSystemName(activeProjectId, portalAccess.projectName)}</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
       <p className="px-subtitle">Shared sensing and irrigation for this installation</p>
       <dl className="px-facts px-card px-account-section">
         <div><dt>Connection</dt><dd>{presence?.status ?? "Checking"}</dd></div>
@@ -1143,9 +1171,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         <div><dt>Pot pairings</dt><dd>{visiblePairings.length}</dd></div>
       </dl>
       {isAdmin ? <PortalLink className="px-button" to={{view:"health"}}>System health and diagnostics →</PortalLink> : null}
-      <h2 className="px-section-title">Experiments on this controller</h2>
-      <ul className="px-notification-list">{availableExperiments.map((experiment) => <li key={experiment.id}><PortalLink to={{view:"experiment",experiment:experiment.id,tab:"pots",pot:null}}>{experiment.name}</PortalLink><span className="px-muted">{experiment.pairingNames.length} {experiment.pairingNames.length === 1 ? "pot" : "pots"}</span></li>)}</ul>
-    </section>);
+    </section>{experimentHome}</>);
   }
 
   if (isAdmin && portalView === "analytics") {
@@ -1183,6 +1209,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     );
   }
 
+  if (isAdmin && route.view === "walker-home") {
+    return productShell(<section className="px-page px-walker-home">
+      <PortalHomeButton onClick={() => setPortalView("home")} />
+      <WalkerMachineTile expanded onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} />
+    </section>);
+  }
+
   if (isAdmin && portalView === "walker") {
     return productShell(<FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>);
   }
@@ -1214,7 +1247,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     if (!match) {
       return (
         <section className="px-page">
-          <PortalLink className="px-crumb" to={experimentContext ? { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } : { view: "home" }}>
+          <PortalLink className="px-crumb" to={experimentContext ? { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } : { view: isDemo ? "home" : "controller" }}>
             ← {experimentContext ? experimentContext.name : "Experiments"}
           </PortalLink>
           <p className="px-empty" role={loading ? "status" : "alert"}>
@@ -1234,7 +1267,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           ? { label: "Bench", route: { view: "bench", pot: null } }
           : experimentContext
             ? { label: `${experimentContext.name} · Traces`, route: { view: "experiment", experiment: experimentContext.id, tab: "pots", pot: null } }
-            : { label: "Experiments", route: { view: "home" } }}
+            : { label: "Experiments", route: { view: isDemo ? "home" : "controller" } }}
       /></FeatureBoundary>
     );
   };
@@ -1379,42 +1412,36 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     </>
   ) : null;
 
+  if (isDemo) return productShell(experimentHome);
+
+  const systemName = portalSystemName(activeProjectId, portalAccess.projectName);
+  const systemStatus = installationState.status === "online" ? "Online"
+    : installationState.status === "offline" ? "Offline"
+    : installationState.status === "unknown" && installationState.message ? installationState.message
+    : "Status unavailable";
+  const administration = <>
+    {adminTools}
+    {isAdmin ? <PortalLink className="portal-launch-card" to={{ view: "health" }}>
+      <span className="portal-launch-copy"><span className="portal-launch-title">System Health</span><strong>{systemName}</strong></span>
+      <span className="portal-launch-action">Open <ArrowRight size={14} /></span>
+    </PortalLink> : null}
+    {canUseExperimentSettings ? <PortalLink className="portal-launch-card" to={{ view: "autocalibrate" }}>
+      <span className="portal-launch-copy"><span className="portal-launch-title">Autocalibrate</span><strong>{systemName}</strong></span>
+      <span className="portal-launch-action">Open <ArrowRight size={14} /></span>
+    </PortalLink> : null}
+  </>;
+
   return productShell(
-    <QuietSpineHome
-      experiments={availableExperiments}
-      systemName={isDemo ? undefined : portalSystemName(activeProjectId, portalAccess.projectName)}
-      exceptions={portalExceptions}
-      nowMs={clockNowMs}
-      checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
-      catalogError={experimentCatalogError}
-      installation={installationState}
-      canCreate={canCreateExperiment && catalogReady && Boolean(configState?.updated_at)}
-      onNewExperiment={() => {
-        setEditingExperiment(null);
-        setDuplicateExperiment(null);
-        setExperimentBuilderOpen(true);
-      }}
-      onEditExperiment={(experiment) => {
-        setEditingExperiment(experiment);
-        setExperimentBuilderOpen(true);
-      }}
-      onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
-      healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
-        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
-      </div> : undefined}
-      machines={!isDemo ? <>
-        {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
-          <SystemSection key={project.id} name={project.name} defaultExpanded={false}
-            action={<a className="px-button" href={portalRouteHref({ view: "home" }, { project: project.id })}>Open system</a>}>
-            <p className="px-system-description">Open this system to view its experiments and controller status.</p>
-          </SystemSection>,
-        )}
-        {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
-        {isAdmin || portalAccess.gasMixerAllowed ? <SystemSection name="Chamber" defaultExpanded={false} description="Gas mixer · Lighting" action={<button type="button" className="px-button" onClick={() => setPortalView("chamber")}>Open system</button>}><p className="px-system-description">Control and schedules</p></SystemSection> : null}
-      </> : undefined}
-      tools={isDemo ? undefined : adminTools ?? (portalAccess.gasMixerAllowed ? <GasMixerResearcherTile onOpen={() => setPortalView("chamber")} /> : undefined)}
-      recordAvailable={recordAvailable}
-    />,
+    <MachineHome tools={isAdmin || canUseExperimentSettings ? administration : undefined}>
+      <MachineTile name={systemName} description="Sensing and irrigation"
+        detail={`${availableExperiments.length} ${availableExperiments.length === 1 ? "experiment" : "experiments"} · ${visiblePairings.length} pots`}
+        status={systemStatus} to={{ view: "controller" }} />
+      {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
+        <MachineTile key={project.id} name={project.name} description="Sensing and irrigation"
+          to={{ view: "controller" }} extra={{ project: project.id }} />,
+      )}
+      {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
+      {isAdmin || portalAccess.gasMixerAllowed ? <MachineTile name="Chamber" description="Gas mixer and lighting" to={{ view: "chamber" }} /> : null}
+    </MachineHome>,
   );
 }

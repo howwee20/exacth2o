@@ -14,7 +14,7 @@ export function ExperimentNotFound({ id, loading }: { id: string; loading: boole
       ) : (
         <div className="px-empty" role="alert">
           <p><b>No experiment “{id}” is visible to this account.</b></p>
-          <p>It may belong to another project, be archived, or be limited to other roles. Experiments you can open are listed on the home page.</p>
+          <p>It may belong to another project, be archived, or be limited to other roles. Open your system from Home to see its experiments.</p>
         </div>
       )}
     </section>
