@@ -167,7 +167,7 @@
 .px-shell .health-mini-fact span { color: var(--px-muted); font-size: 12px; font-weight: 400; }
 .px-shell .health-mini-fact strong { margin-top: 4px; color: var(--px-ink); font-size: 15px; font-weight: 600; }
 .px-shell .portal-health-chart { border-color: var(--px-rule); border-radius: var(--px-control-radius); background: #fff; }
-/* The drawing keeps its proportions; on a wide panel it stops growing instead of scaling its labels. */
+/* Health plots use the available width while keeping their labels at a readable size. */
 .px-shell .portal-health-chart > svg { max-height: 250px; }
 .px-shell .portal-status-pill { min-height: 26px; padding: 0 11px; font-size: 12px; font-weight: 500; }
 .px-shell .px-diagnostics > summary { font-size: 14px; font-weight: 500; color: var(--px-water); }
