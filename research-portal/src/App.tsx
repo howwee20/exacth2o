@@ -1472,7 +1472,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       <MachineTile name={systemName}
         detail={defaultSystemExperiment && !experimentIsCompleted(defaultSystemExperiment, clockNowMs) ? defaultSystemExperiment.name
           : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
-        status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }}
+        status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
+        to={{ view: "controller" }} healthTo={{ view: "health" }}
         creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
         <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />,

@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Plus } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { loadPortalExperimentCatalog } from "../experimentClient";
 import { experimentIsCompleted, orderHomeExperiments } from "../experimentMeasurement";
@@ -6,10 +6,11 @@ import type { PortalRoute } from "../portalRoute";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
 
-export function MachineTile({ name, detail, status, to, extra, traceExtra, healthTo, creation }: {
+export function MachineTile({ name, detail, status, statusTone = "unknown", to, extra, traceExtra, healthTo, creation }: {
   name: string;
   detail?: string;
   status?: ReactNode;
+  statusTone?: "online" | "warning" | "offline" | "unknown";
   to: PortalRoute;
   extra?: Record<string, string | null>;
   traceExtra?: Record<string, string | null>;
@@ -17,20 +18,26 @@ export function MachineTile({ name, detail, status, to, extra, traceExtra, healt
   creation: { to: PortalRoute } | { unavailable: string };
 }) {
   return <div className="px-system-card">
-    <div className="px-system-tile-wrap">
-      <PortalLink className="px-system-tile" to={to} extra={{ ...extra, ...traceExtra }} reloadDocument={Boolean(extra?.project)} aria-label={`Open ${name}`}>
+    <PortalLink className="px-system-tile" to={to} extra={{ ...extra, ...traceExtra }} reloadDocument={Boolean(extra?.project)} aria-label={`Open ${name}`}>
+      <span className="px-system-tile-header">
         <span className="px-system-tile-name">{name}</span>
-        {detail ? <span className="px-system-tile-detail">{detail}</span> : null}
-      </PortalLink>
-      {"to" in creation ? <PortalLink className="px-system-create" to={creation.to} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`New experiment on ${name}`}>
-        New experiment
-      </PortalLink> : <button type="button" className="px-system-create" disabled title={creation.unavailable} aria-label={`New experiment on ${name} unavailable`}>
-        New experiment
-      </button>}
-    </div>
-    <PortalLink className="px-system-health-link" to={healthTo} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`${name} system health`}>
-      <span>System health</span><span className="px-system-health-status">{status}<ArrowRight size={14} aria-hidden="true" /></span>
+        <span className={`px-system-status is-${statusTone}`}><span className="px-system-status-dot" aria-hidden="true" />{status ?? "Status unavailable"}</span>
+      </span>
+      <span className="px-system-experiment">
+        <span className="px-system-experiment-label">Active experiment</span>
+        <span className="px-system-tile-detail">{detail ?? "No active experiment"}</span>
+      </span>
     </PortalLink>
+    <div className="px-system-tile-footer">
+      {"to" in creation ? <PortalLink className="px-system-create" to={creation.to} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`New experiment on ${name}`}>
+        <Plus size={13} aria-hidden="true" /> New experiment
+      </PortalLink> : <button type="button" className="px-system-create" disabled title={creation.unavailable} aria-label={`New experiment on ${name} unavailable`}>
+        <Plus size={13} aria-hidden="true" /> New experiment
+      </button>}
+      <PortalLink className="px-system-health-link" to={healthTo} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`${name} system health`}>
+        System health <ArrowRight size={13} aria-hidden="true" />
+      </PortalLink>
+    </div>
   </div>;
 }
 

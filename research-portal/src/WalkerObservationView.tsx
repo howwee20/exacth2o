@@ -48,6 +48,8 @@ export function WalkerMachineTile() {
     name="Walker Pi"
     detail={currentExperiment?.name ?? (loading ? "Loading experiment…" : catalogFailed ? "Experiment unavailable" : "No active experiment")}
     status={failed ? "Status unavailable" : status ? `${status.current_sensor_count ?? status.evidenced_sensor_count} / ${status.expected_sensor_count} sensors` : "Checking sensors…"}
+    statusTone={failed || !status ? "unknown" : status.overall_status === "offline" ? "offline"
+      : status.overall_status === "operational" && (status.current_sensor_count ?? status.evidenced_sensor_count) > 0 ? "online" : "warning"}
     to={{ view: "walker" }}
     traceExtra={{ study: currentExperiment?.id ?? null }}
     healthTo={{ view: "walker-health" }}
