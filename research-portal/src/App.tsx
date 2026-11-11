@@ -402,9 +402,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }, [sessionReady, canUseExperimentSettings, route]);
 
   useEffect(() => {
-    if (route.view !== "controller" || !defaultSystemExperiment || settingsOpen || settingsSectionFromSearch(window.location.search)) return;
+    if (!sessionReady || !canReadProjectData || route.view !== "controller" || !defaultSystemExperiment || settingsOpen || settingsSectionFromSearch(window.location.search)) return;
     navigatePortal({ view: "experiment", experiment: defaultSystemExperiment.id, tab: "pots", pot: null }, { replace: true });
-  }, [route.view, defaultSystemExperiment, settingsOpen]);
+  }, [sessionReady, canReadProjectData, route.view, defaultSystemExperiment, settingsOpen]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine !== false);
@@ -1187,7 +1187,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     );
   }
 
-  if (isAdmin && portalView === "health") {
+  if (canReadProjectData && portalView === "health") {
     return productShell(
       <FeatureBoundary name="System Health">
         <SystemHealthView
