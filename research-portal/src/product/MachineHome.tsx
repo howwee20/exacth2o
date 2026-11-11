@@ -6,7 +6,7 @@ import type { PortalRoute } from "../portalRoute";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
 
-export function MachineTile({ name, detail, status, statusTone = "unknown", to, extra, traceExtra, healthTo, creation }: {
+export function MachineTile({ name, detail, status, statusTone = "unknown", to, extra, traceExtra, healthTo, creation, onPrepare }: {
   name: string;
   detail?: string;
   status?: ReactNode;
@@ -16,9 +16,10 @@ export function MachineTile({ name, detail, status, statusTone = "unknown", to, 
   traceExtra?: Record<string, string | null>;
   healthTo: PortalRoute;
   creation: { to: PortalRoute } | { unavailable: string };
+  onPrepare?: () => void;
 }) {
   return <div className="px-system-card">
-    <PortalLink className="px-system-tile" to={to} extra={{ ...extra, ...traceExtra }} reloadDocument={Boolean(extra?.project)} aria-label={`Open ${name}`}>
+    <PortalLink className="px-system-tile" to={to} extra={{ ...extra, ...traceExtra }} reloadDocument={Boolean(extra?.project)} aria-label={`Open ${name}`} onPointerEnter={onPrepare} onFocus={onPrepare}>
       <span className="px-system-tile-header">
         <span className="px-system-tile-name">{name}</span>
         <span className={`px-system-status is-${statusTone}`}><span className="px-system-status-dot" aria-hidden="true" />{status ?? "Status unavailable"}</span>

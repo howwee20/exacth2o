@@ -2,7 +2,7 @@
   "embedded": {
     "App.tsx": {
       "count": 6,
-      "sha256": "a46ef4747493dd6f23a7271d0f9630caa912b88263e44b38f400dbc9ee78207c"
+      "sha256": "8621b45f995317d5c631a5311099941ffb55b6fd8ccec4697711fbd541a70df1"
     },
     "useControllerCommands.ts": {
       "count": 2,
@@ -32,7 +32,7 @@
   "standalone": {
     "App.tsx": {
       "count": 6,
-      "sha256": "a46ef4747493dd6f23a7271d0f9630caa912b88263e44b38f400dbc9ee78207c"
+      "sha256": "8621b45f995317d5c631a5311099941ffb55b6fd8ccec4697711fbd541a70df1"
     },
     "useControllerCommands.ts": {
       "count": 2,

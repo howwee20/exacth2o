@@ -26,21 +26,24 @@ export function WebsiteAnalyticsSummary({ summary, failed = false, onOpen }: {
   const points = days.map((day, index) => `${4 + index * 192 / Math.max(1, days.length - 1)},${54 - day.visitors / peak * 46}`);
   const status = failed || summary?.status === "unavailable" ? "Traffic unavailable" : summary?.status === "setup" ? "Connection pending" : summary ? "Collecting traffic" : "Loading traffic…";
   const metrics = [
-    { label: "Visitors", value: summary?.visitors },
-    { label: "Demo clicks", value: summary?.demoClicks },
+    { label: "Unique visitors", value: summary?.visitors },
+    { label: "Demo sessions", value: summary?.demoInteractionSessions },
     { label: "Quote clicks", value: summary?.quoteClicks },
     { label: summary?.inquirySource === "server" ? "Accepted inquiries" : "Inquiries", value: summary?.inquiries },
   ];
   return <button type="button" className="website-analytics-summary" onClick={onOpen} aria-label="Open website analytics">
     <span className="website-analytics-intro">
       <span className="website-analytics-title">Website analytics</span>
-      <span className="website-analytics-period-label">Last 7 days{summary?.stale || (failed && ready) ? " · delayed" : ""}</span>
+      <span className="website-analytics-period-label" title="Reports refresh every five minutes. Each browser counts once in the total and once on each day it visits.">
+        Last 7 days{summary?.stale || (failed && ready) ? " · delayed" : ""}
+        {summary?.updatedAt && Number.isFinite(Date.parse(summary.updatedAt)) ? <><br />Updated <time dateTime={summary.updatedAt}>{new Date(summary.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></> : null}
+      </span>
     </span>
     {ready ? <>
       <span className="website-analytics-basic-stats">
         {metrics.map(metric => <span className="website-analytics-basic-stat" key={metric.label}>
           <strong>{metric.value == null ? "—" : metric.value.toLocaleString()}</strong>
-          <span>{metric.label}</span>
+          <span title={metric.label === "Demo sessions" ? "Sessions that interacted with the embedded demo on Applications." : undefined}>{metric.label}</span>
         </span>)}
       </span>
       <span className="website-analytics-trend">

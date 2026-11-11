@@ -71,6 +71,7 @@ import { ResearchWateringActivity } from "./watering/WateringActivity";
 import { resolveHealthWateringEvents,valveEventsToHealthWateringEvents } from "./wateringEvents";
 import { overlayTimeBounds } from "./wateringOverlay";
 import { websiteAnalyticsReportCache } from "./websiteAnalyticsClient";
+import { clearWalkerTraceCache } from "./walkerTraceCache";
 
 
 // Features loaded on first use: the sign-in page and home stay small, and admin-only views never
@@ -258,11 +259,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
   );
-  const experimentArchive = useExperimentReadings(selectedExperiment, portalAccess?.projectId ?? "", portalAccess?.deviceId ?? "",
-    sessionReady && ((route.view === "experiment" && route.tab !== "record") || (route.view === "controller" && defaultSystemExperiment !== null)) && document.documentElement.dataset.portalMode !== "demo", portalAccess?.userId);
+  // Start the active system's archive on Home. The same hook and request stay alive when its
+  // tile opens, so clicking does not restart history loading or throw away pages already read.
+  const archiveExperiment = route.view === "home" && defaultSystemExperiment ? defaultSystemExperiment : selectedExperiment;
+  const experimentArchive = useExperimentReadings(archiveExperiment, portalAccess?.projectId ?? "", portalAccess?.deviceId ?? "",
+    sessionReady && ((route.view === "home" && defaultSystemExperiment !== null && data.pairings.length > 0) || (route.view === "experiment" && route.tab !== "record") || (route.view === "controller" && defaultSystemExperiment !== null)) && document.documentElement.dataset.portalMode !== "demo", portalAccess?.userId);
   const experimentReadings = useMemo(
-    () => experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
-    [data.readings, experimentArchive.readings, selectedExperiment],
+    () => route.view === "home" ? [] : experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
+    [data.readings, experimentArchive.readings, selectedExperiment, route.view],
   );
   const series = useMemo(
     () => chartSeries(sortedPairings, experimentReadings, selectedExperiment),
@@ -730,6 +734,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setExperimentCatalog([]);
       websiteAnalyticsReportCache.clear();
       clearExperimentArchives();
+      clearWalkerTraceCache();
       return;
     }
     void loadPortalAccess();
@@ -1255,7 +1260,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }
 
   if (isAdmin && (portalView === "walker" || route.view === "walker-home" || route.view === "walker-new-experiment")) {
-    return productShell(<FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>);
+    return productShell(<FeatureBoundary name="Walker observation"><WalkerExperimentView userId={portalAccess.userId} onBack={() => setPortalView("home")} /></FeatureBoundary>);
   }
 
   if (isAdmin && portalView === "chamber") {
@@ -1418,7 +1423,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         ) : (
           <div className="px-pots-tab">
             {experimentCatalogError ? <p className="px-notice" role="alert">The experiment list could not be refreshed. Showing available readings.</p> : null}
-            {experimentArchive.loading ? <p className="px-loaded-range" role="status">Loading experiment data… {experimentArchive.progress.toLocaleString()} readings</p> : null}
+            {experimentArchive.loading ? <p className="px-loaded-range" role="status">Loading full history… {experimentArchive.progress.toLocaleString()} readings</p> : null}
             {experimentArchive.error ? <p className="px-notice is-bad" role="alert">Full experiment data could not be loaded. The graph shows the available readings. <button className="px-button is-small" onClick={experimentArchive.retry}>Retry</button></p> : null}
             <div className="px-pot-chart" aria-label="Pot traces">{potsTabContent}</div>
           </div>
@@ -1473,12 +1478,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         detail={defaultSystemExperiment && !experimentIsCompleted(defaultSystemExperiment, clockNowMs) ? defaultSystemExperiment.name
           : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
         status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
-        to={{ view: "controller" }} healthTo={{ view: "health" }}
+        to={defaultSystemExperiment ? { view: "experiment", experiment: defaultSystemExperiment.id, tab: "pots", pot: null } : { view: "controller" }} healthTo={{ view: "health" }}
         creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
         <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />,
       )}
-      {isAdmin ? <WalkerMachineTile /> : null}
+      {isAdmin ? <WalkerMachineTile userId={portalAccess.userId} /> : null}
       {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" detail="No active experiment" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} creation={{ unavailable: "Experiment creation is not available for Chamber yet." }} /> : null}
     </MachineHome>,
   );

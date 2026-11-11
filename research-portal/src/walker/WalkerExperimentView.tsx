@@ -14,7 +14,7 @@ import { type ChartPoint, type ChartSeries, type TimeBounds } from "../portalTyp
 import { colorForPotNumber } from "../potColors";
 import { type SensorReading } from "../types";
 import { isWalkerAccessDenied, toggleWalkerSensorSelection, walkerFreshness, type WalkerLiveSensor, type WalkerLiveSnapshot, walkerSensorsByBoard } from "../walkerObservation";
-import { loadWalkerLiveSnapshot } from "../walkerObservationClient";
+import { loadWalkerTraceSnapshot } from "../walkerTraceCache";
 import { scopeWalkerSnapshot, type WalkerPortalExperiment } from "../walkerExperiments";
 import { PortalHomeButton } from "../product/PortalHomeButton";
 
@@ -68,7 +68,7 @@ export function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
   });
 }
 
-export function WalkerExperimentView({ onBack, experiment, tools }: { onBack: () => void; experiment?: WalkerPortalExperiment | null; tools?: ReactNode }) {
+export function WalkerExperimentView({ onBack, userId, experiment, tools }: { onBack: () => void; userId?: string; experiment?: WalkerPortalExperiment | null; tools?: ReactNode }) {
   const [lastRecorded, setLastRecorded] = useState(false);
   const [sourceSnapshot, setSnapshot] = useState<WalkerLiveSnapshot | null>(null);
   const snapshot = useMemo(() => sourceSnapshot && experiment ? scopeWalkerSnapshot(sourceSnapshot, experiment) : sourceSnapshot, [sourceSnapshot, experiment]);
@@ -96,7 +96,7 @@ export function WalkerExperimentView({ onBack, experiment, tools }: { onBack: ()
     // Only the newest request may update the view; a late answer from an earlier one is dropped.
     const request = ++requestRef.current;
     try {
-      const nextSnapshot = await loadWalkerLiveSnapshot(lastRecorded);
+      const nextSnapshot = await loadWalkerTraceSnapshot(userId, lastRecorded);
       if (!mountedRef.current || request !== requestRef.current) return;
       setSnapshot(nextSnapshot);
       setError(null);
@@ -120,7 +120,7 @@ export function WalkerExperimentView({ onBack, experiment, tools }: { onBack: ()
     } finally {
       if (mountedRef.current && request === requestRef.current) setLoading(false);
     }
-  }, [lastRecorded]);
+  }, [lastRecorded, userId]);
 
   useEffect(() => {
     setLoading(true);
