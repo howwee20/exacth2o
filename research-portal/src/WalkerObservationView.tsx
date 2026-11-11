@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { scheduleVisiblePolling } from "./visiblePolling";
 import { isWalkerAccessDenied, type WalkerLiveStatus } from "./walkerObservation";
 import { loadWalkerLiveStatus } from "./walkerObservationClient";
@@ -7,6 +7,7 @@ import type { WalkerPortalExperiment } from "./walkerExperiments";
 import { formatSettingsTimestamp } from "./portalFormat";
 import { MachineTile } from "./product/MachineHome";
 import { PortalHomeButton } from "./product/PortalHomeButton";
+import { loadWalkerTraceSnapshot, rememberWalkerExperiments } from "./walkerTraceCache";
 
 const walkerStatusPollMs = 60_000;
 
@@ -40,8 +41,17 @@ export function useWalkerOverview() {
   return { status, experiments, loading, visible, failed, catalogFailed };
 }
 
-export function WalkerMachineTile() {
+export function WalkerMachineTile({ userId }: { userId?: string }) {
   const { status, experiments, loading, visible, failed, catalogFailed } = useWalkerOverview();
+  const preparedUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !visible) return;
+    rememberWalkerExperiments(userId, experiments);
+    if (preparedUser.current === userId) return;
+    preparedUser.current = userId ?? null;
+    void loadWalkerTraceSnapshot(userId).catch(() => { /* Opening traces retries a failed lookahead. */ });
+    void import("./walker/WalkerExperimentPage").catch(() => {});
+  }, [experiments, loading, userId, visible]);
   if (!visible) return null;
   const currentExperiment = experiments.at(-1);
   return <MachineTile
@@ -52,6 +62,7 @@ export function WalkerMachineTile() {
       : status.overall_status === "operational" && (status.current_sensor_count ?? status.evidenced_sensor_count) > 0 ? "online" : "warning"}
     to={{ view: "walker" }}
     traceExtra={{ study: currentExperiment?.id ?? null }}
+    onPrepare={() => { void loadWalkerTraceSnapshot(userId).catch(() => {}); }}
     healthTo={{ view: "walker-health" }}
     creation={{ to: { view: "walker-new-experiment" } }}
   />;
