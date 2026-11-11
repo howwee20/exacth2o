@@ -1,21 +1,24 @@
 import { ArrowRight, ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { loadPortalExperimentCatalog } from "../experimentClient";
+import { experimentIsCompleted, orderHomeExperiments } from "../experimentMeasurement";
 import type { PortalRoute } from "../portalRoute";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
 
-export function MachineTile({ name, detail, status, to, extra, healthTo, creation }: {
+export function MachineTile({ name, detail, status, to, extra, traceExtra, healthTo, creation }: {
   name: string;
   detail?: string;
   status?: ReactNode;
   to: PortalRoute;
   extra?: Record<string, string | null>;
+  traceExtra?: Record<string, string | null>;
   healthTo: PortalRoute;
   creation: { to: PortalRoute } | { unavailable: string };
 }) {
   return <div className="px-system-card">
     <div className="px-system-tile-wrap">
-      <PortalLink className="px-system-tile" to={to} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`Open ${name}`}>
+      <PortalLink className="px-system-tile" to={to} extra={{ ...extra, ...traceExtra }} reloadDocument={Boolean(extra?.project)} aria-label={`Open ${name}`}>
         <span className="px-system-tile-name">{name}</span>
         {detail ? <span className="px-system-tile-detail">{detail}</span> : null}
       </PortalLink>
@@ -31,9 +34,25 @@ export function MachineTile({ name, detail, status, to, extra, healthTo, creatio
   </div>;
 }
 
+export function ProjectMachineTile({ projectId, name }: { projectId: string; name: string }) {
+  const [detail, setDetail] = useState("Loading experiment…");
+  useEffect(() => {
+    let active = true;
+    void loadPortalExperimentCatalog(projectId).then(experiments => {
+      if (!active) return;
+      const current = orderHomeExperiments(experiments).find(experiment => !experimentIsCompleted(experiment));
+      setDetail(current?.name ?? "No active experiment");
+    }).catch(() => {
+      if (active) setDetail("Experiment unavailable");
+    });
+    return () => { active = false; };
+  }, [projectId]);
+  return <MachineTile name={name} detail={detail} extra={{ project: projectId }}
+    to={{ view: "controller" }} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} />;
+}
+
 export function MachineHome({ children, tools }: { children: ReactNode; tools?: ReactNode }) {
   return <section className="px-home px-machine-home" aria-label="Your systems">
-    <h1 className="px-title">Systems</h1>
     <div className="px-system-tile-grid">{children}</div>
     {tools ? <details className="px-tools px-home-administration">
       <summary>Administration <ChevronDown size={18} aria-hidden="true" /></summary>

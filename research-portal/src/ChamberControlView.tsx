@@ -436,7 +436,8 @@ export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
     <div className="px-system-card">
     <div className="px-system-tile-wrap">
     <button type="button" className="portal-launch-card is-chamber-control px-system-tile" onClick={onOpen}>
-      <span className="portal-launch-copy"><strong>Gas Mixer</strong></span>
+      <span className="px-system-tile-name">Chamber</span>
+      <span className="px-system-tile-detail">No active experiment</span>
     </button>
     <button type="button" className="px-system-create" disabled title="Experiment creation is not available for Chamber yet.">New experiment</button>
     </div>

@@ -21,7 +21,7 @@ import { useExpandedGraph } from "./charts/useExpandedGraph";
 import { trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { levelLabel } from "./experimentFactors";
-import { orderHomeExperiments,pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
+import { experimentIsCompleted,orderHomeExperiments,pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
 import { experimentGraphGroups,experimentSidebarGroups } from "./experimentPresentation";
 import { deduplicateExperimentCatalog,type ExperimentId,isObservationOnlyExperiment,pairingsForExperiment,type PortalExperiment,portalExperimentById,valveEventsForExperiment } from "./experimentRegistry";
 import { experimentTraceReadings } from "./experimentTraceReadings";
@@ -51,7 +51,7 @@ import { PotInspector } from './product/PotInspector';
 import { ProductHeader } from "./product/ProductHeader";
 import { type InstallationState,QuietSpineHome } from "./product/QuietSpineHome";
 import { SavedTraceViews } from "./product/SavedTraceViews";
-import { MachineHome, MachineTile } from "./product/MachineHome";
+import { MachineHome, MachineTile, ProjectMachineTile } from "./product/MachineHome";
 import { atBenchRemembered,rememberAtBench } from "./product/pocketMode";
 import { toggleTraceSelection } from "./product/traceSelection";
 import { useNoteOutbox } from "./product/useNoteOutbox";
@@ -1469,16 +1469,15 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   return productShell(
     <MachineHome tools={adminTools}>
       <MachineTile name={systemName}
-        detail={`${availableExperiments.length} ${availableExperiments.length === 1 ? "experiment" : "experiments"} · ${visiblePairings.length} pots`}
+        detail={defaultSystemExperiment && !experimentIsCompleted(defaultSystemExperiment, clockNowMs) ? defaultSystemExperiment.name
+          : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
         status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }}
         creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
-        <MachineTile key={project.id} name={project.name}
-          to={{ view: "controller" }} healthTo={{ view: "health" }} extra={{ project: project.id }}
-          creation={{ to: { view: "new-experiment" } }} />,
+        <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />,
       )}
       {isAdmin ? <WalkerMachineTile /> : null}
-      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} creation={{ unavailable: "Experiment creation is not available for Chamber yet." }} /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" detail="No active experiment" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} creation={{ unavailable: "Experiment creation is not available for Chamber yet." }} /> : null}
     </MachineHome>,
   );
 }

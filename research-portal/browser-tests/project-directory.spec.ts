@@ -10,7 +10,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     page.setDefaultTimeout(15_000);
     const account = { ...user, email };
     const now = new Date().toISOString();
-    const walkerStatus = { expected_sensor_count: 100, current_sensor_count: 98, evidenced_sensor_count: 100, freshness: 'live', overall_status: 'operational', latest_live_reading_at: now, publisher: { status: 'healthy', last_success_at: now } };
+    const walkerStatus = { project_id: '33333333-3333-4333-8333-333333333331', device_id: 'balena:a1c4ace2b367fbee8521f1aff6a6329b', expected_sensor_count: 100, current_sensor_count: 98, evidenced_sensor_count: 100, freshness: 'live', overall_status: 'operational', latest_live_reading_at: now, publisher: { status: 'healthy', last_success_at: now } };
+    const walkerExperiments = [
+      { id: 'walker-previous', project_id: walkerStatus.project_id, device_id: walkerStatus.device_id, name: 'Previous Walker trial', sensor_ids: [1], started_at: '2026-01-01T00:00:00Z', created_at: '2026-01-01T00:00:00Z' },
+      { id: 'walker-current', project_id: walkerStatus.project_id, device_id: walkerStatus.device_id, name: 'Current Walker trial', sensor_ids: [1], started_at: now, created_at: now },
+    ];
     const payload = Buffer.from(JSON.stringify({ sub: userId, role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
     const token = `eyJhbGciOiJIUzI1NiJ9.${payload}.test`;
     await page.addInitScript(({ token, user }) => {
@@ -66,6 +70,9 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         ] : []), ...(createdExperiment && project === `eq.${createdExperiment.project_id}` ? [createdExperiment] : [])];
       } else if (url.pathname === '/rest/v1/walker_observation_sensor_metadata') {
         data = [{ source_sensor_id: 1, display_label: 'Sensor 1', position_number: 1 }];
+      } else if (url.pathname === '/rest/v1/walker_portal_experiments') {
+        const id = url.searchParams.get('id')?.replace(/^eq\./, '');
+        data = id ? walkerExperiments.find(experiment => experiment.id === id) : walkerExperiments;
       } else if (url.pathname === '/rest/v1/rpc/walker_live_observation_status') {
         data = walkerStatus;
       } else if (url.pathname === '/rest/v1/rpc/walker_live_observation_snapshot') {
@@ -82,6 +89,12 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     const rhee = page.getByRole('link', { name: 'Open Rhee Lab', exact: true });
     await expect(testbed).toBeVisible();
     await expect(rhee).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Systems', exact: true })).toHaveCount(0);
+    await expect(rhee).toContainText('Huiqiao Pan experiment');
+    await expect(testbed).toContainText('No active experiment');
+    const walker = page.getByRole('link', { name: 'Open Walker Pi', exact: true });
+    await expect(walker).toContainText('Current Walker trial');
+    await expect(walker).toHaveAttribute('href', /study=walker-current/);
     await expect(page.locator('.px-system-tile-grid > .px-system-card')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
     await expect(page.locator('.px-system-tile-grid > .px-system-card > .px-system-health-link')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
     await expect(page.locator('.px-system-tile-icon')).toHaveCount(0);
@@ -158,8 +171,9 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('heading', { name: 'Rhee Lab system health', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Home', exact: true }).click();
 
-    await page.getByRole('link', { name: 'Open Walker Pi', exact: true }).click();
+    await walker.click();
     await expect(page).toHaveURL(/view=walker/);
+    await expect(page.getByRole('combobox', { name: 'Walker experiment', exact: true })).toHaveValue('walker-current');
     await expect(page.getByLabel('Walker VWC observation chart')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create experiment on Walker Pi' })).toBeVisible();
     await page.reload();
@@ -212,5 +226,8 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('button', { name: 'View experiment', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Testbed observation trial', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: /Home/ }).click();
+    await expect(testbed).toContainText('Testbed observation trial');
+    await expect(rhee).toContainText('Huiqiao Pan experiment');
   });
 }
