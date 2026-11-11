@@ -1,6 +1,6 @@
 import { PortalHomeButton } from "../product/PortalHomeButton";
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { advanceCurrentBootUptime, reconstructCurrentBootUptime, restartOutagePresentation } from "../healthUptime";
 import { formatHealthDetailValue, healthBoolean, healthDateWithAge, healthNumber, healthString, healthTimestampMs } from "../healthValues";
 import { booleanMarker, sumKnownCounts } from "../portalData";
@@ -25,12 +25,23 @@ export function HealthTrendChart({
   onSelectDetail?: (detail: HealthSelectedDetail) => void;
 }) {
   const [windowOffset, setWindowOffset] = useState(0);
-  const width = 760;
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(760);
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0) setWidth(Math.max(200, Math.floor(entry.contentRect.width)));
+    });
+    observer.observe(chart);
+    return () => observer.disconnect();
+  }, []);
   const height = 210;
   const padLeft = 56;
   const padRight = 16;
   const padTop = 26;
-  const padBottom = 36;
+  const compact = width < 520;
+  const padBottom = compact ? 48 : 36;
   const allTimes = series.flatMap((item) => item.points.map((point) => point.t));
   const windowInfo = useMemo(
     () => healthChartWindow(allTimes, windowOffset),
@@ -47,6 +58,7 @@ export function HealthTrendChart({
   const values = allPoints.map((point) => point.value as number);
   const minTime = windowInfo.startMs;
   const maxTime = windowInfo.endMs;
+  const timeTicks = compact ? [minTime, maxTime] : [minTime, (minTime + maxTime) / 2, maxTime];
   const computedMax = Math.max(yMax ?? Math.max(yMin + 1, ...values, 1), yMin + 1);
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
@@ -66,7 +78,7 @@ export function HealthTrendChart({
   }, [windowInfo.maxOffset, windowOffset]);
 
   return (
-    <div className="portal-health-chart">
+    <div ref={chartRef} className="portal-health-chart">
       <HealthChartControls
         windowOffset={windowOffset}
         maxOffset={windowInfo.maxOffset}
@@ -123,9 +135,18 @@ export function HealthTrendChart({
               </circle>
             );
           }))}
-        <text x={padLeft} y={height - 12} className="health-chart-axis-text">{formatSettingsTimestamp(new Date(minTime).toISOString())}</text>
-        <text x={(padLeft + width - padRight) / 2} y={height - 12} textAnchor="middle" className="health-chart-axis-text">{formatSettingsTimestamp(new Date((minTime + maxTime) / 2).toISOString())}</text>
-        <text x={width - padRight} y={height - 12} textAnchor="end" className="health-chart-axis-text">{formatSettingsTimestamp(new Date(maxTime).toISOString())}</text>
+        {timeTicks.map((time, index) => {
+          const x = xFor(time);
+          const date = new Date(time);
+          return <text key={time} x={x} y={height - (compact ? 26 : 12)}
+            textAnchor={index === 0 ? "start" : index === timeTicks.length - 1 ? "end" : "middle"}
+            className="health-chart-axis-text health-chart-time-label">
+            {compact ? <>
+              <tspan x={x}>{date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</tspan>
+              <tspan x={x} dy={14}>{date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</tspan>
+            </> : formatSettingsTimestamp(date.toISOString())}
+          </text>;
+        })}
         {!values.length ? <text x={width / 2} y={height / 2} textAnchor="middle" className="health-chart-empty">No samples yet</text> : null}
       </svg>
     </div>

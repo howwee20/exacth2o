@@ -34,7 +34,10 @@
 
 /* Public demos remain in the page, under the website navigation. */
 .portal-opening { padding: 24px var(--gutter) 64px; scroll-margin-top: calc(var(--applications-header-height, 54px) + 20px); }
-.portal-demo-stage { width: 100%; max-width: var(--content); margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--rule); border-radius: 18px; background: var(--bg); box-shadow: 0 16px 48px rgba(14,26,20,.06); }
+.portal-demo-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; max-width: var(--content); margin: 0 auto 20px; }
+.portal-demo-heading h2 { font-size: 28px; line-height: 1.2; font-weight: 600; letter-spacing: -.03em; }
+.portal-demo-heading p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.portal-demo-stage { width: 100%; max-width: var(--content); margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--rule); border-radius: 14px; background: var(--bg); }
 .portal-demo-frame { display: block; width: 100%; height: 470px; margin: 0; border: 0; background: var(--bg); }
 @media (max-width: 600px) { .portal-opening { padding: 16px 12px 40px; } .portal-demo-stage { border-radius: 12px; } }
 
@@ -68,7 +71,7 @@
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/site-typography.css?v=20261111-system1">
-<link rel="stylesheet" href="/site-components.css?v=20261111-system1">
+<link rel="stylesheet" href="/site-components.css?v=20261111-polish1">
 <link rel="stylesheet" href="/site-brand-footer.css?v=20261111-system1">
 </head>
 <body class="public-page applications-page">
@@ -150,8 +153,9 @@
 </div>
 
 <!-- PORTAL -->
-<section class="portal-opening" aria-label="Explore the portal">
-  <div class="portal-demo-stage"><iframe class="portal-demo-frame" src="/applications-demo-app/index.html?v=e181543296e0" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe></div>
+<section class="portal-opening" id="portal-demo" aria-label="Explore the portal">
+  <div class="portal-demo-heading"><h2>Explore the portal</h2><p>Interactive demo with sample data.</p></div>
+  <div class="portal-demo-stage"><iframe class="portal-demo-frame" src="/applications-demo-app/index.html?v=adae92cdeb27" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe></div>
 </section>
 
 <!-- WHY EXACTH2O -->

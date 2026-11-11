@@ -59,11 +59,11 @@ export function startDemoBridge() {
   };
   let ready = false;
   const announceReady = () => {
-    if (ready || !document.querySelector('.px-spine, .px-home')) return;
+    if (ready || !document.querySelector('.px-spine, .px-home, .canvas-chart canvas')) return;
     ready = true;
     post({ name: 'demo_ready' });
   };
-  // Ready means the overview tiles have rendered, not merely that the script loaded.
+  // Ready means the overview or the initial trace chart has rendered.
   const observer = new MutationObserver(() => {
     announceReady();
     if (ready) observer.disconnect();

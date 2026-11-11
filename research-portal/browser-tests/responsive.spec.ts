@@ -2,7 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 
 async function openSavedViews(page: Page) {
   const toggle = page.getByRole('button', {name:'Pots',exact:true});
-  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await expect(toggle).toBeVisible();
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
   await page.getByText('Saved views', {exact:true}).click();
 }
 
@@ -45,13 +46,15 @@ for (const size of [sizes[1], sizes[3], sizes[5]]) test(`visual baseline ${size.
     await expect(page).toHaveScreenshot(`${name}-${size.width}.png`, {animations:'disabled',maxDiffPixelRatio:0.015});
   }
 });
-test('home opens on the overhead photograph with the simulator below', async ({page}) => {
+test('home shows the equipment and brings the trace graph into the next section', async ({page}) => {
+  await page.setViewportSize({width:1440,height:1000});
   await page.goto('/');
-  await expect(page.locator('.cinema-photo img')).toHaveAttribute('alt',/^Overhead view of research pots/);
-  await expect(page.locator('video')).toHaveCount(0);
+  await expect(page.locator('.cinema-slide.is-active img')).toHaveAttribute('alt', /^Overhead view of research pots/);
   await expect(page.locator('main > section').nth(1)).toHaveId('one-pot');
-  await expect(page.getByRole('slider',{name:/Moisture target/})).toBeVisible();
-  await expect(page.locator('#system').getByRole('link',{name:/Open demo/})).toHaveAttribute('href','/demo');
+  await expect(page.locator('#homepage-trace-chart')).toBeVisible();
+  expect((await page.locator('.cinema-hero').boundingBox())!.height).toBeLessThan(700);
+  expect((await page.locator('#homepage-trace-chart').boundingBox())!.y).toBeLessThan(1100);
+  await expect(page.getByRole('link',{name:'View the traces',exact:true})).toHaveAttribute('href','#one-pot');
 });
 
 test('deferred data and saved comparisons', async ({page}) => {
@@ -86,11 +89,24 @@ test('deferred data and saved comparisons', async ({page}) => {
 
 test('mobile Applications embed loads the current release and returns home inline', async ({page}) => {
   await page.setViewportSize({width:390,height:844});
+  await page.addInitScript(() => {
+    window.addEventListener('message', event => {
+      if (event.data?.type === 'exacth2o-demo' && event.data?.name === 'demo_ready') {
+        const root = document.documentElement;
+        root.dataset.demoReadyCount = String(Number(root.dataset.demoReadyCount ?? 0) + 1);
+      }
+    });
+  });
   await page.goto('/applications');
   const frameElement=page.locator('iframe.portal-demo-frame');
   await expect(frameElement).toHaveAttribute('src',/index\.html\?v=[a-f0-9]+/);
   await frameElement.scrollIntoViewIfNeeded();
   const frame=page.frameLocator('iframe.portal-demo-frame');
+  await expect(frame.getByRole('heading',{name:'Drought response',exact:true})).toBeVisible();
+  await expect(frame.getByLabel('Pot traces',{exact:true})).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-demo-ready-count','1');
+  await expect(frame.getByRole('button',{name:'Pots',exact:true})).toHaveAttribute('aria-expanded','false');
+  await frame.getByRole('link',{name:'← Home',exact:true}).click();
   await frame.getByRole('link',{name:'Crop comparison 24 pots',exact:true}).click();
   await expect(frame.getByRole('heading',{name:'Crop comparison',exact:true})).toBeVisible();
   const potsToggle = frame.getByRole('button',{name:'Pots',exact:true});

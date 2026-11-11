@@ -30,7 +30,10 @@
   margin-inline: auto;
   padding: 24px 40px 80px;
 }
-.px-shell .px-page-home { margin: 0 0 20px; }
+.px-shell .px-page-home { margin: 0 0 16px; }
+.px-shell .px-experiment-page { gap: 12px; }
+.px-shell .px-title { font-size: clamp(26px, 2.2vw, 32px); line-height: 1.2; letter-spacing: -.035em; }
+.px-shell .px-header { padding-inline: max(20px, calc((100% - 1200px) / 2)); }
 .px-shell .px-title + .px-subtitle { margin: 6px 0 20px; color: var(--px-muted); font-size: 14px; line-height: 1.5; }
 
 /* Page titles: one size and weight wherever a screen names itself. */
@@ -54,7 +57,7 @@
   .settings-locked-button,
   .settings-download-link
 ) {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 18px;
   border-radius: 999px;
   font: 500 14px/1.2 var(--px-sans);
@@ -117,7 +120,7 @@
   .analytics-filters select,
   .analytics-filters input
 ) {
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--px-control-border);
   border-radius: var(--px-control-radius);
   background-color: #fff;
@@ -164,7 +167,7 @@
 .px-shell .health-mini-fact span { color: var(--px-muted); font-size: 12px; font-weight: 400; }
 .px-shell .health-mini-fact strong { margin-top: 4px; color: var(--px-ink); font-size: 15px; font-weight: 600; }
 .px-shell .portal-health-chart { border-color: var(--px-rule); border-radius: var(--px-control-radius); background: #fff; }
-/* The drawing keeps its proportions; on a wide panel it stops growing instead of scaling its labels. */
+/* Health plots use the available width while keeping their labels at a readable size. */
 .px-shell .portal-health-chart > svg { max-height: 250px; }
 .px-shell .portal-status-pill { min-height: 26px; padding: 0 11px; font-size: 12px; font-weight: 500; }
 .px-shell .px-diagnostics > summary { font-size: 14px; font-weight: 500; color: var(--px-water); }
@@ -201,3 +204,13 @@
 
 .px-shell .walker-experiment-shell > .px-notice { margin: 4px 0 12px; }
 .px-shell .walker-experiment-shell .chart-card { border: 1px solid var(--px-rule); border-radius: var(--px-panel-radius); overflow: hidden; }
+
+/* The trace controls and related panels use the shared field and panel sizes. */
+.px-shell .px-pot-chart .chart-card { border-radius: var(--px-panel-radius); }
+.px-shell .px-pot-chart .has-top-pots .px-experiment-tools { padding: 8px 16px; }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure { min-height: 40px; }
+.px-shell .px-pot-chart .chart-view-toggle button { min-height: 36px; }
+@media (max-width: 760px) {
+  .px-shell .px-pot-chart .has-top-pots .px-experiment-tools { padding-inline: 10px; }
+  .px-shell .px-header { padding-inline: 20px; }
+}
