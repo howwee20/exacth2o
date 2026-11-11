@@ -1,4 +1,26 @@
-/* One header and action-button style across the public website. */
+/* One palette, header and action-button style across the public website. */
+.public-page {
+  --bg: #fff;
+  --surface: #f5f5f7;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --rule: #e5e5e7;
+  --action: #0071e3;
+  --action-hover: #0077ed;
+  --content: 1200px;
+  color: var(--ink);
+  background: #fff;
+  letter-spacing: -.015em;
+}
+/* Short pages keep the footer at the bottom of the window. */
+body.public-page { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; }
+body.public-page > main { flex: 1 0 auto; min-width: 0; }
+
+/* Section labels are quiet text above a heading, the same on every page. */
+.public-page .section-label { display: block; margin-bottom: 14px; color: var(--muted); font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.public-page .section-label::before { display: none; }
+@media (max-width: 600px) { .public-page .section-label { font-size: 15px; } }
+
 html:root {
   --exact-action: #0071e3;
   --exact-action-hover: #0077ed;
@@ -7,7 +29,8 @@ html:root {
 
 body > nav {
   min-height: 54px;
-  padding-inline: max(24px, calc((100% - 1060px) / 2));
+  /* The wordmark and links sit on the same column as the page content below. */
+  padding-inline: max(24px, var(--gutter), calc((100% - var(--content, 1200px)) / 2));
   gap: 32px;
   /* An opaque header avoids a separate backdrop-filter surface at Safari's
      moving toolbar edge. Its position and dimensions stay in normal CSS. */

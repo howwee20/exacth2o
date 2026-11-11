@@ -1,4 +1,4 @@
-.chamber-schedules { font-family: "IBM Plex Mono", monospace; }
+.chamber-schedules { font-variant-numeric: tabular-nums; }
 .chamber-schedules header small { display:block; margin-top:6px; color:#718078; font-size:11px; }
 .schedule-content { padding:22px; }
 .schedule-help { color:#68776e; font-size:12px; line-height:1.65; margin:0 0 18px; }
@@ -31,14 +31,13 @@
 .schedule-badge.is-enabled { color:#215d3d; background:#ddf4e5; }
 .schedule-error { color:#9b322d; background:#fff0ee; border:1px solid #efcbc6; border-radius:6px; padding:12px; font-size:13px; }
 .schedule-notice { color:#285840; background:#eaf5ef; padding:12px; border-radius:6px; font-size:13px; }
-.schedule-history,.schedule-rules { margin-top:20px; border-top:1px solid #e1e6e2; padding-top:16px; font-size:12px; }
-.schedule-history summary,.schedule-rules summary { cursor:pointer; color:#375641; }
+.schedule-history { margin-top:20px; border-top:1px solid #e1e6e2; padding-top:16px; font-size:12px; }
+.schedule-history summary { cursor:pointer; color:#375641; }
 .schedule-history-scroll { overflow:auto; margin-top:14px; }
 .schedule-history table { width:100%; border-collapse:collapse; text-align:left; }
 .schedule-history td,.schedule-history th { padding:12px 10px; border-bottom:1px solid #e1e6e2; vertical-align:top; line-height:1.7; }
 .schedule-history td:first-child { min-width:160px; }
 .schedule-history td small { display:block; color:#718078; font-size:10px; }
-.schedule-rules p { line-height:1.8; color:#68776e; }
 @media(max-width:650px) {
   .chamber-module.chamber-schedules>header.is-iconless { grid-template-columns:minmax(0,1fr); gap:16px; padding:18px 16px; }
   .chamber-schedules>header>.schedule-actions { width:100%; }

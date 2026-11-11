@@ -1,8 +1,6 @@
 /* Original help content, with a presentation matching the homepage. */
 .support-page .support-shell{box-sizing:border-box;max-width:1160px;padding:0 32px 100px}
 .support-page .support-heading{max-width:780px;margin:0 auto;padding:82px 0 64px;text-align:center}
-.support-page .section-label{display:block;margin-bottom:18px;font-size:17px;font-weight:600;color:#6e6e73}
-.support-page .section-label::before{display:none}
 .support-page .support-heading h1{margin-bottom:22px;font-size:clamp(42px,5.6vw,72px);font-weight:650;line-height:1.04;letter-spacing:-.05em;text-wrap:balance}
 .support-page .support-heading>p{max-width:580px;margin:0 auto;font-size:22px;line-height:1.4;letter-spacing:-.025em;color:#6e6e73}
 .support-page .support-workspace{grid-template-columns:minmax(270px,.85fr) minmax(0,1.4fr);gap:72px 48px}
@@ -35,7 +33,6 @@
 @media(max-width:600px){
 .support-page .support-shell{padding:0 20px 64px}.support-page .support-heading{padding:54px 0 42px}
 .support-page .support-heading h1{font-size:44px}.support-page .support-heading>p{font-size:19px}
-.support-page .section-label{font-size:15px;margin-bottom:14px}
 .support-page .support-situations{margin-inline:-8px;padding:28px 14px 14px;gap:12px;border-radius:22px}
 .support-page .support-situations h2{margin-inline:12px;margin-bottom:12px;font-size:28px}
 .support-page .support-situations summary{min-height:166px;padding:30px 12px 22px;gap:14px;font-size:17px}

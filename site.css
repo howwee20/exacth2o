@@ -14,9 +14,9 @@
   --rule: #dbe3df;
   --action: #2456d6;
   --action-hover: #1d4ed8;
-  --sans: 'Instrument Sans', 'Instrument Sans Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   --serif: var(--sans);
-  --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --ease: cubic-bezier(.2, .7, .2, 1);
   --gutter: clamp(1.25rem, 4vw, 4rem);
   --content: 1280px;

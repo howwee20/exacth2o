@@ -1,0 +1,203 @@
+/* One interface system for every portal screen: the same type scale, controls, panels and
+   page widths on Home, traces, experiment setup, health, calibration and administration.
+   Rules are scoped to .px-shell so they also apply to feature styles that load later. */
+
+.px-shell {
+  --px-action: #0071e3;
+  --px-action-hover: #0077ed;
+  --px-control-border: #d2d2d7;
+  --px-control-radius: 10px;
+  --px-panel-radius: 14px;
+  --px-page-width: 1280px;
+  --settings-action: var(--px-action);
+  --settings-action-hover: var(--px-action-hover);
+}
+
+/* Focus is always the same ring. */
+.px-shell :is(a, button, summary, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--px-action);
+  outline-offset: 2px;
+}
+
+/* ---- Page frame ------------------------------------------------------------------- */
+
+/* Reading pages share Home's column; data workspaces (traces, bench, trends) stay full width. */
+.px-shell .system-health-main,
+.px-shell .px-page.ac-page,
+.px-shell .px-page.px-new-experiment-page {
+  width: 100%;
+  max-width: var(--px-page-width);
+  margin-inline: auto;
+  padding: 24px 40px 80px;
+}
+.px-shell .px-page-home { margin: 0 0 20px; }
+.px-shell .px-title + .px-subtitle { margin: 6px 0 20px; color: var(--px-muted); font-size: 14px; line-height: 1.5; }
+
+/* Page titles: one size and weight wherever a screen names itself. */
+.px-shell :is(.experiment-view-title, .ac-title, .analytics-workspace .support-hero h1) {
+  margin: 0;
+  padding: 0;
+  color: var(--px-ink);
+  font: 600 clamp(26px, 2.2vw, 30px)/1.2 var(--px-sans);
+  letter-spacing: -.035em;
+}
+.px-shell .experiment-view-title::before { display: none; }
+
+/* ---- Buttons ---------------------------------------------------------------------- */
+
+.px-shell :is(
+  .experiment-builder .is-primary,
+  .experiment-builder .is-secondary,
+  .settings-primary-button,
+  .settings-secondary-button,
+  .settings-danger-button,
+  .settings-locked-button,
+  .settings-download-link
+) {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font: 500 14px/1.2 var(--px-sans);
+  letter-spacing: 0;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.px-shell :is(.experiment-builder .is-secondary, .settings-secondary-button, .settings-download-link) {
+  border-color: var(--px-rule-strong);
+  background: #fff;
+  color: var(--px-ink);
+}
+.px-shell :is(.experiment-builder .is-secondary, .settings-secondary-button, .settings-download-link):hover:not(:disabled) {
+  border-color: #b8c8bf;
+  background: #fafafa;
+}
+.px-shell :is(.experiment-builder .is-primary, .settings-primary-button) {
+  border-color: var(--px-action);
+  background: var(--px-action);
+  color: #fff;
+}
+.px-shell :is(.experiment-builder .is-primary, .settings-primary-button):hover:not(:disabled) {
+  border-color: var(--px-action-hover);
+  background: var(--px-action-hover);
+}
+/* Unavailable actions read as unavailable, not as a different kind of button. */
+.px-shell :is(
+  .px-button,
+  .experiment-builder .is-primary,
+  .experiment-builder .is-secondary,
+  .settings-primary-button,
+  .settings-secondary-button,
+  .settings-danger-button,
+  .settings-locked-button
+):disabled {
+  border-color: var(--px-rule);
+  background: #f0f0f2;
+  color: #86868b;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.px-shell .ac-link { color: var(--px-action); font: 500 14px/1.2 var(--px-sans); text-decoration: none; }
+.px-shell .ac-link:hover:not(:disabled) { text-decoration: underline; }
+
+/* Segmented choices (chart view, time range, presets) share one weight and size. */
+.px-shell :is(.chart-view-toggle button, .time-range-presets button, .preset-filter) {
+  font: 500 13px/1.2 var(--px-sans);
+  letter-spacing: 0;
+}
+
+/* ---- Fields ----------------------------------------------------------------------- */
+
+.px-shell :is(
+  .experiment-builder input:not([type="checkbox"], [type="radio"]),
+  .experiment-builder select,
+  .experiment-builder textarea,
+  .px-select select,
+  .px-select input:not([type="checkbox"], [type="radio"]),
+  .px-saved-view-row select,
+  .px-walker-create input:not([type="checkbox"]),
+  .analytics-filters select,
+  .analytics-filters input
+) {
+  min-height: 40px;
+  border: 1px solid var(--px-control-border);
+  border-radius: var(--px-control-radius);
+  background-color: #fff;
+  color: var(--px-ink);
+  font: 400 15px/1.3 var(--px-sans);
+  letter-spacing: 0;
+}
+.px-shell :is(.experiment-builder, .px-walker-create) input::placeholder { color: #86868b; font-weight: 400; }
+.px-shell :is(.experiment-builder, .px-walker-create, .px-select) :is(input, select, textarea):focus-visible {
+  border-color: var(--px-action);
+  outline: 2px solid color-mix(in srgb, var(--px-action) 35%, transparent);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+.px-shell :is(.experiment-builder, .px-walker-create) label { color: var(--px-ink); font-size: 13px; font-weight: 500; }
+
+/* ---- Experiment setup ------------------------------------------------------------- */
+
+.px-shell .experiment-builder-header p { margin: 4px 0 0; color: var(--px-muted); font-size: 13px; font-weight: 400; }
+.px-shell .experiment-builder-header h2 { font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
+.px-shell .experiment-builder-header > button { border-radius: 50%; border-color: var(--px-rule-strong); }
+.px-shell .experiment-builder-steps li { font-size: 13px; font-weight: 500; }
+.px-shell .experiment-builder-steps li > span { font-size: 12px; font-weight: 600; }
+.px-shell .experiment-builder :is(h3, .experiment-builder-section-heading h3) { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.px-shell .experiment-builder-details > summary { color: var(--px-water); font-size: 14px; font-weight: 500; }
+.px-shell .experiment-builder-optional-calibration p { font-size: 14px; line-height: 1.5; }
+
+/* ---- Health ----------------------------------------------------------------------- */
+
+.px-shell .health-evidence-grid { gap: 16px; margin-bottom: 16px; }
+.px-shell .health-evidence-panel {
+  margin-bottom: 16px;
+  padding: 20px;
+  border-color: var(--px-rule);
+  border-radius: var(--px-panel-radius);
+  box-shadow: none;
+}
+.px-shell .health-evidence-grid .health-evidence-panel { margin-bottom: 0; }
+.px-shell .health-evidence-head { margin-bottom: 14px; }
+.px-shell .health-evidence-head h2 { color: var(--px-ink); font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.px-shell .health-evidence-head p { color: var(--px-muted); font-size: 13px; font-weight: 400; line-height: 1.45; }
+.px-shell .health-mini-grid { gap: 10px; margin-bottom: 14px; }
+.px-shell .health-mini-fact { padding: 12px 14px; border-color: var(--px-rule); border-radius: var(--px-control-radius); background: #fafafa; }
+.px-shell .health-mini-fact span { color: var(--px-muted); font-size: 12px; font-weight: 400; }
+.px-shell .health-mini-fact strong { margin-top: 4px; color: var(--px-ink); font-size: 15px; font-weight: 600; }
+.px-shell .portal-health-chart { border-color: var(--px-rule); border-radius: var(--px-control-radius); background: #fff; }
+/* The drawing keeps its proportions; on a wide panel it stops growing instead of scaling its labels. */
+.px-shell .portal-health-chart > svg { max-height: 250px; }
+.px-shell .portal-status-pill { min-height: 26px; padding: 0 11px; font-size: 12px; font-weight: 500; }
+.px-shell .px-diagnostics > summary { font-size: 14px; font-weight: 500; color: var(--px-water); }
+
+/* ---- Autocalibrate ---------------------------------------------------------------- */
+
+.px-shell .ac-page .ac-map-pot { font: 500 14px/1 var(--px-sans); }
+.px-shell .ac-selection h3 { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+
+/* ---- Web analytics ---------------------------------------------------------------- */
+
+.px-shell .analytics-workspace .support-hero {
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.px-shell .analytics-workspace .support-hero :is(p, span):first-child { color: var(--px-muted); font-size: 13px; font-weight: 400; }
+.px-shell .analytics-tabs button { font: 500 13px/1.2 var(--px-sans); }
+
+@media (max-width: 760px) {
+  .px-shell .system-health-main,
+  .px-shell .px-page.ac-page,
+  .px-shell .px-page.px-new-experiment-page { padding: 18px 16px 60px; }
+  .px-shell .health-evidence-panel { padding: 16px; }
+  .px-shell .health-evidence-grid { grid-template-columns: minmax(0, 1fr); }
+  .px-shell :is(.health-mini-grid, .health-mini-grid.is-five) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .px-shell .health-evidence-head { flex-wrap: wrap; }
+}
+
+/* ---- Walker ----------------------------------------------------------------------- */
+
+.px-shell .walker-experiment-shell > .px-notice { margin: 4px 0 12px; }
+.px-shell .walker-experiment-shell .chart-card { border: 1px solid var(--px-rule); border-radius: var(--px-panel-radius); overflow: hidden; }

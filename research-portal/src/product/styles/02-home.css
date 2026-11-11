@@ -16,8 +16,6 @@
   gap: 12px;
 }
 
-.px-home-links { display: flex; flex-wrap: wrap; gap: 8px; }
-
 .px-home-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.85fr);
@@ -59,7 +57,7 @@
 
 .px-exp-open::after { position: absolute; inset: 0; content: ""; border-radius: inherit; }
 .px-exp-name { font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.px-exp-count { font-family: var(--px-mono); font-size: 14px; color: var(--px-ink); white-space: nowrap; }
+.px-exp-count { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--px-ink); white-space: nowrap; }
 .px-exp-mode { grid-column: 1 / -1; color: var(--px-muted); font-size: 13.5px; }
 
 .px-exp-exception {

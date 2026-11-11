@@ -7,11 +7,11 @@ html:root {
   --mono: var(--exact-font-mono);
   --portal-sans: var(--exact-font-sans);
   --portal-serif: var(--exact-font-sans);
-  --portal-mono: var(--exact-font-mono);
+  --portal-mono: var(--exact-font-sans);
   --px-sans: var(--exact-font-sans);
   --px-serif: var(--exact-font-sans);
   --px-font: var(--exact-font-sans);
-  --px-mono: var(--exact-font-mono);
+  --px-mono: var(--exact-font-sans);
   font-family: var(--exact-font-sans);
 }
 body, button, input, select, textarea { font-family: var(--exact-font-sans); }

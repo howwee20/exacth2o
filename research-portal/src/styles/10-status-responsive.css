@@ -8,39 +8,11 @@
   flex-direction: column;
   gap: 6px;
 }
-.website-metrics-link { display: flex; flex-direction: column; gap: 5px; flex: 1; color: inherit; text-decoration: none; min-width: 0; }
-.website-metrics-heading, .website-metrics-counts, .website-metrics-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.website-metrics-heading .portal-launch-title { color: #253d35; }
-.website-metrics-counts { flex-wrap: wrap; font-size: .70rem; line-height: 1.3; }
-.website-metrics-counts b { font-size: 1.16rem; font-weight: 650; letter-spacing: -.025em; }
-.website-metrics-actions { font-size: .66rem; color: #526e64; }
-.website-metrics-chart { width: 100%; height: 40px; overflow: visible; }
-.website-metrics-footer { font-size: .60rem; color: #526e64; }
-.website-metrics-footer > span:last-child { display: inline-flex; align-items: center; gap: 2px; }
-.website-metrics-empty { display: grid; place-content: center; flex: 1; min-height: 76px; font-size: .78rem; color: #526e64; }
 .website-metrics-exclusion { align-self: flex-start; border: 0; border-bottom: 1px dotted #77968a; padding: 0; background: transparent; color: #526e64; font: inherit; font-size: .58rem; cursor: pointer; text-align: left; }
-.website-metrics-link:focus-visible, .website-metrics-exclusion:focus-visible { outline: 2px solid #167567; outline-offset: 3px; border-radius: 3px; }
+.website-metrics-exclusion:focus-visible { outline: 2px solid #167567; outline-offset: 3px; border-radius: 3px; }
 
 /* Native website analytics workspace. */
-button.website-metrics-link { border: 0; padding: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; width: 100%; }
-.website-analytics-period, .website-analytics-panel-heading > span { font-size: .8rem; color: #526e64; }
-.website-analytics-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
-.website-analytics-stats article, .website-analytics-panel { background: #fff; border: 1px solid #dce5df; border-radius: 16px; padding: 24px; }
-.website-analytics-stats p { margin: 0 0 12px; color: #526e64; }
-.website-analytics-stats strong { display: block; font-size: 2.5rem; line-height: 1.1; color: #253d35; }
-.website-analytics-stats small { display: block; margin-top: 12px; color: #526e64; line-height: 1.5; }
-.website-analytics-panel { margin-bottom: 20px; }
-.website-analytics-panel h2 { font-size: 1.05rem; margin: 0; }
-.website-analytics-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.website-analytics-full-chart { display: block; width: 100%; height: auto; margin-top: 24px; color: #17744f; }
-.website-analytics-full-chart text { font-family: inherit; font-size: 12px; fill: #526e64; }
-.website-analytics-note, .website-analytics-preferences p { color: #526e64; font-size: .85rem; line-height: 1.6; }
-.website-analytics-panel details { margin-top: 20px; font-size: .85rem; }
-.website-analytics-panel summary { cursor: pointer; color: #17744f; }
-.website-analytics-panel table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-.website-analytics-panel th, .website-analytics-panel td { text-align: left; padding: 10px; border-bottom: 1px solid #e7ece8; }
-.website-analytics-preferences .website-metrics-exclusion { font-size: .85rem; padding: 6px 0; }
-@media (max-width: 760px) { .website-analytics-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .website-analytics-stats article, .website-analytics-panel { padding: 16px; } .website-analytics-page .support-hero { flex-wrap: wrap; gap: 12px; } }
+@media (max-width: 760px) { .website-analytics-page .support-hero { flex-wrap: wrap; gap: 12px; } }
 
 /* Measurement freshness: one vocabulary for tiles, charts and health views.
    The state is always written out; the dot only reinforces it. */
@@ -53,10 +25,9 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
   border-radius: 999px;
   background: #f1f5f9;
   color: #475569;
-  font-family: var(--portal-mono);
-  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
@@ -138,35 +109,12 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
   color: #92400e;
 }
 
-.portal-launch-freshness {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
 .pot-reading .pot-age {
   display: block;
   color: #92400e;
-  font-family: var(--portal-mono);
-  font-size: 0.6rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.experiment-graph-card-head .graph-target {
-  color: #334155;
-  font-style: normal;
-}
-
-.experiment-graph-card-head .graph-target.is-warning {
-  color: #92400e;
-}
-
-.experiment-graph-card-head .graph-now {
-  color: #64748b;
-  font-style: normal;
   font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 @media (max-width: 720px) {
@@ -174,15 +122,6 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
     margin-left: 0;
     width: 100%;
   }
-}
-
-.graph-card-facts {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  font-size: 0.74rem;
-  line-height: 1.3;
 }
 
 .measurement-status-note {
@@ -199,9 +138,8 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--portal-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 
 .command-stages li {
@@ -267,7 +205,6 @@ button.website-metrics-link { border: 0; padding: 0; background: transparent; fo
   padding: 18px 48px 18px 20px;
 }
 .portal-launch-card.is-experiment .portal-launch-copy { gap: 5px; }
-.experiment-view-description { color: #64748b; margin: 0 0 16px; }
 
 /* Experiment setup: a compact selection step and a separate, explicit review. */
 .experiment-builder.is-direct { width: min(1000px, 100%); }

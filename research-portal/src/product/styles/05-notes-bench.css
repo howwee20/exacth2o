@@ -42,8 +42,6 @@
 .px-link-button:hover { text-decoration: underline; }
 
 /* ---------------------------------------------------------------- bench */
-
-.px-schematic-mark { display: inline-block; width: 16px; height: 10px; margin-right: 6px; border: 1.5px dashed var(--px-muted); border-radius: 2px; vertical-align: middle; }
 .px-benches { display: grid; gap: 16px; }
 .px-bench {
   display: grid;

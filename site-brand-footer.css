@@ -7,7 +7,7 @@ body > footer.site-footer {
   align-items: end;
   gap: 40px;
   min-height: 0;
-  padding: 32px max(24px, calc((100% - 1060px) / 2)) 20px;
+  padding: 32px max(24px, var(--gutter), calc((100% - var(--content, 1200px)) / 2)) 20px;
   overflow: hidden;
   background: #f8f9f7;
   border-top: 1px solid #e5e9e4;

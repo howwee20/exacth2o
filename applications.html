@@ -17,15 +17,7 @@
   }
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<style>
-/* Metric-matched fallbacks: text keeps its line breaks when the web fonts arrive,
-   so the page does not jump (measured: DM Serif Display ~ Georgia; Instrument Sans ~ Arial x 1.03). */
-@font-face { font-family: 'Instrument Sans Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 103.2%; ascent-override: 94%; descent-override: 24%; line-gap-override: 0%; }
-</style>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site.css?v=20261104-header1">
+<link rel="stylesheet" href="/site.css?v=20261111-system1">
 <style>
 .applications { box-sizing: content-box; max-width: var(--content); margin: 0 auto; padding: clamp(3rem, 6vw, 5rem) var(--gutter) clamp(2.5rem, 5vw, 4rem); scroll-margin-top: 6rem; }
 .app-intro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: end; margin-bottom: clamp(2.5rem, 5vw, 3.5rem); padding: 1rem 0; --ambient-opacity: .08; }
@@ -41,8 +33,8 @@
 .app-card-desc { max-width: 48ch; font-size: .95rem; line-height: 1.6; color: var(--muted); }
 
 /* Public demos remain in the page, under the website navigation. */
-.portal-opening { padding: 24px max(24px, var(--gutter)) 64px; scroll-margin-top: calc(var(--applications-header-height, 54px) + 20px); }
-.portal-demo-stage { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--rule); border-radius: 18px; background: var(--bg); box-shadow: 0 16px 48px rgba(14,26,20,.06); }
+.portal-opening { padding: 24px var(--gutter) 64px; scroll-margin-top: calc(var(--applications-header-height, 54px) + 20px); }
+.portal-demo-stage { width: 100%; max-width: var(--content); margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--rule); border-radius: 18px; background: var(--bg); box-shadow: 0 16px 48px rgba(14,26,20,.06); }
 .portal-demo-frame { display: block; width: 100%; height: 470px; margin: 0; border: 0; background: var(--bg); }
 @media (max-width: 600px) { .portal-opening { padding: 16px 12px 40px; } .portal-demo-stage { border-radius: 12px; } }
 
@@ -75,11 +67,11 @@
 <meta property="og:url" content="https://exacth2o.com/applications">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="/site-typography.css?v=20261103-type1">
-<link rel="stylesheet" href="/site-components.css?v=20261104-header1">
-<link rel="stylesheet" href="/site-brand-footer.css?v=20261103-footer3">
+<link rel="stylesheet" href="/site-typography.css?v=20261111-system1">
+<link rel="stylesheet" href="/site-components.css?v=20261111-system1">
+<link rel="stylesheet" href="/site-brand-footer.css?v=20261111-system1">
 </head>
-<body>
+<body class="public-page applications-page">
 
 <!-- NAV -->
 <nav>
@@ -159,7 +151,7 @@
 
 <!-- PORTAL -->
 <section class="portal-opening" aria-label="Explore the portal">
-  <div class="portal-demo-stage"><iframe class="portal-demo-frame" src="/applications-demo-app/index.html?v=aab320254a0f" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe></div>
+  <div class="portal-demo-stage"><iframe class="portal-demo-frame" src="/applications-demo-app/index.html?v=89ca9db220d5" title="ExactH2O experiment portal" sandbox="allow-scripts allow-same-origin allow-downloads allow-modals" loading="lazy"></iframe></div>
 </section>
 
 <!-- WHY EXACTH2O -->

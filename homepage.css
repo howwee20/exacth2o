@@ -49,8 +49,6 @@
 /* Product sections share a type scale and generous, consistent spacing. */
 .home-page .home-section { padding: clamp(64px, 6vw, 88px) max(24px, var(--gutter)); }
 .home-page .home-head { display: block; max-width: 780px; margin: 0 auto 50px; text-align: center; }
-.home-page .section-label { display: block; margin-bottom: 14px; color: #6e6e73; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
-.home-page .section-label::before { display: none; }
 .home-page .section-title { font-size: clamp(38px, 4.5vw, 64px); line-height: 1.06; letter-spacing: -.045em; font-weight: 650; }
 .home-page .home-head-aside { max-width: 590px; margin: 22px auto 0; font-size: 21px; line-height: 1.45; color: #6e6e73; letter-spacing: -.025em; }
 .home-page .text-link { color: var(--action); font-weight: 400; }
@@ -109,10 +107,10 @@
   .home-page .cinema-actions { margin-top: 22px; gap: 18px; }
   .home-page .cinema-button, .home-page .cinema-text-link { font-size: 15px; }
   .home-page .cinema-button { padding: 11px 20px; min-height: 44px; }
-  .home-page .cinema-photo { height: min(76svh, 620px); min-height: 360px; }
-  .home-page .cinema-photo img { object-position: center; }
+  /* A fixed 4:5 frame filled by each photograph: no empty bands around landscape images on a phone. */
+  .home-page .cinema-photo { height: auto; min-height: 0; aspect-ratio: 4 / 5; border-radius: 14px; overflow: hidden; }
+  .home-page .cinema-photo img { object-fit: cover; object-position: var(--mobile-position, center); }
   .home-page .home-section { padding: 64px 20px; }
-  .home-page .section-label { font-size: 15px; }
   .home-page .section-title { font-size: 38px; }
   .home-page .home-head-aside { font-size: 19px; }
   .home-page .features-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }

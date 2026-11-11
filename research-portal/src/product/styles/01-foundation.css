@@ -1,6 +1,6 @@
 /* Exact H2O portal — shared design system for the product views (home, experiment, pot, bench,
    at the bench, workbench, record). Palette and type follow the website: paper and ink, one water
-   green, DM Serif Display for titles, Instrument Sans for text, DM Mono for numbers and labels. */
+   green, one system sans family, tabular figures for numbers. */
 
 :root {
   --px-ink: #0e1a14;
@@ -24,9 +24,9 @@
   --px-red-soft: #fbeceb;
   --px-red-line: rgba(143, 36, 36, 0.24);
   --px-action: #2456d6;
-  --px-serif: "Instrument Sans", system-ui, sans-serif;
-  --px-sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --px-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --px-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --px-serif: var(--px-sans);
+  --px-mono: var(--px-sans);
   --px-radius: 8px;
   --px-shadow: none;
 }
@@ -57,7 +57,7 @@
   border: 0;
 }
 
-.px-mono { font-family: var(--px-mono); font-feature-settings: "tnum" 1; }
+.px-mono { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 .px-muted { color: var(--px-muted); }
 .px-small { font-size: 13px; }
 
@@ -187,11 +187,9 @@
 .px-section-label {
   margin: 0;
   color: var(--px-muted);
-  font-family: var(--px-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .px-card {
@@ -295,7 +293,7 @@
 .px-notice.is-bad { border-color: var(--px-red-line); background: var(--px-red-soft); color: var(--px-red); }
 .px-notice.is-info { border-color: var(--px-rule-strong); background: var(--px-white); color: var(--px-text); }
 .px-notice a { color: inherit; font-weight: 600; white-space: nowrap; }
-.px-notice-mark { font-family: var(--px-mono); font-weight: 700; }
+.px-notice-mark { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 /* ---------------------------------------------------------------- shared controller connection */
 
