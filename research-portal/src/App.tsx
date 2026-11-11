@@ -1,7 +1,7 @@
 import { AlertTriangle,ArrowRight,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
-import { ChamberControlView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
-import { WalkerMachineTile } from "./WalkerObservationView";
+import { ChamberControlView,ChamberHealthView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
+import { WalkerHealthView,WalkerMachineTile } from "./WalkerObservationView";
 import { WebsiteAnalyticsTile } from "./WebsiteAnalyticsTile";
 import exactH2OLogo from "./assets/exacth2o-logo.jpeg";
 import { AuthScreen } from "./auth/AuthScreen";
@@ -21,7 +21,7 @@ import { useExpandedGraph } from "./charts/useExpandedGraph";
 import { trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { levelLabel } from "./experimentFactors";
-import { pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
+import { orderHomeExperiments,pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
 import { experimentGraphGroups,experimentSidebarGroups } from "./experimentPresentation";
 import { deduplicateExperimentCatalog,type ExperimentId,isObservationOnlyExperiment,pairingsForExperiment,type PortalExperiment,portalExperimentById,valveEventsForExperiment } from "./experimentRegistry";
 import { experimentTraceReadings } from "./experimentTraceReadings";
@@ -52,7 +52,6 @@ import { ProductHeader } from "./product/ProductHeader";
 import { type InstallationState,QuietSpineHome } from "./product/QuietSpineHome";
 import { SavedTraceViews } from "./product/SavedTraceViews";
 import { MachineHome, MachineTile } from "./product/MachineHome";
-import { PortalHomeButton } from "./product/PortalHomeButton";
 import { atBenchRemembered,rememberAtBench } from "./product/pocketMode";
 import { toggleTraceSelection } from "./product/traceSelection";
 import { useNoteOutbox } from "./product/useNoteOutbox";
@@ -227,10 +226,23 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => deduplicateExperimentCatalog(experimentCatalog),
     [experimentCatalog],
   );
-  const selectedExperiment = useMemo(
-    () => portalExperimentById(selectedExperimentId, availableExperiments),
-    [availableExperiments, selectedExperimentId],
+  const defaultSystemExperiment = useMemo(
+    () => orderHomeExperiments(availableExperiments, clockNowMs)[0] ?? null,
+    [availableExperiments, clockNowMs],
   );
+  const selectedExperiment = useMemo<PortalExperiment>(() => {
+    if (route.view !== "controller") return portalExperimentById(selectedExperimentId, availableExperiments);
+    return defaultSystemExperiment ?? {
+      id: "system-readings",
+      name: portalSystemName(portalAccess?.projectId ?? "", portalAccess?.projectName),
+      shortDescription: "",
+      mode: "observation",
+      wateringState: "off",
+      groupNames: [],
+      pairingNames: visibleExperimentPairings(data.pairings).map(pairing => pairing.name),
+      assignments: [],
+    };
+  }, [route.view, selectedExperimentId, availableExperiments, defaultSystemExperiment, portalAccess?.projectId, portalAccess?.projectName, data.pairings]);
   const selectedExperimentGraphGroups = useMemo(
     () => experimentGraphGroups(selectedExperiment),
     [selectedExperiment],
@@ -246,7 +258,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     [sortedPairings],
   );
   const experimentArchive = useExperimentReadings(selectedExperiment, portalAccess?.projectId ?? "", portalAccess?.deviceId ?? "",
-    sessionReady && route.view === "experiment" && route.tab !== "record" && document.documentElement.dataset.portalMode !== "demo", portalAccess?.userId);
+    sessionReady && ((route.view === "experiment" && route.tab !== "record") || (route.view === "controller" && defaultSystemExperiment !== null)) && document.documentElement.dataset.portalMode !== "demo", portalAccess?.userId);
   const experimentReadings = useMemo(
     () => experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
     [data.readings, experimentArchive.readings, selectedExperiment],
@@ -390,6 +402,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }, [sessionReady, canUseExperimentSettings, route]);
 
   useEffect(() => {
+    if (!sessionReady || !canReadProjectData || route.view !== "controller" || !defaultSystemExperiment || settingsOpen || settingsSectionFromSearch(window.location.search)) return;
+    navigatePortal({ view: "experiment", experiment: defaultSystemExperiment.id, tab: "pots", pot: null }, { replace: true });
+  }, [sessionReady, canReadProjectData, route.view, defaultSystemExperiment, settingsOpen]);
+
+  useEffect(() => {
     const update = () => setOnline(navigator.onLine !== false);
     window.addEventListener("online", update);
     window.addEventListener("offline", update);
@@ -420,8 +437,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
 
 
-  if (uiExperimentId !== selectedExperimentId) {
-    setUiExperimentId(selectedExperimentId);
+  if (uiExperimentId !== selectedExperiment.id) {
+    setUiExperimentId(selectedExperiment.id);
     setExperimentGraphMode("vwc");
     setHiddenPots(new Set());
     setSelectedSeriesName(null);
@@ -760,7 +777,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     controller: presence ? { offline: presence.status === "offline", lastSeenAt: presenceLastSeenMs } : null,
     formatTime: (ms) => formatMeasurementTime(ms) ?? "",
   });
-  const routeExperiment = route.view === "experiment"
+  const routeExperiment = route.view === "controller" ? selectedExperiment : route.view === "experiment"
     ? availableExperiments.find((experiment) => experiment.id === route.experiment) ?? null
     : null;
   const catalogReady = experimentCatalog.length > 0 || experimentCatalogError != null || (!loading && lastGoodCheckAt != null);
@@ -844,6 +861,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
   if (!isAdmin && portalView === "chamber" && portalAccess.gasMixerAllowed) {
     return <GasMixerResearcherView onBack={() => setPortalView("home")} />;
+  }
+  if (!isAdmin && route.view === "chamber-health" && portalAccess.gasMixerAllowed) {
+    return <main className="px-shell">{portalHeader}<ChamberHealthView onBack={() => setPortalView("home")} /></main>;
   }
 
   if (!projectAccess) {
@@ -1160,20 +1180,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       notice={controlNotice}
     /></FeatureBoundary>);
   }
-  if (route.view === "controller" && canReadProjectData) {
-    return productShell(<><section className="px-page px-installation-summary">
-      <PortalLink className="px-home-button" to={{view:"home"}}>← Home</PortalLink>
-      <div className="px-exp-head-row"><h1 className="px-title">{portalSystemName(activeProjectId, portalAccess.projectName)}</h1>{canUseExperimentSettings ? <button className="px-button" onClick={() => {setSettingsSection("overview");prefetchSettings();setSettingsOpen(true);}}>Installation settings</button> : null}</div>
-      <p className="px-subtitle">Shared sensing and irrigation for this installation</p>
-      <dl className="px-facts px-card px-account-section">
-        <div><dt>Connection</dt><dd>{presence?.status ?? "Checking"}</dd></div>
-        <div><dt>Controller state</dt><dd>{presence?.controllerState ?? "Not reported"}</dd></div>
-        <div><dt>Last seen</dt><dd>{presence?.lastSeenAt ? formatMeasurementTime(Date.parse(presence.lastSeenAt)) : "Not reported"}</dd></div>
-        <div><dt>Pot pairings</dt><dd>{visiblePairings.length}</dd></div>
-      </dl>
-      {isAdmin ? <PortalLink className="px-button" to={{view:"health"}}>System health and diagnostics →</PortalLink> : null}
-    </section>{experimentHome}</>);
-  }
 
   if (isAdmin && portalView === "analytics") {
     return productShell(
@@ -1181,10 +1187,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     );
   }
 
-  if (isAdmin && portalView === "health") {
+  if (canReadProjectData && portalView === "health") {
     return productShell(
       <FeatureBoundary name="System Health">
         <SystemHealthView
+          systemName={portalSystemName(activeProjectId, portalAccess.projectName)}
           snapshot={healthSnapshot}
           history={healthHistory}
           runtimeState={runtimeState}
@@ -1210,14 +1217,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     );
   }
 
-  if (isAdmin && route.view === "walker-home") {
-    return productShell(<section className="px-page px-walker-home">
-      <PortalHomeButton onClick={() => setPortalView("home")} />
-      <WalkerMachineTile expanded onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} />
-    </section>);
+  if (isAdmin && route.view === "walker-health") {
+    return productShell(<WalkerHealthView onBack={() => setPortalView("home")} />);
+  }
+  if ((isAdmin || portalAccess.gasMixerAllowed) && route.view === "chamber-health") {
+    return productShell(<ChamberHealthView onBack={() => setPortalView("home")} />);
   }
 
-  if (isAdmin && portalView === "walker") {
+  if (isAdmin && (portalView === "walker" || route.view === "walker-home")) {
     return productShell(<FeatureBoundary name="Walker observation"><WalkerExperimentView onBack={() => setPortalView("home")} /></FeatureBoundary>);
   }
 
@@ -1340,24 +1347,34 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     return productShell(renderPotPage(route.pot, null));
   }
 
-  if (route.view === "experiment") {
+  if (route.view === "experiment" || route.view === "controller") {
     if (!routeExperiment) {
-      return productShell(<ExperimentNotFound id={route.experiment} loading={!catalogReady || accessLoading} />);
+      return productShell(<ExperimentNotFound id={route.view === "experiment" ? route.experiment : "system"} loading={!catalogReady || accessLoading} />);
     }
-    const tab = route.tab === "record" && !recordAvailable ? "pots" : route.tab;
+    const tab = route.view === "experiment" ? route.tab === "record" && !recordAvailable ? "pots" : route.tab : "pots";
+    const pot = route.view === "experiment" ? route.pot : null;
+    const savedExperiment = route.view === "experiment" || defaultSystemExperiment !== null;
     return productShell(
       <ExperimentPage
         experiment={routeExperiment}
         tab={tab}
-        onExport={() => setExportOpen(true)}
+        onExport={savedExperiment ? () => setExportOpen(true) : undefined}
         exceptions={portalExceptions}
-        recordAvailable={recordAvailable}
+        recordAvailable={recordAvailable && savedExperiment}
         secondaryActions={canUseExperimentSettings ? <>
+          <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Create experiment</button>
+          {savedExperiment ? <>
           <button onClick={() => { setEditingExperiment(routeExperiment);setDuplicateExperiment(null);setExperimentBuilderOpen(true); }}>Edit experiment</button>
-          <button onClick={() => { setSettingsSection("overview");prefetchSettings();setSettingsOpen(true); }}>Settings</button>
+          <button onClick={() => navigatePortal({ view: "experiment", experiment: routeExperiment.id, tab: "pots", pot: null }, { extra: { settings: "overview" } })}>Settings</button>
           <button onClick={() => { setEditingExperiment(null);setDuplicateExperiment(routeExperiment);setExperimentBuilderOpen(true); }}>Duplicate experiment</button>
+          </> : null}
         </> : null}
-        actions={<button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button>}
+        actions={<>
+          {availableExperiments.length > 1 ? <label className="px-select">Experiment<select aria-label="Experiment" value={routeExperiment.id} onChange={event => openExperiment(event.target.value)}>
+            {orderHomeExperiments(availableExperiments, clockNowMs).map(experiment => <option key={experiment.id} value={experiment.id}>{experiment.name}</option>)}
+          </select></label> : null}
+          {savedExperiment ? <button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button> : null}
+        </>}
       >
         {tab === "record" ? (
           <FeatureBoundary name="Record" fallback={<FeatureLoading name="Record" />}><RecordView
@@ -1371,12 +1388,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           /></FeatureBoundary>
         ) : (
           <div className="px-pots-tab">
+            {experimentCatalogError ? <p className="px-notice" role="alert">The experiment list could not be refreshed. Showing available readings.</p> : null}
             {experimentArchive.loading ? <p className="px-loaded-range" role="status">Loading experiment data… {experimentArchive.progress.toLocaleString()} readings</p> : null}
             {experimentArchive.error ? <p className="px-notice is-bad" role="alert">Full experiment data could not be loaded. The graph shows the available readings. <button className="px-button is-small" onClick={experimentArchive.retry}>Retry</button></p> : null}
             <div className="px-pot-chart" aria-label="Pot traces">{potsTabContent}</div>
           </div>
         )}
-        {route.pot ? <PotInspector onClose={()=>navigatePortal({view:"experiment",experiment:routeExperiment.id,tab,pot:null})}>{renderPotPage(route.pot,routeExperiment)}</PotInspector> : null}
+        {pot ? <PotInspector onClose={()=>navigatePortal({view:"experiment",experiment:routeExperiment.id,tab,pot:null})}>{renderPotPage(pot,routeExperiment)}</PotInspector> : null}
       </ExperimentPage>,
     );
   }
@@ -1422,10 +1440,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     : "Status unavailable";
   const administration = <>
     {adminTools}
-    {isAdmin ? <PortalLink className="portal-launch-card" to={{ view: "health" }}>
-      <span className="portal-launch-copy"><span className="portal-launch-title">System Health</span><strong>{systemName}</strong></span>
-      <span className="portal-launch-action">Open <ArrowRight size={14} /></span>
-    </PortalLink> : null}
     {canUseExperimentSettings ? <PortalLink className="portal-launch-card" to={{ view: "autocalibrate" }}>
       <span className="portal-launch-copy"><span className="portal-launch-title">Autocalibrate</span><strong>{systemName}</strong></span>
       <span className="portal-launch-action">Open <ArrowRight size={14} /></span>
@@ -1436,13 +1450,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     <MachineHome tools={isAdmin || canUseExperimentSettings ? administration : undefined}>
       <MachineTile name={systemName} description="Sensing and irrigation"
         detail={`${availableExperiments.length} ${availableExperiments.length === 1 ? "experiment" : "experiments"} · ${visiblePairings.length} pots`}
-        status={systemStatus} to={{ view: "controller" }} />
+        status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
         <MachineTile key={project.id} name={project.name} description="Sensing and irrigation"
-          to={{ view: "controller" }} extra={{ project: project.id }} />,
+          to={{ view: "controller" }} healthTo={{ view: "health" }} extra={{ project: project.id }} />,
       )}
-      {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
-      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" description="Gas mixer and lighting" to={{ view: "chamber" }} /> : null}
+      {isAdmin ? <WalkerMachineTile /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" description="Gas mixer and lighting" actionLabel="Open controls" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} /> : null}
     </MachineHome>,
   );
 }

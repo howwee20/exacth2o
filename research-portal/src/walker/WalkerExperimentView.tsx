@@ -1,5 +1,5 @@
 import { AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SensorCanvasChart } from "../charts/SensorCanvasChart";
 import { TimeRangeControl } from "../charts/TimeRangeControl";
 import { filterSeriesByTime } from "../charts/chartGeometry";
@@ -68,7 +68,7 @@ export function walkerChartSeries(snapshot: WalkerLiveSnapshot): ChartSeries[] {
   });
 }
 
-export function WalkerExperimentView({ onBack, experiment }: { onBack: () => void; experiment?: WalkerPortalExperiment | null }) {
+export function WalkerExperimentView({ onBack, experiment, tools }: { onBack: () => void; experiment?: WalkerPortalExperiment | null; tools?: ReactNode }) {
   const [lastRecorded, setLastRecorded] = useState(false);
   const [sourceSnapshot, setSnapshot] = useState<WalkerLiveSnapshot | null>(null);
   const snapshot = useMemo(() => sourceSnapshot && experiment ? scopeWalkerSnapshot(sourceSnapshot, experiment) : sourceSnapshot, [sourceSnapshot, experiment]);
@@ -209,6 +209,7 @@ export function WalkerExperimentView({ onBack, experiment }: { onBack: () => voi
       ) : null}
 
       <h1 className="experiment-view-title">{experiment?.name ?? "Walker Pi"}</h1>
+      {tools}
       {snapshot && freshness ? (
         <MeasurementStatusBar
           freshness={freshness}

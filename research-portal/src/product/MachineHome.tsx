@@ -4,21 +4,27 @@ import type { PortalRoute } from "../portalRoute";
 import { PortalLink } from "./PortalLink";
 import "./product.css";
 
-export function MachineTile({ name, description, detail, status, to, extra }: {
+export function MachineTile({ name, description, detail, status, to, extra, healthTo, actionLabel = "Open traces" }: {
   name: string;
   description: string;
   detail?: string;
   status?: ReactNode;
   to: PortalRoute;
   extra?: Record<string, string | null>;
+  healthTo: PortalRoute;
+  actionLabel?: string;
 }) {
-  return <PortalLink className="px-system-tile" to={to} extra={extra} reloadDocument={Boolean(extra?.project)}>
+  return <div className="px-system-card">
+    <PortalLink className="px-system-tile" to={to} extra={extra} reloadDocument={Boolean(extra?.project)}>
     <span className="px-system-tile-name">{name}</span>
     <span className="px-system-tile-description">{description}</span>
     {detail ? <span className="px-system-tile-detail">{detail}</span> : null}
-    {status ? <span className="px-system-tile-status">{status}</span> : null}
-    <span className="px-system-tile-open">Open system <ArrowRight size={16} aria-hidden="true" /></span>
-  </PortalLink>;
+    <span className="px-system-tile-open">{actionLabel} <ArrowRight size={16} aria-hidden="true" /></span>
+    </PortalLink>
+    <PortalLink className="px-system-health-link" to={healthTo} extra={extra} reloadDocument={Boolean(extra?.project)} aria-label={`${name} system health`}>
+      <span>System health</span><span className="px-system-health-status">{status}<ArrowRight size={14} aria-hidden="true" /></span>
+    </PortalLink>
+  </div>;
 }
 
 export function MachineHome({ children, tools }: { children: ReactNode; tools?: ReactNode }) {
