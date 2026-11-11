@@ -67,8 +67,19 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await administration.locator('summary').click();
     await expect(administration.getByRole('button', { name: 'Open website analytics' })).toBeVisible();
     await expect(administration.getByText('System Health', { exact: true })).toHaveCount(0);
+    await expect(administration.getByText('Autocalibrate', { exact: true })).toHaveCount(0);
     await administration.locator('summary').click();
     await page.screenshot({ path: test.info().outputPath('machine-home-desktop.png'), fullPage: true });
+    const rheeCalibration = page.getByRole('link', { name: 'Rhee Lab Autocalibrate', exact: true });
+    const testbedCalibration = page.getByRole('link', { name: 'Four-pot testbed Autocalibrate', exact: true });
+    await expect(rheeCalibration).toHaveAttribute('href', /view=autocalibrate/);
+    await expect(testbedCalibration).toHaveAttribute('href', new RegExp(`view=autocalibrate&project=${testbedProject}`));
+    await expect(page.getByRole('button', { name: 'Walker Pi Autocalibrate unavailable', exact: true })).toBeDisabled();
+    await rheeCalibration.click();
+    await expect(page).toHaveURL(/view=autocalibrate/);
+    await expect(page.getByLabel('Autocalibrate', { exact: true })).toBeVisible();
+    await expect(page.getByText('Rhee Lab', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: /Home/ }).click();
 
     await rhee.click();
     await expect(page.getByRole('heading', { name: 'Huiqiao Pan experiment', exact: true })).toBeVisible();
@@ -100,6 +111,13 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       await expect(page.getByRole('heading', { name: 'Chamber system health', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Home', exact: true }).click();
     }
+    await testbedCalibration.click();
+    await expect(page).toHaveURL(new RegExp(`view=autocalibrate&project=${testbedProject}`));
+    await expect(page.getByLabel('Autocalibrate', { exact: true })).toBeVisible();
+    await expect(page.getByText('Four-pot testbed', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: /Home/ }).click();
+    await page.getByRole('link', { name: /Rhee Lab.*Open traces/ }).click();
+    await page.getByRole('link', { name: /Home/ }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath('machine-home-mobile.png'), fullPage: true });
