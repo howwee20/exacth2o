@@ -240,6 +240,7 @@ describe("portal routes", () => {
       "?pot=Zone1-Pot17",
       "?view=pocket&pot=Zone1-Pot17&note=1",
       "?view=health",
+      "?view=walker-home",
       "?view=autocalibrate",
     ];
     for (const search of cases) {

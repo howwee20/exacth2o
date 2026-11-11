@@ -1,0 +1,36 @@
+import { ArrowRight, Server } from "lucide-react";
+import type { ReactNode } from "react";
+import type { PortalRoute } from "../portalRoute";
+import { PortalLink } from "./PortalLink";
+import "./product.css";
+
+export function MachineTile({ name, description, detail, status, to, extra }: {
+  name: string;
+  description: string;
+  detail?: string;
+  status?: ReactNode;
+  to: PortalRoute;
+  extra?: Record<string, string | null>;
+}) {
+  return <PortalLink className="px-system-tile" to={to} extra={extra} reloadDocument={Boolean(extra?.project)}>
+    <span className="px-system-tile-top">
+      <span className="px-system-tile-icon"><Server size={22} aria-hidden="true" /></span>
+      {status ? <span className="px-system-tile-status">{status}</span> : null}
+    </span>
+    <span className="px-system-tile-name">{name}</span>
+    <span className="px-system-tile-description">{description}</span>
+    {detail ? <span className="px-system-tile-detail">{detail}</span> : null}
+    <span className="px-system-tile-open">Open system <ArrowRight size={16} aria-hidden="true" /></span>
+  </PortalLink>;
+}
+
+export function MachineHome({ children, tools }: { children: ReactNode; tools?: ReactNode }) {
+  return <section className="px-home px-machine-home" aria-label="Your systems">
+    <h1 className="px-title">Systems</h1>
+    <div className="px-system-tile-grid">{children}</div>
+    {tools ? <section className="px-tools px-home-administration" aria-labelledby="administration-title">
+      <h2 id="administration-title">Administration</h2>
+      <div className="px-admin-tools-body">{tools}</div>
+    </section> : null}
+  </section>;
+}

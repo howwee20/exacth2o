@@ -5,10 +5,11 @@ import { followPortalLink, portalRouteHref, portalRouteUrl, type PortalRoute, us
 export function PortalLink({
   to,
   extra,
+  reloadDocument = false,
   children,
   onClick,
   ...rest
-}: { to: PortalRoute; extra?: Record<string, string | null>; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href">) {
+}: { to: PortalRoute; extra?: Record<string, string | null>; reloadDocument?: boolean; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href">) {
   // Re-render when the URL changes so the carried `project` parameter stays current.
   usePortalSearch();
   return (
@@ -17,7 +18,7 @@ export function PortalLink({
       href={portalRouteHref(to, extra)}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);
-        if (!event.defaultPrevented) followPortalLink(event, to, extra);
+        if (!event.defaultPrevented && !reloadDocument) followPortalLink(event, to, extra);
       }}
     >
       {children}
