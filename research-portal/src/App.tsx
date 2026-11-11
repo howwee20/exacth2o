@@ -332,6 +332,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     (item) => visibleNames.has(item.name) && item.rawPointCount > 0,
   ).length;
   const isAdmin = portalAccess?.role === "admin";
+  const showChamberTile = portalAccess?.email?.trim().toLowerCase() === "alamriek@msu.edu";
   const canUseSalesSupport = !accessLoading && hasSalesSupportAccess(portalAccess?.role, portalAccess?.salesSupportAllowed);
   const projectAccess = portalAccess?.accessScope === "project";
   const canReadProjectData = projectAccess && hasProjectDataReadAccess(portalAccess?.role);
@@ -850,7 +851,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       <main className="dashboard-shell portal-admin-shell">
         {portalHeader}
         <GasMixerResearcherHome
-          allowed={portalAccess.gasMixerAllowed}
+          allowed={showChamberTile && portalAccess.gasMixerAllowed}
           onOpen={() => setPortalView("chamber")}
         />
       </main>
@@ -1441,7 +1442,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           to={{ view: "controller" }} extra={{ project: project.id }} />,
       )}
       {isAdmin ? <WalkerMachineTile onOpen={() => setPortalView("walker")} onOpenExperiment={id => navigatePortal({ view: "walker" }, { extra: { study: id } })} /> : null}
-      {isAdmin || portalAccess.gasMixerAllowed ? <MachineTile name="Chamber" description="Gas mixer and lighting" to={{ view: "chamber" }} /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" description="Gas mixer and lighting" to={{ view: "chamber" }} /> : null}
     </MachineHome>,
   );
 }
