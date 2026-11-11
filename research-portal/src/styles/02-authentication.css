@@ -56,11 +56,9 @@
 
 .portal-top-links a {
   color: rgba(244, 241, 235, 0.62);
-  font-family: var(--portal-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   text-decoration: none;
-  text-transform: uppercase;
 }
 
 .portal-top-links a:hover {
@@ -103,10 +101,8 @@
   display: block;
   margin-bottom: 0.45rem;
   color: rgba(14, 26, 20, 0.62);
-  font-family: var(--portal-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 
 .portal-form-group input {
@@ -247,10 +243,8 @@
 .portal-terms-header span,
 .portal-terms-header p {
   color: rgba(14, 26, 20, 0.58);
-  font-family: var(--portal-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 
 .portal-terms-header h3,
@@ -355,10 +349,8 @@
   padding: 0 1rem;
   border-radius: 0;
   cursor: pointer;
-  font-family: var(--portal-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 
 .portal-terms-primary {
@@ -386,10 +378,8 @@
   background: #2563eb;
   color: #ffffff;
   cursor: pointer;
-  font-family: var(--portal-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .portal-submit-btn:hover {

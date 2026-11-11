@@ -1,9 +1,5 @@
 /* A quieter Experiments screen; operational content and controls stay in place. */
 .px-shell {
-  --px-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  --px-serif: var(--px-sans);
-}
-.px-shell {
   --px-paper: #f5f5f7;
   --px-muted: #6e6e73;
   --px-text: #1d1d1f;
@@ -46,12 +42,6 @@
 .px-home .px-completed-experiments > summary { padding: 13px 0; font-weight: 400; }
 .px-home .px-completed-list { padding-top: 4px; }
 .px-home .px-exp-card.is-completed { background: #fafafa; }
-.px-home .px-machines { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 28px; }
-.px-home .px-machines h2 { grid-column: 1 / -1; margin-bottom: 2px; font-size: 21px; letter-spacing: -.025em; }
-.px-home .px-machine-card { grid-template-columns: minmax(0, 1fr); align-content: start; min-height: 146px; padding: 24px; gap: 7px; border: 1px solid #e5e5e7; border-radius: 18px; }
-.px-home .px-machine-card:hover { border-color: #b8c8bf; }
-.px-home .px-machine-card .px-exp-count { order: 3; }
-.px-home .px-machine-card .px-exp-mode { grid-column: auto; margin: 0; }
 .px-home .px-admin-tools { border-bottom: 0; border-top: 1px solid #e5e5e7; }
 .px-home .px-admin-tools > summary { font-weight: 400; padding: 18px 0; }
 @media (max-width: 680px) {
@@ -65,8 +55,6 @@
   .px-home .px-node { padding: 14px 16px; }
   .px-home .px-node-actions { flex-basis: 100%; margin-left: 0; }
   .px-home .px-node-status { margin-left: 0; }
-  .px-home .px-machines { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 24px; }
-  .px-home .px-machine-card { min-height: 120px; padding: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .px-system-connection-pulse { animation: none; display: none; }
@@ -142,12 +130,6 @@
   .website-analytics-open { grid-column: 2; }
   .website-analytics-status { grid-column: 1 / -1; }
 }
-
-.px-system-description { margin: 0; color: var(--px-muted); }
-.px-system-text-button { padding: 0; border: 0; background: transparent; color: var(--px-water); font: 500 13px var(--px-sans); cursor: pointer; }
-.px-walker-experiment { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; padding: 20px; border: 1px solid #ececef; border-radius: 14px; background: #f8f8fa; color: var(--px-text); text-align: left; font: inherit; cursor: pointer; }
-.px-walker-experiment strong { font-size: 19px; font-weight: 600; letter-spacing: -.025em; }
-.px-walker-experiment span { color: var(--px-muted); font-size: 13px; }
 .px-walker-create { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 28px; border: 1px solid #e5e5e7; border-radius: 22px; background: #fff; color: #1d1d1f; font-family: var(--px-sans); }
 .px-walker-create::backdrop { background: #0006; }
 .px-walker-create form { display: grid; gap: 16px; }
@@ -194,9 +176,9 @@
 .px-shell .px-button.is-primary { background:#0071e3; border-color:#0071e3; color:#fff; }
 .px-shell .px-button.is-primary:hover { background:#0077ed; border-color:#0077ed; }
 .px-shell .px-home-button { width:fit-content; align-self:start; }
-.px-shell .px-walker-experiment:hover { border-color:#b8c8bf; }
 @media (max-width:760px) {
- .px-system-links a, .px-node-actions a, .px-system-text-button { min-height:44px; display:inline-flex; align-items:center; }
+ .px-system-links a,
+.px-node-actions a { min-height:44px; display:inline-flex; align-items:center; }
 }
 
 /* Trace selection opens within the chart's shared toolbar. */
@@ -273,8 +255,6 @@
 .px-home-administration .px-admin-tools-body .portal-launch-title { font-size: 16px; }
 .px-home-administration .px-admin-tools-body .portal-compact-row > .is-website-analytics { grid-column: 1 / -1; order: 1; }
 .px-home-administration .portal-launch-action { text-transform: none; letter-spacing: 0; }
-.px-installation-summary + .px-home { padding-top: 0; }
-.px-walker-home .px-system-section { padding: 28px; }
 @media (max-width: 1000px) {
   .px-system-tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .px-home-administration .px-admin-tools-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }

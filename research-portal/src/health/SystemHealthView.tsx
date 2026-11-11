@@ -286,7 +286,7 @@ export function SystemHealthView({
 
       <div className="health-evidence-grid">
         <HealthPanel
-          title="Power Evidence"
+          title="Power evidence"
           detail={`${formatHealthNumber(currentCpuTemp, 1, " C")} now; undervoltage ${formatHealthBoolean(undervoltageCurrent, "on", "off")}.`}
           badge={formatHealthNumber(currentCpuTemp, 1, " C")}
           badgeTone={undervoltageCurrent == null ? "unknown" : undervoltageCurrent ? "warning" : "ok"}
@@ -334,7 +334,7 @@ export function SystemHealthView({
         </HealthPanel>
 
         <HealthPanel
-          title="Ethernet Link"
+          title="Ethernet link"
           detail={ethernetLink == null
             ? "Ethernet state has not been synchronized."
             : `${ethernetIp ?? "No IP reported"}; gateway ${formatHealthNumber(gatewayPingMs, 3, " ms")}.`}
@@ -365,7 +365,7 @@ export function SystemHealthView({
       </div>
 
       <HealthPanel
-        title="Sensor Freshness"
+        title="Sensor freshness"
         detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} current; latest read ${healthDateWithAge(lastSensorReadingAt)}.`}
         badge={!sensorEvidenceKnown
           ? "Not synced"

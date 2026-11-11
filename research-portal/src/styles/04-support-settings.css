@@ -22,8 +22,6 @@
   color: #64748b;
   font-size: 0.75rem;
   font-weight: 850;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .support-hero h1 {
@@ -79,10 +77,8 @@
 
 .support-panel > header p {
   color: #64748b;
-  font-size: 0.72rem;
+  font-size: 12px;
   font-weight: 850;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .support-panel > header h2 {
@@ -199,10 +195,8 @@
 
 .support-item dt {
   color: #64748b;
-  font-size: 0.68rem;
+  font-size: 12px;
   font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .support-item dd {
@@ -235,10 +229,8 @@
 .support-detail-message h3 {
   margin: 0 0 10px;
   color: #64748b;
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .support-detail-message p {
@@ -256,188 +248,6 @@
   justify-content: center;
   margin-top: 14px;
   text-decoration: none;
-}
-
-.health-condition {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px;
-  padding: 18px 20px;
-  border: 1px solid #dfe5ee;
-  border-left: 4px solid #94a3b8;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.055);
-}
-
-.health-condition.is-ok {
-  border-left-color: #059669;
-}
-
-.health-condition.is-warning {
-  border-left-color: #d97706;
-}
-
-.health-condition.is-bad {
-  border-left-color: #dc2626;
-}
-
-.health-condition p,
-.health-condition h1,
-.health-condition strong,
-.health-condition span {
-  margin: 0;
-}
-
-.health-condition p {
-  color: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.health-condition h1 {
-  margin-top: 6px;
-  color: #0f172a;
-  font-size: clamp(1.45rem, 3vw, 2.25rem);
-  line-height: 1;
-}
-
-.health-condition strong {
-  display: block;
-  margin-top: 7px;
-  color: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  line-height: 1.35;
-  text-transform: uppercase;
-}
-
-.health-condition span {
-  display: block;
-  margin-top: 6px;
-  color: #64748b;
-  font-size: 0.84rem;
-  font-weight: 650;
-}
-
-.health-metric-grid,
-.health-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.health-detail-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.health-metric-card,
-.health-detail-panel {
-  min-width: 0;
-  border: 1px solid #dfe5ee;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
-}
-
-.health-metric-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  padding: 14px;
-  border-left: 4px solid #94a3b8;
-}
-
-.health-metric-card.is-ok {
-  border-left-color: #059669;
-}
-
-.health-metric-card.is-warning {
-  border-left-color: #d97706;
-}
-
-.health-metric-card.is-bad {
-  border-left-color: #dc2626;
-}
-
-.health-metric-icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  background: #f1f5f9;
-  color: #334155;
-}
-
-.health-metric-card p,
-.health-metric-card strong,
-.health-metric-card span,
-.health-detail-panel h2 {
-  margin: 0;
-}
-
-.health-metric-card p {
-  color: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.health-metric-card strong {
-  display: block;
-  margin-top: 5px;
-  color: #0f172a;
-  font-size: 1.05rem;
-  line-height: 1.1;
-}
-
-.health-metric-card span {
-  display: block;
-  margin-top: 5px;
-  color: #64748b;
-  font-size: 0.76rem;
-  font-weight: 650;
-  line-height: 1.3;
-}
-
-.health-detail-panel {
-  padding: 20px;
-}
-
-.health-detail-panel h2 {
-  margin-bottom: 14px;
-  color: #0f172a;
-  font-size: 1rem;
-  letter-spacing: 0;
-}
-
-.health-alert-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.health-alert-list span {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  padding: 0 11px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 750;
 }
 
 .health-evidence-grid {
@@ -476,12 +286,10 @@
 
 .health-evidence-head h2 {
   color: var(--portal-water);
-  font-family: var(--portal-mono);
-  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.25;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .health-evidence-head p {
@@ -519,12 +327,10 @@
 
 .health-mini-fact span {
   color: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.09em;
   line-height: 1.2;
-  text-transform: uppercase;
 }
 
 .health-mini-fact strong {
@@ -564,10 +370,9 @@
   align-items: center;
   gap: 6px;
   color: #475569;
-  font-family: var(--portal-mono);
-  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.04em;
 }
 
 .health-chart-legend i {
@@ -628,10 +433,9 @@
   background: #ffffff;
   color: #334155;
   cursor: pointer;
-  font-family: var(--portal-mono);
-  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.02em;
   box-shadow: none;
 }
 
@@ -681,15 +485,13 @@
 .health-chart-axis-text,
 .health-chart-axis-title {
   fill: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.02em;
 }
 
 .health-chart-axis-title {
   fill: #334155;
-  text-transform: uppercase;
 }
 
 .health-chart-line {
@@ -712,8 +514,7 @@
   stroke: #dc2626;
 }
 
-.health-chart-dot,
-.watering-event-dot {
+.health-chart-dot {
   fill: #ffffff;
   stroke: #2563eb;
   stroke-width: 2.6;
@@ -731,66 +532,20 @@
   stroke: #dc2626;
 }
 
-.health-chart-dot,
-.watering-event-dot {
+.health-chart-dot {
   cursor: pointer;
 }
 
-.health-chart-dot:focus-visible,
-.watering-event-dot:focus-visible {
+.health-chart-dot:focus-visible {
   outline: none;
   stroke-width: 5;
 }
 
-.watering-event-dot {
-  fill: #64748b;
-  stroke: #64748b;
-  cursor: pointer;
-}
-
 .health-chart-empty {
   fill: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.health-event-list {
-  display: grid;
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.health-event-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-}
-
-.health-event-row strong,
-.health-event-row span,
-.health-event-row em {
-  min-width: 0;
-}
-
-.health-event-row strong {
-  color: #0f172a;
-  font-size: 0.82rem;
-}
-
-.health-event-row span,
-.health-event-row em {
-  color: #64748b;
-  font-size: 0.74rem;
-  font-style: normal;
-  font-weight: 650;
 }
 
 .health-detail-scrim {
@@ -835,10 +590,8 @@
 
 .health-selected-detail header p {
   color: #64748b;
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 850;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .health-selected-detail header h2 {
@@ -1007,11 +760,9 @@
   margin: 0 0 3px;
   padding: 0 9px;
   color: #64748b;
-  font-family: var(--portal-mono);
-  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .settings-sidebar nav button {
@@ -1097,11 +848,9 @@
 
 .settings-content-eyebrow {
   color: var(--portal-water);
-  font-family: var(--portal-mono);
-  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .settings-content-header h2 {

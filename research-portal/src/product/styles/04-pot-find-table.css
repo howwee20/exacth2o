@@ -17,7 +17,7 @@
   padding: 18px;
 }
 
-.px-reading strong { font-family: var(--px-mono); font-size: 44px; font-weight: 500; line-height: 1; color: var(--px-ink); }
+.px-reading strong { font-variant-numeric: tabular-nums; font-size: 44px; font-weight: 500; line-height: 1; color: var(--px-ink); }
 .px-reading strong small { margin-left: 4px; font-size: 16px; color: var(--px-muted); }
 .px-reading.is-silent { border-style: dashed; background: repeating-linear-gradient(45deg, #fff, #fff 6px, #f6f2ea 6px, #f6f2ea 10px); }
 .px-reading.is-silent strong { font-family: var(--px-sans); font-size: 22px; font-weight: 700; color: var(--px-amber); }
@@ -73,15 +73,15 @@
 }
 
 .px-results a:hover, .px-results a:focus-visible, .px-results a[aria-selected="true"] { background: var(--px-water-soft); outline: none; }
-.px-results b { font-family: var(--px-mono); font-weight: 500; }
+.px-results b { font-variant-numeric: tabular-nums; font-weight: 500; }
 .px-results span { color: var(--px-muted); font-size: 13px; overflow-wrap: anywhere; }
 
 /* ---------------------------------------------------------------- tables */
 
 .px-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .px-table th, .px-table td { padding: 8px 10px; border-bottom: 1px solid var(--px-rule); text-align: left; vertical-align: top; }
-.px-table th { color: var(--px-muted); font: 500 11px var(--px-mono); letter-spacing: 0.06em; text-transform: uppercase; background: #faf8f3; }
-.px-table td.px-num { font-family: var(--px-mono); white-space: nowrap; }
+.px-table th { color: var(--px-muted); font: 500 11px var(--px-mono);   background: #faf8f3; }
+.px-table td.px-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 @media (max-width: 640px) {
   .px-table-wrap { overflow-x: auto; }
