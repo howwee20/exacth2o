@@ -30,7 +30,7 @@ export function WalkerCreateExperiment({ onClose, onCreated }: { onClose: () => 
   };
   return <dialog ref={dialog} className="px-walker-create" aria-labelledby="walker-create-title" onCancel={event => { if (saving) event.preventDefault(); else onClose(); }}>
     <form onSubmit={event => void save(event)}>
-      <h2 id="walker-create-title">Create experiment</h2><p>Walker Pi</p>
+      <h2 id="walker-create-title">New experiment</h2><p>Walker Pi</p>
       <label htmlFor="walker-experiment-name">Experiment name</label>
       <input autoFocus id="walker-experiment-name" value={name} maxLength={120} required disabled={saving} onChange={event => setName(event.target.value)} />
       <div className="px-walker-sensor-heading"><strong>Sensors · {selected.size}</strong>

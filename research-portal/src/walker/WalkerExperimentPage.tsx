@@ -9,9 +9,9 @@ import { WalkerCreateExperiment } from "./WalkerCreateExperiment";
 
 export function WalkerExperimentPage({ onBack }: { onBack: () => void }) {
   const id = usePortalQueryValue("study");
+  const creating = usePortalQueryValue("view") === "walker-new-experiment";
   const [record, setRecord] = useState<WalkerPortalExperiment | null>(null);
   const [error, setError] = useState(false);
-  const [creating, setCreating] = useState(false);
   const { experiments } = useWalkerOverview();
   useEffect(() => {
     let active = true;
@@ -31,11 +31,10 @@ export function WalkerExperimentPage({ onBack }: { onBack: () => void }) {
           <option value="">All sensors</option>
           {choices.map(experiment => <option key={experiment.id} value={experiment.id}>{experiment.name}</option>)}
         </select></label>
-        <button className="px-button" onClick={() => setCreating(true)} aria-label="Create experiment on Walker Pi">Create experiment</button>
+        <button className="px-button" onClick={() => navigatePortal({ view: "walker-new-experiment" }, { extra: { study: id } })} aria-label="Create experiment on Walker Pi">New experiment</button>
       </div>
     } />
-    {creating ? <WalkerCreateExperiment onClose={() => setCreating(false)} onCreated={experiment => {
-      setCreating(false);
+    {creating ? <WalkerCreateExperiment onClose={() => navigatePortal({ view: "walker" }, { extra: { study: id } })} onCreated={experiment => {
       navigatePortal({ view: "walker" }, { extra: { study: experiment.id } });
     }} /> : null}
   </>;
