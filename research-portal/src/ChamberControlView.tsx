@@ -2,10 +2,12 @@ import { PortalHomeButton } from "./product/PortalHomeButton";
 import { PortalLink } from "./product/PortalLink";
 import {
   AlertTriangle,
+  ArrowRight,
   Eye,
   Loader2,
   MousePointer2,
   MonitorUp,
+  Plus,
   RefreshCw,
   ShieldCheck,
   X,
@@ -434,14 +436,20 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
 export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="px-system-card">
-    <div className="px-system-tile-wrap">
-    <button type="button" className="portal-launch-card is-chamber-control px-system-tile" onClick={onOpen}>
-      <span className="px-system-tile-name">Chamber</span>
-      <span className="px-system-tile-detail">No active experiment</span>
+    <button type="button" className="px-system-tile" onClick={onOpen}>
+      <span className="px-system-tile-header">
+        <span className="px-system-tile-name">Chamber</span>
+        <span className="px-system-status is-unknown"><span className="px-system-status-dot" aria-hidden="true" />Status unavailable</span>
+      </span>
+      <span className="px-system-experiment">
+        <span className="px-system-experiment-label">Active experiment</span>
+        <span className="px-system-tile-detail">No active experiment</span>
+      </span>
     </button>
-    <button type="button" className="px-system-create" disabled title="Experiment creation is not available for Chamber yet.">New experiment</button>
+    <div className="px-system-tile-footer">
+      <button type="button" className="px-system-create" disabled title="Experiment creation is not available for Chamber yet."><Plus size={13} aria-hidden="true" />New experiment</button>
+      <PortalLink className="px-system-health-link" to={{ view: "chamber-health" }}>System health <ArrowRight size={13} aria-hidden="true" /></PortalLink>
     </div>
-    <PortalLink className="px-system-health-link" to={{ view: "chamber-health" }}>System health</PortalLink>
     </div>
   );
 }

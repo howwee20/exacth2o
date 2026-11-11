@@ -5,11 +5,13 @@ import { GasMixerResearcherHome, GasMixerResearcherView } from "./ChamberControl
 vi.mock("./supabase", () => ({ supabase: {} }));
 
 describe("mixer researcher screens", () => {
-  it("shows exactly one mixer tile and no irrigation or administrative modules", () => {
+  it("shows one chamber tile with its footer actions", () => {
     const html = renderToStaticMarkup(<GasMixerResearcherHome allowed onOpen={() => {}} />);
-    expect(html.match(/<button/g)).toHaveLength(1);
-    expect(html).toContain("Gas Mixer");
-    expect(html).not.toMatch(/Experiment|Walker|Lighting|Settings|Chamber Control/);
+    expect(html.match(/<button/g)).toHaveLength(2);
+    expect(html).toContain("Chamber");
+    expect(html).toContain("Active experiment");
+    expect(html).toContain("System health");
+    expect(html).not.toMatch(/Walker|Lighting|Sales &amp; Support|Chamber Control/);
   });
   it("does not show a mixer launch button after access is denied", () => {
     const html = renderToStaticMarkup(<GasMixerResearcherHome allowed={false} onOpen={() => {}} />);
