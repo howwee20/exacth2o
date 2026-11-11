@@ -158,6 +158,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('link', { name: /Home/ }).click();
     await health.click();
     await expect(page.getByRole('heading', { name: 'Rhee Lab system health', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('system-health-desktop.png'), fullPage: true });
     await page.getByRole('button', { name: 'Home', exact: true }).click();
 
     await walker.click();
@@ -199,6 +200,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('link', { name: 'Four-pot testbed system health', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`view=health&project=${testbedProject}`));
     await expect(page.getByRole('heading', { name: 'Four-pot testbed system health', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('system-health-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Home', exact: true }).click();
     await testbedCreation.click();
     await page.getByLabel('Experiment name', { exact: true }).fill('Testbed observation trial');

@@ -8,6 +8,8 @@
   --action: #0071e3;
   --action-hover: #0077ed;
   --content: 1200px;
+  --section-space: clamp(40px, 5vw, 64px);
+  --panel-radius: 14px;
   color: var(--ink);
   background: #fff;
   letter-spacing: -.015em;
@@ -17,9 +19,22 @@ body.public-page { display: flex; flex-direction: column; min-height: 100vh; min
 body.public-page > main { flex: 1 0 auto; min-width: 0; }
 
 /* Section labels are quiet text above a heading, the same on every page. */
-.public-page .section-label { display: block; margin-bottom: 14px; color: var(--muted); font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.public-page .section-label { display: block; margin-bottom: 12px; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
 .public-page .section-label::before { display: none; }
-@media (max-width: 600px) { .public-page .section-label { font-size: 15px; } }
+.public-page .section-title { font-size: clamp(34px, 3.4vw, 48px); line-height: 1.12; letter-spacing: -.04em; }
+.public-page :is(.applications, .team-section, .quote-section, .support-shell) { padding-block: var(--section-space); }
+.public-page :is(.quote-form-wrap, .support-contact, .portal-demo-stage) { border-radius: var(--panel-radius); }
+.public-page .app-intro-grid { padding-block: 0; margin-bottom: 32px; }
+.public-page .team-intro-grid { margin-bottom: 48px; padding-bottom: 48px; }
+.public-page .team-intro-copy { padding-block: 0; }
+.public-page .support-heading { margin-bottom: 32px; }
+.public-page .quote-form-wrap :is(input, select, textarea) { border-radius: 10px; }
+.public-page .quote-form-wrap .form-title { margin-bottom: 24px; font-size: 22px; }
+@media (max-width: 600px) {
+  .public-page .section-label { font-size: 13px; }
+  .public-page .team-intro-grid { gap: 24px; margin-bottom: 32px; padding-bottom: 32px; }
+  .public-page .quote-form-wrap { padding: 24px 20px; }
+}
 
 html:root {
   --exact-action: #0071e3;
