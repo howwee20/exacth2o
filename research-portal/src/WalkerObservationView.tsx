@@ -43,11 +43,13 @@ export function useWalkerOverview() {
 export function WalkerMachineTile() {
   const { status, experiments, loading, visible, failed, catalogFailed } = useWalkerOverview();
   if (!visible) return null;
+  const currentExperiment = experiments.at(-1);
   return <MachineTile
     name="Walker Pi"
-    detail={loading ? "Loading experiments…" : catalogFailed ? "Experiment list unavailable" : `${experiments.length} ${experiments.length === 1 ? "experiment" : "experiments"}`}
+    detail={currentExperiment?.name ?? (loading ? "Loading experiment…" : catalogFailed ? "Experiment unavailable" : "No active experiment")}
     status={failed ? "Status unavailable" : status ? `${status.current_sensor_count ?? status.evidenced_sensor_count} / ${status.expected_sensor_count} sensors` : "Checking sensors…"}
     to={{ view: "walker" }}
+    traceExtra={{ study: currentExperiment?.id ?? null }}
     healthTo={{ view: "walker-health" }}
     creation={{ to: { view: "walker-new-experiment" } }}
   />;
