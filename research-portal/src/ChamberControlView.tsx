@@ -433,9 +433,6 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
 export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
   return (
     <button type="button" className="portal-launch-card is-chamber-control" onClick={onOpen}>
-      <span className="portal-launch-top">
-        <span className="portal-launch-icon"><MonitorUp size={20} /></span>
-      </span>
       <span className="portal-launch-copy"><strong>Gas Mixer</strong></span>
     </button>
   );
