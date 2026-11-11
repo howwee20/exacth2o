@@ -1,4 +1,5 @@
 import { PortalHomeButton } from "./product/PortalHomeButton";
+import { PortalLink } from "./product/PortalLink";
 import {
   AlertTriangle,
   Eye,
@@ -432,10 +433,29 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
 
 export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
   return (
+    <div className="px-system-card">
     <button type="button" className="portal-launch-card is-chamber-control" onClick={onOpen}>
       <span className="portal-launch-copy"><strong>Gas Mixer</strong></span>
     </button>
+    <PortalLink className="px-system-health-link" to={{ view: "chamber-health" }}>System health</PortalLink>
+    </div>
   );
+}
+
+export function ChamberHealthView({ onBack }: { onBack: () => void }) {
+  const { status, loading, denied, failed } = useGasMixerStatus();
+  return <section className="px-page" aria-label="Chamber system health">
+    <PortalHomeButton onClick={onBack} />
+    <h1 className="px-title">Chamber system health</h1>
+    {loading ? <p role="status">Checking Chamber…</p> : null}
+    {denied || failed ? <p className="px-notice" role="alert">Chamber status is unavailable.</p> : null}
+    {status ? <dl className="px-facts px-card px-account-section">
+      <div><dt>Connection</dt><dd>{status.online ? "Online" : "Offline"}</dd></div>
+      <div><dt>Last seen</dt><dd>{statusTime(status.last_seen_at)}</dd></div>
+      <div><dt>Remote control</dt><dd>{status.remote_control_allowed ? "Available" : "Unavailable"}</dd></div>
+      <div><dt>Active session</dt><dd>{status.active_session ? "Yes" : "No"}</dd></div>
+    </dl> : null}
+  </section>;
 }
 
 export function GasMixerResearcherView({ onBack }: { onBack: () => void }) {

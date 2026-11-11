@@ -227,6 +227,10 @@
 /* The home page opens each machine from one card. */
 .px-shell .px-machine-home { width: min(1280px, 100%); gap: 28px; }
 .px-system-tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.px-system-card { display: grid; grid-template-rows: 1fr auto; min-width: 0; gap: 10px; }
+.px-system-health-link { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; padding: 12px 18px; border: 1px solid #e0e7e2; border-radius: 12px; background: #edf1ee; color: var(--px-water); font-size: 13px; font-weight: 500; text-decoration: none; }
+.px-system-health-status { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; }
+.px-system-health-link:hover { border-color: #b8c8bf; }
 .px-system-tile {
   display: flex;
   flex-direction: column;
@@ -242,7 +246,6 @@
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 .px-system-tile:hover { border-color: #b8c8bf; box-shadow: 0 6px 20px #101f1a08; }
-.px-system-tile-status { margin-top: 8px; color: var(--px-muted); font-size: 12px; }
 .px-system-tile-name { font-size: 24px; font-weight: 600; letter-spacing: -.035em; line-height: 1.2; overflow-wrap: anywhere; }
 .px-system-tile-description { margin-top: 9px; color: var(--px-muted); font-size: 14px; }
 .px-system-tile-detail { margin-top: 6px; color: var(--px-muted); font-size: 13px; }

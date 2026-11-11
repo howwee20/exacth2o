@@ -132,12 +132,14 @@ export function HealthTrendChart({
   );
 }
 export function SystemHealthView({
+  systemName,
   snapshot,
   history,
   runtimeState,
   error,
   onBackHome,
 }: {
+  systemName?: string;
   snapshot: DeviceHealthSnapshot | null;
   history: DeviceHealthSnapshot[];
   runtimeState: DeviceRuntimeState | null;
@@ -218,7 +220,7 @@ export function SystemHealthView({
   const sensorEvidenceKnown = currentSensors != null && expectedSensors != null && staleMissing != null;
 
   return (
-    <section className="system-health-main" aria-label="System health">
+    <section className="system-health-main" aria-label={systemName ? `${systemName} system health` : "System health"}>
       <HealthSelectedDetailDrawer
         detail={selectedDetail}
         onClose={() => setSelectedDetail(null)}
@@ -232,7 +234,7 @@ export function SystemHealthView({
         </div>
       ) : null}
 
-      <h1 className="px-title">System health</h1>
+      <h1 className="px-title">{systemName ? `${systemName} system health` : "System health"}</h1>
       <p className="px-subtitle">Controller connection and recent interruptions</p>
       <HealthPanel
         title="Recent interruptions"
