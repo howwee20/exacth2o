@@ -913,41 +913,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         ref={dashboardMainRef}
         className={`dashboard-main has-top-pots ${graphExpanded ? "is-expanded" : ""}`}
       >
-          <aside
-            className={`control-panel px-pots-panel ${potsPanelOpen ? "is-open" : ""}`}
-            aria-label="Pots"
-          >
-          <div className="px-trace-heading">
-            <h2>Pots</h2>
-            <button className="px-pots-disclosure" type="button" aria-expanded={potsPanelOpen} aria-controls="experiment-pots" onClick={() => setPotsPanelOpen(!potsPanelOpen)}>Pots <span aria-hidden="true">{potsPanelOpen ? "▴" : "▾"}</span></button>
-            <span role="status">{visibleWateringPairings.length} of {sortedPairings.length}</span>
-          </div>
-          <div className="px-pots-body" id="experiment-pots">
-          <section className="px-trace-controls">
-            <div className="px-trace-actions">
-              <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
-              <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
-            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
-              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
-              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
-              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setSelectedSeriesName(null); }} />
-            </div>
-            {selectedExperimentGraphGroups.length > 1 ? <div className="preset-buttons research-presets">
-              {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${group.pairingNames.every(name => !hiddenPots.has(name)) ? "is-selected" : ""}`} aria-pressed={group.pairingNames.every(name => !hiddenPots.has(name))} onClick={() => toggleExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
-            </div> : null}
-          </section>
-
-          <ExperimentPotGroups
-            groupedPairings={groupedPairings} hiddenPots={hiddenPots}
-            selectedExperiment={selectedExperiment} seriesByName={seriesByName}
-            clockNowMs={clockNowMs} affectedPots={direct.affected}
-            selectedSeriesName={selectedSeriesName}
-            setGroupVisibility={setGroupVisibility} togglePot={togglePot}
-          />
-          </div>
-          </aside>
           <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
-            <div className="chart-tools">
+            <div className="chart-tools px-experiment-tools">
+              <button className="px-pots-disclosure" type="button" aria-label="Pots" aria-describedby="experiment-visible-pots" aria-expanded={potsPanelOpen} aria-controls="experiment-pots" onClick={() => setPotsPanelOpen(!potsPanelOpen)}>
+                Pots <span id="experiment-visible-pots" role="status">{visibleWateringPairings.length} shown</span><span aria-hidden="true">{potsPanelOpen ? "▴" : "▾"}</span>
+              </button>
+              <div className="px-chart-actions">
               <div className="chart-view-toggle" aria-label="Graph view">
                 <button
                   type="button"
@@ -993,7 +964,38 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               >
                 {graphExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
+              </div>
             </div>
+          <aside
+            className={`control-panel px-pots-panel ${potsPanelOpen ? "is-open" : ""}`}
+            aria-label="Pots"
+            id="experiment-pots"
+            hidden={!potsPanelOpen}
+          >
+          <div className="px-pots-body">
+          <section className="px-trace-controls">
+            <div className="px-trace-actions">
+              <button type="button" className="px-button is-small" onClick={() => applyPotPreset("all")}>Show all</button>
+              <button type="button" className="px-button is-small" onClick={() => setHiddenPots(new Set(sortedPairings.map((pairing) => pairing.name)))}>Hide all</button>
+            <SavedTraceViews key={`${portalAccess?.userId}:${activeProjectId}:${activeDeviceId}:${selectedExperiment.id}`}
+              scope={JSON.stringify([portalAccess?.userId, activeProjectId, activeDeviceId, selectedExperiment.id])}
+              experiment={selectedExperiment} names={sortedPairings.map(p => p.name)} visible={visibleWateringPairings.map(p => p.name)} bounds={timeBounds} window={timeWindow}
+              onApply={(names, window) => { const included = new Set(names); setHiddenPots(new Set(sortedPairings.filter(p => !included.has(p.name)).map(p => p.name))); setTimeWindow(window); setSelectedSeriesName(null); }} />
+            </div>
+            {selectedExperimentGraphGroups.length > 1 ? <div className="preset-buttons research-presets">
+              {selectedExperimentGraphGroups.map((group) => <button key={group.id} type="button" className={`preset-filter ${group.pairingNames.every(name => !hiddenPots.has(name)) ? "is-selected" : ""}`} aria-pressed={group.pairingNames.every(name => !hiddenPots.has(name))} onClick={() => toggleExperimentGraphGroup(group.id)}>{group.treatment === "observation" ? levelLabel(group.crop) : group.label}</button>)}
+            </div> : null}
+          </section>
+
+          <ExperimentPotGroups
+            groupedPairings={groupedPairings} hiddenPots={hiddenPots}
+            selectedExperiment={selectedExperiment} seriesByName={seriesByName}
+            clockNowMs={clockNowMs} affectedPots={direct.affected}
+            selectedSeriesName={selectedSeriesName}
+            setGroupVisibility={setGroupVisibility} togglePot={togglePot}
+          />
+          </div>
+          </aside>
 
             <section
               className="chart-panel-main"
@@ -1386,6 +1388,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       <ExperimentPage
         experiment={routeExperiment}
         tab={tab}
+        experiments={orderHomeExperiments(availableExperiments, clockNowMs)}
+        onExperimentChange={openExperiment}
         onExport={savedExperiment ? () => setExportOpen(true) : undefined}
         exceptions={portalExceptions}
         recordAvailable={recordAvailable && savedExperiment}
@@ -1398,9 +1402,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           </> : null}
         </> : null}
         actions={<>
-          {availableExperiments.length > 1 ? <label className="px-select">Experiment<select aria-label="Experiment" value={routeExperiment.id} onChange={event => openExperiment(event.target.value)}>
-            {orderHomeExperiments(availableExperiments, clockNowMs).map(experiment => <option key={experiment.id} value={experiment.id}>{experiment.name}</option>)}
-          </select></label> : null}
           {savedExperiment ? <button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button> : null}
         </>}
       >

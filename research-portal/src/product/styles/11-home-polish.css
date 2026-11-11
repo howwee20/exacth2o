@@ -199,21 +199,38 @@
  .px-system-links a, .px-node-actions a, .px-system-text-button { min-height:44px; display:inline-flex; align-items:center; }
 }
 
-/* Trace selection stays above the plot, including in expanded view. */
+/* Trace selection opens within the chart's shared toolbar. */
 .px-pot-chart .dashboard-main.has-top-pots { display:flex; flex-direction:column; gap:12px; }
-.px-pot-chart .has-top-pots > .chart-card { width:100%; min-width:0; }
-.px-pot-chart .has-top-pots > .control-panel.px-pots-panel { display:flex; flex-direction:column; align-items:stretch; position:static; inset:auto; width:100%; max-width:none; min-width:0; max-height:none; overflow:visible; box-shadow:none; flex:none; }
+.px-pot-chart .has-top-pots > .chart-card { display:flex; flex-direction:column; width:100%; min-width:0; }
+.px-pot-chart .has-top-pots .chart-panel-main { flex:1; min-height:0; }
+.px-pot-chart .has-top-pots .px-experiment-tools { justify-content:space-between; gap:8px; padding:8px 12px; }
+.px-pot-chart .has-top-pots .px-pots-disclosure { display:inline-flex; align-items:center; gap:7px; min-height:40px; padding:0; border:0; background:none; color:var(--px-ink); font:600 14px/1.4 var(--px-sans); cursor:pointer; }
+.px-pot-chart .has-top-pots .px-pots-disclosure > span { color:var(--px-muted); font-size:12px; font-weight:400; }
+.px-chart-actions { display:flex; align-items:center; gap:7px; margin-left:auto; }
+.px-pot-chart .has-top-pots .control-panel.px-pots-panel { display:flex; flex-direction:column; align-items:stretch; position:static; inset:auto; width:100%; max-width:none; min-width:0; max-height:none; overflow:visible; border:0; border-bottom:1px solid var(--px-rule); border-radius:0; box-shadow:none; flex:none; }
+.px-pot-chart .has-top-pots .control-panel.px-pots-panel[hidden] { display:none; }
 .px-pot-chart .has-top-pots .px-pots-body { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 20px; }
 .px-pot-chart .has-top-pots .px-trace-controls { flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
 .px-pot-chart .has-top-pots .research-presets { display:flex; flex-wrap:wrap; gap:6px; margin:0; }
 .px-pot-chart .has-top-pots .pot-group { flex:1 1 240px; min-width:0; }
 .px-pot-chart .has-top-pots .pot-group > div:not(.pot-group-head) { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:6px; }
-.px-pot-chart .has-top-pots .pot-toggle { border-radius:999px; }
+.px-pot-chart .has-top-pots .px-trace-row { grid-template-columns:minmax(0,1fr) 30px; gap:0; border:1px solid var(--px-rule); border-radius:999px; background:var(--px-paper); overflow:hidden; }
+.px-pot-chart .has-top-pots .px-trace-row:has(.pot-toggle.is-on) { border-color:#a6baaf; background:#fff; }
+.px-pot-chart .has-top-pots .px-trace-row:has(.pot-toggle.is-target-selected) { background:#edf6ef; box-shadow:inset 3px 0 #397653; }
+.px-pot-chart .has-top-pots .px-trace-row:hover, .px-pot-chart .has-top-pots .px-trace-row:focus-within { border-color:var(--px-water); }
+.px-pot-chart .has-top-pots .pot-toggle { border:0; border-radius:999px 0 0 999px; background:transparent; }
+.px-pot-chart .has-top-pots .px-trace-detail { border:0; border-radius:0 999px 999px 0; background:transparent; }
+.px-pot-chart .has-top-pots .pot-toggle:focus-visible, .px-pot-chart .has-top-pots .px-trace-detail:focus-visible { outline:2px solid var(--px-action); outline-offset:-2px; }
 .px-pot-chart .has-top-pots.is-expanded { display:flex; overflow:auto; }
 .px-pot-chart .has-top-pots.is-expanded .chart-panel-main .canvas-chart { height:clamp(360px,60dvh,960px); min-height:360px; }
 .px-pot-chart .has-top-pots .px-comparison-menu { position:relative; }
-@media(max-width:999px) {
- .px-pot-chart .has-top-pots .px-pots-panel:not(.is-open) .px-pots-body { display:none; }
+@media(max-width:760px) {
+ .px-pot-chart .has-top-pots .px-experiment-tools { gap:4px; padding:8px 10px; }
+ .px-pot-chart .has-top-pots .px-pots-disclosure { gap:5px; }
+ .px-pot-chart .has-top-pots .px-pots-disclosure > span { font-size:11px; }
+ .px-pot-chart .has-top-pots .chart-view-toggle button { padding-inline:7px; }
+ .px-pot-chart .has-top-pots .px-chart-actions { gap:5px; }
+ .px-pot-chart .has-top-pots .px-trace-row { grid-template-columns:minmax(0,1fr) 36px; }
 }
 /* Anchor saved views to the action row, not the narrow summary button. */
 .px-pot-chart .has-top-pots .px-trace-actions { position:relative; }
