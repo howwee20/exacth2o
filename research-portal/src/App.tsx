@@ -1441,17 +1441,17 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     : "Status unavailable";
   return productShell(
     <MachineHome tools={adminTools}>
-      <MachineTile name={systemName} description="Sensing and irrigation"
+      <MachineTile name={systemName}
         detail={`${availableExperiments.length} ${availableExperiments.length === 1 ? "experiment" : "experiments"} · ${visiblePairings.length} pots`}
         status={systemStatus} to={{ view: "controller" }} healthTo={{ view: "health" }}
         calibration={canUseExperimentSettings ? { to: { view: "autocalibrate" } } : { unavailable: "Researcher or administrator access is required." }} />
       {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
-        <MachineTile key={project.id} name={project.name} description="Sensing and irrigation"
+        <MachineTile key={project.id} name={project.name}
           to={{ view: "controller" }} healthTo={{ view: "health" }} extra={{ project: project.id }}
           calibration={{ to: { view: "autocalibrate" } }} />,
       )}
       {isAdmin ? <WalkerMachineTile /> : null}
-      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" description="Gas mixer and lighting" actionLabel="Open controls" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} calibration={{ unavailable: "Irrigation autocalibration is unavailable for the gas mixer and lighting system." }} /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} calibration={{ unavailable: "Irrigation autocalibration is unavailable for the gas mixer and lighting system." }} /> : null}
     </MachineHome>,
   );
 }

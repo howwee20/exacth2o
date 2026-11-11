@@ -45,7 +45,6 @@ export function WalkerMachineTile() {
   if (!visible) return null;
   return <MachineTile
     name="Walker Pi"
-    description="Moisture sensing"
     detail={loading ? "Loading experiments…" : catalogFailed ? "Experiment list unavailable" : `${experiments.length} ${experiments.length === 1 ? "experiment" : "experiments"}`}
     status={failed ? "Status unavailable" : status ? `${status.current_sensor_count ?? status.evidenced_sensor_count} / ${status.expected_sensor_count} sensors` : "Checking sensors…"}
     to={{ view: "walker" }}
