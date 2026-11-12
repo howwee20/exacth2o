@@ -11,6 +11,10 @@
   background: #fff;
   padding: 64px 0;
 }
+/* The trace ribbon spans the page behind the copy and the photograph. */
+.home-page .cinema-hero { position: relative; overflow: visible; background: transparent; }
+.hero-ribbon { position: absolute; top: 0; left: 0; height: 100%; pointer-events: none; }
+.home-page .cinema-content, .home-page .cinema-photo { position: relative; z-index: 1; }
 .home-page .cinema-content {
   align-items: flex-start;
   text-align: left;

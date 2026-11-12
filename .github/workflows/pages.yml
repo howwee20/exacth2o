@@ -72,7 +72,7 @@ jobs:
 
           cp site-metrics.js site-navigation.js one-pot-explainer.js site.css site-ambient.js site-ui.css site-brand-footer.css site-brand-footer.js CNAME .nojekyll index.html applications.html about.html support.html quote.html portal.html demo.html exacth2o-logo.jpeg site-dist/
           cp site-typography.css site-components.css homepage.css support-polish.css site-dist/
-          cp homepage-traces.js homepage-traces-data.json homepage-slideshow.js site-dist/
+          cp homepage-traces.js homepage-traces-data.json homepage-slideshow.js homepage-ribbon.js site-dist/
           cp software-tour.css software-tour.js site-dist/
           cp -R media site-dist/
           cp 404.html privacy.html terms.html data-access.html favicon.svg robots.txt sitemap.xml site-dist/
