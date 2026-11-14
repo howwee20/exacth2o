@@ -1407,6 +1407,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           </> : null}
         </> : null}
         actions={<>
+          {manualWaterAvailable && activeDeviceId === "a3aff410ae08406cbf6a3545df4c7472" ? <button className="px-button is-small" onClick={() => openManualWater(null)}>Water</button> : null}
           {savedExperiment ? <button className="px-button is-small" onClick={() => setExportOpen(true)}>Export</button> : null}
         </>}
       >
