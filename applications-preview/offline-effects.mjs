@@ -8,7 +8,7 @@ const ts = createRequire(import.meta.url)('../research-portal/node_modules/types
 // App and its extracted hooks; only the standalone sample feed is retained.
 export const offlineHookFiles = new Set([
   'useControllerCommands.ts', 'useControllerStatus.ts', 'usePortalAccess.ts',
-  'usePortalReadings.ts', 'useSalesSupport.ts', 'usePortalCsv.ts',
+  'usePortalReadings.ts', 'useSalesSupport.ts', 'usePortalCsv.ts', 'MachineHome.tsx',
 ]);
 export function effectEdits(code, filename, live) {
   const source = ts.createSourceFile(filename, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

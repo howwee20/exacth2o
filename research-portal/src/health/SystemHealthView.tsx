@@ -1,6 +1,7 @@
 import { PortalHomeButton } from "../product/PortalHomeButton";
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { controllerPresence } from "../settingsPresentation";
 import { advanceCurrentBootUptime, reconstructCurrentBootUptime, restartOutagePresentation } from "../healthUptime";
 import { formatHealthDetailValue, healthBoolean, healthDateWithAge, healthNumber, healthString, healthTimestampMs } from "../healthValues";
 import { booleanMarker, sumKnownCounts } from "../portalData";
@@ -177,7 +178,12 @@ export function SystemHealthView({
 
   const rawRecords = healthHistoryRecords(snapshot, history);
   const synchronizedUptime = currentUptimeSeconds(snapshot, runtimeState, rawRecords);
-  const runtimeFresh = runtimeStateIsFresh(runtimeState);
+  const runtimeFresh = runtimeStateIsFresh(runtimeState, clockNowMs) && runtimeState?.pi_online !== false;
+  const connection = controllerPresence({stateFreshUntil:runtimeState?.state_fresh_until,
+    stateObservedAt:runtimeState?.state_observed_at ?? snapshot?.captured_at,
+    piOnline:runtimeState?.pi_online},clockNowMs);
+  const recordedAt = runtimeState?.state_observed_at ?? snapshot?.captured_at;
+  const lastReport = recordedAt ? `Last report ${healthDateWithAge(recordedAt)}.` : 'No health report received.';
   const uptimeObservedAt = runtimeFresh
     ? runtimeState?.state_observed_at
     : snapshot?.captured_at;
@@ -232,12 +238,17 @@ export function SystemHealthView({
   const lastSensorReadingAt = (runtimeFresh ? runtimeState?.last_sensor_reading_at : null) ?? snapshot?.last_sensor_reading_at ?? null;
   const restartEvidenceKnown = records.length >= 2 && currentUptime != null;
   const reportingHealthy = runtimeFresh && runtimeState?.pi_online === true && runtimeState.api_status?.toUpperCase() === "OK";
-  const restartOutageStatus = restartOutagePresentation(
+  const historicalOutageStatus = restartOutagePresentation(
     restartEvidenceKnown,
     restarts.length,
     gaps.length,
     reportingHealthy,
   );
+  const restartOutageStatus = runtimeFresh ? historicalOutageStatus : {
+    detail: `${connection.status === "offline" ? "Controller offline. " : "Connection status unavailable. "}${lastReport} Showing recorded history.`,
+    badge: connection.status === "offline" ? "Offline" : "Not synced",
+    badgeTone: "warning" as const,
+  };
   const sensorEvidenceKnown = currentSensors != null && expectedSensors != null && staleMissing != null;
 
   return (
@@ -256,7 +267,7 @@ export function SystemHealthView({
       ) : null}
 
       <h1 className="px-title">{systemName ? `${systemName} system health` : "System health"}</h1>
-      <p className="px-subtitle">Controller connection and recent interruptions</p>
+      <p className="px-subtitle">{runtimeFresh ? "Online. " : connection.status === "offline" ? "Offline. " : ""}{lastReport}</p>
       <HealthPanel
         title="Recent interruptions"
         detail={restartOutageStatus.detail}
@@ -264,7 +275,7 @@ export function SystemHealthView({
         badgeTone={restartOutageStatus.badgeTone}
       >
         <div className="health-mini-grid is-five">
-          <HealthMiniFact label="Now" value={currentUptime == null ? "Not synced" : `up; ${healthDurationText(currentUptime)}`} />
+          <HealthMiniFact label={runtimeFresh ? "Now" : "Last uptime"} value={currentUptime == null ? "Not synced" : `${runtimeFresh ? "up; " : ""}${healthDurationText(currentUptime)}`} />
           <HealthMiniFact label="Latest restart" value={!restartEvidenceKnown ? "Not synced" : lastRestart ? formatSettingsTimestamp(lastRestart.t) : "none detected"} />
           <HealthMiniFact label="Telemetry stopped" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.start) : "none detected"} />
           <HealthMiniFact label="Service restored" value={!restartEvidenceKnown ? "Not synced" : lastGap ? formatSettingsTimestamp(lastGap.end) : "none detected"} />
@@ -308,9 +319,9 @@ export function SystemHealthView({
       <div className="health-evidence-grid">
         <HealthPanel
           title="Power evidence"
-          detail={`${formatHealthNumber(currentCpuTemp, 1, " C")} now; undervoltage ${formatHealthBoolean(undervoltageCurrent, "on", "off")}.`}
-          badge={formatHealthNumber(currentCpuTemp, 1, " C")}
-          badgeTone={undervoltageCurrent == null ? "unknown" : undervoltageCurrent ? "warning" : "ok"}
+          detail={`${formatHealthNumber(currentCpuTemp, 1, " C")} ${runtimeFresh ? "now" : "at last report"}; undervoltage ${formatHealthBoolean(undervoltageCurrent, "on", "off")}.`}
+          badge={runtimeFresh ? formatHealthNumber(currentCpuTemp, 1, " C") : "Last report"}
+          badgeTone={!runtimeFresh || undervoltageCurrent == null ? "unknown" : undervoltageCurrent ? "warning" : "ok"}
         >
           <div className="health-mini-grid">
             <HealthMiniFact label="CPU temp" value={formatHealthNumber(currentCpuTemp, 1, " C")} />
@@ -359,8 +370,8 @@ export function SystemHealthView({
           detail={ethernetLink == null
             ? "Ethernet state has not been synchronized."
             : `${ethernetIp ?? "No IP reported"}; gateway ${formatHealthNumber(gatewayPingMs, 3, " ms")}.`}
-          badge={formatHealthBoolean(ethernetLink, "Link up", "Link down")}
-          badgeTone={ethernetLink == null ? "unknown" : ethernetLink ? "ok" : "bad"}
+          badge={runtimeFresh ? formatHealthBoolean(ethernetLink, "Link up", "Link down") : "Last report"}
+          badgeTone={!runtimeFresh || ethernetLink == null ? "unknown" : ethernetLink ? "ok" : "bad"}
         >
           <div className="health-mini-grid">
             <HealthMiniFact label="Ethernet link" value={formatHealthBoolean(ethernetLink, "up", "down")} />
@@ -387,15 +398,15 @@ export function SystemHealthView({
 
       <HealthPanel
         title="Sensor freshness"
-        detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} current; latest read ${healthDateWithAge(lastSensorReadingAt)}.`}
-        badge={!sensorEvidenceKnown
+        detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} ${runtimeFresh ? "current" : "at last report"}; latest read ${healthDateWithAge(lastSensorReadingAt)}.`}
+        badge={!runtimeFresh ? connection.status === "offline" ? "Offline" : "Not synced" : !sensorEvidenceKnown
           ? "Not synced"
           : `${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)} ${staleMissing > 0 ? "Review" : "OK"}`}
-        badgeTone={!sensorEvidenceKnown ? "unknown" : staleMissing > 0 ? "warning" : "ok"}
+        badgeTone={!runtimeFresh || !sensorEvidenceKnown ? "unknown" : staleMissing > 0 ? "warning" : "ok"}
       >
         <div className="health-mini-grid">
           <HealthMiniFact label="Last sensor read" value={healthDateWithAge(lastSensorReadingAt)} />
-          <HealthMiniFact label="Current" value={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)}`} />
+          <HealthMiniFact label={runtimeFresh ? "Current" : "Last count"} value={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)}`} />
           <HealthMiniFact label="Stale/missing" value={formatHealthInteger(staleMissing)} />
           <HealthMiniFact label="Node2" value="Not synced" />
           <HealthMiniFact label="Node4" value="Not synced" />

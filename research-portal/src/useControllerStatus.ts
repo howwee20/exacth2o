@@ -232,7 +232,7 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
   useEffect(() => {
     if (!sessionReady || !canUseExperimentSettings) return undefined;
     // Controller state gates reviewed settings; it is refreshed immediately on return to the tab.
-    return scheduleVisiblePolling(loadDeviceSyncState, healthSnapshotPollMs);
+    return scheduleVisiblePolling(loadDeviceSyncState, 60_000);
   }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {

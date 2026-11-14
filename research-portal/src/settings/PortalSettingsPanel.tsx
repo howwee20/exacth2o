@@ -166,6 +166,7 @@ export function PortalSettingsPanel({
     stateFreshUntil: runtimeState?.state_fresh_until,
     stateObservedAt: runtimeState?.state_observed_at,
     controllerState: runtimeState?.controller_state,
+    piOnline: runtimeState?.pi_online,
     lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
   });
   const controllerIsLive = presence.status === "online";

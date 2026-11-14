@@ -8,6 +8,7 @@ export type ControllerPresenceInput = {
   stateObservedAt?: string | null;
   controllerState?: string | null;
   lastSeenAt?: string | null;
+  piOnline?: boolean | null;
 };
 
 export type ControllerPresence = {
@@ -62,7 +63,7 @@ export function controllerPresence(input: ControllerPresenceInput, nowMs = Date.
     };
   }
 
-  if (freshUntil != null && freshUntil > nowMs) {
+  if (freshUntil != null && freshUntil > nowMs && input.piOnline !== false) {
     return {
       status: "online",
       tone: "ok",

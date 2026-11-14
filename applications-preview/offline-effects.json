@@ -10,7 +10,7 @@
     },
     "useControllerStatus.ts": {
       "count": 11,
-      "sha256": "db75d87e8f0c43083b29138208d9b70d1a9c1ba8ab86be501b842303c57843f1"
+      "sha256": "dd476327cb8d60575a3098cff743036f941817c2086d90ada2f084238b3d331c"
     },
     "usePortalAccess.ts": {
       "count": 0,
@@ -27,6 +27,10 @@
     "usePortalCsv.ts": {
       "count": 0,
       "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "MachineHome.tsx": {
+      "count": 1,
+      "sha256": "5687d725d7d26e0a86e40bf0b2bf9794f1daa0c347b40b03f2dc614b2544136a"
     }
   },
   "standalone": {
@@ -40,7 +44,7 @@
     },
     "useControllerStatus.ts": {
       "count": 10,
-      "sha256": "3871bb8927f68e49ddf6e5111e83237b6fd519ec95b10742234202b3e7dc4493"
+      "sha256": "f8756933b14cafac9ff073dd71ce0dbc794ea12c3fd342c065c0b8f8f4e59426"
     },
     "usePortalAccess.ts": {
       "count": 0,
@@ -57,6 +61,10 @@
     "usePortalCsv.ts": {
       "count": 0,
       "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "MachineHome.tsx": {
+      "count": 1,
+      "sha256": "5687d725d7d26e0a86e40bf0b2bf9794f1daa0c347b40b03f2dc614b2544136a"
     }
   }
 }

@@ -88,10 +88,10 @@ export function selectHealthSnapshot(snapshots: DeviceHealthSnapshot[]) {
     .sort((a, b) => healthSnapshotTimestamp(b) - healthSnapshotTimestamp(a))[0] ?? null;
 }
 
-export function runtimeStateIsFresh(runtimeState?: DeviceRuntimeState | null) {
+export function runtimeStateIsFresh(runtimeState?: DeviceRuntimeState | null, nowMs = Date.now()) {
   if (!runtimeState?.state_fresh_until) return false;
   const freshUntil = Date.parse(runtimeState.state_fresh_until);
-  return Number.isFinite(freshUntil) && freshUntil > Date.now();
+  return Number.isFinite(freshUntil) && freshUntil > nowMs;
 }
 
 export function syncedCount(value?: number | null) {

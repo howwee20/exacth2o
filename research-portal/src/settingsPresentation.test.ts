@@ -63,6 +63,17 @@ describe("controller presence", () => {
   });
 });
 
+describe("live connection evidence", () => {
+  it("expires a cached online flag without receiving another database row", () => {
+    const observation = { stateObservedAt: "2026-09-19T19:59:00.000Z", stateFreshUntil: "2026-09-19T20:01:30.000Z", piOnline: true };
+    expect(controllerPresence(observation, now).status).toBe("online");
+    expect(controllerPresence(observation, now + 120_000).status).toBe("offline");
+  });
+  it("honors a fresh negative device report instead of painting it online", () => {
+    expect(controllerPresence({stateObservedAt:"2026-09-19T19:59:00.000Z",stateFreshUntil:"2026-09-19T20:05:00.000Z",piOnline:false},now).status).toBe("offline");
+  });
+});
+
 describe("researcher-facing formatting", () => {
   it("describes ages in plain language", () => {
     expect(relativeAgeText("2026-09-19T19:59:40.000Z", now)).toBe("just now");

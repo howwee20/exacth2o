@@ -10,7 +10,7 @@
     "research-portal/src/useControllerStatus.ts": {
       "scheduleVisiblePolling": 3,
       "setInterval": 0,
-      "cadence": "valve events, device sync and admin health every 5 min with their existing access and view gates",
+      "cadence": "valve events and admin health every 5 min; runtime/config state every 60 s, with existing access and view gates",
       "edge": false
     },
     "research-portal/src/useControllerCommands.ts": {
@@ -125,6 +125,12 @@
       "scheduleVisiblePolling": 0,
       "setInterval": 2,
       "cadence": "30 s active session heartbeat and manual ownership check; 2 min changed-evidence checkpoint during real runs; database only",
+      "edge": false
+    },
+    "research-portal/src/product/MachineHome.tsx": {
+      "scheduleVisiblePolling": 1,
+      "setInterval": 0,
+      "cadence": "60 s runtime/config refresh and realtime updates for each other accessible system while home is visible; 30 s local clock expires cached status independently",
       "edge": false
     }
   }
