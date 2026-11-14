@@ -178,7 +178,7 @@ serve(async (request) => {
 
     if (action === "routes" || action === "inventory") {
       const { pots, boards, outputs } = await loadInventory(admin, projectId, deviceId);
-      return reply({ pots: testbed ? pots.filter((pot: {pot: number}) => pot.pot <= 4) : pots, boards, outputs: testbed ? outputs.filter((output: {channel: number}) => output.channel <= 4) : outputs, canConfirm: !testbed && role === "admin", canTakeover: !testbed, leaseMs: LEASE_MS, renewMs: RENEW_MS, wateringMode: testbed ? "timed" : "hold" });
+      return reply({ pots: testbed ? pots.filter((pot: {pot: number}) => pot.pot <= 4) : pots, boards, outputs: testbed ? outputs.filter((output: {channel: number}) => output.channel <= 4) : outputs, canConfirm: !testbed && role === "admin", canTakeover: !testbed, leaseMs: LEASE_MS, renewMs: RENEW_MS, wateringMode: "hold" });
     }
     if (testbed && adminActions.includes(action)) return reply({error: "The commissioned testbed mapping is fixed"}, 409);
     if (adminActions.includes(action)) {
@@ -196,10 +196,8 @@ serve(async (request) => {
       return reply({ pots, boards, outputs, canConfirm: true, canTakeover: true, leaseMs: LEASE_MS, renewMs: RENEW_MS });
     }
 
-    if (testbed) return reply({ error: "Use the testbed timed watering control" }, 409);
-
     // ---------------------------------------------------------------- hold actions
-    const secret = Deno.env.get("EXACTH2O_MANUAL_HOLD_SECRET");
+    const secret = Deno.env.get(testbed ? "EXACTH2O_TESTBED_HOLD_SECRET" : "EXACTH2O_MANUAL_HOLD_SECRET");
     if (!secret) return reply({ error: "Hold-to-water is awaiting controller commissioning" }, 503);
     const starting = action === "start" || action === "takeover";
     let session = sessionRoutes.get(sessionId) as SessionRoute | undefined;
@@ -260,7 +258,15 @@ serve(async (request) => {
       label: route ? (route.solenoidNumber != null ? `Solenoid ${route.solenoidNumber}` : routeLabel(route.relayAddress, route.channel)) : undefined,
     };
 
-    const base = Deno.env.get("OWNER_HEALTH_BASE_URL") || `https://${deviceId}.balena-devices.com/owner-health`;
+    let base = Deno.env.get("OWNER_HEALTH_BASE_URL") || `https://${deviceId}.balena-devices.com/owner-health`;
+    if (testbed) {
+      const {data, error} = await admin.from('device_runtime_state').select('raw_status,state_observed_at').eq('project_id',projectId).eq('device_id',deviceId).maybeSingle();
+      const endpoint = data?.raw_status?.manual_hold_url;
+      if (error || typeof endpoint !== 'string' || !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(endpoint) || Date.now()-Date.parse(data?.state_observed_at ?? '') > 150_000) {
+        return reply({error: 'Testbed control connection is reconnecting'},503);
+      }
+      base = endpoint;
+    }
     const started = Date.now();
     if (starting && route) {
       // Recorded while the controller acts, never before it: autocalibration reads these

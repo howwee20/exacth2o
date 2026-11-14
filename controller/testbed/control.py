@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 from pathlib import Path
 import socket
 import subprocess
@@ -21,6 +22,7 @@ from urllib.request import Request, urlopen
 ROOT = Path('/opt/exacth2o/sensing')
 STATE = Path('/var/lib/exacth2o-sensing')
 LOCK = threading.Lock()
+HOLD_ENDPOINT = None
 
 
 def now():
@@ -163,12 +165,24 @@ def health():
             'last_sensor_reading_at': max(samples.values()) if samples else None,
             'watering_enabled': False, 'manual_water_enabled': not status.get('tripped'),
             'relay_active': status.get('active'), 'known_issues': issues,
-            'collector': collector}
+            'collector': collector, 'manual_hold_url': HOLD_ENDPOINT}
 
 
 def flush_events():
     while True:
         try:
+            state = json.loads(Path(os.environ['EXACTH2O_GPIO_RELAY_STATE']).read_text())
+            for session_id, record in state.get('holds', {}).items():
+                if not record.get('channel') or not record.get('openedAt') or not record.get('delivered'): continue
+                event_record = {'pulseId': session_id, 'address': record['channel'],
+                                'durationMilliseconds': round((record.get('closedAt',time.time())-record['openedAt'])*1000)}
+                for action, field in [('open','openedAt'),('closed','closedAt')]:
+                    if not record.get(field): continue
+                    marker = STATE / 'hold-events-sent' / (session_id + '-' + action)
+                    if marker.exists(): continue
+                    queue_event(event_record, action, datetime.fromtimestamp(record[field],timezone.utc).isoformat())
+                    marker.parent.mkdir(parents=True,exist_ok=True)
+                    marker.touch()
             for path in sorted((STATE / 'water-events').glob('*.json')):
                 request = Request(os.environ['SUPABASE_URL'] + '/rest/v1/rpc/device_ingest',
                     data=json.dumps({'device_token': os.environ['EXACTH2O_INGEST_TOKEN'], 'payload': {'device_id': os.environ['EXACTH2O_DEVICE_ID'], 'sent_at': now(), 'events': [json.loads(path.read_text())]}}).encode(),
@@ -212,6 +226,18 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(503, {'error': str(error)})
 
     def do_POST(self):
+        if self.path == '/api/manual-hold':
+            expected = os.environ.get('EXACTH2O_CONTROLLER_COMMAND_SECRET', '')
+            if not expected or not hmac.compare_digest(self.headers.get('X-ExactH2O-Hold-Secret',''),expected):
+                return self.reply(401, {'error': 'Authentication required'})
+            try:
+                size = int(self.headers.get('Content-Length','0'))
+                if not 0 < size <= 4096: raise ValueError('Invalid request')
+                body = json.loads(self.rfile.read(size))
+                result = relay({**body, 'op':'hold'})
+                return self.reply(200,result)
+            except ValueError as error: return self.reply(400,{'error':str(error)})
+            except Exception as error: return self.reply(409,{'error':str(error)})
         if not self.authorized():
             return self.reply(401, {'error': 'Controller authentication required'})
         try:
@@ -231,6 +257,24 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(503, {'error': str(error)})
 
 
+def hold_tunnel():
+    global HOLD_ENDPOINT
+    while True:
+        try:
+            process = subprocess.Popen(['/opt/exacth2o-remote-access/cloudflared','tunnel','--no-autoupdate','--protocol','http2','--url','http://172.18.0.1:3001'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            for line in process.stdout:
+                match = re.search(rb'https://[a-z0-9-]+\.trycloudflare\.com',line)
+                if match:
+                    HOLD_ENDPOINT = match.group().decode()
+                    print('Manual hold transport ready',flush=True)
+            process.wait()
+        except Exception as error:
+            print('Manual hold transport retry:',str(error),flush=True)
+        HOLD_ENDPOINT = None
+        time.sleep(5)
+
+
 if __name__ == '__main__':
     threading.Thread(target=flush_events, daemon=True).start()
+    threading.Thread(target=hold_tunnel, daemon=True).start()
     ThreadingHTTPServer(('172.18.0.1', 3001), Handler).serve_forever()

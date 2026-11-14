@@ -8,7 +8,7 @@ SDI-12 adapter and exact Pan calibration are in `sensors.json`.
 It uses the existing GPIO relay service's Unix socket and persistent state;
 it never claims GPIO itself. The API's CRON_URL points to the private Docker
 host address, `http://172.18.0.1:3001/v1`. The service exposes STOPPED automatic
-control state, four configured outputs, authenticated 2–5 second pulses,
+control state, four configured outputs, authenticated press-and-hold watering with a 2.5-second renewable lease, plus finite pulses,
 persistent pulse readback, and authenticated host/sensor health. The independent
 GPIO timer closes each pulse even if HTTP disconnects. Replayed command IDs never
 open a valve again. Uncertain prior outcomes require reconciliation.
@@ -26,3 +26,5 @@ queue and the same device-scoped ingestion token as sensing.
 November 14 deployment verification used unit/contract checks, authenticated
 read-only health/status requests, and portal inspection. No additional valve
 pulse was performed: EJ reserved the phone watering test for Jake.
+
+Phone watering uses the unchanged Pan HoldWaterControl component. The independent GPIO agent owns hold deadlines, closes on release or lease expiry, and permanently rejects replay of ended sessions. The host bridge provides a secret-authenticated Cloudflare transport whose fresh URL is included in device health.

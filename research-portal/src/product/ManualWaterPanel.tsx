@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { TimedWaterControl } from "../TimedWaterControl";
 import { HoldWaterControl } from "../HoldWaterControl";
 import { boardLabel, ManualWaterClient, outputName, type Destination, type PotRoute, type RouteBook, type ValveOutput } from "../manualWaterApi";
 import { PotRouteFacts, RouteNeeded } from "./FindPotDialog";
@@ -173,8 +172,8 @@ function OutputPanel({ client, book, output, controllerName, onBook, titleId }: 
         <div><dt>Physical pot</dt><dd>{output.pots.length ? `Pot ${output.pots.join(", ")} (confirmed field route)` : output.candidatePots.length ? <span>Pot {output.candidatePots.join(", ")} <span className="px-muted">(recorded, needs a physical check)</span></span> : <span className="px-muted">Unknown: no recorded route uses this output</span>}</dd></div>
         <div><dt>Sensor pairing</dt><dd>{output.pairing ? <span>{output.pairing.name}{output.pairing.sensorKey ? <span className="px-mono px-muted"> · {output.pairing.sensorKey}</span> : null}</span> : output.sharedPairings ? `Shared by ${output.sharedPairings.join(", ")}` : <span className="px-muted">None</span>}</dd></div>
       </dl>
-      {book.wateringMode === "timed" && output.pairing ? <TimedWaterControl key={`timed:${output.key}`} client={client} pairingName={output.pairing.name} label={name} /> : <HoldWaterControl key={`out:${output.key}`} client={client} destination={destination} label={name} renewMs={book.renewMs} leaseMs={book.leaseMs} canTakeover={book.canTakeover} />}
-      <p className="px-muted px-small">{book.wateringMode === "timed" ? "This uses the confirmed output pairing and stops after the selected time." : "Holding this output does not confirm which pot it waters and does not change any route or pairing. Record a route from the pot’s page after watching it water."}</p>
+      <HoldWaterControl key={`out:${output.key}`} client={client} destination={destination} label={name} renewMs={book.renewMs} leaseMs={book.leaseMs} canTakeover={book.canTakeover} />
+      <p className="px-muted px-small">Holding this output does not confirm which pot it waters and does not change any route or pairing. Record a route from the pot's page after watching it water.</p>
       {book.canConfirm ? <OutputLabelForm client={client} output={output} onBook={onBook} /> : null}
     </div>
   );
@@ -220,7 +219,7 @@ function PotWaterPanel({ client, book, route, potNumber, controllerName, onBook,
       <PotRouteFacts route={route} admin={Boolean(book?.canConfirm)} />
       {!route || !book ? <p className="px-muted px-small">Loading valve routes…</p>
         : route.status === "ready"
-          ? book.wateringMode === "timed" && route.pairing ? <TimedWaterControl key={`timed-pot:${potNumber}`} client={client} pairingName={route.pairing.name} label={`Pot ${potNumber}`} /> : <HoldWaterControl key={`pot:${potNumber}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber }} label={`Pot ${potNumber}`} renewMs={book.renewMs} leaseMs={book.leaseMs} canTakeover={book.canTakeover} />
+          ? <HoldWaterControl key={`pot:${potNumber}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber }} label={`Pot ${potNumber}`} renewMs={book.renewMs} leaseMs={book.leaseMs} canTakeover={book.canTakeover} />
           : <RouteNeeded route={route} canConfirm={book.canConfirm} book={book} client={client} onBook={onBook} />}
     </div>
   );
