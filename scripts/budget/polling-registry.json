@@ -126,6 +126,12 @@
       "setInterval": 2,
       "cadence": "30 s active session heartbeat and manual ownership check; 2 min changed-evidence checkpoint during real runs; database only",
       "edge": false
+    },
+    "research-portal/src/TimedWaterControl.tsx": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 1,
+      "cadence": "1.5 s command status while one explicitly requested testbed pulse is pending; database only, stops at terminal status or unmount",
+      "edge": false
     }
   }
 }
