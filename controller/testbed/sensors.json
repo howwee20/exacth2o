@@ -1,0 +1,13 @@
+{
+  "board_serial": "D30GQN2Q",
+  "port": "/dev/serial/by-id/usb-FTDI_FT231X_USB_UART_D30GQN2Q-if00-port0",
+  "interval_seconds": 60,
+  "calibration_name": "matts greenhouse pots",
+  "coefficients": [100.68, -0.1289, 0.00004, 0, 0, 0],
+  "sensors": [
+    {"id": 1, "address": "1", "name": "Sensor One", "serial": "T11-00049048"},
+    {"id": 2, "address": "2", "name": "Sensor Two", "serial": "T11-00049044"},
+    {"id": 3, "address": "3", "name": "Sensor Three", "serial": "T11-00049049"},
+    {"id": 4, "address": "4", "name": "Sensor Four", "serial": "T11-00049052"}
+  ]
+}

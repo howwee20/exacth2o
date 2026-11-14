@@ -1,3 +1,4 @@
+import { isTestbed } from '../_shared/testbed-policy.mjs';
 import { assertKnownFieldRoute } from '../_shared/field-command-policy.mjs';
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -137,7 +138,8 @@ serve(async (request) => {
     const projectId = String(body.projectId ?? "");
     const deviceId = String(body.deviceId ?? "");
     if (![...holdActions, ...readActions, ...adminActions].includes(action)) return reply({ error: "Invalid request" }, 400);
-    if (projectId !== Deno.env.get("HEALTH_SYNC_PROJECT_ID") || deviceId !== Deno.env.get("HEALTH_SYNC_DEVICE_ID")) {
+    const testbed = isTestbed(projectId, deviceId);
+    if (!testbed && (projectId !== Deno.env.get("HEALTH_SYNC_PROJECT_ID") || deviceId !== Deno.env.get("HEALTH_SYNC_DEVICE_ID"))) {
       return reply({ error: "Hold-to-water is unavailable on this controller" }, 409);
     }
 
@@ -176,8 +178,9 @@ serve(async (request) => {
 
     if (action === "routes" || action === "inventory") {
       const { pots, boards, outputs } = await loadInventory(admin, projectId, deviceId);
-      return reply({ pots, boards, outputs, canConfirm: role === "admin", canTakeover: true, leaseMs: LEASE_MS, renewMs: RENEW_MS });
+      return reply({ pots: testbed ? pots.filter((pot: {pot: number}) => pot.pot <= 4) : pots, boards, outputs: testbed ? outputs.filter((output: {channel: number}) => output.channel <= 4) : outputs, canConfirm: !testbed && role === "admin", canTakeover: !testbed, leaseMs: LEASE_MS, renewMs: RENEW_MS, wateringMode: testbed ? "timed" : "hold" });
     }
+    if (testbed && adminActions.includes(action)) return reply({error: "The commissioned testbed mapping is fixed"}, 409);
     if (adminActions.includes(action)) {
       if (role !== "admin") return reply({ error: "Project admin access is required" }, 403);
       const rpc = action === "confirm_route"
@@ -192,6 +195,8 @@ serve(async (request) => {
       const { pots, boards, outputs } = await loadInventory(admin, projectId, deviceId, true);
       return reply({ pots, boards, outputs, canConfirm: true, canTakeover: true, leaseMs: LEASE_MS, renewMs: RENEW_MS });
     }
+
+    if (testbed) return reply({ error: "Use the testbed timed watering control" }, 409);
 
     // ---------------------------------------------------------------- hold actions
     const secret = Deno.env.get("EXACTH2O_MANUAL_HOLD_SECRET");

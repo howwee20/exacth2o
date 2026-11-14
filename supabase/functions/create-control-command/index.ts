@@ -1,3 +1,4 @@
+import { isTestbed, validateTestbedWater, assertTestbedPairing } from '../_shared/testbed-policy.mjs';
 import { checkFieldCommands } from '../_shared/field-command-policy.mjs';
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -452,7 +453,7 @@ serve(async (request) => {
     return jsonResponse({ error: "Unsupported command type" }, 400, origin);
   }
 
-  if (!isBatchRequest && commandType === "manual_water" && !manualWaterIntakeEnabled(Deno.env.get("MANUAL_WATER_INTAKE_ENABLED"))) {
+  if (!isBatchRequest && commandType === "manual_water" && !isTestbed(projectId, deviceId) && !manualWaterIntakeEnabled(Deno.env.get("MANUAL_WATER_INTAKE_ENABLED"))) {
     return jsonResponse({
       error: "Manual watering remains locked until the physical valve fail-safe check is recorded.",
     }, 503, origin);
@@ -462,6 +463,7 @@ serve(async (request) => {
   if (!isBatchRequest && commandType) {
     try {
       validated = validateCommand(commandType, body.payload);
+      if (isTestbed(projectId, deviceId) && commandType === 'manual_water') validateTestbedWater(validated.payload);
     } catch (error) {
       return jsonResponse({ error: errorMessage(error) }, 400, origin);
     }
@@ -664,13 +666,18 @@ serve(async (request) => {
     return jsonResponse({ error: accessDecision.error }, accessDecision.status, origin);
   }
   try {
+    if (isTestbed(projectId, deviceId) && validated.commandType === 'manual_water') {
+      const {data, error} = await admin.from('device_config_state').select('pairings').eq('project_id',projectId).eq('device_id',deviceId).maybeSingle();
+      if (error || !Array.isArray(data?.pairings)) throw new Error('Testbed pairing state is unavailable');
+      assertTestbedPairing(validated.payload, data.pairings);
+    }
     await guardAutocalibration([{commandType: validated.commandType, payload: validated.payload}]);
   } catch (error) {
     return jsonResponse({error: errorMessage(error)}, 409, origin);
   }
 
   const now = new Date().toISOString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + (isTestbed(projectId, deviceId) && validated?.commandType === 'manual_water' ? 30_000 : 10 * 60 * 1000)).toISOString();
   const capabilityId = validated.commandType === "manual_water"
     ? "manual_water"
     : validated.commandType === "export_data"

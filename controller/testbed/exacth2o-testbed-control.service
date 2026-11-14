@@ -1,0 +1,17 @@
+[Unit]
+Description=ExactH2O four-pot timed manual control and health
+After=docker.service exacth2o.service exacth2o-relay-guard.service
+Requires=docker.service exacth2o-relay-guard.service
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/opt/exacth2o/.env
+Environment=EXACTH2O_GPIO_RELAY_SOCKET=/var/lib/docker/volumes/exacth2o_relay_socket/_data/relay.sock
+Environment=EXACTH2O_GPIO_RELAY_STATE=/var/lib/docker/volumes/exacth2o_relay_state/_data/gpio-relays.json
+ExecStart=/usr/bin/python3 /opt/exacth2o/sensing/control.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

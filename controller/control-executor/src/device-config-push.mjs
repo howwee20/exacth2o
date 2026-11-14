@@ -27,7 +27,9 @@ export async function collectConfiguration(config, fetchImpl = globalThis.fetch)
   const boards = values.system.configuration?.boardConfigs;
   if (!Array.isArray(boards)) throw new Error('Controller board configuration is incomplete');
   snapshot.board_config = boards;
-  return { device_id: config.deviceId, config: snapshot, system: values.system,
+  const health = config.deviceHealthUrl ? await readJson(fetchImpl, config.deviceHealthUrl,
+    { headers: { 'x-exacth2o-controller-secret': config.controllerCommandSecret } }, 'Device health', config.localApiTimeoutMs || 10000) : null;
+  return { ...(health ? { health } : {}), device_id: config.deviceId, config: snapshot, system: values.system,
     endpoint_status: Object.fromEntries(names.map(name => [name, { ok: true }])) };
 }
 

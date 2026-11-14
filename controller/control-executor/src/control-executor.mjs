@@ -50,6 +50,8 @@ export function getConfig(env = process.env) {
     supabaseAnonKey: env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "",
     deviceToken: env.EXACTH2O_DEVICE_TOKEN || "",
     ingestToken: env.EXACTH2O_INGEST_TOKEN || "",
+    allowedCommandTypes: String(env.EXACTH2O_ALLOWED_COMMAND_TYPES || "").split(",").map(v => v.trim()).filter(Boolean),
+    deviceHealthUrl: env.EXACTH2O_DEVICE_HEALTH_URL || "",
     stateSyncMode: String(env.EXACTH2O_STATE_SYNC_MODE || "owner_health").trim().toLowerCase(),
     projectId: env.EXACTH2O_PROJECT_ID || env.CONTROL_BRIDGE_PROJECT_ID || "",
     deviceId: env.EXACTH2O_DEVICE_ID || env.CONTROL_BRIDGE_DEVICE_ID || "",
@@ -1027,6 +1029,9 @@ export async function tick({ rpc, api, config }) {
   let quarantineReason = null;
 
   try {
+    if (config.allowedCommandTypes?.length && !config.allowedCommandTypes.includes(command.command_type)) {
+      throw new Error(`Command ${command.command_type} is not enabled on this controller`);
+    }
     const result = await executeCommand(command, {
       api: leasedApi,
       dryRun: config.dryRun,

@@ -102,3 +102,12 @@ test('readiness recognizes push-mode credentials without declaring live watering
   assert.equal(calls[0].executor_dry_run, true);
   assert.equal(calls[0].executor_manual_water_enabled, false);
 });
+
+test('device health is sent with configuration and its endpoint is authenticated', async () => {
+  const c = {...config(), deviceHealthUrl:'http://controller.test/health'};
+  const t = transport({values:{...snapshot,health:{sensors_current:4}}});
+  const result = await collectConfiguration(c,t.fetch);
+  assert.equal(result.health.sensors_current,4);
+  assert.equal(t.calls.at(-1).options.headers['x-exacth2o-controller-secret'],'local-secret');
+  await assert.rejects(collectConfiguration(c,transport({badPath:'health'}).fetch));
+});

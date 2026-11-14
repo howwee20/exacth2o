@@ -42,6 +42,7 @@ export type RouteBook = {
   canTakeover: boolean;
   leaseMs: number;
   renewMs: number;
+  wateringMode?: "hold" | "timed";
 };
 
 export type Destination = { kind: 'pot'; potNumber: number } | { kind: 'solenoid'; relayAddress: number; channel: number };
@@ -130,6 +131,33 @@ export class ManualWaterClient {
     } catch {
       return { ok: false, status: 0, error: 'Controller connection lost', transient: true };
     }
+  }
+
+  async timedWater(pairingName: string, seconds: number, requestId: string) {
+    const { data, error } = await supabase.functions.invoke('create-control-command', { body: {
+      project_id: this.projectId, device_id: this.deviceId, client_request_id: requestId,
+      command_type: 'manual_water', payload: { pairing_names: [pairingName], duration_seconds: seconds },
+      confirm: true, operation_intent: `Water ${pairingName} for ${seconds} seconds from the phone control.`,
+    }});
+    if (error) {
+      const response = error.context;
+      const detail = response instanceof Response ? await response.clone().json().catch(() => ({})) : {};
+      const lookup = await supabase.from('project_control_commands').select('id')
+        .eq('project_id', this.projectId).eq('device_id', this.deviceId).eq('client_request_id', requestId).maybeSingle();
+      if (lookup.data?.id) return String(lookup.data.id);
+      const failure = new Error(detail.error || error.message) as Error & { definite?: boolean };
+      failure.definite = response instanceof Response && response.status >= 400 && response.status < 500;
+      throw failure;
+    }
+    if (!data?.command?.id) throw new Error('The watering request was not confirmed. Do not retry until its status is checked.');
+    return String(data.command.id);
+  }
+
+  async timedStatus(commandId: string) {
+    const { data, error } = await supabase.from('project_control_commands').select('status,error,result')
+      .eq('project_id', this.projectId).eq('device_id', this.deviceId).eq('id', commandId).single();
+    if (error) throw new Error(error.message);
+    return data as { status: string; error: string | null; result: { interrupted?: boolean } | null };
   }
 
   candidateTestClient() { return new ManualWaterClient(this.projectId, this.deviceId, this.fetchImpl, this.token, true); }
