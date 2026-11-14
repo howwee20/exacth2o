@@ -11,10 +11,6 @@
   background: #fff;
   padding: 64px 0;
 }
-/* The trace ribbon spans the page behind the copy and the photograph. */
-.home-page .cinema-hero { position: relative; overflow: visible; background: transparent; }
-.hero-ribbon { position: absolute; top: 0; left: 0; height: 100%; pointer-events: none; }
-.home-page .cinema-content, .home-page .cinema-photo { position: relative; z-index: 1; }
 .home-page .cinema-content {
   align-items: flex-start;
   text-align: left;
@@ -100,7 +96,10 @@
   .home-research-link { margin-inline: auto; font-size: 14px; }
 }
 
-.home-page .cta-strip { padding: 64px 24px; background: #f5f5f7; border: 0; }
+/* The closing section carries the interactive sheet beneath its copy and button. */
+.home-page .cta-strip { position: relative; overflow: hidden; padding: 144px 24px; background: #f5f5f7; border: 0; }
+.cta-strip .hero-ribbon { position: absolute; top: 0; left: 0; height: 100%; pointer-events: none; }
+.home-page .cta-strip > :not(canvas) { position: relative; z-index: 1; }
 .home-page .cta-strip h2 { font-size: clamp(34px, 3.4vw, 48px); font-weight: 650; line-height: 1.06; letter-spacing: -.045em; }
 .home-page .cta-strip p { max-width: 500px; margin: 18px auto 24px; font-size: 18px; line-height: 1.45; color: #6e6e73; }
 @media (max-width: 900px) {
@@ -129,7 +128,7 @@
   .home-page .feat-card h3 { margin-inline: 26px; font-size: 27px; }
   .home-page .feat-card p { min-height: 0; margin: 0 26px 26px; }
   .home-page .feat-card-img { aspect-ratio: 1.1; }
-  .home-page .cta-strip { padding: 48px 24px; }
+  .home-page .cta-strip { padding: 96px 24px; }
   .home-page .cta-strip h2 { font-size: 34px; }
   .home-page .cta-strip p { font-size: 17px; }
 }
