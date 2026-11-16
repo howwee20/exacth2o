@@ -64,6 +64,7 @@ jobs:
 
       - name: Test control authorization and executor safety
         run: |
+          node --test controller/supabase-publisher/test/*.test.mjs
           node scripts/generate-platform-contracts.mjs --check
           node scripts/audit-walker-observation.mjs
           node scripts/audit-walker-live-boundary.mjs

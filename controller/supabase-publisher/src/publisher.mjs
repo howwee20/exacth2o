@@ -334,16 +334,30 @@ export async function reconcileOnce(config, state, pairingHistory) {
     localGet(config, "/readings?page=1&pageSize=1"),
     localGet(config, "/pairings"),
   ]);
-  const snapshot = latestResponse?.data?.[0];
-  if (!snapshot) throw new Error("local readings endpoint returned no rows");
+  if (!Array.isArray(latestResponse?.data)) {
+    throw new Error("local readings endpoint returned an invalid row list");
+  }
+  if (!Array.isArray(pairingsResponse) && !Array.isArray(pairingsResponse?.data)) {
+    throw new Error("local pairings endpoint returned an invalid row list");
+  }
+  const snapshot = latestResponse.data[0];
+  if (latestResponse.data.length && (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot))) {
+    throw new Error("local readings endpoint returned an invalid reading");
+  }
 
-  state.latestKnownId = Number(snapshot.id);
+  // An empty, successfully read database is normal before the first sensor
+  // observation. It still sends the authenticated heartbeat below, with no
+  // fabricated readings. Invalid responses and request failures never get here.
+  state.latestKnownId = snapshot ? Number(snapshot.id) : 0;
+  if (!Number.isSafeInteger(state.latestKnownId) || (snapshot && state.latestKnownId < 1)) {
+    throw new Error("local readings endpoint returned an invalid reading identity");
+  }
   if (state.cursorId > 0) {
     // Compare the row at our durable cursor, not just the latest numeric ID.
     // A restored database can already have grown beyond the old sequence.
-    const cursorResponse = await requestWithTimeout(config, `${config.apiBase}/readings/${state.cursorId}`);
-    if (!cursorResponse.ok && cursorResponse.status !== 404) throw new Error(`Cursor verification failed: ${cursorResponse.status}`);
-    const cursorRow = cursorResponse.ok ? await cursorResponse.json() : null;
+    const cursorResponse = snapshot ? await requestWithTimeout(config, `${config.apiBase}/readings/${state.cursorId}`) : null;
+    if (cursorResponse && !cursorResponse.ok && cursorResponse.status !== 404) throw new Error(`Cursor verification failed: ${cursorResponse.status}`);
+    const cursorRow = cursorResponse?.ok ? await cursorResponse.json() : null;
     const reset = !cursorRow || state.latestKnownId < state.cursorId ||
       (state.cursorRecordedAt && Date.parse(cursorRow.createdAt) !== Date.parse(state.cursorRecordedAt));
     if (reset) {
