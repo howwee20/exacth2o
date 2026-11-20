@@ -92,7 +92,8 @@ describe("preflight", () => {
     expect(report.worstCaseValveSeconds).toBe(900);
     expect(report.checks.find((check) => check.id === "budget_covers")?.detail).toMatch(/900 valve-seconds/);
     expect(report.estimatedMinutes).toBeGreaterThan(300);
-    expect(report.checks.find((check) => check.id === "duration")?.status).toBe("pass");
+    expect(report.estimatedMaxMinutes).toBeGreaterThan(config.maxRunSeconds / 60);
+    expect(report.checks.find((check) => check.id === "duration")?.status).toBe("warn");
   });
 
   it("starts after recent manual watering but says baselines wait for the pots to settle", () => {
@@ -363,7 +364,15 @@ describe("real-hardware boundary", () => {
     expect((adapter.match(/command_type:\s*"([a-z_]+)"/g) ?? []).every((match) => match.includes("manual_water"))).toBe(true);
   });
 
-  it("imports the Supabase client only as ./supabase so the offline Applications demo can swap it", () => {
+  it("both offline builds replace every relative Supabase client import", async () => {
+    const offlineAliases = await Promise.all(["applications-preview", "demo-preview"].map(async (directory) => {
+      const configUrl = new URL(`../../../${directory}/vite.config.mjs`, import.meta.url);
+      const { default: config } = await import(/* @vite-ignore */ configUrl.href);
+      const aliases: Array<{ find: RegExp; replacement: string }> = config.resolve.alias;
+      const offline = aliases.find(alias => alias.replacement === fileURLToPath(new URL("./offline.ts", configUrl)));
+      expect(offline, `${directory} needs an offline client alias`).toBeDefined();
+      return offline!.find;
+    }));
     const src = join(here, "..");
     const walk = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
       const full = join(directory, entry.name);
@@ -371,7 +380,10 @@ describe("real-hardware boundary", () => {
       return /\.tsx?$/.test(entry.name) ? [full] : [];
     });
     for (const file of walk(src)) {
-      expect(/from\s+["']\.\.\/(\.\.\/)*supabase["']/.test(readFileSync(file, "utf8")), `${file} must import "./supabase" from src/, not a parent path`).toBe(false);
+      const imports = readFileSync(file, "utf8").matchAll(/(?:from\s*|import\s*(?:\(\s*)?)["']((?:\.\.?\/)+supabase(?:\.[cm]?[jt]sx?)?)["']/g);
+      for (const [, specifier] of imports) {
+        for (const alias of offlineAliases) expect(specifier, file).toMatch(alias);
+      }
     }
   });
 
