@@ -12,10 +12,10 @@ export function AutocalRunBanner({ onOpen }: { onOpen: () => void }) {
   const progress = live.run.progress();
   const active = progress.activeValveKey ? live.potByValve.get(progress.activeValveKey) ?? null : null;
   return (
-    <div className="ac-banner" role="region" aria-label="Autocalibration in progress">
+    <div className="ac-banner" role="region" aria-label="Autopair in progress">
       <span className="ac-banner-dot" aria-hidden="true" />
       <span className="ac-banner-text" aria-live="polite">
-        <strong>{live.mode === "real" ? "Autocalibration running" : "Autocalibration rehearsal"}</strong>
+        <strong>{live.mode === "real" ? "Autopair running" : "Autopair rehearsal"}</strong>
         {" "}· {progress.completed} of {progress.total} valves measured
         {active ? ` · ${potName(active.potNumber, active.pairingName)}` : progress.phase === "baseline" ? " · reading baselines" : ""}
         {" "}· keep this tab open

@@ -129,7 +129,7 @@ test('another operator holding the controller is shown as busy; taking over is e
 test('with autocalibration running in this tab, holding asks first and then interrupts the run',async({page})=>{
   await controller(page);
   await page.goto(`${harness}?autocal`);
-  await expect(page.getByText(/Autocalibration is running in this tab/)).toBeVisible();
+  await expect(page.getByText(/Autopair is running in this tab/)).toBeVisible();
   await expect(page.getByRole('button',{name:/Hold to water/})).toBeDisabled();
   await page.getByRole('button',{name:'Stop autocalibration when I hold'}).click();
   const button=page.getByRole('button',{name:/Hold to water/});await expect(button).toBeEnabled();

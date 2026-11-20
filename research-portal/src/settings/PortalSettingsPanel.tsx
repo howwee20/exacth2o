@@ -450,7 +450,7 @@ export function PortalSettingsPanel({
               lines={[
                 { label: "Checked at the bench", value: <span className="settings-empty-value">Not yet</span> },
               ]}
-              actionLabel={canOpen("pairings") ? "Open Pairings" : canOpen("autocalibrate") ? "Open Autocalibrate" : undefined}
+              actionLabel={canOpen("pairings") ? "Open Pairings" : canOpen("autocalibrate") ? "Open Autopair" : undefined}
               onAction={() => onSectionChange(canOpen("pairings") ? "pairings" : "autocalibrate")}
             />
           </div>
@@ -546,7 +546,7 @@ export function PortalSettingsPanel({
             <div className="settings-toolbar-actions">
               <button type="button" className="settings-secondary-button" onClick={() => onSectionChange("autocalibrate")}>
                 <Radar size={14} aria-hidden="true" />
-                Check with Autocalibrate
+                Check with Autopair
               </button>
               <button type="button" className="settings-secondary-button" onClick={onDownloadPairingsCsv}>
                 <Download size={14} aria-hidden="true" />

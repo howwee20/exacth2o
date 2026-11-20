@@ -191,8 +191,8 @@ export function HoldWaterControl({ client, destination, label, identity, renewMs
       {identity ? <div className="px-water-identity">{identity}</div> : null}
       {needsAutocalConfirm ? (
         <div className="px-water-confirm" role="alert">
-          <p>Autocalibration is running in this tab. Manual watering stops it; its evidence is kept and it must be resumed after the pots settle.</p>
-          <button type="button" className="px-button is-small" onClick={() => setAutocalConfirmed(true)}>Stop autocalibration when I hold</button>
+          <p>Autopair is running in this tab. Manual watering stops it; its evidence is kept and it must be resumed after the pots settle.</p>
+          <button type="button" className="px-button is-small" onClick={() => setAutocalConfirmed(true)}>Stop Autopair when I hold</button>
         </div>
       ) : null}
       {availability.state === 'busy' && canTakeover && !holding ? (

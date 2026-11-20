@@ -253,9 +253,9 @@ export function overviewNextAction(input: OverviewInput): NextAction {
     return {
       tone: "ok",
       title: "Ready. Pairings not yet checked at the bench",
-      detail: "Autocalibrate pulses one valve at a time and watches every sensor to confirm which valve waters which pot.",
+      detail: "Autopair pulses one valve at a time and watches every sensor to confirm which valve waters which pot.",
       section: "autocalibrate",
-      actionLabel: "Open Autocalibrate",
+      actionLabel: "Open Autopair",
     };
   }
   return {
@@ -288,7 +288,7 @@ export const settingsNavItems: SettingsNavItem[] = [
   },
   {
     id: "autocalibrate",
-    label: "Autocalibrate",
+    label: "Autopair",
     description: "Test valve-to-pot connections, then review the results before applying them.",
     group: "Set up",
   },

@@ -341,7 +341,7 @@ export class CommissioningRun {
 
   /** Manual watering began on this controller (seen locally or in the hold records). */
   interruptForManualWatering(label: string) {
-    this.abort(`Manual watering (${label}) interrupted autocalibration. Evidence gathered so far is kept; readings after this point are not used. Resume collects fresh baselines.`, "manual_watering");
+    this.abort(`Manual watering (${label}) interrupted Autopair. Evidence gathered so far is kept; readings after this point are not used. Resume collects fresh baselines.`, "manual_watering");
   }
 
   async run(input: { confirmation?: string } = {}): Promise<CommissioningResult> {
@@ -489,7 +489,7 @@ export class CommissioningRun {
     const sessions = await this.manualSessions(lookbackStart - this.config.manualSettleSeconds * 1000);
     const open = sessions.find((session) => session.endedAtMs == null);
     if (open) {
-      const reason = `Manual watering (${open.label}) is in progress. Autocalibration starts after it ends and the pots settle.`;
+      const reason = `Manual watering (${open.label}) is in progress. Autopair starts after it ends and the pots settle.`;
       this.write("interruption", reason, { session: open });
       throw new StopRun("interrupted", reason, { at: new Date(this.ports.now()).toISOString(), reason, source: "manual_watering" });
     }

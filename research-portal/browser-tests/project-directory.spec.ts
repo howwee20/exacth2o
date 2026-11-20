@@ -126,14 +126,14 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await administration.locator('summary').click();
     await expect(administration.getByRole('button', { name: 'Open website analytics' })).toBeVisible();
     await expect(administration.getByText('System Health', { exact: true })).toHaveCount(0);
-    await expect(administration.getByText('Autocalibrate', { exact: true })).toHaveCount(0);
+    await expect(administration.getByText('Autopair', { exact: true })).toHaveCount(0);
     await administration.locator('summary').click();
     await page.screenshot({ path: test.info().outputPath('machine-home-desktop.png'), fullPage: true });
     const rheeCreation = page.getByRole('link', { name: 'New experiment on Rhee Lab', exact: true });
     const testbedCreation = page.getByRole('link', { name: 'New experiment on Four-pot testbed', exact: true });
     await expect(rheeCreation).toHaveAttribute('href', /view=new-experiment/);
     await expect(testbedCreation).toHaveAttribute('href', new RegExp(`view=new-experiment&project=${testbedProject}`));
-    await expect(page.getByText('Autocalibrate', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Autopair', { exact: true })).toHaveCount(0);
     await rheeCreation.click();
     await expect(page).toHaveURL(/view=new-experiment/);
     await expect(page.getByRole('heading', { name: 'New experiment', exact: true })).toBeVisible();
@@ -141,12 +141,24 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByLabel('Experiment name', { exact: true }).fill('Draft with optional calibration');
     const physicalMap = page.getByRole('region', { name: 'Physical pot map' });
     await expect(physicalMap.getByRole('button')).toHaveCount(100);
-    for (const pot of [16, 63, 65, 66, 76, 96]) {
+    const lockedOrUnresolved = [63, 87, 88, 89, 90, ...Array.from({ length: 12 }, (_, index) => 65 + index)];
+    for (const pot of lockedOrUnresolved) {
       await expect(physicalMap.getByRole('button', { name: new RegExp(`^Pot ${pot},`) })).toBeDisabled();
     }
-    await expect(physicalMap.getByRole('button', { name: /^Pot 16, No reading/ })).toBeVisible();
     const available = page.getByRole('region', { name: 'Available', exact: true });
     const selected = page.getByRole('region', { name: 'Selected', exact: true });
+    await expect(available.getByRole('button')).toHaveCount(83);
+    const physical16 = physicalMap.getByRole('button', { name: /^Pot 16,/ });
+    await physical16.click();
+    await expect(page.getByRole('button', { name: 'Review experiment', exact: true })).toBeEnabled();
+    await physicalMap.getByRole('button', { name: /^Pot 1,/ }).click();
+    const selected1 = selected.getByRole('button', { name: 'Remove Pot 1', exact: true });
+    await expect(selected1).toContainText('Needs controller pairing');
+    await expect(available.getByRole('button', { name: 'Pot 1', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Review experiment', exact: true })).toBeDisabled();
+    await selected1.click();
+    await physical16.click();
+    await expect(available.getByRole('button')).toHaveCount(83);
     const physical86 = physicalMap.getByRole('button', { name: /^Pot 86,/ });
     await expect(available.getByRole('button', { name: 'Pot 86', exact: true })).toBeVisible();
     await physical86.click();
@@ -164,15 +176,15 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath('rhee-pot-map-mobile.png'), fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Autocalibrate', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Open Autopair', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Autopair', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('optional-autocalibration.png'), fullPage: true });
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('button', { name: 'Back to experiment setup' }).click();
     await expect(page.getByLabel('Experiment name', { exact: true })).toHaveValue('Draft with optional calibration');
-    await expect(page.getByText('1 selected · 0 available')).toBeVisible();
-    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByText('1 selected · 82 available')).toBeVisible();
+    await page.getByRole('button', { name: 'Open Autopair', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('new-experiment-desktop.png'), fullPage: true });
     await page.getByRole('link', { name: /Home/ }).click();
 
@@ -250,7 +262,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('button', { name: 'Observation', exact: false }).click();
     await page.getByRole('button', { name: 'Select zone', exact: true }).click();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole('button', { name: 'Open Autopair', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('new-experiment-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Review experiment', exact: true }).click();
     await page.getByLabel('Apply these settings now.').check();

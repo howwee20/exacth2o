@@ -36,7 +36,7 @@ export function physicalPotRows(
     const valve = field ?? (pairing ? parseValveKey(pairing.valve_key) : null);
     const ready = Boolean(pairing && availability.get(pairing.name)?.available &&
       field?.status !== 'unresolved' && field?.status !== 'protected');
-    return {pot, field, pairing, valve, ready};
+    return {pot, field, pairing, owners, valve, ready};
   });
 }
 

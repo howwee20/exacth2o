@@ -72,9 +72,9 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
     operatorRoles.has(facts.role ?? ""),
     operatorRoles.has(facts.role ?? "")
       ? `Signed in as a project ${facts.role}.`
-      : "Autocalibration needs project researcher or administrator access.");
+      : "Autopair needs project researcher or administrator access.");
 
-  add("session", "No other autocalibration is using this controller",
+  add("session", "No other Autopair run is using this controller",
     !facts.otherActiveSession,
     facts.otherActiveSession
       ? `Run ${facts.otherActiveSession.runId}${facts.otherActiveSession.operator ? ` (${facts.otherActiveSession.operator})` : ""} started ${new Date(facts.otherActiveSession.startedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} and is still open. Resume, finish or abandon it first.`
@@ -151,7 +151,7 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
       holds == null
         ? "Could not read manual watering records, so manual watering cannot be ruled out."
         : open
-          ? `${open.label} is being watered by hand now. Autocalibration starts after it ends and the pots settle.`
+          ? `${open.label} is being watered by hand now. Autopair starts after it ends and the pots settle.`
           : recent.length
             ? `Manual watering ended ${Math.round((facts.nowMs - Math.max(...recent.map((hold) => hold.endedAtMs ?? 0))) / 60000)} min ago; baselines will use readings from after the pots settle.`
             : "No manual watering in the last half hour.");

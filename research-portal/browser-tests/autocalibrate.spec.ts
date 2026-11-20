@@ -108,7 +108,7 @@ test('full simulated 100-pot run: prepare, check, run, review, apply with readba
   await setSpeed(page, 600);
   await page.getByRole('button', { name: 'Open 100 real valves, one at a time' }).click();
   await expect(page.getByRole('button', { name: 'Stop now' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Autocalibration in progress' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Autopair in progress' })).toBeVisible();
 
   await setSpeed(page, 600);
   await expect.poll(async () => Number((await page.locator('.ac-stats dd').first().textContent())?.split(' ')[0] ?? 0), { timeout: 120_000 }).toBeGreaterThanOrEqual(35);
@@ -192,7 +192,7 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   await page.getByRole('tab', { name: 'Hardware', exact: true }).click();
   await page.getByRole('textbox', { name: /Solenoid number/ }).fill('40');
   await page.getByRole('button', { name: /^Solenoid 40,/ }).click();
-  await expect(page.getByText(/Autocalibration is running in this tab/)).toBeVisible();
+  await expect(page.getByText(/Autopair is running in this tab/)).toBeVisible();
   const hold = page.getByRole('button', { name: /Hold to water/ });
   await expect(hold).toBeDisabled();
   await page.getByRole('button', { name: 'Stop autocalibration when I hold' }).click();

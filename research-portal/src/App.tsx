@@ -533,7 +533,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   async function signOut() {
     const unsent = noteOutbox.waiting.length;
     if (unsent && !window.confirm(`${unsent} ${unsent === 1 ? "note has" : "notes have"} not reached the record yet. ${unsent === 1 ? "It stays" : "They stay"} on this device, visible only to this account, and ${unsent === 1 ? "sends" : "send"} when you sign in here again. Sign out?`)) return;
-    if (autocalRunStore.running && !window.confirm("An autocalibration run is in progress in this tab. Signing out stops it before its next pulse; its evidence so far is kept. Sign out?")) return;
+    if (autocalRunStore.running && !window.confirm("An Autopair run is in progress in this tab. Signing out stops it before its next pulse; its evidence so far is kept. Sign out?")) return;
     autocalRunStore.stop("The operator signed out, so the run stopped before its next pulse.");
     await supabase.auth.signOut();
     navigatePortal({ view: "home" }, { replace: true });
@@ -814,7 +814,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       template={newExperimentPage ? null : duplicateExperiment}
       presentation={newExperimentPage ? "inline" : "modal"}
       systemName={portalSystemName(activeProjectId, portalAccess?.projectName)}
-      renderCalibration={(draft) => <FeatureBoundary name="Autocalibrate"><AutocalibrateWorkspace
+      renderCalibration={(draft) => <FeatureBoundary name="Autopair"><AutocalibrateWorkspace
         projectId={activeProjectId}
         deviceId={activeDeviceId || null}
         operator={portalAccess?.email ?? null}
@@ -1183,7 +1183,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
       healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
         {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
-        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autocalibrate →</PortalLink> : null}
+        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autopair →</PortalLink> : null}
       </div> : undefined}
       recordAvailable={recordAvailable}
     />
@@ -1200,7 +1200,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     </section>);
   }
   if (route.view === "autocalibrate" && canReadProjectData) {
-    return productShell(<FeatureBoundary name="Autocalibrate"><AutocalibratePage
+    return productShell(<FeatureBoundary name="Autopair"><AutocalibratePage
       systemName={portalSystemName(activeProjectId, portalAccess.projectName)}
       projectId={activeProjectId}
       deviceId={activeDeviceId || null}

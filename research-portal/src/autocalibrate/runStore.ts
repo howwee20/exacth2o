@@ -125,7 +125,7 @@ export class AutocalRunStore {
   }
 
   async start(input: StartRunInput): Promise<FinishedRunView> {
-    if (this.snapshot.live || this.starting) throw new Error("An autocalibration run is already in progress in this tab. Stop it first.");
+    if (this.snapshot.live || this.starting) throw new Error("An Autopair run is already in progress in this tab. Stop it first.");
     this.starting = true;
     let claimed: CommissioningSessionRow;
     let Run: typeof CommissioningRun;
@@ -166,7 +166,7 @@ export class AutocalRunStore {
       } catch (error) {
         if (error instanceof RunLeaseError && error.lost) {
           lost = true;
-          run.abort("Another screen took over this autocalibration session, so this screen stopped before its next pulse.");
+          run.abort("Another screen took over this Autopair session, so this screen stopped before its next pulse.");
         }
         throw error;
       }
@@ -222,7 +222,7 @@ export class AutocalRunStore {
           const row = await input.store.saveRun(runId, token, patch);
           if (!row) {
             lost = true;
-            run.abort("Another screen took over this autocalibration session, so this screen stopped before its next pulse.");
+            run.abort("Another screen took over this Autopair session, so this screen stopped before its next pulse.");
             return;
           }
           live.savedAtMs = Date.now();
@@ -260,7 +260,7 @@ export class AutocalRunStore {
     const hasWindow = typeof window !== "undefined" && typeof window.addEventListener === "function";
     const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     const pageHide = () => {
-      run.abort("This screen closed, so the run stopped before its next pulse. Resume it from Autocalibrate.", "screen_closed");
+      run.abort("This screen closed, so the run stopped before its next pulse. Resume it from Autopair.", "screen_closed");
       checkpointed = -1;
       checkpoint();
     };

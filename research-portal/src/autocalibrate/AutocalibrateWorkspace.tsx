@@ -82,12 +82,12 @@ export function AutocalibrateWorkspace(props: AutocalibrateWorkspaceProps) {
   if (!operatorRoles.has(props.portalRole)) {
     return (
       <SettingsEmptyState title="Operator access required">
-        Autocalibrate opens real valves, so it needs project researcher or administrator access.
+        Autopair opens real valves, so it needs project researcher or administrator access.
       </SettingsEmptyState>
     );
   }
   if (!props.deviceId) {
-    return <SettingsEmptyState title="Autocalibrate is unavailable">No controller is linked to this project, so there is nothing to calibrate.</SettingsEmptyState>;
+    return <SettingsEmptyState title="Autopair is unavailable">No controller is linked to this project, so there is nothing to calibrate.</SettingsEmptyState>;
   }
   return <Workspace {...props} deviceId={props.deviceId} />;
 }
@@ -394,14 +394,14 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
     <div className="commission ac-workspace">
       <header className="ac-head">
         <div>
-          <Title className="ac-title">Autocalibrate</Title>
+          <Title className="ac-title">Autopair</Title>
           <p className="settings-muted">
             Select pots, then run. Each clear valve-to-sensor match is recorded as it is measured.
           </p>
         </div>
         {session ? <StatusChip tone="info">Session {session.run_id.slice(-8)} · {session.pot_count} pots</StatusChip> : null}
       </header>
-      <ol className="ac-stepper" aria-label="Autocalibration steps">
+      <ol className="ac-stepper" aria-label="Autopair steps">
         {shownSteps.map((item, index) => {
           const state = !session && stage !== "closed" ? (index === 0 ? "current" : "upcoming") : index < stepIndex ? "done" : index === stepIndex ? "current" : "upcoming";
           return (
@@ -414,7 +414,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
       </ol>
 
       {!props.controllerOnline ? <p className="ac-notice">The controller is offline or has not reported recently. Selection and review work; changes and runs wait until it reports again.</p> : null}
-      {loadError ? <p className="settings-error-line" role="alert">Could not read autocalibration sessions: {loadError} <button type="button" className="ac-link" onClick={() => void load()}>Try again</button></p> : null}
+      {loadError ? <p className="settings-error-line" role="alert">Could not read Autopair sessions: {loadError} <button type="button" className="ac-link" onClick={() => void load()}>Try again</button></p> : null}
       {layoutError && !fieldMap ? <p className="settings-muted">Bench layout unavailable: {layoutError}</p> : null}
       {actionError ? <p className="settings-error-line" role="alert">{actionError}</p> : null}
       {unsaved ? (
