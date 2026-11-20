@@ -67,9 +67,13 @@ async function fetchTelemetryPage(projectId: string, deviceId: string, request: 
   return rows;
 }
 
+export function createSupabaseTelemetryReader({ projectId, deviceId }: { projectId: string; deviceId: string }) {
+  return createTelemetryReader((request) => fetchTelemetryPage(projectId, deviceId, request), { pageSize: telemetryPageSize });
+}
+
 export function createSupabasePorts(input: { projectId: string; deviceId: string }): CommissioningPorts {
   const { projectId, deviceId } = input;
-  const telemetry = createTelemetryReader((request) => fetchTelemetryPage(projectId, deviceId, request), { pageSize: telemetryPageSize });
+  const telemetry = createSupabaseTelemetryReader(input);
 
   const findByClientRequestId = async (clientRequestId: string) => {
     const lookup = await withSupabaseTimeout(

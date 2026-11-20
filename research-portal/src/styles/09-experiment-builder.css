@@ -535,6 +535,11 @@
   gap: 8px;
 }
 
+.experiment-builder-field-picker > section + section { margin-top: 18px; }
+.experiment-builder-field-picker > section h4 { margin: 0 0 8px; font-size: .82rem; }
+.experiment-builder-field-picker > section p { margin: 0; }
+.experiment-builder-field-picker .experiment-builder-pot-grid button { min-height: 44px; align-content: center; }
+
 .experiment-builder-pot-grid button {
   position: relative;
   min-height: 52px;

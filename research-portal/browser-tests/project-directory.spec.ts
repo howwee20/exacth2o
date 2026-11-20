@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const mainProject = '22222222-2222-4222-8222-222222222222';
+const mainDevice = '3100e37ee3205651fe3dd86dafd4dc0c';
 const testbedProject = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const userId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const user = { id: userId, email: 'test@example.invalid', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' };
@@ -21,13 +22,23 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
     const deviceLookups: string[] = [];
-    const builderRequests: Array<{ action: string; project_id: string }> = [];
+    const builderRequests: Array<{ action: string; project_id: string; draft: { assignments: Array<{ pairing_name: string }> } }> = [];
     const calibrationWrites: string[] = [];
     let createdExperiment: Record<string, unknown> | null = null;
     const configPairings = [1, 2].map(number => ({
       name: `Zone1-Pot${number}`, sensorId: number, valveId: number,
       Sensor: { boardSerialId: 'test-sensor', address: String(number) },
       Valve: { relayAddress: 'test-relay', address: String(number) },
+      WTCPercentLimit: -1000, ValveOpenTime: 2000, MeasurementInterval: 60000,
+    }));
+    const rheePairings = [
+      { name: 'Zone4-Pot95', sensorId: 10, relayAddress: '0x20', address: '48' },
+      { name: 'Zone3-Pot66', sensorId: 11, relayAddress: '0x24', address: '16' },
+      { name: 'Huiqiao-Zone3-Pot66', sensorId: 12, relayAddress: '0x20', address: '18' },
+    ].map(({ name, sensorId, relayAddress, address }) => ({
+      name, sensorId, valveId: sensorId,
+      Sensor: { boardSerialId: 'rhee-sensor', address: String(sensorId) },
+      Valve: { relayAddress, address },
       WTCPercentLimit: -1000, ValveOpenTime: 2000, MeasurementInterval: 60000,
     }));
     await page.route('https://*.supabase.co/**', async route => {
@@ -47,9 +58,12 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       else if (url.pathname === '/rest/v1/devices') {
         const project = url.searchParams.get('project_id')?.replace(/^eq\./, '') ?? '';
         deviceLookups.push(project);
-        data = [{ id: project === testbedProject ? 'testbed-device' : 'main-device' }];
+        data = [{ id: project === testbedProject ? 'testbed-device' : mainDevice }];
       } else if (url.pathname === '/rest/v1/device_config_state') {
-        data = url.searchParams.get('select') === '*' ? { pairings: configPairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
+        const pairings = url.searchParams.get('device_id') === `eq.${mainDevice}` ? rheePairings : configPairings;
+        data = url.searchParams.get('select') === '*' ? { pairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
+      } else if (url.pathname === '/rest/v1/sensor_readings' && url.searchParams.get('device_id') === `eq.${mainDevice}` && url.searchParams.has('sensor_key')) {
+        data = [10, 12].map(id => ({ id, sensor_key: `rhee-sensor:${id}`, device_recorded_at: now, server_received_at: now, calibrated_value: 35 }));
       } else if (url.pathname === '/rest/v1/device_runtime_state' || url.pathname === '/rest/v1/latest_device_state') {
         data = null;
       } else if (url.pathname === '/rest/v1/commissioning_sessions') {
@@ -125,7 +139,31 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('heading', { name: 'New experiment', exact: true })).toBeVisible();
     await expect(page.getByText('Rhee Lab', { exact: true })).toBeVisible();
     await page.getByLabel('Experiment name', { exact: true }).fill('Draft with optional calibration');
-    await page.getByRole('button', { name: 'Select zone', exact: true }).click();
+    const physicalMap = page.getByRole('region', { name: 'Physical pot map' });
+    await expect(physicalMap.getByRole('button')).toHaveCount(100);
+    for (const pot of [16, 63, 65, 66, 76, 96]) {
+      await expect(physicalMap.getByRole('button', { name: new RegExp(`^Pot ${pot},`) })).toBeDisabled();
+    }
+    await expect(physicalMap.getByRole('button', { name: /^Pot 16, No reading/ })).toBeVisible();
+    const available = page.getByRole('region', { name: 'Available', exact: true });
+    const selected = page.getByRole('region', { name: 'Selected', exact: true });
+    const physical86 = physicalMap.getByRole('button', { name: /^Pot 86,/ });
+    await expect(available.getByRole('button', { name: 'Pot 86', exact: true })).toBeVisible();
+    await physical86.click();
+    await expect(physical86).toHaveAttribute('aria-pressed', 'true');
+    await expect(available.getByRole('button', { name: 'Pot 86', exact: true })).toHaveCount(0);
+    const selected86 = selected.getByRole('button', { name: 'Remove Pot 86', exact: true });
+    await selected86.click();
+    await expect(physical86).toHaveAttribute('aria-pressed', 'false');
+    await available.getByRole('button', { name: 'Pot 86', exact: true }).click();
+    await page.getByRole('button', { name: 'Review experiment', exact: true }).click();
+    await expect(page.getByRole('rowheader', { name: 'Pot 86', exact: true })).toBeVisible();
+    expect(builderRequests[0].draft.assignments.map(assignment => assignment.pairing_name)).toEqual(['Zone4-Pot95']);
+    await page.getByRole('button', { name: 'Edit setup', exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('rhee-pot-map-mobile.png'), fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Open autocalibration', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Autocalibrate', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toBeVisible();
@@ -133,7 +171,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('button', { name: 'Back to experiment setup' }).click();
     await expect(page.getByLabel('Experiment name', { exact: true })).toHaveValue('Draft with optional calibration');
-    await expect(page.getByText('2 selected · 2 available')).toBeVisible();
+    await expect(page.getByText('1 selected · 0 available')).toBeVisible();
     await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('new-experiment-desktop.png'), fullPage: true });
     await page.getByRole('link', { name: /Home/ }).click();
@@ -218,7 +256,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByLabel('Apply these settings now.').check();
     await page.getByRole('button', { name: 'Confirm and create', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Experiment created', exact: true })).toBeVisible();
-    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', testbedProject], ['launch', testbedProject]]);
+    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', mainProject], ['preflight', testbedProject], ['launch', testbedProject]]);
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('button', { name: 'View experiment', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Testbed observation trial', exact: true })).toBeVisible();

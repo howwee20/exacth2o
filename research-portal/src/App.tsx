@@ -805,6 +805,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     <FeatureBoundary name="Experiment builder"><ExperimentBuilder
       key={`${activeProjectId}:${newExperimentPage ? "new-experiment" : editingExperiment?.currentRevisionId ?? duplicateExperiment?.id ?? "new-experiment"}`}
       projectId={activeProjectId}
+      deviceId={activeDeviceId || null}
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}

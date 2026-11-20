@@ -43,12 +43,15 @@ import {
 import type { PairingRow } from "./types";
 import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
 import { autocalRunStore, useAutocalRun } from "./autocalibrate/runStore";
+import { installationFieldMap } from "./autocalibrate/fieldMap";
+import { ExperimentPotPicker, useExperimentFieldPots } from "./ExperimentPotPicker";
 
 type BuilderStep = "prompt" | "review" | "calibrate" | "complete";
 const noPortalExperiments: readonly PortalExperiment[] = [];
 
 type ExperimentBuilderProps = {
   projectId: string;
+  deviceId: string | null;
   pairings: PairingRow[];
   inventoryUpdatedAt: string | null;
   initialPrompt?: string;
@@ -116,6 +119,7 @@ function optionalValue(value: string) {
 
 function ExperimentBuilderContent({
   projectId,
+  deviceId,
   pairings,
   inventoryUpdatedAt,
   initialPrompt = "",
@@ -202,6 +206,15 @@ function ExperimentBuilderContent({
     ),
     [experiment?.databaseId, experiment?.id, experiments],
   );
+  const fieldMap = !editing && deviceId ? installationFieldMap(projectId, deviceId) : null;
+  const fieldPots = useExperimentFieldPots(fieldMap, projectId, deviceId, pairings, occupiedByName);
+  const selectedPotsUnavailable = fieldPots != null && draft.assignments.some(
+    assignment => !fieldPots.ready.has(assignment.pairing_name),
+  );
+  const potLabel = (name: string) => {
+    const number = fieldPots?.potNumbers.get(name);
+    return number == null ? name.replace(/^Zone(\d+)-Pot/i, "Z$1 · Pot ") : `Pot ${number}`;
+  };
   const availablePairingCount = useMemo(
     () => sortedPairings.filter((pairing) => !occupiedByName.has(pairing.name)).length,
     [occupiedByName, sortedPairings],
@@ -300,6 +313,7 @@ function ExperimentBuilderContent({
   };
 
   const togglePairing = (pairing: PairingRow) => {
+    if (fieldPots && !fieldPots.ready.has(pairing.name)) return;
     const occupancy = occupiedByName.get(pairing.name);
     if (occupancy?.length) {
       setError(
@@ -361,7 +375,7 @@ function ExperimentBuilderContent({
   };
 
   const reviewExperiment = async () => {
-    if (busy || autocalRunStore.running) return;
+    if (busy || selectedPotsUnavailable || autocalRunStore.running) return;
     setAttemptedReview(true);
     const normalized = normalizeExperimentDraft(draft);
     const issues = validateExperimentDraft(normalized, pairings);
@@ -397,7 +411,7 @@ function ExperimentBuilderContent({
   };
 
   const startExperiment = async () => {
-    if (busy || autocalRunStore.running) return;
+    if (busy || selectedPotsUnavailable || autocalRunStore.running) return;
     if (!controlPlan || !reviewedConfigHash || !draftInventoryUpdatedAt || !confirmed) {
       setError("Review and confirm the experiment first.");
       return;
@@ -603,7 +617,14 @@ function ExperimentBuilderContent({
                 </label>
               </div></details>
 
-              <div className="experiment-builder-pot-section">
+              {fieldPots ? (
+                <ExperimentPotPicker
+                  model={fieldPots}
+                  selected={selectedNames}
+                  onToggle={togglePairing}
+                  onRemove={name => updateDraft("assignments", draft.assignments.filter(assignment => assignment.pairing_name !== name))}
+                />
+              ) : <div className="experiment-builder-pot-section">
                 <div className="experiment-builder-section-heading">
                   <h3>Pots</h3>
                   <span aria-live="polite">{draft.assignments.length} selected · {availablePairingCount} available</span>
@@ -658,7 +679,7 @@ function ExperimentBuilderContent({
                   })}
                 </div>
                 </div>)}
-              </div>
+              </div>}
 
               {draft.assignments.length ? (
                 <div className="experiment-builder-assignment-list">
@@ -675,9 +696,9 @@ function ExperimentBuilderContent({
                   <details className="experiment-builder-details"><summary>Adjust individual pots ({draft.assignments.length})</summary>
                   {draft.assignments.map((assignment) => (
                     <div className="experiment-builder-assignment" key={assignment.pairing_name}>
-                      <strong>{assignment.pairing_name.replace(/^Zone(\d+)-Pot/i, "Z$1 · Pot ")}</strong>
+                      <strong>{potLabel(assignment.pairing_name)}</strong>
                       <input
-                        aria-label={`${assignment.pairing_name} crop`}
+                        aria-label={`${fieldPots ? potLabel(assignment.pairing_name) : assignment.pairing_name} crop`}
                         placeholder="Crop"
                         value={assignment.crop ?? ""}
                         onChange={(event) =>
@@ -688,7 +709,7 @@ function ExperimentBuilderContent({
                           )}
                       />
                       <input
-                        aria-label={`${assignment.pairing_name} treatment`}
+                        aria-label={`${fieldPots ? potLabel(assignment.pairing_name) : assignment.pairing_name} treatment`}
                         placeholder="Treatment"
                         value={assignment.treatment ?? ""}
                         onChange={(event) =>
@@ -699,7 +720,7 @@ function ExperimentBuilderContent({
                           )}
                       />
                       <input
-                        aria-label={`${assignment.pairing_name} block`}
+                        aria-label={`${fieldPots ? potLabel(assignment.pairing_name) : assignment.pairing_name} block`}
                         placeholder="Block"
                         value={assignment.block ?? ""}
                         onChange={(event) =>
@@ -783,7 +804,7 @@ function ExperimentBuilderContent({
                   <h3>Autocalibrate <span>Optional</span></h3>
                   <p>Check the selected pots before creating the experiment, or continue with their current calibration.</p>
                 </div>
-                <button type="button" className="is-secondary" disabled={!draft.assignments.length} onClick={() => setStep("calibrate")}>
+                <button type="button" className="is-secondary" disabled={!draft.assignments.length || selectedPotsUnavailable} onClick={() => setStep("calibrate")}>
                   Open autocalibration
                 </button>
               </section> : null}
@@ -798,7 +819,7 @@ function ExperimentBuilderContent({
                 <section className="experiment-builder-preflight">
                   <h3>{draft.name}</h3>
                   <p>{draft.assignments.length} {draft.assignments.length === 1 ? "pot" : "pots"} · {draft.mode === "observation" ? "Observation" : draft.mode === "calibration" ? "Calibration" : "Controlled"}{draft.start_date ? ` · Record starts ${draft.start_date.slice(0, 10)}` : " · Starts today"}</p>
-                  <div className="experiment-builder-plan-table"><table><thead><tr><th>Pot</th><th>Crop / treatment</th><th>Watering</th><th>Pulse</th><th>Measure every</th></tr></thead><tbody>{draft.assignments.map((assignment) => <tr key={assignment.pairing_name}><th>{assignment.pairing_name.replace(/^Zone(\d+)-Pot/i, "Z$1 · Pot ")}</th><td>{[assignment.crop, assignment.treatment].filter(Boolean).join(" · ") || "—"}</td><td>{assignment.watering_enabled ? `${assignment.target_vwc_percent}% VWC` : "Off"}</td><td>{assignment.watering_enabled ? `${assignment.valve_open_seconds} s` : "—"}</td><td>{assignment.measurement_interval_minutes} min</td></tr>)}</tbody></table></div>
+                  <div className="experiment-builder-plan-table"><table><thead><tr><th>Pot</th><th>Crop / treatment</th><th>Watering</th><th>Pulse</th><th>Measure every</th></tr></thead><tbody>{draft.assignments.map((assignment) => <tr key={assignment.pairing_name}><th scope="row">{potLabel(assignment.pairing_name)}</th><td>{[assignment.crop, assignment.treatment].filter(Boolean).join(" · ") || "—"}</td><td>{assignment.watering_enabled ? `${assignment.target_vwc_percent}% VWC` : "Off"}</td><td>{assignment.watering_enabled ? `${assignment.valve_open_seconds} s` : "—"}</td><td>{assignment.measurement_interval_minutes} min</td></tr>)}</tbody></table></div>
                   <div>
                     <h3>{editing ? "Ready to save" : "Ready to start"}</h3>
                     <span>
@@ -816,7 +837,7 @@ function ExperimentBuilderContent({
                     ])}>
                       <strong>
                         Pots {change.pairing_names
-                          .map((name) => name.replace(/^Zone\d+-Pot/, ""))
+                          .map((name) => fieldPots?.potNumbers.get(name) ?? name.replace(/^Zone\d+-Pot/, ""))
                           .join(", ")}
                       </strong>
                       <span>
@@ -845,6 +866,7 @@ function ExperimentBuilderContent({
                 </section>
               ) : null}
               {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
+              {selectedPotsUnavailable ? <p className="experiment-builder-error" role="status">Remove unavailable pots before continuing.</p> : null}
               {calibrationRunning ? <p className="settings-muted" role="status">Finish or stop autocalibration before reviewing this experiment.</p> : null}
               {attemptedReview && !error && validationIssues.length ? (
                 <p className="experiment-builder-error" role="alert">
@@ -875,7 +897,7 @@ function ExperimentBuilderContent({
                   type="button"
                   className="is-primary"
                   onClick={() => void startExperiment()}
-                  disabled={busy || calibrationRunning || validationIssues.length > 0 || !confirmed}
+                  disabled={busy || calibrationRunning || selectedPotsUnavailable || validationIssues.length > 0 || !confirmed}
                 >
                   {busy
                     ? <Loader2 className="chart-loading-spinner" size={16} />
@@ -887,7 +909,7 @@ function ExperimentBuilderContent({
                   type="button"
                   className="is-primary"
                   onClick={() => void reviewExperiment()}
-                  disabled={busy || calibrationRunning || !draft.name.trim() || !draft.assignments.length}
+                  disabled={busy || calibrationRunning || selectedPotsUnavailable || !draft.name.trim() || !draft.assignments.length}
                 >
                   {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
                   Review experiment
