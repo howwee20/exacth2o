@@ -91,6 +91,22 @@ async function measure(context, url, origin) {
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   await cdp.send("Network.enable");
+  // Playwright context routing disables HTTP caching, even for unmatched static assets.
+  // Intercept only the analytics host so the second navigation uses Chromium's normal cache.
+  await cdp.send("Network.setBlockedURLs", { urls: [
+    "*supabase.co/*",
+    ...(blockMetrics ? ["*/site-metrics.js*"] : []),
+  ] });
+  cdp.on("Fetch.requestPaused", ({ requestId, request }) => {
+    analyticsBodies.push({ url: request.url, page: url, size: Buffer.byteLength(request.postData ?? "") });
+    void cdp.send("Fetch.fulfillRequest", {
+      requestId, responseCode: 200,
+      responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+      body: Buffer.from('{"status":1}').toString("base64"),
+    }).catch(error => { if (!page.isClosed()) console.error("Analytics stub failed:", error.message); });
+  });
+  await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "https://e.exacth2o.com/*" }] });
+
   await cdp.send("Performance.enable");
   await cdp.send("Network.emulateNetworkConditions", { offline: false, ...profile.network });
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: profile.cpu });
@@ -218,12 +234,6 @@ try {
         hasTouch: profile.hasTouch,
         userAgent: profile.userAgent,
       });
-      await context.route("https://e.exacth2o.com/**", async (route) => {
-        analyticsBodies.push({ url: route.request().url(), page: url, size: route.request().postDataBuffer()?.length ?? 0 });
-        await route.fulfill({ status: 200, contentType: "application/json", body: "{\"status\":1}" });
-      });
-      await context.route(/supabase\.co/, (route) => route.abort());
-      if (blockMetrics) await context.route(/\/site-metrics\.js/, (route) => route.abort());
       try {
         cold.push(await measure(context, url, origin));
         warm.push(await measure(context, url, origin));

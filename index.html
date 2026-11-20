@@ -212,7 +212,7 @@
         <h3>Individual pot control</h3>
         <p>Set a moisture threshold for each pot and control its irrigation independently.</p>
         <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
-          <img src="/independent-irrigation-20261009-v2.jpg" alt="ExactH2O irrigation manifold with separate colored lines running to research pots" width="1086" height="1448" loading="lazy" decoding="async">
+          <img src="/media/independent-irrigation-20261120.webp" data-preview-src="/independent-irrigation-20261009-v2.jpg" onerror="this.onerror=null;this.src=this.dataset.previewSrc" alt="ExactH2O irrigation manifold with separate colored lines running to research pots" width="1086" height="1448" loading="lazy" decoding="async">
         </div>
       </article>
       <article class="feat-card feat-card--sensor">
@@ -273,7 +273,7 @@
     function show(source) {
       const image = source.querySelector('img');
       if (!image) return;
-      previewImage.src = image.currentSrc || image.src;
+      previewImage.src = image.dataset.previewSrc || image.currentSrc || image.src;
       previewImage.alt = image.alt;
       preview.classList.add('is-visible');
       preview.setAttribute('aria-hidden', 'false');
