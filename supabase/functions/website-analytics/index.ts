@@ -129,8 +129,14 @@ serve(async (request) => {
       const fetchedAt = new Date().toISOString();
       const { error: saveError } = await service.from("website_analytics_cache").update({ payload, fetched_at: fetchedAt, refresh_after: new Date(Date.now() + 300_000).toISOString() }).eq("cache_key", cacheKey);
       if (saveError) throw new Error("Unable to save analytics cache");
-      // Bound storage to recent aggregate entries, not an ever-growing analytics database.
-      await service.from("website_analytics_cache").delete().lt("fetched_at", new Date(Date.now() - 2 * 86400_000).toISOString());
+      // Failed first refreshes have no fetched_at. Keep any recently claimed entry,
+      // including an older report that another request is currently refreshing.
+      const cutoff = new Date(Date.now() - 2 * 86_400_000).toISOString();
+      const { error: cleanupError } = await service.from("website_analytics_cache")
+        .delete()
+        .lt("refresh_after", cutoff)
+        .or(`fetched_at.is.null,fetched_at.lt.${cutoff}`);
+      if (cleanupError) console.error("Website analytics cache cleanup failed", cleanupError.code);
       return responseFrom({ payload, fetched_at: fetchedAt }, false);
     } catch (error) {
       const failure = error instanceof Error && /^PostHog returned \d+$/.test(error.message) ? error.message : "query_failed";
