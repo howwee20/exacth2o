@@ -3,6 +3,7 @@ import { Play, Square } from "lucide-react";
 import { summarizeBaseline } from "../commissioning/analysis";
 import { configForSelection, requiredConfirmation, validateConfig } from "../commissioning/orchestrator";
 import { evaluatePreflight, type PreflightReport } from "../commissioning/preflight";
+import { ReadingStore } from "../commissioning/readingStore";
 import { buildPreparePlan } from "../commissioning/topologyPlan";
 import { createSupabasePorts } from "../commissioningSupabasePorts";
 import { autocalRunStore } from "./runStore";
@@ -85,14 +86,17 @@ export function QuickRunSetup({ ctx, onAdvanced, confirmedStart }: { ctx: Worksp
         }
       }
 
+      // Polls return new readings only. Keep the full recent window for the baseline checks.
+      const recentReadings = new ReadingStore();
       const deadline = Date.now() + 10 * 60_000;
       for (;;) {
         assertActive();
         setStatus("Checking controller, sensors, and valve safeguards…");
         const nowMs = Date.now();
+        const baselineStartMs = nowMs - config.baselineLookbackSeconds * 1000;
         const [status, queue, automatic, intake, readings, holds, current] = await Promise.all([
           ports.readControllerStatus(), ports.countActiveWateringCommands(), ports.readAutoWateringPairings(names),
-          ports.probePulseIntake(), ports.readReadings(pots.map(pot => pot.sensorKey), nowMs - config.baselineLookbackSeconds * 1000),
+          ports.probePulseIntake(), ports.readReadings(pots.map(pot => pot.sensorKey), baselineStartMs),
           ports.readManualInterventions!(nowMs - 2 * config.manualSettleSeconds * 1000),
           ctx.store.readback(),
         ]);
@@ -100,9 +104,11 @@ export function QuickRunSetup({ ctx, onAdvanced, confirmedStart }: { ctx: Worksp
         if (pots.some(pot => !current.pairings.some(pairing => pairing.name === pot.pairingName && pairing.sensor_key === pot.sensorKey && pairing.valve_key === pot.valveKey))) {
           throw new Error("The selected connections changed during setup. Review the pots before running again.");
         }
+        recentReadings.add(readings);
+        recentReadings.prune(baselineStartMs);
         const checked = evaluatePreflight({ mode: "real", role: ctx.role, pots, config, nowMs,
           controller: status, controllerError: null, activeWateringCommands: queue, intake,
-          baselines: pots.map(pot => summarizeBaseline(pot.sensorKey, readings, config)),
+          baselines: pots.map(pot => summarizeBaseline(pot.sensorKey, recentReadings.forSensor(pot.sensorKey), config)),
           autoWateringPairings: automatic, manualHolds: holds, otherActiveSession: null });
         setReport(checked);
         if (checked.canStart) break;
