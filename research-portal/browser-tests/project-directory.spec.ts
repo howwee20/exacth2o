@@ -125,16 +125,20 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('heading', { name: 'New experiment', exact: true })).toBeVisible();
     await expect(page.getByText('Rhee Lab', { exact: true })).toBeVisible();
     await page.getByLabel('Experiment name', { exact: true }).fill('Draft with optional calibration');
-    await page.getByRole('button', { name: 'Select zone', exact: true }).click();
-    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).click();
+    await page.getByRole('button', { name: 'Select all', exact: true }).click();
+    // Autocalibrate is a tick box. It asks once, about the chosen pots only, and nothing is written before the answer.
+    await page.getByRole('checkbox', { name: 'Autocalibrate these pots first', exact: true }).check();
+    await page.getByRole('button', { name: 'Autocalibrate, then create', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Autocalibrate', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Autocalibrate \d+ pots?\?$/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Autocalibration steps' })).toBeHidden();
     await page.screenshot({ path: test.info().outputPath('optional-autocalibration.png'), fullPage: true });
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('button', { name: 'Back to experiment setup' }).click();
     await expect(page.getByLabel('Experiment name', { exact: true })).toHaveValue('Draft with optional calibration');
     await expect(page.getByText('2 selected · 2 available')).toBeVisible();
-    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('checkbox', { name: 'Autocalibrate these pots first', exact: true })).toBeChecked();
     await page.screenshot({ path: test.info().outputPath('new-experiment-desktop.png'), fullPage: true });
     await page.getByRole('link', { name: /Home/ }).click();
 
@@ -208,22 +212,41 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.screenshot({ path: test.info().outputPath('system-health-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Home', exact: true }).click();
     await testbedCreation.click();
-    await page.getByLabel('Experiment name', { exact: true }).fill('Testbed observation trial');
-    await page.getByRole('button', { name: 'Observation', exact: false }).click();
-    await page.getByRole('button', { name: 'Select zone', exact: true }).click();
+    await page.getByLabel('Experiment name', { exact: true }).fill('Testbed calibration trial');
+    // A new experiment is Control or Calibration; the whole setup is one screen.
+    await expect(page.getByRole('button', { name: 'Control', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Observation', exact: false })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Experiment workflow' })).toHaveCount(0);
+    await expect(page.getByText(/zone/i)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Calibration', exact: true }).click();
+    // Pots go into the picked group: both into Control, then pot 2 across to Drought.
+    await expect(page.getByRole('radio', { name: 'Control', exact: true })).toBeChecked();
+    await page.getByRole('button', { name: 'Select all', exact: true }).click();
+    await page.getByRole('radio', { name: 'Drought', exact: true }).check();
+    await page.getByRole('button', { name: /^Pot 2\b/ }).click();
+    await expect(page.getByRole('button', { name: /^Pot 2\b/ })).toHaveAccessibleName(/Drought/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole('button', { name: 'Open autocalibration', exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole('checkbox', { name: 'Autocalibrate these pots first', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('new-experiment-mobile.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Review experiment', exact: true }).click();
-    await page.getByLabel('Apply these settings now.').check();
+    // Create checks the setup and asks for confirmation on the same screen; nothing is created until it is given.
+    await page.getByRole('button', { name: 'Create experiment', exact: true }).click();
+    await expect(page.getByRole('group', { name: 'Ready to start', exact: true })).toContainText('Current controller settings already match');
+    await expect(page.getByLabel('Experiment name', { exact: true })).toBeDisabled();
+    expect(builderRequests.map(request => request.action)).toEqual(['preflight']);
+    await page.screenshot({ path: test.info().outputPath('new-experiment-confirm-mobile.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Edit setup', exact: true }).click();
+    await expect(page.getByLabel('Experiment name', { exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Create experiment', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm and create', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Experiment created', exact: true })).toBeVisible();
-    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', testbedProject], ['launch', testbedProject]]);
+    // The new experiment opens by itself.
+    await expect(page.getByRole('heading', { name: 'Testbed calibration trial', exact: true })).toBeVisible();
+    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', testbedProject], ['preflight', testbedProject], ['launch', testbedProject]]);
+    expect(builderRequests[2].draft.mode).toBe('calibration');
+    expect(builderRequests[2].draft.assignments.map((assignment: { treatment: string; watering_enabled: boolean; target_vwc_percent: number }) => [assignment.treatment, assignment.watering_enabled, assignment.target_vwc_percent]).sort())
+      .toEqual([['Control', true, 30], ['Drought', true, 10]]);
     expect(calibrationWrites).toEqual([]);
-    await page.getByRole('button', { name: 'View experiment', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Testbed observation trial', exact: true })).toBeVisible();
     await page.getByRole('link', { name: /Home/ }).click();
-    await expect(testbed).toContainText('Testbed observation trial');
+    await expect(testbed).toContainText('Testbed calibration trial');
     await expect(rhee).toContainText('Huiqiao Pan experiment');
   });
 }

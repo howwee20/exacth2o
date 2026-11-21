@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download } from "lucide-react";
+import { Check, Download, Play } from "lucide-react";
+import { configForSelection, hardLimits } from "../commissioning/orchestrator";
 import { buildAutocalibrationAerialModel } from "../aerialLayout";
 import { loadLatestBenchLayout, loadPotBindings, type PotBinding } from "../benchClient";
 import type { BenchLayoutDocument } from "../benchLayout";
@@ -60,6 +61,10 @@ export type AutocalibrateWorkspaceProps = {
   onQueueSettingsPlan: QueueSettingsPlan;
   fieldMap?: readonly FieldMapRow[];
   headingLevel?: 1 | 2;
+  /** Experiment setup: test exactly the experiment's pots. No pot picker, map, steps or history; one confirmation. */
+  direct?: boolean;
+  /** The session ended (restored or cancelled). `completed` says whether its valve test ran to the end. */
+  onClosed?: (outcome: { status: string; completed: boolean }) => void;
 };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -127,6 +132,10 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
 
   const sessionRef = useRef<CommissioningSessionRow | null>(null);
   sessionRef.current = session;
+  const direct = props.direct === true && props.scope === "experiment";
+  // Set by the direct screen's "Yes, run" and spent by the run setup that mounts once the session exists.
+  const confirmedRun = useRef(false);
+  const closedRef = useRef<{ onClosed: AutocalibrateWorkspaceProps["onClosed"]; completed: boolean }>({ onClosed: props.onClosed, completed: false });
 
   const load = useCallback(async () => {
     try {
@@ -292,6 +301,7 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
         if (!row.active) {
           setRestoreView(false);
           void load();
+          closedRef.current.onClosed?.({ status: row.status, completed: closedRef.current.completed });
         }
         return row;
       } catch (error) {
@@ -319,19 +329,19 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
     return batch;
   }, [configHash, operator, props.onQueueSettingsPlan, update, fieldMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const createSession = async () => {
+  const createSession = async (names: ReadonlySet<string> = selected) => {
     setPreparing(true);
     setActionError(null);
     try {
-      const pots = buildSelectedPots(pairings, selected, references);
+      const pots = buildSelectedPots(pairings, names, names === selected ? references : new Set());
       if (pots.length < 2 || pots.some(pot => availability.get(pot.pairingName)?.available !== true)) throw new Error("Choose at least two ready pots.");
       const scopeError = fieldSelectionBlockReason(pots.map(pot => ({valve_key: pot.valveKey})), fieldMap);
       if (scopeError) throw new Error(scopeError);
-      const names = pots.map((pot) => pot.pairingName);
-      const { snapshot, carried } = carryForwardOriginals(snapshotPots(pairings, names), recent);
+      const potNames = pots.map((pot) => pot.pairingName);
+      const { snapshot, carried } = carryForwardOriginals(snapshotPots(pairings, potNames), recent);
       const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
       const runId = `hw-${stamp}-${crypto.randomUUID().slice(0, 8)}`;
-      const needed = pairings.filter((pairing) => selected.has(pairing.name) && needsPreparation(pairing)).length;
+      const needed = pairings.filter((pairing) => names.has(pairing.name) && needsPreparation(pairing)).length;
       const record = withEvent(
         emptyRecord({
           experimentId: props.scope === "installation" ? "installation" : props.experiment.id,
@@ -368,6 +378,21 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
     ? `${selectedUnavailable.length} selected pot(s) cannot take part right now: ${selectedUnavailable.slice(0, 4).map((name) => potName(byName.get(name)?.pot_number, name)).join(", ")}${selectedUnavailable.length > 4 ? "…" : ""}. Deselect them or fix the reason shown on each.`
     : !configHash ? "The controller configuration copy is unavailable, so the pots cannot be prepared right now." : null;
 
+  // Direct mode: the experiment's pots that can be tested now, and the ones that cannot.
+  const wanted = props.experiment.pairingNames;
+  const directReady = wanted.filter((name) => availability.get(name)?.available === true);
+  const directSkipped = wanted.filter((name) => availability.get(name)?.available !== true);
+  const directChecking = !loaded || !readingsCurrent;
+  const directProblem = directChecking ? null
+    : directReady.length < hardLimits.minPots ? `Needs at least ${hardLimits.minPots} ready pots. ${directReady.length} of ${wanted.length} are ready.`
+    : !configHash ? "The controller configuration copy is unavailable, so the pots cannot be prepared right now." : null;
+  const runDirect = async () => {
+    confirmedRun.current = true;
+    await createSession(new Set(directReady));
+    if (!sessionRef.current) confirmedRun.current = false;
+  };
+  closedRef.current = { onClosed: props.onClosed, completed: Boolean(runResult && ["completed", "completed_with_findings"].includes(runResult.outcome)) };
+
   const snapshot = session ? parseSnapshot(session) : [];
   const record = session ? parseRecord(session) : null;
   const fieldBlockReason = record ? fieldSelectionBlockReason(record.selection.map(pot => ({valve_key: pot.valveKey})), fieldMap) : null;
@@ -395,13 +420,13 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
       <header className="ac-head">
         <div>
           <Title className="ac-title">Autocalibrate</Title>
-          <p className="settings-muted">
+          {!direct ? <p className="settings-muted">
             Select pots, then run. Each clear valve-to-sensor match is recorded as it is measured.
-          </p>
+          </p> : null}
         </div>
         {session ? <StatusChip tone="info">Session {session.run_id.slice(-8)} · {session.pot_count} pots</StatusChip> : null}
       </header>
-      <ol className="ac-stepper" aria-label="Autocalibration steps">
+      <ol className="ac-stepper" aria-label="Autocalibration steps" style={direct && !advanced ? { display: "none" } : undefined}>
         {shownSteps.map((item, index) => {
           const state = !session && stage !== "closed" ? (index === 0 ? "current" : "upcoming") : index < stepIndex ? "done" : index === stepIndex ? "current" : "upcoming";
           return (
@@ -430,10 +455,30 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
         </div>
       ) : null}
 
-      {ctx && stage !== 'run' && stage !== 'review' ? <PhysicalPotMap map={fieldMap} pairings={pairings} availability={availability} selected={new Set(record?.selection.map(pot => pot.pairingName))} focusName={inspected} /> : null}
+      {ctx && stage !== 'run' && stage !== 'review' && (!direct || advanced) ? <PhysicalPotMap map={fieldMap} pairings={pairings} availability={availability} selected={new Set(record?.selection.map(pot => pot.pairingName))} focusName={inspected} /> : null}
       {fieldBlockReason ? <p className="settings-error-line" role="alert">{fieldBlockReason} This saved run cannot continue.</p> : null}
       {!loaded ? <p className="settings-muted">Loading…</p> : !pairings.length && !fieldMap ? (
         <SettingsEmptyState title="No pairings reported">The controller has not reported any pairings, so there is nothing to calibrate yet.</SettingsEmptyState>
+      ) : !ctx && direct ? (
+        <section className="settings-card ac-step" aria-labelledby="ac-direct-title">
+          <h3 id="ac-direct-title">Autocalibrate {directReady.length} {directReady.length === 1 ? "pot" : "pots"}?</h3>
+          {directChecking ? <p role="status">Checking the selected pots…</p> : <>
+            <p>Opens {directReady.length} real valves, one at a time, for {configForSelection(Math.max(1, directReady.length)).pulseSeconds} seconds each. Automatic watering pauses during the test.</p>
+            <p className="settings-muted">Keep this tab open and stay at the bench.</p>
+          </>}
+          {!directChecking && directSkipped.length ? <p className="ac-notice">Skipped, not ready: {directSkipped.map((name) => {
+            const reason = availability.get(name)?.reason;
+            return `${potName(byName.get(name)?.pot_number, name)}${reason ? ` (${reason})` : ""}`;
+          }).join("; ")}</p> : null}
+          {directProblem ? <p className="settings-error-line" role="alert">{directProblem}</p> : null}
+          {notice ? <p className="ac-notice" role="status">{notice}</p> : null}
+          <div className="ac-actions">
+            <button type="button" className="settings-danger-button" disabled={directChecking || Boolean(directProblem) || preparing || autocalRunStore.running} onClick={() => void runDirect()}>
+              <Play size={14} aria-hidden="true" />{preparing ? "Starting…" : "Yes, run"}
+            </button>
+            <button type="button" className="ac-link" onClick={() => void checkReadings()} disabled={checkingReadings}>{checkingReadings ? "Checking sensors…" : "Refresh sensors"}</button>
+          </div>
+        </section>
       ) : !ctx ? (
         <>
           {lastClosed ? <ClosedSummary row={lastClosed} byName={byName} /> : null}
@@ -463,7 +508,8 @@ function Workspace(props: AutocalibrateWorkspaceProps & { deviceId: string }) {
           />
           {recent.length ? <SessionHistory rows={recent} store={store} /> : null}
         </>
-      ) : !advanced && (stage === "prepare" || stage === "check") ? <QuickRunSetup key={ctx.session.run_id} ctx={ctx} onAdvanced={() => setAdvanced(true)} />
+      ) : !advanced && (stage === "prepare" || stage === "check") ? <QuickRunSetup key={ctx.session.run_id} ctx={ctx} onAdvanced={direct ? undefined : () => setAdvanced(true)}
+          confirmedStart={direct ? () => { const confirmed = confirmedRun.current; confirmedRun.current = false; return confirmed; } : undefined} />
         : stage === "prepare" ? <PrepareStep ctx={ctx} />
         : stage === "check" ? <CheckStep ctx={ctx} staleRun={derived.staleRun} />
           : stage === "run" ? <RunProgress ctx={ctx} live={runningHere ? live : null} />

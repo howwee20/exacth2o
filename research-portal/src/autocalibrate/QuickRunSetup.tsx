@@ -12,8 +12,10 @@ import { commandsState } from "./useBatchTracker";
 import type { WorkspaceContext } from "./workspaceContext";
 
 /** One explicit confirmation covers preparation and the bounded real-valve run.
- * Consent lives only in this mounted screen; a refresh never starts a run. */
-export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAdvanced: () => void }) {
+ * Consent lives only in this mounted screen; a refresh never starts a run.
+ * `confirmedStart` reports, once, that the operator has just given that confirmation on the screen before this one
+ * (the experiment setup's own "Yes, run"); the run then starts without asking a second time. */
+export function QuickRunSetup({ ctx, onAdvanced, confirmedStart }: { ctx: WorkspaceContext; onAdvanced?: () => void; confirmedStart?: () => boolean }) {
   const latest = useRef(ctx);
   latest.current = ctx;
   const pending = useRef<AbortController | null>(null);
@@ -32,6 +34,13 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     || (["interrupted", "failed", "running"].includes(ctx.session.status) && !previous);
 
   useEffect(() => () => pending.current?.abort(), []);
+  const startRef = useRef<() => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    if (!confirmedStart) return undefined;
+    // After the first paint, so a development double mount cannot spend the confirmation on a screen that is torn down.
+    const timer = window.setTimeout(() => { if (confirmedStart()) void startRef.current(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = async () => {
     if (pending.current || busy || ctx.fieldBlockReason || configProblems.length || evidenceUnavailable) return;
@@ -123,6 +132,8 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     }
   };
 
+  startRef.current = start;
+
   const cancel = async () => {
     if (pending.current || busy) return;
     if (latestBatch(ctx.record, "prepare")) { ctx.showRestore(); return; }
@@ -131,7 +142,7 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
   };
 
   return <section className="settings-card ac-step" aria-labelledby="ac-quick-title">
-    <h3 id="ac-quick-title">Are you sure?</h3>
+    <h3 id="ac-quick-title">{busy ? "Getting ready" : "Are you sure?"}</h3>
     <p>{resume ? "Resume testing" : "Test"} {pots.length} pots by opening {pots.length} real valves, one at a time, for {config.pulseSeconds} seconds each? Automatic watering pauses while we watch the sensors.</p>
     <p className="settings-muted">Keep this tab open and stay at the testbed. Clear matches are recorded; uncertain results stay unmatched. Connections are changed only if you choose to apply the results.</p>
     <label className="ac-observation-window">
@@ -149,8 +160,8 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     {status ? <p role="status">{status}</p> : null}
     {error ? <p className="settings-error-line" role="alert">{error}</p> : null}
     {report?.checks.some(check => check.blocks) ? <ul className="commission-checks">{report.checks.filter(check => check.blocks).map(check => <li key={check.id}><div><strong>{check.label}</strong><p>{check.detail}</p></div></li>)}</ul> : null}
-    <div className="ac-secondary-actions">
+    {onAdvanced ? <div className="ac-secondary-actions">
       <button type="button" className="ac-link" disabled={busy} onClick={onAdvanced}>Advanced setup and rehearsal</button>
-    </div>
+    </div> : null}
   </section>;
 }
