@@ -89,8 +89,9 @@
 </style>
 <script src="/site-navigation.js?v=20261104-header1" defer></script>
 <script src="/homepage-slideshow.js?v=20261103-autoplay2" defer></script>
-<script src="/homepage-traces.js?v=20261104-tooltip2" defer></script>
-<script src="/homepage-ribbon.js?v=20261114-footer1" defer></script>
+<script src="/homepage-traces.js?v=20261121-stage1" defer></script>
+<script src="/homepage-ribbon.js?v=20261121-ribbon10" defer></script>
+<script src="/homepage-autocal.js?v=20261121-autocal23" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/">
@@ -100,7 +101,10 @@
 <meta property="og:url" content="https://exacth2o.com/">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="/homepage.css?v=20261114-footer1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;1,600;1,700&display=swap">
+<link rel="stylesheet" href="/homepage.css?v=20261121-front8">
 <link rel="stylesheet" href="/site-typography.css?v=20261111-system1">
 <link rel="stylesheet" href="/site-components.css?v=20261111-polish1">
 <link rel="stylesheet" href="/site-brand-footer.css?v=20261111-system1">
@@ -132,6 +136,7 @@
 <main id="main-content">
 
 <section class="cinema-hero" aria-labelledby="cinema-title">
+  <div class="hero-backdrop" aria-hidden="true"></div>
   <div class="cinema-content">
     <h1 class="cinema-title" id="cinema-title">Automated irrigation<br>for plant research</h1>
     <p class="cinema-copy">Set moisture targets for individual pots. ExactH2O uses sensor readings to control watering and records each pot’s moisture and irrigation history.</p>
@@ -178,30 +183,8 @@
 </section>
 
 
-<section class="home-section home-traces" id="one-pot" aria-labelledby="one-pot-title" data-homepage-traces aria-busy="true">
-  <div class="home-inner">
-    <div class="home-head">
-      <h2 class="section-title" id="one-pot-title">Experiment records</h2>
-      <p class="home-head-aside">View sensor readings and watering history, add field notes, and export your data.</p>
-    </div>
-    <div class="home-traces-chart-card">
-      <div class="trace-toolbar">
-        <div>
-          <h3>Drought response</h3>
-          <p class="trace-provenance" data-trace-provenance>Loading demo readings…</p>
-        </div>
-      </div>
-      <div class="trace-chart-label"><span>Moisture (VWC)</span><span>72-hour window</span></div>
-      <svg id="homepage-trace-chart" class="homepage-trace-chart" role="group" tabindex="0" aria-label="Colored moisture traces from the experiment demo"></svg>
-      <div class="trace-pot-legend" data-trace-pots aria-label="Show or hide pots"></div>
-      <div class="trace-chart-footer"><span data-trace-readout aria-live="polite">Hover to inspect. Click to lock.</span><span data-trace-clock></span></div>
-    </div>
-    <a class="text-link trace-applications-link" href="/applications">Explore applications <span aria-hidden="true">›</span></a>
-    <p class="home-research-link"><span>Published research:</span> <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Drought timing in switchgrass <span aria-hidden="true">↗</span></a></p>
-  </div>
-</section>
-
 <section class="home-section features-strip" id="system" aria-labelledby="system-title">
+  <div class="system-backdrop" aria-hidden="true"></div>
   <div class="home-inner">
     <div class="home-head">
       <p class="section-label">The system</p>
@@ -222,6 +205,46 @@
           <img src="/sensor.avif?v=20260709-avif" alt="A moisture sensor being placed in a research pot beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
         </div>
       </article>
+    </div>
+  </div>
+</section>
+
+<section class="home-section autocal-strip" id="autocalibration" aria-labelledby="bench-title">
+  <div class="autocal-track">
+    <span class="autocal-anchor" id="one-pot" aria-hidden="true"></span>
+    <div class="autocal-stage">
+      <div class="autocal-head">
+        <div class="home-inner">
+          <div class="home-head autocal-caption" data-caption="hardware">
+            <h2 class="section-title" id="bench-title">One hundred pots.<br>One controller.</h2>
+            <p class="home-head-aside">Each pot has its own valve, its own tube and its own sensor. Every reading goes to the experiment record.</p>
+          </div>
+          <div class="home-head autocal-caption" data-caption="data">
+            <h2 class="section-title" id="one-pot-title">Experiment records</h2>
+            <p class="home-head-aside">View sensor readings and watering history, add field notes, and export your data.</p>
+            <div class="trace-links">
+              <a class="text-link trace-applications-link" href="/applications">Explore applications <span aria-hidden="true">›</span></a>
+              <p class="home-research-link"><span>Published research:</span> <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Drought timing in switchgrass <span aria-hidden="true">↗</span></a></p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <canvas class="autocal-bench" data-autocal-bench role="img" aria-label="A bench of one hundred black pots in four zones, each pot with a moisture sensor and a ring of red, white, blue or green tubing. A tube runs to every pot from four rows of valves on the side of the controller that faces the bench. Further on, one line runs from the bench down into the edge of the moisture chart below, and each charted pot's colour appears at the start of its curve."></canvas>
+      <div class="autocal-chart" data-homepage-traces aria-busy="true">
+        <div class="home-traces-chart-card">
+          <div class="trace-toolbar">
+            <div>
+              <h3>Drought response</h3>
+              <p class="trace-provenance" data-trace-provenance>Loading demo readings…</p>
+            </div>
+          </div>
+          <div class="trace-chart-label"><span>Moisture (VWC)</span><span>72-hour window</span></div>
+          <svg id="homepage-trace-chart" class="homepage-trace-chart" role="group" tabindex="0" aria-label="Colored moisture traces from the experiment demo"></svg>
+          <div class="trace-pot-legend" data-trace-pots aria-label="Show or hide pots"></div>
+          <div class="trace-chart-footer"><span data-trace-readout aria-live="polite">Hover to inspect. Click to lock.</span><span data-trace-clock></span></div>
+        </div>
+      </div>
+      <canvas class="autocal-links" data-autocal-links aria-hidden="true"></canvas>
     </div>
   </div>
 </section>
