@@ -65,7 +65,7 @@
   function prepareChart() {
     if (!selected) return;
     const width = Math.max(280, svg.getBoundingClientRect().width);
-    const height = Math.max(280, svg.getBoundingClientRect().height);
+    const height = Math.max(120, svg.getBoundingClientRect().height);
     plot = { left: 42, top: 20, width: width - 57, height: height - 60 };
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.replaceChildren();
