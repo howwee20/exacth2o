@@ -324,15 +324,6 @@
   .home-page .cinema-photo { height: auto; }
 }
 
-/* Typeface: Exo 2 across the front page, chosen to sit with the ExactH2O logo lettering. The hero headline is set
-   in its italic. The variables are set again here so everything inside the page picks the new face up. */
-.home-page { --exact-font-sans: "Exo 2", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; --sans: var(--exact-font-sans); --serif: var(--exact-font-sans); font-family: var(--exact-font-sans); }
-.home-page .cinema-title { font-style: italic; font-weight: 700; letter-spacing: -.02em; }
-.home-page .section-title, .home-page .cta-strip h2, .home-page .feat-card h3, .home-page .trace-toolbar h3 { letter-spacing: -.02em; }
-.home-page .cinema-copy, .home-page .home-head-aside { letter-spacing: -.005em; }
-/* Exo 2 runs wider than the old face, so the headline steps down a size on phones to hold three lines. */
-@media (max-width: 600px) { .home-page .cinema-title { font-size: clamp(28px, 8.5vw, 38px); } }
-
 /* Discuss your setup: the ribbon stays, but faint and a little washed out, so it sits behind the words as a
    texture instead of competing with them. */
 .home-page .cta-strip .hero-ribbon { opacity: .32; filter: saturate(.7); }
