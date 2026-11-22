@@ -260,9 +260,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
   );
-  // The pot list starts open where it fits above the chart: on a wide screen, for an experiment of up to 24 pots.
-  // A larger experiment, or a phone, starts with it closed so the chart stays in view.
-  const potsPanelOpen = potsPanelChoice ?? (sortedPairings.length > 0 && sortedPairings.length <= 24
+  const isDemo = document.documentElement.dataset.portalMode === "demo";
+  // The portal opens the pot list for smaller experiments on wide screens.
+  const potsPanelOpen = potsPanelChoice ?? (!isDemo && sortedPairings.length > 0 && sortedPairings.length <= 24
     && typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 761px)").matches);
   // Start the active system's archive on Home. The same hook and request stay alive when its
   // tile opens, so clicking does not restart history loading or throw away pages already read.
@@ -359,7 +359,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const canUseSalesSupport = !accessLoading && hasSalesSupportAccess(portalAccess?.role, portalAccess?.salesSupportAllowed);
   const projectAccess = portalAccess?.accessScope === "project";
   const canReadProjectData = projectAccess && hasProjectDataReadAccess(portalAccess?.role);
-  const isDemo = document.documentElement.dataset.portalMode === "demo";
   const canUseExperimentSettings = !isDemo && projectAccess && hasExperimentSettingsAccess(portalAccess?.role);
   const canCreateExperiment = canUseExperimentSettings;
   const activeProjectId = portalAccess?.projectId ?? "";
