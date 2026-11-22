@@ -1,4 +1,5 @@
 import { SettingsFrame } from "./SettingsFrame";
+import { HardwareTable } from "./HardwareTable";
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Download, Lock, Radar } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationStudio } from "../CalibrationStudio";
@@ -9,7 +10,7 @@ import { boardConfigsFromPayload, formatIntervalFromMs, formatSecondsFromMs, for
 import { type CsvDownload, type DeviceConfigState, type DeviceRuntimeState, type LoadState, type QueueControlCommand, type SettingsNavItem, type SettingsSection } from "../portalTypes";
 import { downloadJsonFile } from "../readingsExport";
 import { type CommandProgress, type CommandStage } from "../commandLifecycle";
-import { controllerPresence, hardwareInventory, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
+import { controllerPresence, overviewNextAction, relativeAgeText, sensorsReportingText, settingsNavItems, settingsNavItemsFor } from "../settingsPresentation";
 import { type PairingRow } from "../types";
 
 export { settingsNavItems };
@@ -170,7 +171,6 @@ export function PortalSettingsPanel({
     lastSeenAt: data.latestState?.last_seen_at ?? data.latestState?.updated_at,
   });
   const controllerIsLive = presence.status === "online";
-  const inventory = useMemo(() => hardwareInventory(pairings, data.readings), [pairings, data.readings]);
   const lastReadingAt = runtimeState?.last_sensor_reading_at
     ?? data.latestLiveReading?.device_recorded_at
     ?? data.latestIngestTime;
@@ -929,122 +929,42 @@ export function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
-          <div className="settings-grid">
-            <section className="settings-card">
-              <h3>Installed hardware</h3>
-              <div className="settings-rows">
-                <div className="settings-row">
-                  <span>Sensors</span>
-                  <strong>{uniqueSensors.size || <span className="settings-empty-value">None</span>}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Valve outputs</span>
-                  <strong>{uniqueValves.size || <span className="settings-empty-value">None</span>}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Valve driver boards</span>
-                  <strong>{mirroredBoardCount || <span className="settings-empty-value">Not reported</span>}</strong>
-                </div>
+          <dl className="hw-stats">
+            <div><dt>Sensors</dt><dd>{uniqueSensors.size}</dd></div>
+            <div><dt>Valves</dt><dd>{uniqueValves.size}</dd></div>
+            <div><dt>Driver boards</dt><dd>{mirroredBoardCount || "—"}</dd></div>
+            <div><dt>Controller copy</dt><dd className="is-text">{configState?.observed_at ? relativeAgeText(configState.observed_at) : "Never"}</dd></div>
+          </dl>
+          <HardwareTable pairings={pairings} readings={data.readings} />
+          <details className="hw-details">
+            <summary>Controller copy</summary>
+            <div className="settings-rows">
+              <div className="settings-row">
+                <span>Last copied from controller</span>
+                <strong>
+                  {configState?.observed_at
+                    ? `${formatSettingsTimestamp(configState.observed_at)} · ${relativeAgeText(configState.observed_at)}`
+                    : <span className="settings-empty-value">Never</span>}
+                </strong>
               </div>
-            </section>
-            <section className="settings-card">
-              <h3>Controller configuration copy</h3>
-              {!configState ? (
-                <p className="settings-muted">
-                  The controller has not shared its configuration with the portal yet. Counts on this page come from the
-                  project records instead.
-                </p>
-              ) : null}
-              <div className="settings-rows" hidden={!configState}>
-                <div className="settings-row">
-                  <span>Last copied from controller</span>
-                  <strong>
-                    {configState?.observed_at
-                      ? `${formatSettingsTimestamp(configState.observed_at)} · ${relativeAgeText(configState.observed_at)}`
-                      : <span className="settings-empty-value">Never</span>}
-                  </strong>
-                </div>
-                <div className="settings-row">
-                  <span>Pairings / calibrations</span>
-                  <strong>{syncedCount(configState?.pairing_count ?? pairings.length)} / {syncedCount(configState?.calibration_count)}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Sensors / valves</span>
-                  <strong>{syncedCount(configState?.sensor_count)} / {syncedCount(configState?.valve_count)}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Groups</span>
-                  <strong>{syncedCount(configState?.group_count)}</strong>
-                </div>
-                <div className="settings-row">
-                  <span>Configuration fingerprint</span>
-                  <strong><CopyableId value={configState?.config_hash?.trim() || null} label="configuration fingerprint" maxLength={14} /></strong>
-                </div>
+              <div className="settings-row">
+                <span>Pairings / calibrations</span>
+                <strong>{syncedCount(configState?.pairing_count ?? pairings.length)} / {syncedCount(configState?.calibration_count)}</strong>
               </div>
-            </section>
-          </div>
-          <div className="settings-section-heading">
-            <h3>Sensors</h3>
-            <p>Identity is reported by the sensor. The label is the pot it is currently assigned to.</p>
-          </div>
-          {inventory.sensors.length === 0 ? (
-            <SettingsEmptyState title="No sensors reported">Sensors appear here once they are part of a pairing.</SettingsEmptyState>
-          ) : (
-            <div className="settings-table-wrap is-compact">
-              <table className="settings-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Sensor identity</th>
-                    <th scope="col">Assigned label</th>
-                    <th scope="col">Last reading</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventory.sensors.map((sensor) => (
-                    <tr key={sensor.identity}>
-                      <td><code className="settings-identity">{sensor.identity}</code></td>
-                      <td>{sensor.label ?? "Unlabeled"}{sensor.potNumber != null ? ` · Pot ${sensor.potNumber}` : ""}</td>
-                      <td>
-                        {sensor.lastReadingAt
-                          ? `${formatSettingsTimestamp(sensor.lastReadingAt)} · ${relativeAgeText(sensor.lastReadingAt)}`
-                          : <span className="settings-empty-value">None in the loaded window</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="settings-row">
+                <span>Sensors / valves</span>
+                <strong>{syncedCount(configState?.sensor_count)} / {syncedCount(configState?.valve_count)}</strong>
+              </div>
+              <div className="settings-row">
+                <span>Groups</span>
+                <strong>{syncedCount(configState?.group_count)}</strong>
+              </div>
+              <div className="settings-row">
+                <span>Configuration fingerprint</span>
+                <strong><CopyableId value={configState?.config_hash?.trim() || null} label="configuration fingerprint" maxLength={14} /></strong>
+              </div>
             </div>
-          )}
-          <div className="settings-section-heading">
-            <h3>Valve outputs</h3>
-            <p>Identity is the driver board address and channel. It does not change when a hose is moved.</p>
-          </div>
-          {inventory.valves.length === 0 ? (
-            <SettingsEmptyState title="No valve outputs reported">Valve outputs appear here once they are part of a pairing.</SettingsEmptyState>
-          ) : (
-            <div className="settings-table-wrap is-compact">
-              <table className="settings-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Valve identity</th>
-                    <th scope="col">Board</th>
-                    <th scope="col">Channel</th>
-                    <th scope="col">Assigned label</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventory.valves.map((valve) => (
-                    <tr key={valve.identity}>
-                      <td><code className="settings-identity">{valve.identity}</code></td>
-                      <td>{valve.board ?? "—"}</td>
-                      <td>{valve.channel ?? "—"}</td>
-                      <td>{valve.label ?? "Unlabeled"}{valve.potNumber != null ? ` · Pot ${valve.potNumber}` : ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </details>
           <div className="settings-section-heading">
             <h3>Valve driver boards</h3>
             <p>Reported by the controller.</p>

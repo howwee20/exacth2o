@@ -1,12 +1,12 @@
 /* Homepage bench figure: one bench of 100 black pots in four colour zones and one controller off its end.
    The side of the controller that faces the table carries four rows of 25 valves. A tube runs from every valve to
    the ring on one pot: blue, green, red and white, as on the real benches. Every pot also holds a moisture sensor.
-   Scrolling through it plays one move in two parts. Hardware: a plan view tilts down and swings round to a 3D view,
-   then the bench turns right round until it lies level seen from its other side. Data: the bench draws back and the
+   It opens in a 3D view, seen from the near end of the bench. Scrolling through it plays one move in two parts.
+   Hardware: the bench turns right round until it lies level seen from its other side. Data: the bench draws back and the
    live Drought response chart (homepage-traces.js) rises under it. One line, running through the charted pots'
-   colours, leaves the bench, rounds the corner of the chart card, slips into its left edge and fades. The colours
-   come back as a glow along the chart's axis and bloom at the start of each pot's curve, and the curves then draw
-   out across the chart.
+   colours, leaves the bench, rounds the corner of the chart card, slips into its left edge and fades. From the moment
+   it arrives the rest plays by itself, with no more scrolling: the colours come back as a glow along the chart's
+   axis and bloom at the start of each pot's curve, and the curves draw out across the chart.
    Two captions over the stage swap as the move passes from one part to the other. Decorative. */
 (function () {
   var canvas = document.querySelector('[data-autocal-bench]');
@@ -62,7 +62,11 @@
   var W = 0, H = 0, DPR = 1, reserve = 0, reserveB = 0, edgeL = 24, capRight = 0, visible = false, running = false;
   // How far through the move the figure is, 0 to 1. It trails the scroll a little so the motion glides. With motion
   // turned off it rests at the end, with the chart drawn.
-  var REST = 1, prog = still ? REST : 0;
+  // The move opens at START, with the figure already tilted and swung into its 3D view.
+  var START = 0.24, REST = 1, prog = still ? REST : START;
+  // The scroll carries the move as far as END, a little past ARRIVE, where the line reaches the chart. From ARRIVE
+  // on a clock takes over: `played` counts the seconds since, and runs back down if the page is scrolled back up.
+  var END = 0.88, ARRIVE = 0.761, PLAY = 2.9, played = 0, lastMs = 0;
 
   // The pots the live chart is showing: for each, its pot, its colour and its curve. They are read from the chart
   // itself, so the lines always match what it draws. Their colours, run end to end in a loop, colour the one line
@@ -120,18 +124,20 @@
     var lane = track.getBoundingClientRect(), box = stage.getBoundingClientRect();
     var travel = lane.height - box.height;
     if (travel < 40) return REST;
-    return unit((box.top - lane.top) / travel);
+    return START + unit((box.top - lane.top) / travel) * (END - START);
   }
 
   function draw(t) {
     // Nothing to draw into until the canvas has a size (a tab that loads hidden starts at zero width).
     if (W < 40 || H < 40) return;
     ctx.clearRect(0, 0, W, H);
-    // The move, in order: tilt down and swing to the 3D view, hold, turn right round to level.
-    var tilt = ease((prog - 0.04) / 0.2), turn = ease((prog - 0.3) / 0.28);
+    // The move, in order: a short hold in the 3D view, then the turn right round to level.
+    var tilt = 1, turn = ease((prog - 0.3) / 0.28);
     // The hand-over runs into the end of the turn so nothing stops: the bench draws back as it comes level, the
     // chart and its caption rise, the lines run down to the chart, and the curves draw out from where they land.
     var pull = ease((prog - 0.53) / 0.13), show = ease((prog - 0.6) / 0.1), link = unit((prog - 0.66) / 0.14), rec = ease((prog - 0.78) / 0.17);
+    // Once the line has arrived, the glow, the blooms and then the curves run on the clock.
+    if (played > 0) { link = Math.max(link, 0.72 + 0.28 * unit(played / 1.1)); rec = Math.max(rec, ease((played - 0.5) / 2.4)); }
     turn = turn * turn * (3 - 2 * turn);
     var angle = tilt * 1.08, sin = Math.sin(angle), cos = Math.cos(angle);
     var pad = W < 700 ? 8 : Math.max(24, W * 0.035), box = W < 700 ? 0 : 0.13;
@@ -609,13 +615,15 @@
   }
 
   function frame(ms) {
-    if (!visible || document.hidden) { running = false; return; }
+    if (!visible || document.hidden) { running = false; lastMs = 0; return; }
     var now = ms / 1000, goal = progress(), moving = Math.abs(goal - prog) > 0.0003;
     if (canvas.clientWidth !== W || canvas.clientHeight !== H) { resize(); moving = true; }
     if (moving) prog += (goal - prog) * 0.07;
+    var gone = lastMs ? Math.min(0.1, (ms - lastMs) / 1000) : 0, was = played; lastMs = ms;
+    played = prog >= ARRIVE ? Math.min(PLAY, played + gone) : prog < ARRIVE - 0.02 ? Math.max(0, played - gone * 2.5) : played;
     // The only things that move on their own are the chart and the data running down to it, so outside that part the figure
     // is redrawn only while the scroll is still carrying it along.
-    if (moving || prog > 0.58) draw(now);
+    if (moving || prog > 0.58 || played !== was) draw(now);
     requestAnimationFrame(frame);
   }
   function start() {

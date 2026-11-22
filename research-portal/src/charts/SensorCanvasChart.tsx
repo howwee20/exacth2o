@@ -52,6 +52,8 @@ type SensorCanvasChartProps = {
   freezeScale?: boolean;
   affectedNames?: Set<string>;
   onChartMoment?: (timestampMs: number) => void;
+  /** Smallest height the full chart draws at; several stacked graphs ask for less. */
+  minHeight?: number;
 };
 
 function SensorCanvasChartComponent({
@@ -67,7 +69,7 @@ function SensorCanvasChartComponent({
   targetLines = noTargetLines,
   describeTarget,
   headerSpace = 0,
-  targetLayer, extraTargetValues = noExtraValues, freezeScale = false, affectedNames, onChartMoment,
+  targetLayer, extraTargetValues = noExtraValues, freezeScale = false, affectedNames, onChartMoment, minHeight = 360,
 }: SensorCanvasChartProps) {
   const [geometry, setGeometry] = useState<ChartBounds | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -146,7 +148,7 @@ function SensorCanvasChartComponent({
     const draw = () => {
       const rect = wrapper.getBoundingClientRect();
       const width = Math.max(120, rect.width);
-      const height = Math.max(compact ? 80 : 360, rect.height);
+      const height = Math.max(compact ? 80 : minHeight, rect.height);
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
@@ -372,7 +374,7 @@ function SensorCanvasChartComponent({
       window.removeEventListener("resize", scheduleDraw);
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [affectedNames, compact, freezeScale, gapBySeries, headerSpace, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
+  }, [affectedNames, compact, freezeScale, gapBySeries, headerSpace, minHeight, selectedName, targetLines, targetValues, viewMode, visibleSeries, wateringMarkers, xDomain]);
 
   function plotPosition(clientX: number, clientY: number) {
     const canvas = canvasRef.current;

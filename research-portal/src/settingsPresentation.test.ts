@@ -6,6 +6,7 @@ import {
   overviewNextAction,
   sinceText,
   hardwareInventory,
+  hardwarePots,
   middleEllipsis,
   parseValveIdentity,
   relativeAgeText,
@@ -119,6 +120,20 @@ describe("hardware inventory", () => {
     });
     expect(inventory.sensors[1].lastReadingAt).toBeNull();
     expect(inventory.valves[1]).toMatchObject({ identity: "0x20:50", board: "0x20", channel: "50" });
+  });
+
+  it("lists each pot once with its sensor, valve and newest reading, in pot order", () => {
+    const readings = [
+      { sensor_key: "D30GQN2E:y", device_recorded_at: "2026-09-19T15:00:00.000Z" },
+      { sensor_key: "D30GQN2E:y", device_recorded_at: "2026-09-19T16:00:00.000Z" },
+    ] as SensorReading[];
+    const pots = hardwarePots(
+      [pairing({ id: 2, name: "Zone2-Pot42", pot_number: 42, sensor_key: "D30GQN2E:z", valve_key: "" }), pairing({})],
+      readings,
+    );
+    expect(pots.map((pot) => pot.potNumber)).toEqual([41, 42]);
+    expect(pots[0]).toMatchObject({ sensor: "D30GQN2E:y", lastReadingAt: "2026-09-19T16:00:00.000Z" });
+    expect(pots[1]).toMatchObject({ sensor: "D30GQN2E:z", valve: null, lastReadingAt: null });
   });
 });
 
