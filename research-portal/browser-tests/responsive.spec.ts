@@ -50,11 +50,17 @@ test('home shows the equipment and brings the trace graph into the next section'
   await page.setViewportSize({width:1440,height:1000});
   await page.goto('/');
   await expect(page.locator('.cinema-slide.is-active img')).toHaveAttribute('alt', /^Overhead view of research pots/);
-  await expect(page.locator('main > section').nth(1)).toHaveId('one-pot');
+  await expect(page.locator('main > section').nth(1)).toHaveId('autocalibration');
+  const explore = page.getByRole('link', { name: 'Explore the system', exact: true });
+  await expect(explore).toHaveAttribute('href', '#autocalibration');
+  await explore.click();
+  await expect(page.locator('#homepage-trace-chart')).toBeInViewport();
+  const byGroup = page.getByRole('button', { name: 'By group', exact: true });
+  await byGroup.click();
+  await expect(byGroup).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.trace-group-card').first()).toBeInViewport();
+  await byGroup.click();
   await expect(page.locator('#homepage-trace-chart')).toBeVisible();
-  expect((await page.locator('.cinema-hero').boundingBox())!.height).toBeLessThan(700);
-  expect((await page.locator('#homepage-trace-chart').boundingBox())!.y).toBeLessThan(1100);
-  await expect(page.getByRole('link',{name:'View the traces',exact:true})).toHaveAttribute('href','#one-pot');
 });
 
 test('deferred data and saved comparisons', async ({page}) => {

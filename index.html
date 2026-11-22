@@ -89,9 +89,9 @@
 </style>
 <script src="/site-navigation.js?v=20261104-header1" defer></script>
 <script src="/homepage-slideshow.js?v=20261103-autoplay2" defer></script>
-<script src="/homepage-traces.js?v=20261121-stage1" defer></script>
+<script src="/homepage-traces.js?v=20261122-groups1" defer></script>
 <script src="/homepage-ribbon.js?v=20261121-ribbon10" defer></script>
-<script src="/homepage-autocal.js?v=20261122-autocal25" defer></script>
+<script src="/homepage-autocal.js?v=20261122-autocal30" defer></script>
 <script src="/site-metrics.js" defer></script>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://exacth2o.com/">
@@ -101,7 +101,7 @@
 <meta property="og:url" content="https://exacth2o.com/">
 <meta property="og:image" content="https://exacth2o.com/portal-preview-20261013.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="/homepage.css?v=20261122-bench3d2">
+<link rel="stylesheet" href="/homepage.css?v=20261122-groups2">
 <link rel="stylesheet" href="/site-typography.css?v=20261111-system1">
 <link rel="stylesheet" href="/site-components.css?v=20261111-polish1">
 <link rel="stylesheet" href="/site-brand-footer.css?v=20261111-system1">
@@ -138,7 +138,7 @@
     <h1 class="cinema-title" id="cinema-title">Automated irrigation<br>for plant research</h1>
     <p class="cinema-copy">Set moisture targets for individual pots. ExactH2O uses sensor readings to control watering and records each pot’s moisture and irrigation history.</p>
     <div class="cinema-actions">
-      <a class="cinema-button" href="#one-pot">View the traces</a>
+      <a class="cinema-button" href="#autocalibration">Explore the system</a>
       <a class="cinema-text-link" href="/quote">Request a quote <span aria-hidden="true">›</span></a>
     </div>
   </div>
@@ -177,34 +177,13 @@
       <img data-src="/hero-greenhouse-3602-20260913.webp" data-srcset="/hero-greenhouse-3602-1280w-20260913.webp 1280w, /hero-greenhouse-3602-20260913.webp 2200w" sizes="(min-width: 1800px) 760px, (min-width: 901px) 600px, calc(100vw - 40px)" alt="Potted grasses with moisture sensors, white irrigation rings, and color-coded tubing" width="2200" height="1650" decoding="async" style="--desktop-position: 50% 45%; --mobile-position: 65% 45%;">
     </div>
   </div>
+  <dl class="hero-stats">
+    <div><dt>VWC Accuracy</dt><dd>+4 / -2%</dd></div>
+    <div><dt>Live Monitoring</dt><dd>24/7</dd></div>
+    <div><dt>Individually Controlled Pots</dt><dd>100</dd></div>
+  </dl>
 </section>
 
-
-<section class="home-section features-strip" id="system" aria-labelledby="system-title">
-  <div class="system-backdrop" aria-hidden="true"></div>
-  <div class="home-inner">
-    <div class="home-head">
-      <p class="section-label">The system</p>
-      <h2 class="section-title" id="system-title">Sensors, valves,<br>and a research portal.</h2>
-    </div>
-    <div class="features-grid">
-      <article class="feat-card">
-        <h3>Individual pot control</h3>
-        <p>Set a moisture threshold for each pot and control its irrigation independently.</p>
-        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
-          <img src="/media/independent-irrigation-20261120.webp" data-preview-src="/independent-irrigation-20261009-v2.jpg" onerror="this.onerror=null;this.src=this.dataset.previewSrc" alt="ExactH2O irrigation manifold with separate colored lines running to research pots" width="1086" height="1448" loading="lazy" decoding="async">
-        </div>
-      </article>
-      <article class="feat-card feat-card--sensor">
-        <h3>Sensor measurements</h3>
-        <p>Measure moisture, temperature, and electrical conductivity. Calibrate moisture readings for your growing media.</p>
-        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
-          <img src="/sensor.avif?v=20260709-avif" alt="A moisture sensor being placed in a research pot beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
-        </div>
-      </article>
-    </div>
-  </div>
-</section>
 
 <section class="home-section autocal-strip" id="autocalibration" aria-labelledby="bench-title">
   <div class="autocal-track">
@@ -213,20 +192,19 @@
       <div class="autocal-head">
         <div class="home-inner">
           <div class="home-head autocal-caption" data-caption="hardware">
-            <h2 class="section-title" id="bench-title">One hundred pots.<br>One controller.</h2>
-            <p class="home-head-aside">Each pot has its own valve, its own tube and its own sensor. Every reading goes to the experiment record.</p>
+            <h2 class="section-title" id="bench-title">Easy Scaling</h2>
+            <p class="home-head-aside">Modular architecture supports growth from a single bench to larger multi-zone deployments. Controller, network, and irrigation requirements are confirmed for each facility.</p>
           </div>
           <div class="home-head autocal-caption" data-caption="data">
             <h2 class="section-title" id="one-pot-title">Experiment records</h2>
             <p class="home-head-aside">View sensor readings and watering history, add field notes, and export your data.</p>
             <div class="trace-links">
               <a class="text-link trace-applications-link" href="/applications">Explore applications <span aria-hidden="true">›</span></a>
-              <p class="home-research-link"><span>Published research:</span> <a href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Drought timing in switchgrass <span aria-hidden="true">↗</span></a></p>
             </div>
           </div>
         </div>
       </div>
-      <canvas class="autocal-bench" data-autocal-bench role="img" aria-label="A bench of one hundred black pots in four zones, each pot with a moisture sensor and a ring of red, white, blue or green tubing. A tube runs to every pot from four rows of valves on the side of the controller that faces the bench. Further on, one line runs from the bench down into the edge of the moisture chart below, and each charted pot's colour appears at the start of its curve."></canvas>
+      <canvas class="autocal-bench" data-autocal-bench role="img" aria-label="A bench of one hundred black pots in four zones, each pot with a moisture sensor and a ring of red, white, blue or green tubing. A tube runs to every pot from four rows of valves on the side of the controller that faces the bench. Further on, one line runs from the bench down into the edge of the moisture chart below. The chart can break apart into one graph for each group of pots, with the line forking to each."></canvas>
       <div class="autocal-chart" data-homepage-traces aria-busy="true">
         <div class="home-traces-chart-card">
           <div class="trace-toolbar">
@@ -238,15 +216,67 @@
           <div class="trace-chart-label"><span>Moisture (VWC)</span><span>72-hour window</span></div>
           <svg id="homepage-trace-chart" class="homepage-trace-chart" role="group" tabindex="0" aria-label="Colored moisture traces from the experiment demo"></svg>
           <div class="trace-pot-legend" data-trace-pots aria-label="Show or hide pots"></div>
-          <div class="trace-chart-footer"><span data-trace-readout aria-live="polite">Hover to inspect. Click to lock.</span><span data-trace-clock></span></div>
+          <div class="trace-chart-footer"><span data-trace-readout aria-live="polite"></span><span data-trace-clock></span></div>
         </div>
       </div>
+      <div class="autocal-groups" data-trace-groups></div>
       <canvas class="autocal-links" data-autocal-links aria-hidden="true"></canvas>
+      <button class="autocal-split" type="button" data-trace-split aria-pressed="false" hidden><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="1.5" y="1.5" width="5.2" height="5.2" rx="1.2"/><rect x="9.3" y="1.5" width="5.2" height="5.2" rx="1.2"/><rect x="1.5" y="9.3" width="5.2" height="5.2" rx="1.2"/><rect x="9.3" y="9.3" width="5.2" height="5.2" rx="1.2"/></svg>By group</button>
+    </div>
+  </div>
+</section>
+
+<section class="home-section features-strip" id="system" aria-labelledby="system-title">
+  <div class="system-backdrop" aria-hidden="true"></div>
+  <div class="home-inner">
+    <div class="home-head">
+      <p class="section-label">The system</p>
+      <h2 class="section-title" id="system-title">Sensors, valves,<br>and a research portal.</h2>
+    </div>
+    <div class="features-grid">
+      <article class="feat-card feat-card--sensor">
+        <p class="feat-card-index">01</p>
+        <h3>Sensor measurements</h3>
+        <p>Measure moisture, temperature, and electrical conductivity. Calibrate moisture readings for your growing media.</p>
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the moisture sensor photograph">
+          <img src="/sensor.avif?v=20260709-avif" alt="A moisture sensor being placed in a research pot beside a plant" width="1200" height="1600" loading="lazy" decoding="async">
+        </div>
+      </article>
+      <article class="feat-card">
+        <p class="feat-card-index">02</p>
+        <h3>Individual pot control</h3>
+        <p>Set a moisture threshold for each pot and control its irrigation independently.</p>
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the irrigation manifold photograph">
+          <img src="/media/independent-irrigation-20261120.webp" data-preview-src="/independent-irrigation-20261009-v2.jpg" onerror="this.onerror=null;this.src=this.dataset.previewSrc" alt="ExactH2O irrigation manifold with separate colored lines running to research pots" width="1086" height="1448" loading="lazy" decoding="async">
+        </div>
+      </article>
+      <article class="feat-card feat-card--portal">
+        <p class="feat-card-index">03</p>
+        <h3>Research portal</h3>
+        <p>Run experiments from any browser: set targets, compare pots, and export the data.</p>
+        <a class="text-link" href="/demo">Open demo <span aria-hidden="true">›</span></a>
+        <div class="feat-card-img" tabindex="0" aria-label="Enlarge the research portal picture">
+          <img src="/media/portal-experiment-20261122.jpg" alt="The ExactH2O research portal showing moisture traces for every pot in an experiment" width="1530" height="1530" loading="lazy" decoding="async">
+        </div>
+      </article>
     </div>
   </div>
 </section>
 
 <div class="feature-image-preview" aria-hidden="true"><img src="" alt=""></div>
+
+<section class="research-strip" aria-labelledby="research-title">
+  <div class="home-inner research-row">
+    <p class="section-label">Published research</p>
+    <div class="research-main">
+      <div>
+        <h3 id="research-title">Drought timing in switchgrass</h3>
+        <p>122 days · 4 watering treatments<span aria-hidden="true"> · </span><span>Basyal et al., Journal of Experimental Botany, 2026</span></p>
+      </div>
+      <a class="text-link" href="https://doi.org/10.1093/jxb/eraf533" target="_blank" rel="noopener noreferrer">Read the study <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</section>
 
 <section class="cta-strip" aria-labelledby="cta-title">
   <canvas class="hero-ribbon" data-hero-ribbon="sheet" aria-hidden="true"></canvas>
