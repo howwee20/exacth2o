@@ -142,9 +142,7 @@
 .px-shell .experiment-builder-header p { margin: 4px 0 0; color: var(--px-muted); font-size: 13px; font-weight: 400; }
 .px-shell .experiment-builder-header h2 { font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
 .px-shell .experiment-builder-header > button { border-radius: 50%; border-color: var(--px-rule-strong); }
-.px-shell .experiment-builder-steps li { font-size: 13px; font-weight: 500; }
-.px-shell .experiment-builder-steps li > span { font-size: 12px; font-weight: 600; }
-.px-shell .experiment-builder :is(h3, .experiment-builder-section-heading h3) { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+
 .px-shell .experiment-builder-details > summary { color: var(--px-water); font-size: 14px; font-weight: 500; }
 .px-shell .experiment-builder-optional-calibration p { font-size: 14px; line-height: 1.5; }
 
@@ -208,9 +206,119 @@
 /* The trace controls and related panels use the shared field and panel sizes. */
 .px-shell .px-pot-chart .chart-card { border-radius: var(--px-panel-radius); }
 .px-shell .px-pot-chart .has-top-pots .px-experiment-tools { padding: 8px 16px; }
-.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure { min-height: 40px; }
+/* The Pots button opens the pot list above the chart. It is a raised button, pressed in while the list is open. */
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure { gap: 8px; min-height: 36px; padding: 0 10px 0 12px; border: 1px solid rgba(16, 31, 26, .14); border-bottom-color: rgba(16, 31, 26, .22); border-radius: 8px;
+  background: linear-gradient(180deg, #fff 0, #f8faf9 100%); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(16, 31, 26, .06);
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure:hover { border-color: rgba(16, 31, 26, .26); }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure:focus-visible { outline: 2px solid var(--px-water); outline-offset: 2px; }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure > span { padding: 1px 7px; border-radius: 5px; background: rgba(16, 31, 26, .06); color: #4c5a53; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure > svg { color: var(--px-muted); transition: transform 140ms ease; }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure[aria-expanded="true"] { border-color: rgba(26, 107, 74, .34); background: #f1f6f3; box-shadow: inset 0 1px 2px rgba(16, 31, 26, .08); }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure[aria-expanded="true"] > span { background: rgba(26, 107, 74, .12); color: #17573d; }
+.px-shell .px-pot-chart .has-top-pots .px-pots-disclosure[aria-expanded="true"] > svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .px-shell .px-pot-chart .has-top-pots .px-pots-disclosure, .px-shell .px-pot-chart .has-top-pots .px-pots-disclosure > svg { transition: none; } }
 .px-shell .px-pot-chart .chart-view-toggle button { min-height: 36px; }
 @media (max-width: 760px) {
   .px-shell .px-pot-chart .has-top-pots .px-experiment-tools { padding-inline: 10px; }
   .px-shell .px-header { padding-inline: 20px; }
 }
+@media (max-width: 480px) {
+  .px-shell .px-pot-chart .has-top-pots .px-pots-disclosure { gap: 4px; padding-inline: 6px; }
+  .px-shell .px-pot-chart .has-top-pots .px-pots-disclosure > span { padding-inline: 4px; font-size: 11px; }
+  .px-pots-count-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* ---- New experiment: one screen --------------------------------------------------- */
+/* Name and type, the groups, the pots, then Create. The confirmation opens in the footer of the same screen. */
+.experiment-builder.is-simple { width: min(920px, 100%); }
+.experiment-builder.is-simple.is-inline { width: 100%; }
+.experiment-builder.is-simple .experiment-builder-header { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; padding: 16px 24px; }
+.experiment-builder.is-simple .experiment-builder-review { gap: 14px; padding: 20px 24px; align-content: start; }
+.experiment-builder.is-simple .experiment-builder-editable { gap: 20px; }
+.experiment-builder.is-simple .experiment-builder-error { margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+
+.xb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; }
+.xb-name, .xb-more label { display: grid; gap: 6px; min-width: 0; }
+.xb-type { min-width: 0; margin: 0; padding: 0; border: 0; }
+.xb-type legend { margin-bottom: 6px; padding: 0; color: var(--px-ink, #1d1d1f); font-size: 13px; font-weight: 500; }
+/* The type switch is a recessed track with the chosen type raised on it. */
+.xb-segment { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(118px, 1fr); gap: 3px; min-height: 44px; padding: 3px; border-radius: 10px; background: #eceeed; box-shadow: inset 0 1px 2px rgba(16, 31, 26, .09); }
+.xb-segment button { padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: #56635c; font: 500 14px/1.2 var(--px-sans, inherit); cursor: pointer; transition: background-color 140ms ease, color 140ms ease; }
+.xb-segment button:hover:not(:disabled, .is-selected) { color: var(--px-ink, #1d1d1f); }
+.xb-segment button.is-selected { background: #fff; color: var(--px-ink, #1d1d1f); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(16, 31, 26, .16); }
+
+.xb-section { display: grid; gap: 10px; min-width: 0; }
+.xb-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.experiment-builder.is-simple .xb-heading h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.xb-heading > span { color: var(--px-muted, #6e6e73); font-size: 13px; font-variant-numeric: tabular-nums; }
+.xb-heading-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-left: auto; }
+.xb-link { padding: 0; border: 0; background: none; color: var(--px-water, #1a6b4a); font: 500 13px/1.4 var(--px-sans, inherit); cursor: pointer; }
+.xb-link:hover:not(:disabled) { text-decoration: underline; }
+.experiment-builder.is-simple .xb-check { display: inline-flex; align-items: center; gap: 6px; color: var(--px-muted, #6e6e73); font-size: 13px; font-weight: 400; cursor: pointer; }
+.experiment-builder.is-simple .xb-check input { width: 16px; height: 16px; min-height: 16px; padding: 0; accent-color: var(--px-water, #1a6b4a); }
+
+/* A group is one row: its colour, its name, its moisture target and how many pots it has. The row with the ring is
+   the one the next pot click goes to. */
+.xb-groups { display: grid; gap: 6px; }
+.xb-group { --tone: var(--px-water, #1a6b4a); display: grid; grid-template-columns: 16px minmax(0, 280px) auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 5px 8px 5px 14px;
+  border: 1px solid rgba(16, 31, 26, .12); border-bottom-color: rgba(16, 31, 26, .2); border-radius: 10px; background: #fff; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .04); cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease; }
+.xb-group.is-active { border-color: var(--tone); box-shadow: 0 0 0 1px var(--tone), 0 2px 5px -2px rgba(16, 31, 26, .2); }
+.experiment-builder.is-simple .xb-group input[type="radio"] { appearance: none; width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; border: 2px solid var(--tone); border-radius: 50%; background: #fff; cursor: pointer; }
+.experiment-builder.is-simple .xb-group input[type="radio"]:checked { background: var(--tone); box-shadow: inset 0 0 0 2px #fff; }
+.experiment-builder.is-simple .xb-group input:not([type="radio"]) { min-height: 36px; }
+.experiment-builder.is-simple .xb-group-name { font-weight: 500; }
+.experiment-builder.is-simple .xb-group-target { display: inline-flex; align-items: center; gap: 6px; color: var(--px-muted, #6e6e73); font-size: 13px; font-weight: 400; white-space: nowrap; }
+.experiment-builder.is-simple .xb-group-target input { width: 84px; }
+.xb-group-count { justify-self: end; color: var(--px-muted, #6e6e73); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xb-group-remove { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--px-muted, #6e6e73); cursor: pointer; }
+.xb-group-remove:hover:not(:disabled) { background: #eef0ef; color: var(--px-ink, #1d1d1f); }
+
+/* Every pot is a numbered key, in pot order. A pot in a group takes the group's colour. */
+.xb-pots { display: flex; flex-wrap: wrap; gap: 6px; }
+.xb-pots button { min-width: 44px; height: 34px; padding: 0 8px; border: 1px solid rgba(16, 31, 26, .14); border-bottom-color: rgba(16, 31, 26, .24); border-radius: 8px;
+  background: linear-gradient(180deg, #fff 0, #f7f9f8 100%); box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05);
+  color: var(--px-ink, #1d1d1f); font: 500 13px/1 var(--px-sans, inherit); font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease; }
+.xb-pots button:hover:not(:disabled, .is-selected) { border-color: rgba(26, 107, 74, .5); }
+.xb-pots button.is-selected { border-color: color-mix(in srgb, var(--tone, #1a6b4a) 78%, #000); background: var(--tone, #1a6b4a); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .22); color: #fff; }
+.experiment-builder.is-simple .xb-pots button.is-occupied { border-style: dashed; border-color: rgba(16, 31, 26, .16); background: #f4f5f4; box-shadow: none; color: #9aa39e; opacity: 1; }
+
+.xb-more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 8px 0 4px; }
+.xb-more > label:first-child { grid-column: 1 / -1; }
+.experiment-builder.is-simple .settings-muted { margin: 0; color: var(--px-muted, #6e6e73); font-size: 13px; }
+.experiment-builder.is-simple .experiment-builder-details > summary { padding: 2px 0; font-size: 13px; }
+
+.experiment-builder.is-simple .xb-autocal { justify-self: start; gap: 8px; color: var(--px-ink, #1d1d1f); font-size: 14px; font-weight: 500; }
+
+/* Create asks the server what the controller would change. The answer opens here, with the form above locked. */
+.experiment-builder-actions.is-confirming { align-items: flex-end; border-top-color: rgba(26, 107, 74, .28); background: #f2f7f4; }
+.xb-confirm { display: grid; flex: 1 1 auto; gap: 4px; min-width: 0; outline: none; }
+.experiment-builder.is-simple .xb-confirm h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.xb-confirm p { margin: 0; color: #41584b; font-size: 13px; line-height: 1.45; }
+.xb-confirm ul { display: grid; gap: 2px; max-height: 108px; margin: 4px 0 0; padding: 0; overflow-y: auto; list-style: none; font-size: 13px; line-height: 1.45; }
+.xb-confirm li { display: flex; flex-wrap: wrap; gap: 0 10px; }
+.xb-confirm li span { color: #41584b; }
+.xb-confirm .xb-confirm-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; color: #86590c; }
+.xb-confirm .xb-confirm-note svg { flex: none; margin-top: 2px; }
+.xb-confirm-buttons { display: flex; flex: none; gap: 10px; }
+
+@media (max-width: 720px) {
+  .experiment-builder.is-simple .experiment-builder-header { padding: 14px 16px; }
+  .experiment-builder.is-simple .experiment-builder-review { padding: 16px; }
+  .xb-top { grid-template-columns: minmax(0, 1fr); }
+  .xb-segment { grid-auto-columns: minmax(0, 1fr); }
+  .xb-pots button { min-width: 48px; height: 40px; }
+  .xb-more { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .xb-group { grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px 10px; padding: 8px 8px 8px 12px; }
+  .xb-group-name { grid-column: 2; }
+  .xb-group-remove { grid-column: 3; grid-row: 1; }
+  .xb-group-target { grid-column: 2; grid-row: 2; }
+  .xb-group-count { grid-column: 3; grid-row: 2; }
+  .experiment-builder-actions.is-confirming { flex-wrap: wrap; }
+  .xb-confirm { flex-basis: 100%; }
+  .xb-confirm-buttons { flex: 1 1 100%; }
+  .xb-confirm-buttons > button { flex: 1 1 0; }
+}
+@media (prefers-reduced-motion: reduce) { .xb-segment button, .xb-pots button, .xb-group { transition: none; } }

@@ -1,36 +1,33 @@
 import {
   Component,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ErrorInfo,
   type ReactNode,
 } from "react";
 import {
-  ArrowLeft,
   AlertTriangle,
+  ArrowLeft,
   Check,
   Loader2,
   Play,
-  Sparkles,
   X,
 } from "lucide-react";
 import {
   ExperimentRequestError,
-  draftExperiment,
   launchExperiment,
   preflightExperiment,
 } from "./experimentClient";
 import {
-  emptyExperimentDraft,
   experimentDraftFromPortalExperiment,
   manualExperimentDraft,
+  type ExperimentBuilderMode,
   type ExperimentControlPlan,
   type ExperimentDraft,
   type ExperimentDraftAssignment,
-  type ExperimentDraftSource,
 } from "./experimentSpec";
 import {
   activeExperimentPotOccupancy,
@@ -43,26 +40,41 @@ import {
 import type { PairingRow } from "./types";
 import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
 import { autocalRunStore, useAutocalRun } from "./autocalibrate/runStore";
+import { potRanges } from "./product/directExperimentModel";
 import { installationFieldMap } from "./autocalibrate/fieldMap";
 import { ExperimentPotPicker, useExperimentFieldPots } from "./ExperimentPotPicker";
+import {
+  assignmentInGroup,
+  groupTones,
+  groupsFromAssignments,
+  nextGroup,
+  type ExperimentGroup,
+} from "./experimentGroups";
 
-type BuilderStep = "prompt" | "review" | "calibrate" | "complete";
+// The whole experiment is set up on one screen. Autocalibration is a separate tool the screen can open and return
+// from, and the last panel only shows while the new experiment opens or if its controller changes did not apply.
+type BuilderStep = "setup" | "calibrate" | "complete";
 const noPortalExperiments: readonly PortalExperiment[] = [];
+
+// A new experiment is one of two kinds. Observation stays available only for an experiment that already is one.
+const modeOptions: ReadonlyArray<readonly [ExperimentBuilderMode, string, string]> = [
+  ["controlled", "Control", "Measure and water to a target"],
+  ["calibration", "Calibration", "Measure a calibration trial"],
+];
+const observationOption = ["observation", "Observation", "Measure with watering off"] as const;
 
 type ExperimentBuilderProps = {
   projectId: string;
-  deviceId: string | null;
+  deviceId?: string | null;
   pairings: PairingRow[];
   inventoryUpdatedAt: string | null;
-  initialPrompt?: string;
-  autoGenerate?: boolean;
-  direct?: boolean;
   experiment?: PortalExperiment | null;
   template?: PortalExperiment | null;
   experiments?: readonly PortalExperiment[];
   presentation?: "modal" | "inline";
   systemName?: string;
-  renderCalibration?: (draft: ExperimentDraft) => ReactNode;
+  /** The autocalibration of the draft's pots. It reports when its session ends and whether the test ran to the end. */
+  renderCalibration?: (draft: ExperimentDraft, options: { onClosed: (outcome: { status: string; completed: boolean }) => void }) => ReactNode;
   onClose: () => void;
   onCreated: (slug: string) => void;
 };
@@ -122,9 +134,6 @@ function ExperimentBuilderContent({
   deviceId,
   pairings,
   inventoryUpdatedAt,
-  initialPrompt = "",
-  autoGenerate = false,
-  direct = false,
   experiment = null,
   template = null,
   experiments = noPortalExperiments,
@@ -136,40 +145,41 @@ function ExperimentBuilderContent({
 }: ExperimentBuilderProps) {
   const editing = Boolean(experiment);
   const calibrationRunning = Boolean(useAutocalRun().live);
-  const [step, setStep] = useState<BuilderStep>(direct ? "review" : "prompt");
-  const [prompt, setPrompt] = useState(initialPrompt);
+  const [step, setStep] = useState<BuilderStep>("setup");
   const templateAssignments = useMemo(() => template ? experimentDraftFromPortalExperiment(template, pairings).assignments : [], [template, pairings]);
   const [draft, setDraft] = useState<ExperimentDraft>(() =>
     experiment
       ? experimentDraftFromPortalExperiment(experiment, pairings)
       : template
       ? { ...experimentDraftFromPortalExperiment(template, pairings), name: `${template.name} copy`, start_date: null, assignments: [], questions: [] }
-      : direct
-      ? manualExperimentDraft(pairings)
-      : emptyExperimentDraft()
+      : manualExperimentDraft(pairings)
   );
-  const [source, setSource] = useState<ExperimentDraftSource>("manual");
+  const [offerObservation] = useState(draft.mode === "observation");
+  // Pots are assigned to treatment groups. An experiment being edited brings its own groups and a copied one brings
+  // the groups of the original; a new one starts with Control and Drought.
+  const [initialGrouping] = useState(() => groupsFromAssignments(experiment ? draft.assignments : templateAssignments));
+  const [groups, setGroups] = useState<ExperimentGroup[]>(initialGrouping.groups);
+  const [groupByPot, setGroupByPot] = useState<Record<string, string>>(experiment ? initialGrouping.groupByPot : {});
+  const [activeGroupId, setActiveGroupId] = useState(initialGrouping.groups[0].id);
   const [draftInventoryUpdatedAt, setDraftInventoryUpdatedAt] = useState<string | null>(
     inventoryUpdatedAt,
   );
-  const [model, setModel] = useState<string | null>(null);
-  const [promptFingerprint, setPromptFingerprint] = useState<string | null>(null);
-  const [revisionRequest, setRevisionRequest] = useState("");
+  // The controller changes the server worked out for this setup. While they are set, the screen is asking for the
+  // final confirmation and the form above is locked.
   const [controlPlan, setControlPlan] = useState<ExperimentControlPlan | null>(null);
   const [reviewedConfigHash, setReviewedConfigHash] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
   const [launchStatus, setLaunchStatus] = useState<"active" | "activating" | "activation_failed" | null>(null);
-  const [createdOperationId, setCreatedOperationId] = useState<string | null>(null);
-  const [createdCommandCount, setCreatedCommandCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
-  const autoGenerateStarted = useRef(false);
   const dialogRef = useRef<HTMLElement>(null);
-  const reviewRef = useRef<HTMLDivElement>(null);
-  const [potSearch, setPotSearch] = useState("");
+  const confirmRef = useRef<HTMLDivElement>(null);
   const [showOccupied, setShowOccupied] = useState(false);
-  const [unpairedPots, setUnpairedPots] = useState<Set<number>>(() => new Set());
+  const [unpairedPots, setUnpairedPots] = useState<ReadonlySet<number>>(() => new Set());
+  // "Autocalibrate these pots first": ticked, the button runs the valve test for the chosen pots before anything is
+  // created. `calibratedPots` remembers which selection was tested, so changing the pots asks for a new test.
+  const [autocalibrate, setAutocalibrate] = useState(false);
+  const [calibratedPots, setCalibratedPots] = useState<string | null>(null);
   const [attemptedReview, setAttemptedReview] = useState(false);
 
   useEffect(() => {
@@ -182,14 +192,19 @@ function ExperimentBuilderContent({
   }, [presentation]);
 
   useEffect(() => {
-    reviewRef.current?.scrollTo({ top: 0 });
-    if (controlPlan) reviewRef.current?.focus();
+    if (!controlPlan) return;
+    confirmRef.current?.scrollIntoView({ block: "nearest" });
+    confirmRef.current?.focus();
   }, [controlPlan]);
 
   const sortedPairings = useMemo(
     () => pairings.slice().sort((left, right) =>
-      left.zone - right.zone || left.pot_number - right.pot_number
+      left.pot_number - right.pot_number || left.name.localeCompare(right.name)
     ),
+    [pairings],
+  );
+  const pairingByName = useMemo(
+    () => new Map(pairings.map((pairing) => [pairing.name, pairing])),
     [pairings],
   );
   const validationIssues = useMemo(
@@ -209,82 +224,55 @@ function ExperimentBuilderContent({
   );
   const fieldMap = !editing && deviceId ? installationFieldMap(projectId, deviceId) : null;
   const fieldPots = useExperimentFieldPots(fieldMap, pairings, occupiedByName);
-  const selectedPotsUnavailable = fieldPots != null && draft.assignments.some(
+  const fieldSelectionBlocked = fieldPots !== null && (unpairedPots.size > 0 || draft.assignments.some(
     assignment => !fieldPots.assignable.has(assignment.pairing_name),
-  );
-  const hasUnpairedPots = fieldPots != null && unpairedPots.size > 0;
-  const fieldSelectionBlocked = selectedPotsUnavailable || hasUnpairedPots;
-  const potLabel = (name: string) => {
-    const number = fieldPots?.potNumbers.get(name);
-    return number == null ? name.replace(/^Zone(\d+)-Pot/i, "Z$1 · Pot ") : `Pot ${number}`;
-  };
+  ));
   const availablePairingCount = useMemo(
     () => sortedPairings.filter((pairing) => !occupiedByName.has(pairing.name)).length,
     [occupiedByName, sortedPairings],
   );
-  const visiblePairings = sortedPairings.filter((pairing) =>
-    (showOccupied || !occupiedByName.has(pairing.name))
-    && `pot ${pairing.pot_number} zone ${pairing.zone} ${pairing.group_name ?? ""}`.toLowerCase().includes(potSearch.trim().toLowerCase())
-  );
-  const zones = [...new Set(visiblePairings.map((pairing) => pairing.zone))];
-  const stepIndex = step === "complete"
-    ? 2
-    : direct && !controlPlan
-    ? 0
-    : step === "review"
-    ? 1
-    : 0;
+  const visiblePairings = sortedPairings.filter((pairing) => showOccupied || !occupiedByName.has(pairing.name));
+  const freePairings = visiblePairings.filter((pairing) => !occupiedByName.has(pairing.name));
+  const allSelected = freePairings.length > 0 && freePairings.every((pairing) => selectedNames.has(pairing.name));
+  // Two inventory entries can carry the same pot number; those are told apart by name.
+  const repeatedNumbers = useMemo(() => {
+    const seen = new Set<number>(); const repeated = new Set<number>();
+    for (const pairing of pairings) (seen.has(pairing.pot_number) ? repeated : seen).add(pairing.pot_number);
+    return repeated;
+  }, [pairings]);
+  const shownModes = offerObservation ? [...modeOptions, observationOption] : modeOptions;
+  const modeLabel = [...modeOptions, observationOption].find(([mode]) => mode === draft.mode)?.[1] ?? "Control";
+  const confirming = Boolean(controlPlan);
+  const potsKey = JSON.stringify([...selectedNames].sort().map(name => {
+    const pairing = pairingByName.get(name);
+    return [name, pairing?.sensor_key, pairing?.valve_key];
+  }));
+  const calibrated = calibratedPots !== null && calibratedPots === potsKey;
+  const calibrateFirst = Boolean(renderCalibration) && autocalibrate && !calibrated;
 
-  const generateDraft = useCallback(async (
-    request: string,
-    currentDraft?: ExperimentDraft,
-  ) => {
-    if (!request.trim()) {
-      setError("Describe the experiment.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await draftExperiment(projectId, request.trim(), currentDraft);
-      setDraft(normalizeExperimentDraft(result.draft));
-      setSource("natural_language");
-      setDraftInventoryUpdatedAt(result.inventory_updated_at);
-      setModel(result.model);
-      setPromptFingerprint(result.prompt_fingerprint);
-      setControlPlan(null);
-      setReviewedConfigHash(null);
-      setConfirmed(false);
-      setRevisionRequest("");
-      setStep("review");
-      if (result.validation_messages.length) {
-        setError(result.validation_messages.join(" "));
-      }
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Could not create the draft.");
-    } finally {
-      setBusy(false);
-    }
-  }, [projectId]);
+  /** "Pots 15–20, 41" for pots the inventory knows; their names as written otherwise. */
+  const potsLabel = (names: readonly string[]) => {
+    const numbers = names.map((name) => fieldPots?.potNumbers.get(name) ?? pairingByName.get(name)?.pot_number);
+    return numbers.every((value): value is number => typeof value === "number")
+      ? potRanges(numbers)
+      : names.join(", ");
+  };
+  const assignmentLabel = (name: string) => {
+    const physicalPot = fieldPots?.potNumbers.get(name);
+    if (physicalPot != null) return `Pot ${physicalPot}`;
+    const pairing = pairingByName.get(name);
+    return pairing && !repeatedNumbers.has(pairing.pot_number) ? `Pot ${pairing.pot_number}` : name;
+  };
 
-  useEffect(() => {
-    if (
-      !autoGenerate ||
-      autoGenerateStarted.current ||
-      !initialPrompt.trim()
-    ) return;
-    autoGenerateStarted.current = true;
-    void generateDraft(initialPrompt);
-  }, [autoGenerate, generateDraft, initialPrompt]);
+  const activeGroup = groups.find((group) => group.id === activeGroupId) ?? groups[0];
+  const valveSeconds = (name: string) => Math.max(1, (pairingByName.get(name)?.valve_open_time_ms ?? 1_000) / 1_000);
+  /** The pot's assignment once it belongs to the group: its own settings if it has any, the inventory's otherwise. */
+  const inGroup = (pairing: PairingRow, group: ExperimentGroup, mode: ExperimentDraft["mode"], current?: ExperimentDraftAssignment) =>
+    assignmentInGroup(current ?? assignmentForMode(pairing, mode, group.base), group, mode, valveSeconds(pairing.name));
 
-  const beginManualDraft = () => {
-    setDraft(manualExperimentDraft(pairings));
-    setSource("manual");
-    setDraftInventoryUpdatedAt(inventoryUpdatedAt);
-    setModel(null);
-    setPromptFingerprint(null);
-    setError(null);
-    setStep("review");
+  const clearReview = () => {
+    setControlPlan(null);
+    setReviewedConfigHash(null);
   };
 
   const updateDraft = <Key extends keyof ExperimentDraft>(
@@ -292,29 +280,22 @@ function ExperimentBuilderContent({
     value: ExperimentDraft[Key],
   ) => {
     setDraft((current) => ({ ...current, [key]: value }));
-    setControlPlan(null);
-    setReviewedConfigHash(null);
-    setConfirmed(false);
+    clearReview();
   };
 
   const updateMode = (mode: ExperimentDraft["mode"]) => {
     setDraft((current) => ({
       ...current,
       mode,
-      assignments: mode === "observation"
-        ? current.assignments.map((assignment) => ({
-          ...assignment,
-          watering_enabled: false,
-          target_vwc_percent: null,
-          valve_open_seconds: null,
-        }))
-        : current.assignments,
+      assignments: current.assignments.map((assignment) => {
+        const group = groups.find((item) => item.id === groupByPot[assignment.pairing_name]);
+        return group ? assignmentInGroup(assignment, group, mode, valveSeconds(assignment.pairing_name)) : assignment;
+      }),
     }));
-    setControlPlan(null);
-    setReviewedConfigHash(null);
-    setConfirmed(false);
+    clearReview();
   };
 
+  // A click puts a free pot in the active group, moves a pot from another group into it, or takes it back out.
   const togglePairing = (pairing: PairingRow) => {
     if (fieldPots && !fieldPots.assignable.has(pairing.name)) return;
     const occupancy = occupiedByName.get(pairing.name);
@@ -326,20 +307,22 @@ function ExperimentBuilderContent({
       );
       return;
     }
-    setControlPlan(null);
-    setReviewedConfigHash(null);
-    setConfirmed(false);
+    clearReview();
+    const leaving = selectedNames.has(pairing.name) && groupByPot[pairing.name] === activeGroup.id;
+    setGroupByPot((current) => {
+      const next = { ...current };
+      if (leaving) delete next[pairing.name]; else next[pairing.name] = activeGroup.id;
+      return next;
+    });
     setDraft((current) => {
-      const exists = current.assignments.some(
-        (assignment) => assignment.pairing_name === pairing.name,
-      );
+      const existing = current.assignments.find((assignment) => assignment.pairing_name === pairing.name);
       return {
         ...current,
-        assignments: exists
-          ? current.assignments.filter(
-            (assignment) => assignment.pairing_name !== pairing.name,
-          )
-          : [...current.assignments, assignmentForMode(pairing, current.mode, templateAssignments.length ? templateAssignments[current.assignments.length % templateAssignments.length] : undefined)],
+        assignments: leaving
+          ? current.assignments.filter((assignment) => assignment.pairing_name !== pairing.name)
+          : existing
+          ? current.assignments.map((assignment) => assignment === existing ? inGroup(pairing, activeGroup, current.mode, existing) : assignment)
+          : [...current.assignments, inGroup(pairing, activeGroup, current.mode)],
       };
     });
   };
@@ -347,11 +330,50 @@ function ExperimentBuilderContent({
   const togglePhysicalPot = (pot: number) => {
     if (unpairedPots.has(pot)) {
       setUnpairedPots(current => new Set([...current].filter(number => number !== pot)));
-      return;
+    } else {
+      const pairing = fieldPots?.available.get(pot);
+      if (pairing) togglePairing(pairing);
+      else if (pairing === null) setUnpairedPots(current => new Set(current).add(pot));
     }
-    const pairing = fieldPots?.available.get(pot);
-    if (pairing) togglePairing(pairing);
-    else if (pairing === null) setUnpairedPots(current => new Set(current).add(pot));
+  };
+
+  const removePairing = (name: string) => {
+    setGroupByPot(current => {
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
+    updateDraft("assignments", draft.assignments.filter(assignment => assignment.pairing_name !== name));
+  };
+
+  const updateGroup = (id: string, patch: Partial<Pick<ExperimentGroup, "name" | "target">>) => {
+    const group = groups.find((item) => item.id === id);
+    if (!group) return;
+    const next = { ...group, ...patch };
+    setGroups(groups.map((item) => item.id === id ? next : item));
+    setDraft((current) => ({
+      ...current,
+      assignments: current.assignments.map((assignment) => groupByPot[assignment.pairing_name] === id
+        ? assignmentInGroup(assignment, next, current.mode, valveSeconds(assignment.pairing_name))
+        : assignment),
+    }));
+    clearReview();
+  };
+
+  const addGroup = () => {
+    const group = nextGroup(groups);
+    setGroups([...groups, group]);
+    setActiveGroupId(group.id);
+  };
+
+  /** Removing a group frees its pots. */
+  const removeGroup = (id: string) => {
+    const remaining = groups.filter((group) => group.id !== id);
+    if (!remaining.length) return;
+    setGroups(remaining);
+    if (activeGroupId === id) setActiveGroupId(remaining[0].id);
+    setGroupByPot(Object.fromEntries(Object.entries(groupByPot).filter(([, groupId]) => groupId !== id)));
+    updateDraft("assignments", draft.assignments.filter((assignment) => groupByPot[assignment.pairing_name] !== id));
   };
 
   const updateAssignment = (
@@ -359,9 +381,7 @@ function ExperimentBuilderContent({
     key: keyof ExperimentDraftAssignment,
     value: string | number | boolean | null,
   ) => {
-    setControlPlan(null);
-    setReviewedConfigHash(null);
-    setConfirmed(false);
+    clearReview();
     setDraft((current) => ({
       ...current,
       assignments: current.assignments.map((assignment) =>
@@ -372,21 +392,24 @@ function ExperimentBuilderContent({
     }));
   };
 
-  const selectZone = (zone: number) => {
-    const eligible = visiblePairings.filter((pairing) => pairing.zone === zone && !occupiedByName.has(pairing.name));
-    const remove = eligible.every((pairing) => selectedNames.has(pairing.name));
-    const names = new Set(eligible.map((pairing) => pairing.name));
-    const assignments = remove
-      ? draft.assignments.filter((assignment) => !names.has(assignment.pairing_name))
-      : [...draft.assignments, ...eligible.filter((pairing) => !selectedNames.has(pairing.name)).map((pairing, index) =>
-        assignmentForMode(pairing, draft.mode, templateAssignments.length ? templateAssignments[(draft.assignments.length + index) % templateAssignments.length] : undefined))];
-    updateDraft("assignments", assignments);
+  /** Every free pot that is not in a group yet joins the active one. */
+  const selectAll = () => {
+    const joining = freePairings.filter((pairing) => !selectedNames.has(pairing.name));
+    setGroupByPot({ ...groupByPot, ...Object.fromEntries(joining.map((pairing) => [pairing.name, activeGroup.id])) });
+    updateDraft("assignments", [...draft.assignments, ...joining.map((pairing) => inGroup(pairing, activeGroup, draft.mode))]);
+  };
+
+  const clearSelection = () => {
+    setGroupByPot({});
+    updateDraft("assignments", []);
   };
 
   const updateAll = (key: keyof ExperimentDraftAssignment, value: string | number | boolean | null) => {
     updateDraft("assignments", draft.assignments.map((assignment) => ({ ...assignment, [key]: value })));
   };
 
+  // First press: the server checks the setup against the live inventory and works out what the controller would
+  // change. Nothing is created yet; the screen shows those changes and asks for confirmation.
   const reviewExperiment = async () => {
     if (busy || fieldSelectionBlocked || autocalRunStore.running) return;
     setAttemptedReview(true);
@@ -415,18 +438,18 @@ function ExperimentBuilderContent({
       setControlPlan(result.plan);
       setReviewedConfigHash(result.config_hash);
       setDraftInventoryUpdatedAt(result.inventory_updated_at);
-      setConfirmed(false);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Could not review the experiment.");
+      setError(nextError instanceof Error ? nextError.message : "Could not check the experiment.");
     } finally {
       setBusy(false);
     }
   };
 
+  // Second press: create the experiment exactly as it was checked, then open it.
   const startExperiment = async () => {
     if (busy || fieldSelectionBlocked || autocalRunStore.running) return;
-    if (!controlPlan || !reviewedConfigHash || !draftInventoryUpdatedAt || !confirmed) {
-      setError("Review and confirm the experiment first.");
+    if (!controlPlan || !reviewedConfigHash || !draftInventoryUpdatedAt) {
+      setError("Check the experiment first.");
       return;
     }
     setBusy(true);
@@ -436,18 +459,17 @@ function ExperimentBuilderContent({
         projectId,
         draft: normalizeExperimentDraft(draft),
         inventoryUpdatedAt: draftInventoryUpdatedAt,
-        source,
-        model,
-        promptFingerprint,
+        source: "manual",
+        model: null,
+        promptFingerprint: null,
         reviewedConfigHash,
         experimentId: experiment?.databaseId,
         expectedRevisionId: experiment?.currentRevisionId,
       });
       setCreatedSlug(result.experiment_slug);
       setLaunchStatus(result.status);
-      setCreatedOperationId(result.operation_id);
-      setCreatedCommandCount(result.command_ids.length);
       setStep("complete");
+      onCreated(result.experiment_slug);
     } catch (nextError) {
       if (nextError instanceof ExperimentRequestError && nextError.savedExperimentSlug) {
         setCreatedSlug(nextError.savedExperimentSlug);
@@ -474,7 +496,7 @@ function ExperimentBuilderContent({
       role="presentation"
     >
       <section
-        className={`experiment-builder ${presentation === "inline" ? "is-inline" : ""} ${direct ? "is-direct" : ""}`}
+        className={`experiment-builder is-simple ${presentation === "inline" ? "is-inline" : ""}`}
         role={presentation === "inline" ? "region" : "dialog"}
         aria-modal={presentation === "modal" ? "true" : undefined}
         aria-labelledby="experiment-builder-title"
@@ -487,7 +509,7 @@ function ExperimentBuilderContent({
             'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]'
           ) ?? []).filter((element) => element.getClientRects().length > 0);
           const first = focusable[0]; const last = focusable[focusable.length - 1];
-          if (event.shiftKey && (document.activeElement === first || document.activeElement === reviewRef.current)) { event.preventDefault(); last?.focus(); }
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === confirmRef.current)) { event.preventDefault(); last?.focus(); }
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         }}
       >
@@ -498,446 +520,313 @@ function ExperimentBuilderContent({
             </h2>
             {systemName ? <p>{systemName}</p> : null}
           </div>
-          <ol className="experiment-builder-steps" aria-label="Experiment workflow">
-            {(direct
-              ? ["Set up", "Review", "Done"]
-              : ["Describe", "Review", "Create"]).map((label, index) => (
-              <li className={index <= stepIndex ? "is-current" : ""} aria-current={index === stepIndex ? "step" : undefined} key={label}>
-                <span>{index + 1}</span>
-                {label}
-              </li>
-            ))}
-          </ol>
           <button type="button" onClick={onClose} disabled={busy} aria-label="Close">
             <X size={18} />
           </button>
         </header>
 
-
-        {step === "prompt" ? (
-          <div className="experiment-builder-prompt">
-            <label htmlFor="experiment-request">Describe the experiment</label>
-            <textarea
-              id="experiment-request"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              maxLength={4_000}
-              placeholder="Use pots 15–26 for a maize trial. Set half to 30% and keep half sensing only. Measure every 10 minutes."
-              autoFocus
-            />
-            {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
-            <div className="experiment-builder-actions">
-              <button type="button" className="is-secondary" onClick={beginManualDraft}>
-                Enter manually
-              </button>
-              <button
-                type="button"
-                className="is-primary"
-                onClick={() => void generateDraft(prompt)}
-                disabled={busy || !prompt.trim()}
-              >
-                {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : <Sparkles size={16} />}
-                Build specification
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {step === "review" ? (
+        {step === "setup" ? (
           <>
-            <div className="experiment-builder-review-shell">
-              {!direct ? <aside className="experiment-builder-conversation">
-                <div>
-                  <p>Request</p>
-                  <strong>{prompt || "Manual experiment"}</strong>
+            <div className="experiment-builder-review">
+              <fieldset className="experiment-builder-editable" disabled={busy || confirming}>
+                {template ? <p className="settings-muted">Copied from {template.name}. Choose its pots.</p> : null}
+                <div className="xb-top">
+                  <label className="xb-name">
+                    Experiment name
+                    <input
+                      autoFocus
+                      placeholder="e.g. Maize drought trial"
+                      aria-required="true"
+                      value={draft.name}
+                      maxLength={120}
+                      onChange={(event) => updateDraft("name", event.target.value)}
+                    />
+                  </label>
+                  <fieldset className="xb-type">
+                    <legend>Experiment type</legend>
+                    <div className="xb-segment">
+                      {shownModes.map(([mode, label, description]) => (
+                        <button
+                          type="button"
+                          className={draft.mode === mode ? "is-selected" : ""}
+                          key={mode}
+                          aria-pressed={draft.mode === mode}
+                          title={description}
+                          onClick={() => updateMode(mode)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
                 </div>
-                <label htmlFor="experiment-revision">Change the draft</label>
-                <textarea
-                  id="experiment-revision"
-                  value={revisionRequest}
-                  onChange={(event) => setRevisionRequest(event.target.value)}
-                  maxLength={4_000}
-                  placeholder="Make pots 15–20 control at 30%. Disable watering for the other pots."
-                />
-                <button
-                  type="button"
-                  className="is-secondary"
-                  disabled={busy || !revisionRequest.trim()}
-                  onClick={() => void generateDraft(revisionRequest, draft)}
-                >
-                  {busy ? <Loader2 className="chart-loading-spinner" size={15} /> : <Sparkles size={15} />}
-                  Update draft
-                </button>
-                <p className="experiment-builder-conversation-note">
-                  ExactH2O validates every setting against the live pot inventory.
-                </p>
-              </aside> : null}
-              <div className="experiment-builder-review" ref={reviewRef} tabIndex={-1}>
-              <fieldset className="experiment-builder-editable" disabled={busy}>
-              {!controlPlan ? <>
-              {template ? <p className="settings-muted">Copied from {template.name}. Choose new pots and check their settings.</p> : null}
-              <div className="experiment-builder-fields">
-                <label>
-                  Experiment name
-                  <input
-                    autoFocus={direct}
-                    placeholder="e.g. Maize drought trial"
-                    aria-required="true"
-                    value={draft.name}
-                    maxLength={120}
-                    onChange={(event) => updateDraft("name", event.target.value)}
-                  />
-                </label>
-                <fieldset className="experiment-builder-mode-field">
-                  <legend>Experiment type</legend>
-                  <div className="experiment-builder-mode-options">
-                    {([
-                      ["controlled", "Controlled", "Measure and water to a target"],
-                      ["observation", "Observation", "Measure with watering off"],
-                      ["calibration", "Calibration", "Measure a calibration trial"],
-                    ] as const).map(([mode, label, description]) => (
-                      <button
-                        type="button"
-                        className={draft.mode === mode ? `is-selected is-${mode}` : `is-${mode}`}
-                        key={mode}
-                        aria-pressed={draft.mode === mode}
-                        onClick={() => updateMode(mode)}
-                      >
-                        <strong>{label}</strong>
-                        <span>{description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
-              <details className="experiment-builder-details"><summary>Description and start date</summary><div className="experiment-builder-fields">
-                <label>
-                  Description (optional)
-                  <input
-                    value={draft.description}
-                    maxLength={300}
-                    onChange={(event) => updateDraft("description", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Record start date (optional)
-                  <input
-                    type="date"
-                    value={draft.start_date?.slice(0, 10) ?? ""}
-                    onChange={(event) => updateDraft("start_date", event.target.value || null)}
-                  />
-                  <small>Leave blank to start today. This date does not schedule controller changes.</small>
-                </label>
-              </div></details>
 
-              {fieldPots ? (
-                <ExperimentPotPicker
+                <section className="xb-section">
+                  <div className="xb-heading">
+                    <h3>Groups</h3>
+                    <span>Pick a group, then click its pots.</span>
+                    <div className="xb-heading-tools">
+                      <button type="button" className="xb-link" onClick={addGroup}>Add group</button>
+                    </div>
+                  </div>
+                  <div className="xb-groups" role="radiogroup" aria-label="Group to put pots in">
+                    {groups.map((group) => {
+                      const active = group.id === activeGroup.id;
+                      const count = draft.assignments.filter((assignment) => groupByPot[assignment.pairing_name] === group.id).length;
+                      const name = group.name.trim() || "Unnamed group";
+                      return (
+                        <div
+                          className={active ? "xb-group is-active" : "xb-group"}
+                          style={{ "--tone": groupTones[group.tone] } as CSSProperties}
+                          key={group.id}
+                          onClick={() => setActiveGroupId(group.id)}
+                          onFocus={() => setActiveGroupId(group.id)}
+                        >
+                          <input type="radio" name="experiment-group" aria-label={name} checked={active} onChange={() => setActiveGroupId(group.id)} />
+                          <input
+                            className="xb-group-name"
+                            aria-label={`${name} name`}
+                            placeholder="Group name"
+                            maxLength={80}
+                            value={group.name}
+                            onChange={(event) => updateGroup(group.id, { name: event.target.value })}
+                          />
+                          <label className="xb-group-target">
+                            <input
+                              type="number"
+                              aria-label={`${name} target (% VWC)`}
+                              min={0}
+                              max={80}
+                              step={0.1}
+                              placeholder="Off"
+                              disabled={draft.mode === "observation"}
+                              value={draft.mode === "observation" ? "" : group.target ?? ""}
+                              onChange={(event) => updateGroup(group.id, { target: event.target.value === "" ? null : Number(event.target.value) })}
+                            />
+                            % VWC
+                          </label>
+                          <span className="xb-group-count">{count} {count === 1 ? "pot" : "pots"}</span>
+                          {groups.length > 1 ? <button type="button" className="xb-group-remove" aria-label={`Remove ${name}`} onClick={(event) => { event.stopPropagation(); removeGroup(group.id); }}>
+                            <X size={15} aria-hidden="true" />
+                          </button> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {fieldPots ? <ExperimentPotPicker
                   model={fieldPots}
                   selected={selectedNames}
                   unpairedPots={unpairedPots}
                   onToggle={togglePhysicalPot}
-                  onRemovePairing={name => updateDraft("assignments", draft.assignments.filter(assignment => assignment.pairing_name !== name))}
-                />
-              ) : <div className="experiment-builder-pot-section">
-                <div className="experiment-builder-section-heading">
-                  <h3>Pots</h3>
-                  <span aria-live="polite">{draft.assignments.length} selected · {availablePairingCount} available</span>
-                </div>
-                <div className="experiment-builder-pot-tools">
-                  <input type="search" aria-label="Find pots" placeholder="Find a pot or zone" value={potSearch} onChange={(event) => setPotSearch(event.target.value)} />
-                  {draft.assignments.length ? <button type="button" onClick={() => updateDraft("assignments", [])}>Clear selection</button> : null}
-                  {occupiedByName.size ? <label><input type="checkbox" checked={showOccupied} onChange={(event) => setShowOccupied(event.target.checked)} />Show pots in use ({occupiedByName.size})</label> : null}
-                </div>
-                {!visiblePairings.length ? <p className="settings-muted">{availablePairingCount ? "No matching pots." : "All pots are in use. Show pots in use to see their experiments."}</p> : null}
-                {zones.map((zone) => <div className="experiment-builder-zone" key={zone}>
-                  <div className="experiment-builder-section-heading"><h4>Zone {zone}</h4>
-                    <button type="button" disabled={!visiblePairings.some((pairing) => pairing.zone === zone && !occupiedByName.has(pairing.name))} onClick={() => selectZone(zone)}>
-                      {visiblePairings.filter((pairing) => pairing.zone === zone && !occupiedByName.has(pairing.name)).every((pairing) => selectedNames.has(pairing.name)) ? "Clear zone" : "Select zone"}
-                    </button>
+                  onRemovePairing={removePairing}
+                  groupLabel={name => groups.find(group => group.id === groupByPot[name])?.name}
+                /> : <section className="xb-section">
+                  <div className="xb-heading">
+                    <h3>Pots</h3>
+                    <span aria-live="polite">{draft.assignments.length} selected · {availablePairingCount} available</span>
+                    <div className="xb-heading-tools">
+                      {freePairings.length && !allSelected ? <button type="button" className="xb-link" onClick={selectAll}>Select all</button> : null}
+                      {draft.assignments.length ? <button type="button" className="xb-link" onClick={clearSelection}>Clear selection</button> : null}
+                      {occupiedByName.size ? <label className="xb-check"><input type="checkbox" checked={showOccupied} onChange={(event) => setShowOccupied(event.target.checked)} />Show pots in use ({occupiedByName.size})</label> : null}
+                    </div>
                   </div>
-                <div className="experiment-builder-pot-grid">
-                  {visiblePairings.filter((pairing) => pairing.zone === zone).map((pairing) => {
-                    const selected = selectedNames.has(pairing.name);
-                    const occupancy = occupiedByName.get(pairing.name) ?? [];
-                    const occupied = occupancy.length > 0;
-                    const occupiedLabel = occupancy.length === 1
-                      ? `In ${occupancy[0].experimentName}`
-                      : `In ${occupancy.length} experiments`;
-                    return (
-                      <button
-                        type="button"
-                        className={[
-                          selected ? "is-selected" : "",
-                          occupied ? "is-occupied" : "",
-                        ].filter(Boolean).join(" ")}
-                        key={pairing.name}
-                        onClick={() => togglePairing(pairing)}
-                        disabled={occupied}
-                        aria-pressed={selected}
-                        aria-label={occupied
-                          ? `Pot ${pairing.pot_number}, used by ${
-                            occupancy.map((item) => item.experimentName).join(", ")
-                          }`
-                          : `Pot ${pairing.pot_number}, Zone ${pairing.zone}${
-                            selected ? ", selected" : ""
-                          }`}
-                        title={occupied
-                          ? `Used by ${occupancy.map((item) => item.experimentName).join(", ")}`
-                          : undefined}
-                      >
-                        <span>Pot {pairing.pot_number}</span>
-                        <small>{occupied ? occupiedLabel : `Zone ${pairing.zone}`}</small>
-                        {selected ? <Check size={14} /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-                </div>)}
-              </div>}
+                  {!visiblePairings.length ? <p className="settings-muted">All pots are in use.</p> : null}
+                  <div className="xb-pots">
+                    {visiblePairings.map((pairing) => {
+                      const selected = selectedNames.has(pairing.name);
+                      const occupancy = occupiedByName.get(pairing.name) ?? [];
+                      const occupied = occupancy.length > 0;
+                      const repeated = repeatedNumbers.has(pairing.pot_number);
+                      const group = selected ? groups.find((item) => item.id === groupByPot[pairing.name]) : undefined;
+                      const groupName = group ? group.name.trim() || "Unnamed group" : "";
+                      return (
+                        <button
+                          type="button"
+                          style={group ? { "--tone": groupTones[group.tone] } as CSSProperties : undefined}
+                          className={[
+                            selected ? "is-selected" : "",
+                            occupied ? "is-occupied" : "",
+                          ].filter(Boolean).join(" ")}
+                          key={pairing.name}
+                          onClick={() => togglePairing(pairing)}
+                          disabled={occupied}
+                          aria-pressed={selected}
+                          aria-label={occupied
+                            ? `Pot ${pairing.pot_number}, used by ${
+                              occupancy.map((item) => item.experimentName).join(", ")
+                            }`
+                            : `Pot ${pairing.pot_number}${repeated ? ` (${pairing.name})` : ""}${
+                              selected ? `, ${groupName}` : ""
+                            }`}
+                          title={occupied
+                            ? `Used by ${occupancy.map((item) => item.experimentName).join(", ")}`
+                            : `${repeated ? pairing.name : `Pot ${pairing.pot_number}`}${selected ? ` · ${groupName}` : ""}`}
+                        >
+                          {pairing.pot_number}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>}
 
-              {draft.assignments.length ? (
-                <div className="experiment-builder-assignment-list">
-                  <div className="experiment-builder-section-heading"><h3>Settings</h3><span>For all selected pots</span></div>
-                  <div className="experiment-builder-bulk">
-                    {([ ["crop", "Crop"], ["treatment", "Treatment"] ] as const).map(([key, label]) => <label key={key}>{label}<input value={commonAssignmentValue(draft.assignments, key) ?? ""} placeholder="Optional / mixed" onChange={(event) => updateAll(key, optionalValue(event.target.value))} /></label>)}
-                    <label>Watering<select aria-label="Watering for all selected pots" disabled={draft.mode === "observation"} value={String(commonAssignmentValue(draft.assignments, "watering_enabled"))} onChange={(event) => updateAll("watering_enabled", event.target.value === "true")}><option value="" disabled>Mixed</option><option value="false">Off</option><option value="true">On</option></select></label>
+                <details className="experiment-builder-details">
+                  <summary>More options</summary>
+                  <div className="xb-more">
+                    <label>
+                      Description
+                      <input
+                        value={draft.description}
+                        maxLength={300}
+                        onChange={(event) => updateDraft("description", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Record start date
+                      <input
+                        type="date"
+                        value={draft.start_date?.slice(0, 10) ?? ""}
+                        onChange={(event) => updateDraft("start_date", event.target.value || null)}
+                      />
+                    </label>
+                    <label>Crop<input disabled={!draft.assignments.length} value={commonAssignmentValue(draft.assignments, "crop") ?? ""} onChange={(event) => updateAll("crop", optionalValue(event.target.value))} /></label>
                     {([
-                      ["target_vwc_percent", "Target (% VWC)", 0, 80, 0.1],
                       ["valve_open_seconds", "Pulse (seconds)", 1, 120, 0.5],
                       ["measurement_interval_minutes", "Measure every (min)", 0.5, 60, 0.5],
-                    ] as const).map(([key, label, min, max, increment]) => <label key={key}>{label}<input type="number" min={min} max={max} step={increment} disabled={key !== "measurement_interval_minutes" && !draft.assignments.some((assignment) => assignment.watering_enabled)} value={commonAssignmentValue(draft.assignments, key) ?? ""} placeholder="Mixed" onChange={(event) => updateAll(key, event.target.value === "" ? null : Number(event.target.value))} /></label>)}
+                    ] as const).map(([key, label, min, max, increment]) => <label key={key}>{label}<input type="number" min={min} max={max} step={increment} disabled={!draft.assignments.length || (key === "valve_open_seconds" && draft.mode === "observation")} value={commonAssignmentValue(draft.assignments, key) ?? ""} onChange={(event) => updateAll(key, event.target.value === "" ? null : Number(event.target.value))} /></label>)}
                   </div>
-                  <details className="experiment-builder-details"><summary>Adjust individual pots ({draft.assignments.length})</summary>
+                  {draft.assignments.length ? <details className="experiment-builder-details"><summary>Individual pots ({draft.assignments.length})</summary>
                   {draft.assignments.map((assignment) => (
                     <div className="experiment-builder-assignment" key={assignment.pairing_name}>
-                      <strong>{potLabel(assignment.pairing_name)}</strong>
-                      <input
-                        aria-label={`${fieldPots ? potLabel(assignment.pairing_name) : assignment.pairing_name} crop`}
-                        placeholder="Crop"
-                        value={assignment.crop ?? ""}
-                        onChange={(event) =>
-                          updateAssignment(
-                            assignment.pairing_name,
-                            "crop",
-                            optionalValue(event.target.value),
-                          )}
-                      />
-                      <input
-                        aria-label={`${fieldPots ? potLabel(assignment.pairing_name) : assignment.pairing_name} treatment`}
-                        placeholder="Treatment"
-                        value={assignment.treatment ?? ""}
-                        onChange={(event) =>
-                          updateAssignment(
-                            assignment.pairing_name,
-                            "treatment",
-                            optionalValue(event.target.value),
-                          )}
-                      />
-                      <input
-                        aria-label={`${fieldPots ? potLabel(assignment.pairing_name) : assignment.pairing_name} block`}
-                        placeholder="Block"
-                        value={assignment.block ?? ""}
-                        onChange={(event) =>
-                          updateAssignment(
-                            assignment.pairing_name,
-                            "block",
-                            optionalValue(event.target.value),
-                          )}
-                      />
-                      <label className="experiment-builder-watering-toggle">
+                      <strong>{assignmentLabel(assignment.pairing_name)}{assignment.treatment ? ` · ${assignment.treatment}` : ""}</strong>
+                      {([ ["crop", "Crop"], ["block", "Block"] ] as const).map(([key, label]) => (
                         <input
-                          type="checkbox"
-                          checked={assignment.watering_enabled}
-                          disabled={draft.mode === "observation"}
-                          onChange={(event) =>
-                            updateAssignment(
-                              assignment.pairing_name,
-                              "watering_enabled",
-                              event.target.checked,
-                            )}
+                          key={key}
+                          aria-label={`${assignment.pairing_name} ${key}`}
+                          placeholder={label}
+                          value={assignment[key] ?? ""}
+                          onChange={(event) => updateAssignment(assignment.pairing_name, key, optionalValue(event.target.value))}
                         />
-                        Water
-                      </label>
-                      <label>
-                        Target %
-                        <input
-                          type="number"
-                          min="0"
-                          max="80"
-                          step="0.1"
-                          disabled={!assignment.watering_enabled || draft.mode === "observation"}
-                          value={assignment.target_vwc_percent ?? ""}
-                          onChange={(event) =>
-                            updateAssignment(
-                              assignment.pairing_name,
-                              "target_vwc_percent",
-                              event.target.value === "" ? null : Number(event.target.value),
-                            )}
-                        />
-                      </label>
-                      <label>
-                        Valve sec
-                        <input
-                          type="number"
-                          min="1"
-                          max="120"
-                          step="0.5"
-                          disabled={!assignment.watering_enabled || draft.mode === "observation"}
-                          value={assignment.valve_open_seconds ?? ""}
-                          onChange={(event) =>
-                            updateAssignment(
-                              assignment.pairing_name,
-                              "valve_open_seconds",
-                              event.target.value === "" ? null : Number(event.target.value),
-                            )}
-                        />
-                      </label>
-                      <label>
-                        Measure min
-                        <input
-                          type="number"
-                          min="0.5"
-                          max="60"
-                          step="0.5"
-                          value={assignment.measurement_interval_minutes ?? ""}
-                          onChange={(event) =>
-                            updateAssignment(
-                              assignment.pairing_name,
-                              "measurement_interval_minutes",
-                              event.target.value === "" ? null : Number(event.target.value),
-                            )}
-                        />
-                      </label>
+                      ))}
+                      {([
+                        ["valve_open_seconds", "Pulse sec", 1, 120, 0.5],
+                        ["measurement_interval_minutes", "Measure min", 0.5, 60, 0.5],
+                      ] as const).map(([key, label, min, max, increment]) => (
+                        <label key={key}>
+                          {label}
+                          <input
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={increment}
+                            disabled={key === "valve_open_seconds" && draft.mode === "observation"}
+                            value={assignment[key] ?? ""}
+                            onChange={(event) => updateAssignment(assignment.pairing_name, key, event.target.value === "" ? null : Number(event.target.value))}
+                          />
+                        </label>
+                      ))}
                     </div>
                   ))}
-                  </details>
-                </div>
-              ) : null}
-              {renderCalibration ? <section className="experiment-builder-optional-calibration">
-                <div>
-                  <h3>Autopair <span>Optional</span></h3>
-                  <p>Check the selected pots before creating the experiment, or continue with their current calibration.</p>
-                </div>
-                <button type="button" className="is-secondary" disabled={!draft.assignments.length || fieldSelectionBlocked} onClick={() => setStep("calibrate")}>
-                  Open Autopair
-                </button>
-              </section> : null}
-              </> : null}
+                  </details> : null}
+                </details>
 
-              {draft.questions.length ? (
-                <div className="experiment-builder-questions">
-                  {draft.questions.map((question) => <p key={question}>{question}</p>)}
-                </div>
-              ) : null}
-              {controlPlan ? (
-                <section className="experiment-builder-preflight">
-                  <h3>{draft.name}</h3>
-                  <p>{draft.assignments.length} {draft.assignments.length === 1 ? "pot" : "pots"} · {draft.mode === "observation" ? "Observation" : draft.mode === "calibration" ? "Calibration" : "Controlled"}{draft.start_date ? ` · Record starts ${draft.start_date.slice(0, 10)}` : " · Starts today"}</p>
-                  <div className="experiment-builder-plan-table"><table><thead><tr><th>Pot</th><th>Crop / treatment</th><th>Watering</th><th>Pulse</th><th>Measure every</th></tr></thead><tbody>{draft.assignments.map((assignment) => <tr key={assignment.pairing_name}><th scope="row">{potLabel(assignment.pairing_name)}</th><td>{[assignment.crop, assignment.treatment].filter(Boolean).join(" · ") || "—"}</td><td>{assignment.watering_enabled ? `${assignment.target_vwc_percent}% VWC` : "Off"}</td><td>{assignment.watering_enabled ? `${assignment.valve_open_seconds} s` : "—"}</td><td>{assignment.measurement_interval_minutes} min</td></tr>)}</tbody></table></div>
-                  <div>
-                    <h3>{editing ? "Ready to save" : "Ready to start"}</h3>
-                    <span>
-                      {controlPlan.change_count
-                        ? `${controlPlan.change_count} pot setting${controlPlan.change_count === 1 ? "" : "s"} will change`
-                        : "Current controller settings already match"}
-                    </span>
-                  </div>
-                  {controlPlan.changes.map((change) => (
-                    <div className="experiment-builder-change" key={JSON.stringify([
-                      change.watering_enabled,
-                      change.target_vwc_percent,
-                      change.valve_open_seconds,
-                      change.measurement_interval_minutes,
-                    ])}>
-                      <strong>
-                        Pots {change.pairing_names
-                          .map((name) => fieldPots?.potNumbers.get(name) ?? name.replace(/^Zone\d+-Pot/, ""))
-                          .join(", ")}
-                      </strong>
-                      <span>
-                        {change.watering_enabled
-                          ? `${change.target_vwc_percent}% · ${change.valve_open_seconds}s`
-                          : "Watering off"}
-                        {" · "}
-                        every {change.measurement_interval_minutes} min
-                      </span>
-                    </div>
-                  ))}
-                  {controlPlan.requires_controller_stop ? (
-                    <p>
-                      <AlertTriangle size={15} />
-                      The controller will pause, apply these settings, then resume. If a step fails, it stays stopped.
-                    </p>
-                  ) : null}
-                  <label className="experiment-builder-confirm">
-                    <input
-                      type="checkbox"
-                      checked={confirmed}
-                      onChange={(event) => setConfirmed(event.target.checked)}
-                    />
-                    Apply these settings now.
-                  </label>
-                </section>
-              ) : null}
+                {renderCalibration ? <label className="xb-check xb-autocal">
+                  <input type="checkbox" checked={autocalibrate || calibrated} disabled={calibrated} onChange={(event) => setAutocalibrate(event.target.checked)} />
+                  {calibrated ? "Autopair complete" : "Autopair these pots first"}
+                </label> : null}
+              </fieldset>
               {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
-              {selectedPotsUnavailable ? <p className="experiment-builder-error" role="status">Remove unavailable pots before continuing.</p> : null}
-              {hasUnpairedPots ? <p className="experiment-builder-error" role="status">Selected pots need controller pairings before they can be used in an experiment.</p> : null}
-              {calibrationRunning ? <p className="settings-muted" role="status">Finish or stop Autopair before reviewing this experiment.</p> : null}
+              {fieldSelectionBlocked ? <p className="settings-muted" role="status">Remove unavailable pots and pots that need a controller pairing before continuing.</p> : null}
+              {calibrationRunning ? <p className="settings-muted" role="status">Autopair is running. Finish or stop it first.</p> : null}
               {attemptedReview && !error && validationIssues.length ? (
                 <p className="experiment-builder-error" role="alert">
                   {validationIssues.map((issue) => issue.message).join(" ")}
                 </p>
               ) : null}
-              </fieldset>
-              </div>
             </div>
 
-            <footer className="experiment-builder-actions">
-              <button
-                type="button"
-                className="is-secondary"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  if (controlPlan) { setControlPlan(null); setReviewedConfigHash(null); setConfirmed(false); }
-                  else if (direct) onClose();
-                  else setStep("prompt");
-                }}
-              >
-                <ArrowLeft size={16} />
-                {controlPlan ? "Edit setup" : direct ? "Cancel" : "Back"}
-              </button>
-              {controlPlan ? (
-                <button
-                  type="button"
-                  className="is-primary"
-                  onClick={() => void startExperiment()}
-                  disabled={busy || calibrationRunning || fieldSelectionBlocked || validationIssues.length > 0 || !confirmed}
-                >
-                  {busy
-                    ? <Loader2 className="chart-loading-spinner" size={16} />
-                    : <Play size={16} />}
-                  {editing ? "Confirm and save" : "Confirm and create"}
+            {controlPlan ? (
+              <footer className="experiment-builder-actions is-confirming">
+                <div className="xb-confirm" ref={confirmRef} tabIndex={-1} role="group" aria-label={editing ? "Ready to save" : "Ready to start"}>
+                  <h3>{editing ? "Ready to save" : "Ready to start"}</h3>
+                  <p>
+                    {draft.assignments.length} {draft.assignments.length === 1 ? "pot" : "pots"} · {modeLabel}{draft.start_date ? ` · Record starts ${draft.start_date.slice(0, 10)}` : " · Starts today"}
+                    {" · "}
+                    {controlPlan.change_count
+                      ? `${controlPlan.change_count} pot setting${controlPlan.change_count === 1 ? "" : "s"} will change`
+                      : "Current controller settings already match"}
+                  </p>
+                  {controlPlan.changes.length ? <ul>
+                    {controlPlan.changes.map((change) => (
+                      <li key={JSON.stringify([
+                        change.pairing_names,
+                        change.watering_enabled,
+                        change.target_vwc_percent,
+                        change.valve_open_seconds,
+                        change.measurement_interval_minutes,
+                      ])}>
+                        <strong>{potsLabel(change.pairing_names)}</strong>
+                        <span>
+                          {change.watering_enabled
+                            ? `${change.target_vwc_percent}% · ${change.valve_open_seconds}s`
+                            : "Watering off"}
+                          {" · "}
+                          every {change.measurement_interval_minutes} min
+                        </span>
+                      </li>
+                    ))}
+                  </ul> : null}
+                  {controlPlan.requires_controller_stop ? (
+                    <p className="xb-confirm-note">
+                      <AlertTriangle size={15} aria-hidden="true" />
+                      The controller will pause, apply these settings, then resume. If a step fails, it stays stopped.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="xb-confirm-buttons">
+                  <button type="button" className="is-secondary" disabled={busy} onClick={() => { setError(null); clearReview(); }}>
+                    Edit setup
+                  </button>
+                  <button
+                    type="button"
+                    className="is-primary"
+                    onClick={() => void startExperiment()}
+                    disabled={busy || fieldSelectionBlocked || calibrationRunning || validationIssues.length > 0}
+                  >
+                    {busy
+                      ? <Loader2 className="chart-loading-spinner" size={16} />
+                      : <Play size={16} />}
+                    {editing ? "Confirm and save" : "Confirm and create"}
+                  </button>
+                </div>
+              </footer>
+            ) : (
+              <footer className="experiment-builder-actions">
+                <button type="button" className="is-secondary" disabled={busy} onClick={() => { setError(null); onClose(); }}>
+                  Cancel
                 </button>
-              ) : (
                 <button
                   type="button"
                   className="is-primary"
-                  onClick={() => void reviewExperiment()}
-                  disabled={busy || calibrationRunning || fieldSelectionBlocked || !draft.name.trim() || !draft.assignments.length}
+                  onClick={() => { if (calibrateFirst) { setError(null); setStep("calibrate"); } else void reviewExperiment(); }}
+                  disabled={busy || fieldSelectionBlocked || calibrationRunning || !draft.name.trim() || !draft.assignments.length}
                 >
                   {busy ? <Loader2 className="chart-loading-spinner" size={16} /> : null}
-                  Review experiment
+                  {calibrateFirst ? (editing ? "Autopair, then save" : "Autopair, then create") : editing ? "Save changes" : "Create experiment"}
                 </button>
-              )}
-            </footer>
+              </footer>
+            )}
           </>
         ) : null}
 
         {step === "calibrate" && renderCalibration ? <>
-          <div className="experiment-builder-calibration">{renderCalibration(draft)}</div>
+          <div className="experiment-builder-calibration">{renderCalibration(draft, { onClosed: ({ completed }) => {
+            if (completed) setCalibratedPots(potsKey);
+            setStep("setup");
+          } })}</div>
           <footer className="experiment-builder-actions">
-            <button type="button" className="is-secondary" onClick={() => setStep("review")}>
+            <button type="button" className="is-secondary" onClick={() => setStep("setup")}>
               <ArrowLeft size={16} /> Back to experiment setup
             </button>
           </footer>
@@ -952,29 +841,11 @@ function ExperimentBuilderContent({
                 : editing ? "Experiment updated" : "Experiment created"}
             </h3>
             <p>
-              {launchStatus === "activation_failed" ? "Open the saved experiment to review its status before retrying." : launchStatus === "activating"
-                ? "The reviewed controller steps are running in order. The tile shows the current status."
-                : editing ? "Your changes are saved." : `${draft.name} is ready.`}
+              {launchStatus === "activation_failed"
+                ? "Open the saved experiment to review its status before retrying."
+                : `Opening ${draft.name}…`}
             </p>
             {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
-            {launchStatus !== "activation_failed" ? <details className="experiment-builder-details"><summary>Creation receipt</summary><div className="experiment-builder-proof" aria-label="Creation receipt">
-              <article>
-                <span>Experiment</span>
-                <strong>{editing ? "Updated" : "Created"}</strong>
-              </article>
-              <article>
-                <span>Operation</span>
-                <strong>{createdOperationId ? createdOperationId.slice(0, 8) : "Recorded"}</strong>
-              </article>
-              <article>
-                <span>Controller commands</span>
-                <strong>
-                  {createdCommandCount
-                    ? `${createdCommandCount} queued`
-                    : "None"}
-                </strong>
-              </article>
-            </div></details> : null}
             <button
               type="button"
               className="is-primary"

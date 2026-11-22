@@ -1,4 +1,4 @@
-import { AlertTriangle,ArrowRight,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
+import { AlertTriangle,ArrowRight,ChevronDown,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { ChamberControlView,ChamberHealthView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerHealthView,WalkerMachineTile } from "./WalkerObservationView";
@@ -139,7 +139,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [selectedSeriesName, setSelectedSeriesName] = useState<string | null>(null);
   const [selectedWateringDetail, setSelectedWateringDetail] = useState<HealthSelectedDetail | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
-  const [potsPanelOpen, setPotsPanelOpen] = useState(false);
+  // The pot list above the chart: open or closed by the person's own choice, or null to follow the default below.
+  const [potsPanelChoice, setPotsPanelOpen] = useState<boolean | null>(null);
   const { graphExpanded, setGraphExpanded, dashboardMainRef, toggleExpandedGraph } = useExpandedGraph();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The settings panel loads on first open and then stays mounted so its form state survives closing.
@@ -259,6 +260,10 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     () => new Map(sortedPairings.map((pairing) => [pairing.name, pairing])),
     [sortedPairings],
   );
+  const isDemo = document.documentElement.dataset.portalMode === "demo";
+  // The portal opens the pot list for smaller experiments on wide screens.
+  const potsPanelOpen = potsPanelChoice ?? (!isDemo && sortedPairings.length > 0 && sortedPairings.length <= 24
+    && typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 761px)").matches);
   // Start the active system's archive on Home. The same hook and request stay alive when its
   // tile opens, so clicking does not restart history loading or throw away pages already read.
   const archiveExperiment = route.view === "home" && defaultSystemExperiment ? defaultSystemExperiment : selectedExperiment;
@@ -354,7 +359,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const canUseSalesSupport = !accessLoading && hasSalesSupportAccess(portalAccess?.role, portalAccess?.salesSupportAllowed);
   const projectAccess = portalAccess?.accessScope === "project";
   const canReadProjectData = projectAccess && hasProjectDataReadAccess(portalAccess?.role);
-  const isDemo = document.documentElement.dataset.portalMode === "demo";
   const canUseExperimentSettings = !isDemo && projectAccess && hasExperimentSettingsAccess(portalAccess?.role);
   const canCreateExperiment = canUseExperimentSettings;
   const activeProjectId = portalAccess?.projectId ?? "";
@@ -451,7 +455,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     setSelectedWateringDetail(null);
     setTimeWindow(fullTimeWindow);
     setGraphExpanded(false);
-    setPotsPanelOpen(false);
+    setPotsPanelOpen(null);
   }
 
   const openExperiment = useCallback((experimentId: ExperimentId) => {
@@ -809,12 +813,13 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}
-      direct
       experiment={newExperimentPage ? null : editingExperiment}
       template={newExperimentPage ? null : duplicateExperiment}
       presentation={newExperimentPage ? "inline" : "modal"}
       systemName={portalSystemName(activeProjectId, portalAccess?.projectName)}
-      renderCalibration={(draft) => <FeatureBoundary name="Autopair"><AutocalibrateWorkspace
+      renderCalibration={(draft, { onClosed }) => <FeatureBoundary name="Autopair"><AutocalibrateWorkspace
+        direct
+        onClosed={onClosed}
         projectId={activeProjectId}
         deviceId={activeDeviceId || null}
         operator={portalAccess?.email ?? null}
@@ -924,7 +929,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
             <div className="chart-tools px-experiment-tools">
               <button className="px-pots-disclosure" type="button" aria-label="Pots" aria-describedby="experiment-visible-pots" aria-expanded={potsPanelOpen} aria-controls="experiment-pots" onClick={() => setPotsPanelOpen(!potsPanelOpen)}>
-                Pots <span id="experiment-visible-pots" role="status">{visibleWateringPairings.length} shown</span><span aria-hidden="true">{potsPanelOpen ? "▴" : "▾"}</span>
+                Pots <span id="experiment-visible-pots" role="status">{visibleWateringPairings.length}<span className="px-pots-count-label"> shown</span></span><ChevronDown size={15} aria-hidden="true" />
               </button>
               <div className="px-chart-actions">
               <div className="chart-view-toggle" aria-label="Graph view">

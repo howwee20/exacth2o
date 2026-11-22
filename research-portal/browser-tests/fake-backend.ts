@@ -394,6 +394,9 @@ export class FakeBackend {
   invokeCommand(body: Row): { data: unknown; error: unknown } {
     this.advance();
     if (body.command_type !== "manual_water") return { data: null, error: new Error("The preview serves only timed pulses here") };
+    if (body.project_id !== project || body.device_id !== device) {
+      return { data: null, error: new Error("The pulse targets a different controller") };
+    }
     const payload = (body.payload ?? {}) as Row;
     const names = payload.pairing_names as string[] | undefined;
     if (!names?.length) {

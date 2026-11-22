@@ -51,3 +51,41 @@ test('stopping setup prevents a late preparation completion from starting pulses
   await expect(page.getByRole('button', { name: 'Stop now' })).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { __preview: { rows: (table: string) => Array<{command_type: string}> } }).__preview.rows('project_control_commands').some(row => row.command_type === 'manual_water'))).toBe(false);
 });
+
+test('experiment setup: one confirmation tests exactly the experiment pots, with no pot picker', async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto(`http://127.0.0.1:${process.env.EXACTH2O_HARNESS_PORT || '5178'}/browser-tests/autocal-harness.html?scope=experiment&direct=1&pots=1,2,4,6`);
+  await expect(page.getByRole('heading', { name: 'Autopair 4 pots?', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose pots' })).toHaveCount(0);
+  await expect(page.locator('.ac-map-pot')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Autopair steps' })).toBeHidden();
+  // Nothing is recorded or queued until the confirmation.
+  const rows = (table: string) => page.evaluate(name => (window as unknown as { __preview: { rows: (table: string) => unknown[] } }).__preview.rows(name).length, table);
+  expect(await rows('commissioning_sessions')).toBe(0);
+  expect(await rows('project_control_commands')).toBe(0);
+  await page.getByRole('button', { name: 'Yes, run', exact: true }).click();
+  // The same confirmation carries into the run: no second "Are you sure?".
+  await page.evaluate(() => (window as unknown as { __setClockSpeed: (speed: number) => void }).__setClockSpeed(60));
+  await expect(page.getByRole('button', { name: 'Stop now' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Are you sure?' })).toHaveCount(0);
+  await page.evaluate(() => (window as unknown as { __setClockSpeed: (speed: number) => void }).__setClockSpeed(600));
+  await expect(page.getByRole('heading', { name: 'Results', exact: true })).toBeVisible({ timeout: 80_000 });
+  await expect(page.getByText('4 matched · 0 unmatched', { exact: true })).toBeVisible();
+  const pulses = await page.evaluate(() => {
+    const commands = (window as unknown as { __preview: { rows: (table: string) => Array<{
+      command_type: string; status: string; payload: { pairing_names: string[]; duration_seconds: number };
+      result: { failSafe: string };
+    }> } }).__preview.rows('project_control_commands');
+    return commands.filter(command => command.command_type === 'manual_water').map(command => ({
+      pairings: command.payload.pairing_names,
+      seconds: command.payload.duration_seconds,
+      status: command.status,
+      failSafe: command.result.failSafe,
+    }));
+  });
+  expect(pulses).toEqual([1, 2, 4, 6].map(pot => ({
+    pairings: [`Zone1-Pot${pot}`], seconds: 3, status: 'succeeded', failSafe: 'controller_timed_pulse',
+  })));
+  await page.getByRole('button', { name: 'Finish', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __closed?: unknown }).__closed), { timeout: 30_000 }).toEqual({ status: 'restored', completed: true });
+});
