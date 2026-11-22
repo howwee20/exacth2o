@@ -929,7 +929,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           <section className={`chart-card ${experimentGraphMode === "watering" ? "is-watering" : ""}`}>
             <div className="chart-tools px-experiment-tools">
               <button className="px-pots-disclosure" type="button" aria-label="Pots" aria-describedby="experiment-visible-pots" aria-expanded={potsPanelOpen} aria-controls="experiment-pots" onClick={() => setPotsPanelOpen(!potsPanelOpen)}>
-                Pots <span id="experiment-visible-pots" role="status">{visibleWateringPairings.length} shown</span><ChevronDown size={15} aria-hidden="true" />
+                Pots <span id="experiment-visible-pots" role="status">{visibleWateringPairings.length}<span className="px-pots-count-label"> shown</span></span><ChevronDown size={15} aria-hidden="true" />
               </button>
               <div className="px-chart-actions">
               <div className="chart-view-toggle" aria-label="Graph view">
