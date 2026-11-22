@@ -36,7 +36,10 @@ const experiment: PortalExperiment = {
   shortDescription: "Preview experiment on the simulated controller",
   mode: "controlled",
   groupNames: [],
-  pairingNames: Array.from({ length: 25 }, (_, index) => `Zone2-Pot${index + 26}`),
+  // ?pots=1,2,4,6 makes the experiment those pots, for the direct (experiment setup) entry.
+  pairingNames: params.get("pots")
+    ? fake.portalPairings().filter((pairing) => params.get("pots")!.split(",").map(Number).includes(pairing.pot_number)).map((pairing) => pairing.name)
+    : Array.from({ length: 25 }, (_, index) => `Zone2-Pot${index + 26}`),
 };
 
 function Preview() {
@@ -95,6 +98,8 @@ function Preview() {
             controlBusy={false}
             onQueueSettingsPlan={async (plan, configHash) => fake.queueSettingsPlan(plan, configHash)}
             fieldMap={params.get('field') === '1' ? FIELD_MAP : undefined}
+            direct={params.get("direct") === "1"}
+            onClosed={(outcome) => { (window as unknown as { __closed?: unknown }).__closed = outcome; }}
           />
         </div>
       </section>

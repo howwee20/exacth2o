@@ -63,7 +63,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         const pairings = url.searchParams.get('device_id') === `eq.${mainDevice}` ? rheePairings : configPairings;
         data = url.searchParams.get('select') === '*' ? { pairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
       } else if (url.pathname === '/rest/v1/sensor_readings' && url.searchParams.get('device_id') === `eq.${mainDevice}` && url.searchParams.has('sensor_key')) {
-        data = [10, 12].map(id => ({ id, sensor_key: `rhee-sensor:${id}`, device_recorded_at: now, server_received_at: now, calibrated_value: 35 }));
+        data = [10, 11, 12].map(id => ({ id, sensor_key: `rhee-sensor:${id}`, device_recorded_at: now, server_received_at: now, calibrated_value: 35 }));
       } else if (url.pathname === '/rest/v1/device_runtime_state' || url.pathname === '/rest/v1/latest_device_state') {
         data = null;
       } else if (url.pathname === '/rest/v1/commissioning_sessions') {
@@ -150,12 +150,12 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(available.getByRole('button')).toHaveCount(83);
     const physical16 = physicalMap.getByRole('button', { name: /^Pot 16,/ });
     await physical16.click();
-    await expect(page.getByRole('button', { name: 'Review experiment', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Create experiment', exact: true })).toBeEnabled();
     await physicalMap.getByRole('button', { name: /^Pot 1,/ }).click();
     const selected1 = selected.getByRole('button', { name: 'Remove Pot 1', exact: true });
     await expect(selected1).toContainText('Needs controller pairing');
     await expect(available.getByRole('button', { name: 'Pot 1', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Review experiment', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Create experiment', exact: true })).toBeDisabled();
     await selected1.click();
     await physical16.click();
     await expect(available.getByRole('button')).toHaveCount(83);
@@ -168,23 +168,30 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await selected86.click();
     await expect(physical86).toHaveAttribute('aria-pressed', 'false');
     await available.getByRole('button', { name: 'Pot 86', exact: true }).click();
-    await page.getByRole('button', { name: 'Review experiment', exact: true }).click();
-    await expect(page.getByRole('rowheader', { name: 'Pot 86', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Create experiment', exact: true }).click();
+    await expect(page.getByRole('group', { name: 'Ready to start', exact: true })).toBeVisible();
     expect(builderRequests[0].draft.assignments.map(assignment => assignment.pairing_name)).toEqual(['Zone4-Pot95']);
     await page.getByRole('button', { name: 'Edit setup', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath('rhee-pot-map-mobile.png'), fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('button', { name: 'Open Autopair', exact: true }).click();
+    await page.getByRole('radio', { name: 'Drought', exact: true }).check();
+    await physical16.click();
+    await expect(selected.getByRole('button', { name: 'Remove Pot 16', exact: true })).toContainText('Drought');
+    await expect(selected.getByRole('button', { name: 'Remove Pot 86', exact: true })).toContainText('Control');
+    await page.getByRole('checkbox', { name: 'Autopair these pots first', exact: true }).check();
+    await page.getByRole('button', { name: 'Autopair, then create', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Autopair', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Autopair 2 pots?', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Choose pots', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Autopair steps' })).toBeHidden();
     await page.screenshot({ path: test.info().outputPath('optional-autocalibration.png'), fullPage: true });
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('button', { name: 'Back to experiment setup' }).click();
     await expect(page.getByLabel('Experiment name', { exact: true })).toHaveValue('Draft with optional calibration');
-    await expect(page.getByText('1 selected · 82 available')).toBeVisible();
-    await page.getByRole('button', { name: 'Open Autopair', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByText('2 selected · 81 available')).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: 'Autopair these pots first', exact: true })).toBeChecked();
     await page.screenshot({ path: test.info().outputPath('new-experiment-desktop.png'), fullPage: true });
     await page.getByRole('link', { name: /Home/ }).click();
 
@@ -258,22 +265,41 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.screenshot({ path: test.info().outputPath('system-health-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Home', exact: true }).click();
     await testbedCreation.click();
-    await page.getByLabel('Experiment name', { exact: true }).fill('Testbed observation trial');
-    await page.getByRole('button', { name: 'Observation', exact: false }).click();
-    await page.getByRole('button', { name: 'Select zone', exact: true }).click();
+    await page.getByLabel('Experiment name', { exact: true }).fill('Testbed calibration trial');
+    // A new experiment is Control or Calibration; the whole setup is one screen.
+    await expect(page.getByRole('button', { name: 'Control', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Observation', exact: false })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Experiment workflow' })).toHaveCount(0);
+    await expect(page.getByText(/zone/i)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Calibration', exact: true }).click();
+    // Pots go into the picked group: both into Control, then pot 2 across to Drought.
+    await expect(page.getByRole('radio', { name: 'Control', exact: true })).toBeChecked();
+    await page.getByRole('button', { name: 'Select all', exact: true }).click();
+    await page.getByRole('radio', { name: 'Drought', exact: true }).check();
+    await page.getByRole('button', { name: /^Pot 2\b/ }).click();
+    await expect(page.getByRole('button', { name: /^Pot 2\b/ })).toHaveAccessibleName(/Drought/);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole('button', { name: 'Open Autopair', exact: true }).scrollIntoViewIfNeeded();
+    await page.getByRole('checkbox', { name: 'Autopair these pots first', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('new-experiment-mobile.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Review experiment', exact: true }).click();
-    await page.getByLabel('Apply these settings now.').check();
+    // Create checks the setup and asks for confirmation on the same screen; nothing is created until it is given.
+    await page.getByRole('button', { name: 'Create experiment', exact: true }).click();
+    await expect(page.getByRole('group', { name: 'Ready to start', exact: true })).toContainText('Current controller settings already match');
+    await expect(page.getByLabel('Experiment name', { exact: true })).toBeDisabled();
+    expect(builderRequests.map(request => request.action)).toEqual(['preflight', 'preflight']);
+    await page.screenshot({ path: test.info().outputPath('new-experiment-confirm-mobile.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Edit setup', exact: true }).click();
+    await expect(page.getByLabel('Experiment name', { exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Create experiment', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm and create', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Experiment created', exact: true })).toBeVisible();
-    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', mainProject], ['preflight', testbedProject], ['launch', testbedProject]]);
+    // The new experiment opens by itself.
+    await expect(page.getByRole('heading', { name: 'Testbed calibration trial', exact: true })).toBeVisible();
+    expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', mainProject], ['preflight', testbedProject], ['preflight', testbedProject], ['launch', testbedProject]]);
+    expect(builderRequests[3].draft.mode).toBe('calibration');
+    expect(builderRequests[3].draft.assignments.map((assignment: { treatment: string; watering_enabled: boolean; target_vwc_percent: number }) => [assignment.treatment, assignment.watering_enabled, assignment.target_vwc_percent]).sort())
+      .toEqual([['Control', true, 30], ['Drought', true, 10]]);
     expect(calibrationWrites).toEqual([]);
-    await page.getByRole('button', { name: 'View experiment', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Testbed observation trial', exact: true })).toBeVisible();
     await page.getByRole('link', { name: /Home/ }).click();
-    await expect(testbed).toContainText('Testbed observation trial');
+    await expect(testbed).toContainText('Testbed calibration trial');
     await expect(rhee).toContainText('Huiqiao Pan experiment');
   });
 }

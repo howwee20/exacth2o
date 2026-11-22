@@ -44,9 +44,10 @@ type PickerProps = {
   unpairedPots: ReadonlySet<number>;
   onToggle: (pot: number) => void;
   onRemovePairing: (name: string) => void;
+  groupLabel?: (name: string) => string | undefined;
 };
 
-export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, onRemovePairing }: PickerProps) {
+export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, onRemovePairing, groupLabel }: PickerProps) {
   const selectedInOrder = [
     ...[...selected].map(name => ({ name, number: model.potNumbers.get(name) ?? null })),
     ...[...unpairedPots].map(number => ({ name: null, number })),
@@ -91,7 +92,7 @@ export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, o
                 <span>{label}</span>
                 {name === null ? <small>Needs controller pairing</small>
                   : !model.assignable.has(name) ? <small>Unavailable</small>
-                    : <Check size={14} aria-hidden="true" />}
+                    : <><small>{groupLabel?.(name)}</small><Check size={14} aria-hidden="true" /></>}
               </button>;
             })}
           </div>

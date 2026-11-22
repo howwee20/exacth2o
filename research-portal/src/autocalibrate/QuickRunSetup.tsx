@@ -3,6 +3,7 @@ import { Play, Square } from "lucide-react";
 import { summarizeBaseline } from "../commissioning/analysis";
 import { configForSelection, requiredConfirmation, validateConfig } from "../commissioning/orchestrator";
 import { evaluatePreflight, type PreflightReport } from "../commissioning/preflight";
+import { ReadingStore } from "../commissioning/readingStore";
 import { buildPreparePlan } from "../commissioning/topologyPlan";
 import { createSupabasePorts } from "../commissioningSupabasePorts";
 import { autocalRunStore } from "./runStore";
@@ -12,8 +13,10 @@ import { commandsState } from "./useBatchTracker";
 import type { WorkspaceContext } from "./workspaceContext";
 
 /** One explicit confirmation covers preparation and the bounded real-valve run.
- * Consent lives only in this mounted screen; a refresh never starts a run. */
-export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAdvanced: () => void }) {
+ * Consent lives only in this mounted screen; a refresh never starts a run.
+ * `confirmedStart` reports, once, that the operator has just given that confirmation on the screen before this one
+ * (the experiment setup's own "Yes, run"); the run then starts without asking a second time. */
+export function QuickRunSetup({ ctx, onAdvanced, confirmedStart }: { ctx: WorkspaceContext; onAdvanced?: () => void; confirmedStart?: () => boolean }) {
   const latest = useRef(ctx);
   latest.current = ctx;
   const pending = useRef<AbortController | null>(null);
@@ -32,6 +35,13 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     || (["interrupted", "failed", "running"].includes(ctx.session.status) && !previous);
 
   useEffect(() => () => pending.current?.abort(), []);
+  const startRef = useRef<() => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    if (!confirmedStart) return undefined;
+    // After the first paint, so a development double mount cannot spend the confirmation on a screen that is torn down.
+    const timer = window.setTimeout(() => { if (confirmedStart()) void startRef.current(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const start = async () => {
     if (pending.current || busy || ctx.fieldBlockReason || configProblems.length || evidenceUnavailable) return;
@@ -76,14 +86,17 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
         }
       }
 
+      // Polls return new readings only. Keep the full recent window for the baseline checks.
+      const recentReadings = new ReadingStore();
       const deadline = Date.now() + 10 * 60_000;
       for (;;) {
         assertActive();
         setStatus("Checking controller, sensors, and valve safeguards…");
         const nowMs = Date.now();
+        const baselineStartMs = nowMs - config.baselineLookbackSeconds * 1000;
         const [status, queue, automatic, intake, readings, holds, current] = await Promise.all([
           ports.readControllerStatus(), ports.countActiveWateringCommands(), ports.readAutoWateringPairings(names),
-          ports.probePulseIntake(), ports.readReadings(pots.map(pot => pot.sensorKey), nowMs - config.baselineLookbackSeconds * 1000),
+          ports.probePulseIntake(), ports.readReadings(pots.map(pot => pot.sensorKey), baselineStartMs),
           ports.readManualInterventions!(nowMs - 2 * config.manualSettleSeconds * 1000),
           ctx.store.readback(),
         ]);
@@ -91,9 +104,11 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
         if (pots.some(pot => !current.pairings.some(pairing => pairing.name === pot.pairingName && pairing.sensor_key === pot.sensorKey && pairing.valve_key === pot.valveKey))) {
           throw new Error("The selected connections changed during setup. Review the pots before running again.");
         }
+        recentReadings.add(readings);
+        recentReadings.prune(baselineStartMs);
         const checked = evaluatePreflight({ mode: "real", role: ctx.role, pots, config, nowMs,
           controller: status, controllerError: null, activeWateringCommands: queue, intake,
-          baselines: pots.map(pot => summarizeBaseline(pot.sensorKey, readings, config)),
+          baselines: pots.map(pot => summarizeBaseline(pot.sensorKey, recentReadings.forSensor(pot.sensorKey), config)),
           autoWateringPairings: automatic, manualHolds: holds, otherActiveSession: null });
         setReport(checked);
         if (checked.canStart) break;
@@ -123,6 +138,8 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     }
   };
 
+  startRef.current = start;
+
   const cancel = async () => {
     if (pending.current || busy) return;
     if (latestBatch(ctx.record, "prepare")) { ctx.showRestore(); return; }
@@ -131,7 +148,7 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
   };
 
   return <section className="settings-card ac-step" aria-labelledby="ac-quick-title">
-    <h3 id="ac-quick-title">Are you sure?</h3>
+    <h3 id="ac-quick-title">{busy ? "Getting ready" : "Are you sure?"}</h3>
     <p>{resume ? "Resume testing" : "Test"} {pots.length} pots by opening {pots.length} real valves, one at a time, for {config.pulseSeconds} seconds each? Automatic watering pauses while we watch the sensors.</p>
     <p className="settings-muted">Keep this tab open and stay at the testbed. Clear matches are recorded; uncertain results stay unmatched. Connections are changed only if you choose to apply the results.</p>
     <label className="ac-observation-window">
@@ -149,8 +166,8 @@ export function QuickRunSetup({ ctx, onAdvanced }: { ctx: WorkspaceContext; onAd
     {status ? <p role="status">{status}</p> : null}
     {error ? <p className="settings-error-line" role="alert">{error}</p> : null}
     {report?.checks.some(check => check.blocks) ? <ul className="commission-checks">{report.checks.filter(check => check.blocks).map(check => <li key={check.id}><div><strong>{check.label}</strong><p>{check.detail}</p></div></li>)}</ul> : null}
-    <div className="ac-secondary-actions">
+    {onAdvanced ? <div className="ac-secondary-actions">
       <button type="button" className="ac-link" disabled={busy} onClick={onAdvanced}>Advanced setup and rehearsal</button>
-    </div>
+    </div> : null}
   </section>;
 }
