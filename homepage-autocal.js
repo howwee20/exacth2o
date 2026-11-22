@@ -4,9 +4,10 @@
    It opens in a 3D view, seen from the near end of the bench. Scrolling through it plays one move in two parts.
    Hardware: the bench turns right round until it lies level seen from its other side. Data: the bench draws back and the
    live Drought response chart (homepage-traces.js) rises under it. One line, running through the charted pots'
-   colours, leaves the bench, rounds the corner of the chart card, slips into its left edge and fades. From the moment
-   it arrives the rest plays by itself, with no more scrolling: the colours come back as a glow along the chart's
-   axis and bloom at the start of each pot's curve, and the curves draw out across the chart.
+   colours, leaves the bench, rounds the corner of the chart card, slips into its left edge and fades, and the curves
+   draw out across the chart. A moment later the chart breaks apart into one graph for each group of pots, and the
+   line forks to feed every one of them. The By group button puts them together or apart again. The line, the curves
+   and the break run on the clock from the moment the chart is up; scrolling does not move them.
    Two captions over the stage swap as the move passes from one part to the other. Decorative. */
 (function () {
   var canvas = document.querySelector('[data-autocal-bench]');
@@ -21,6 +22,8 @@
   // that run from the pots to its curves.
   var chartBox = stage.querySelector('.autocal-chart'), chartSvg = chartBox && chartBox.querySelector('#homepage-trace-chart');
   var links = stage.querySelector('[data-autocal-links]'), lctx = links && links.getContext ? links.getContext('2d') : null;
+  // The graphs the chart breaks into (homepage-traces.js fills this in), and the button that breaks it.
+  var groupsBox = stage.querySelector('[data-trace-groups]'), splitBtn = stage.querySelector('[data-trace-split]');
   var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var COLS = 25, ROWS = 4;
   // Valve rows on the controller, top to bottom. White tubing is drawn grey so it shows on the white table.
@@ -64,9 +67,13 @@
   // turned off it rests at the end, with the chart drawn.
   // The move opens at START, with the figure already tilted and swung into its 3D view.
   var START = 0.24, REST = 1, prog = still ? REST : START;
-  // The scroll carries the move as far as END, a little past ARRIVE, where the line reaches the chart. From ARRIVE
-  // on a clock takes over: `played` counts the seconds since, and runs back down if the page is scrolled back up.
-  var END = 0.88, ARRIVE = 0.761, PLAY = 2.9, played = 0, lastMs = 0;
+  // The scroll carries the move as far as END, a little past ARRIVE, where the chart is up. From ARRIVE the line
+  // down to the chart and then the curves play by themselves over PLAY seconds.
+  var END = 0.78, ARRIVE = 0.68, PLAY = 3.2, played = 0, lastMs = 0;
+  // The break: `split` runs 0 to 1 toward `splitGoal`. It happens by itself a moment after the curves are drawn,
+  // until the visitor presses the button; from then on it is theirs.
+  var split = 0, splitGoal = 0, autoSplit = true, rested = 0, HOLD = 1.3;
+  function backOut(x) { x = unit(x) - 1; return 1 + 2.2 * x * x * x + 1.2 * x * x; }
 
   // The pots the live chart is showing: for each, its pot, its colour and its curve. They are read from the chart
   // itself, so the lines always match what it draws. Their colours, run end to end in a loop, colour the one line
@@ -135,9 +142,9 @@
     var tilt = 1, turn = ease((prog - 0.3) / 0.28);
     // The hand-over runs into the end of the turn so nothing stops: the bench draws back as it comes level, the
     // chart and its caption rise, the lines run down to the chart, and the curves draw out from where they land.
-    var pull = ease((prog - 0.53) / 0.13), show = ease((prog - 0.6) / 0.1), link = unit((prog - 0.66) / 0.14), rec = ease((prog - 0.78) / 0.17);
-    // Once the line has arrived, the glow, the blooms and then the curves run on the clock.
-    if (played > 0) { link = Math.max(link, 0.72 + 0.28 * unit(played / 1.1)); rec = Math.max(rec, ease((played - 0.5) / 2.4)); }
+    var pull = ease((prog - 0.53) / 0.13), show = ease((prog - 0.6) / 0.1);
+    // The line down to the chart, then the curves, run on the clock once the chart is up.
+    var link = still ? 1 : unit(played / 0.9), rec = still ? 1 : ease((played - 0.7) / 2.4);
     turn = turn * turn * (3 - 2 * turn);
     var angle = tilt * 1.08, sin = Math.sin(angle), cos = Math.cos(angle);
     var pad = W < 700 ? 8 : Math.max(24, W * 0.035), box = W < 700 ? 0 : 0.13;
@@ -172,8 +179,10 @@
     // For the data part it draws back: on a wide stage to the right of the caption, on a narrow one to a strip under
     // it. The chart takes the rest of the stage below.
     // Between the bench and the chart runs the band the line travels along.
-    var beside = W >= 900, strip = Math.max(70, H * 0.14), band = beside ? 30 : 18;
-    var chartTop = beside ? Math.max(reserveB + 12 + band, H * 0.4) : reserveB + strip + band, chartBottom = H - (beside ? 26 : 12);
+    var beside = W >= 900, strip = Math.max(70, H * 0.14), band = beside ? 40 : 34;
+    var chartTop = beside ? Math.max(reserveB + 12 + band, H * 0.5) : reserveB + strip + band, chartBottom = H - (beside ? 40 : 12);
+    // On a wide stage the chart is a card narrower than the page, centred under the bench.
+    var chartW = beside ? Math.min(W - edgeL * 2, Math.max(960, W * 0.7)) : W - edgeL * 2, chartL = (W - chartW) / 2;
     var boxL = mix(pad, beside ? capRight + 48 : pad, pull), boxR = mix(W - pad, W - edgeL, pull);
     var boxT = mix(top, beside ? H * 0.09 : reserveB - 8, pull), boxB = mix(H * 0.85, chartTop - band - (beside ? 10 : 2), pull);
     var fit = Math.min(1.8, (boxR - boxL) / (hi[0] - lo[0]), (boxB - boxT) / (hi[1] - lo[1]));
@@ -233,9 +242,29 @@
     // The data part: the live chart takes the lower part of the stage, rising into place.
     if (chartBox) {
       chartBox.style.top = chartTop + 'px'; chartBox.style.height = Math.max(120, chartBottom - chartTop) + 'px';
-      chartBox.style.left = edgeL + 'px'; chartBox.style.right = edgeL + 'px';
-      chartBox.style.opacity = show; chartBox.style.transform = 'translateY(' + ((1 - show) * 44).toFixed(1) + 'px)';
-      chartBox.style.visibility = show > 0.02 ? 'visible' : 'hidden';
+      chartBox.style.left = chartL + 'px'; chartBox.style.right = chartL + 'px';
+      // As it breaks apart the one chart gives way to the group graphs, which start as its pieces, side by side
+      // (stacked on a narrow stage), and then move apart.
+      var cards = groupsBox ? groupsBox.children : [], parts = cards.length > 1 ? cards.length : 0, swap = parts ? unit(split / 0.3) : 0, apart = backOut((split - 0.18) / 0.82);
+      var chartH = Math.max(120, chartBottom - chartTop), rise = (1 - show) * 44, spots = [];
+      chartBox.style.opacity = show * (1 - swap); chartBox.style.transform = 'translateY(' + rise.toFixed(1) + 'px)';
+      chartBox.style.visibility = show * (1 - swap) > 0.02 ? 'visible' : 'hidden';
+      if (groupsBox) groupsBox.style.visibility = show * swap > 0.02 ? 'visible' : 'hidden';
+      var room = beside ? Math.min(56, (W - edgeL * 2 - chartW) / Math.max(1, parts - 1)) : 10;
+      for (var gc2 = 0; gc2 < parts; gc2++) {
+        var gw = beside ? chartW / parts : chartW, gh = beside ? chartH : (chartH - room * (parts - 1)) / parts;
+        var homeX = beside ? chartL + gc2 * gw : chartL, homeY = beside ? chartTop : chartTop + gc2 * chartH / parts + (chartH / parts - gh) / 2;
+        var gx = beside ? homeX + (gc2 - (parts - 1) / 2) * room * apart : homeX, gy = beside ? homeY : chartTop + gc2 * (gh + room) + (homeY - chartTop - gc2 * (gh + room)) * (1 - apart);
+        var piece = cards[gc2].style;
+        piece.left = gx.toFixed(1) + 'px'; piece.top = gy.toFixed(1) + 'px'; piece.width = gw.toFixed(1) + 'px'; piece.height = gh.toFixed(1) + 'px';
+        piece.opacity = show * swap; piece.transform = 'translateY(' + rise.toFixed(1) + 'px)';
+        spots.push({ x: gx, y: gy, w: gw, h: gh });
+      }
+      if (splitBtn) {
+        splitBtn.hidden = !parts; splitBtn.style.opacity = show; splitBtn.style.visibility = show > 0.5 ? 'visible' : 'hidden';
+        splitBtn.style.right = (W - chartL - chartW) + 'px'; splitBtn.style.top = (chartTop - band + (band - 28) / 2 - 2).toFixed(1) + 'px';
+        splitBtn.setAttribute('aria-pressed', String(splitGoal === 1));
+      }
       // Its curves are held back until the lines land, then let out across the plot.
       var gate = chartSvg && chartSvg.querySelector('#homepage-trace-clip rect');
       if (gate && chartSvg.viewBox.baseVal.width) gate.setAttribute('width', Math.max(0, (chartSvg.viewBox.baseVal.width - 53) * rec));
@@ -519,8 +548,7 @@
     // One line carries every charted pot's readings: straight down from the edge of the table under those pots,
     // along the band above the chart, round the card's top left corner and down its side, running through the pots'
     // colours as it goes, in dashes that march toward the chart. Level with the curves it turns in to the card's
-    // edge and fades away into it. The colours
-    // come back inside the chart: a glow along its axis, then a bloom at the start of each pot's curve.
+    // edge and fades away into it.
     if (lctx && chartBox && link > 0 && feeds.length && run) {
       var frame = canvas.getBoundingClientRect(), live = [], midPot = 0;
       for (var fd = 0; fd < feeds.length; fd++) {
@@ -530,84 +558,77 @@
       }
       live.sort(function (one, two) { return one.end.y - two.end.y; });
       if (live.length) {
-        var from = at(midPot, edgeZ, -thick), laneY = chartTop - band * 0.5, sideX = Math.max(6, edgeL - (beside ? 16 : 9));
-        var highest = live[0].end.y, lowest = live[live.length - 1].end.y, midway = (highest + lowest) / 2, axisX = live[0].end.x;
-        // The line as points, with its corners rounded. It ends just inside the card's edge.
-        var corners = [[from.x, from.y + 1], [from.x, laneY], [sideX, laneY], [sideX, midway], [edgeL + (beside ? 16 : 9), midway]], pts = [corners[0]];
-        for (var cn = 1; cn < corners.length - 1; cn++) {
-          var before = corners[cn - 1], here = corners[cn], after = corners[cn + 1];
-          var inLen = Math.hypot(here[0] - before[0], here[1] - before[1]), outLen = Math.hypot(after[0] - here[0], after[1] - here[1]);
-          var bend = Math.min(beside ? 16 : 8, inLen / 2, outLen * (cn === 3 ? 0.9 : 0.5));
-          if (bend < 0.5) { pts.push(here); continue; }
-          var a0 = [here[0] + (before[0] - here[0]) / inLen * bend, here[1] + (before[1] - here[1]) / inLen * bend];
-          var a1 = [here[0] + (after[0] - here[0]) / outLen * bend, here[1] + (after[1] - here[1]) / outLen * bend];
-          for (var q8 = 0; q8 <= 10; q8++) {
-            var w = q8 / 10, v = 1 - w;
-            pts.push([v * v * a0[0] + 2 * v * w * here[0] + w * w * a1[0], v * v * a0[1] + 2 * v * w * here[1] + w * w * a1[1]]);
+        var from = at(midPot, edgeZ, -thick), laneY = chartTop - band * 0.5, sideX = Math.max(6, chartL - (beside ? 16 : 9));
+        var highest = live[0].end.y, lowest = live[live.length - 1].end.y, midway = (highest + lowest) / 2;
+        var turn2 = beside ? 16 : 8, inset = beside ? 16 : 9, fadeLen = beside ? 34 : 20, flow = still ? 0 : t * 0.022;
+        // A route: a run of corners, rounded, as points with the length to each. `marks` holds how far along each
+        // corner's bend begins.
+        var lay = function (corners) {
+          var pts = [corners[0]], marks = [0], seen = 0, lens = [0], pl;
+          for (var cn = 1; cn < corners.length - 1; cn++) {
+            var before = corners[cn - 1], here = corners[cn], after = corners[cn + 1];
+            var inLen = Math.hypot(here[0] - before[0], here[1] - before[1]), outLen = Math.hypot(after[0] - here[0], after[1] - here[1]);
+            var bend = Math.min(turn2, inLen / 2, outLen * (cn === corners.length - 2 ? 0.9 : 0.5));
+            if (bend < 0.5) { pts.push(here); marks.push(-1); continue; }
+            var a0 = [here[0] + (before[0] - here[0]) / inLen * bend, here[1] + (before[1] - here[1]) / inLen * bend];
+            var a1 = [here[0] + (after[0] - here[0]) / outLen * bend, here[1] + (after[1] - here[1]) / outLen * bend];
+            marks.push(pts.length);
+            for (var q8 = 0; q8 <= 10; q8++) {
+              var w = q8 / 10, v = 1 - w;
+              pts.push([v * v * a0[0] + 2 * v * w * here[0] + w * w * a1[0], v * v * a0[1] + 2 * v * w * here[1] + w * w * a1[1]]);
+            }
           }
-        }
-        pts.push(corners[corners.length - 1]);
-        var lengths = [0];
-        for (var pl = 1; pl < pts.length; pl++) lengths.push(lengths[pl - 1] + Math.hypot(pts[pl][0] - pts[pl - 1][0], pts[pl][1] - pts[pl - 1][1]));
-        var whole = lengths[lengths.length - 1];
-        var pointAt = function (dist) {
-          for (var seg = 1; seg < pts.length; seg++) {
-            if (lengths[seg] >= dist) { var part = (dist - lengths[seg - 1]) / Math.max(0.001, lengths[seg] - lengths[seg - 1]); return [pts[seg - 1][0] + (pts[seg][0] - pts[seg - 1][0]) * part, pts[seg - 1][1] + (pts[seg][1] - pts[seg - 1][1]) * part]; }
+          pts.push(corners[corners.length - 1]);
+          for (pl = 1; pl < pts.length; pl++) { seen += Math.hypot(pts[pl][0] - pts[pl - 1][0], pts[pl][1] - pts[pl - 1][1]); lens.push(seen); }
+          return { pts: pts, lens: lens, whole: seen, marks: marks.map(function (index) { return index < 0 ? 0 : lens[index]; }) };
+        };
+        var pointOn = function (route, dist) {
+          for (var seg = 1; seg < route.pts.length; seg++) {
+            if (route.lens[seg] >= dist) { var part = (dist - route.lens[seg - 1]) / Math.max(0.001, route.lens[seg] - route.lens[seg - 1]); return [route.pts[seg - 1][0] + (route.pts[seg][0] - route.pts[seg - 1][0]) * part, route.pts[seg - 1][1] + (route.pts[seg][1] - route.pts[seg - 1][1]) * part]; }
           }
-          return pts[pts.length - 1];
+          return route.pts[route.pts.length - 1];
         };
         var hueAt = function (shift) { var slot = ((Math.floor(shift * 256) % 256) + 256) % 256 * 4; return run[slot] + ',' + run[slot + 1] + ',' + run[slot + 2]; };
-        // The line is drawn over the first part of this stretch of scroll; the bloom takes the rest.
-        // Less than one turn of the colour run lies along the whole line at a time, and it drifts slowly.
-        var trunk = whole * ease(link / 0.72), fadeLen = beside ? 34 : 20, flow = still ? 0 : t * 0.022, sweep = whole * 1.5;
-        lctx.lineJoin = 'round'; lctx.lineCap = 'round';
-        // A white edge first, so the dashes read cleanly over the floor grid. It stops short of the card.
-        lctx.globalAlpha = show; lctx.strokeStyle = 'rgba(255,255,255,0.9)'; lctx.lineWidth = 4.5; lctx.beginPath(); lctx.moveTo(pts[0][0], pts[0][1]);
-        var edgeStop = Math.min(trunk, whole - fadeLen);
-        for (var hs = 1; hs < pts.length && lengths[hs] < edgeStop; hs++) lctx.lineTo(pts[hs][0], pts[hs][1]);
-        var stopPt = pointAt(edgeStop); lctx.lineTo(stopPt[0], stopPt[1]); lctx.stroke();
-        // The line is dashed, and the dashes march along it toward the chart. Each dash takes its colour from the
-        // run. Over its last stretch the line thins out to nothing as it goes into the card.
-        var DASH = 9, GAP = 7, march = still ? 0 : (t * 26) % (DASH + GAP);
-        lctx.lineWidth = 2;
-        for (var head = march - DASH - GAP; head < trunk; head += DASH + GAP) {
-          var d0 = Math.max(0, head), d1 = Math.min(trunk, head + DASH);
-          if (d1 - d0 < 0.5) continue;
-          var left2 = unit((whole - (d0 + d1) / 2) / fadeLen), first = pointAt(d0);
-          lctx.globalAlpha = show * left2 * left2; lctx.strokeStyle = 'rgb(' + hueAt((d0 + d1) / 2 / sweep - flow) + ')';
-          lctx.beginPath(); lctx.moveTo(first[0], first[1]);
-          for (var step = d0 + 3; step < d1; step += 3) { var mid = pointAt(step); lctx.lineTo(mid[0], mid[1]); }
-          var last = pointAt(d1); lctx.lineTo(last[0], last[1]); lctx.stroke();
-        }
-
-        // Inside the chart the colours come back. First a soft glow up and down the axis from where the line went
-        // in, reaching as far as the highest and lowest curve.
-        var rise = ease((link - 0.66) / 0.2);
-        if (rise > 0) {
-          var glowTop = midway - (midway - highest + 10) * rise, glowBottom = midway + (lowest - midway + 10) * rise;
-          var seam = lctx.createLinearGradient(0, glowTop, 0, glowBottom);
-          for (var gs = 0; gs <= 8; gs++) seam.addColorStop(gs / 8, 'rgba(' + hueAt(whole / sweep + gs / 8 * 0.35 - flow) + ',' + (gs === 0 || gs === 8 ? 0 : 0.7) + ')');
-          lctx.save(); lctx.globalAlpha = show * rise * 0.9; lctx.strokeStyle = seam; lctx.lineCap = 'round';
-          lctx.shadowColor = 'rgba(' + hueAt(whole / sweep + 0.17 - flow) + ',0.4)'; lctx.shadowBlur = 8 * DPR; lctx.lineWidth = 1.8;
-          lctx.beginPath(); lctx.moveTo(axisX - 1, glowTop); lctx.lineTo(axisX - 1, glowBottom); lctx.stroke(); lctx.restore();
-        }
-        // Then each pot's colour blooms where its curve starts, the ones nearest the line's way in first: a ring
-        // that opens and fades, leaving a dot in a soft halo that breathes slowly.
-        var reachY = Math.max(1, (lowest - highest) / 2 + 10);
-        for (var bl = 0; bl < live.length; bl++) {
-          var bud = live[bl], open = ease((link - 0.72 - 0.16 * Math.abs(bud.end.y - midway) / reachY) / 0.14);
-          if (open <= 0) continue;
-          var bx0 = bud.end.x, by0 = bud.end.y, ink = bud.feed.ink, pulse = still ? 0 : 0.18 * (0.5 + 0.5 * Math.sin(t * 1.5 + bl * 0.9));
-          lctx.globalAlpha = show;
-          if (open < 1) {
-            lctx.save(); lctx.globalAlpha = show * (1 - open) * 0.7; lctx.strokeStyle = ink; lctx.lineWidth = 1.5;
-            lctx.beginPath(); lctx.arc(bx0, by0, 4 + open * 16, 0, Math.PI * 2); lctx.stroke(); lctx.restore();
+        // The one route to the single chart: down from the bench, along the band, round the card's corner, down its
+        // side and in at its edge.
+        var single = lay([[from.x, from.y + 1], [from.x, laneY], [sideX, laneY], [sideX, midway], [chartL + inset, midway]]);
+        var sweep = single.whole * 1.5, DASH = 9, GAP = 7, march = still ? 0 : (t * 26) % (DASH + GAP);
+        // Draws a route from one length along it to another: a white edge first, so the dashes read cleanly over the
+        // floor grid, then the dashes, which march toward the chart and take their colour from the run. Over its
+        // last stretch the route thins out to nothing as it goes into a card.
+        var stroke = function (route, fromLen, toLen) {
+          if (toLen - fromLen < 0.5) return;
+          var edgeStop = Math.min(toLen, route.whole - fadeLen), st;
+          if (edgeStop > fromLen) {
+            lctx.globalAlpha = show; lctx.strokeStyle = 'rgba(255,255,255,0.9)'; lctx.lineWidth = 4.5; lctx.beginPath();
+            st = pointOn(route, fromLen); lctx.moveTo(st[0], st[1]);
+            for (var hs = 1; hs < route.pts.length; hs++) if (route.lens[hs] > fromLen && route.lens[hs] < edgeStop) lctx.lineTo(route.pts[hs][0], route.pts[hs][1]);
+            st = pointOn(route, edgeStop); lctx.lineTo(st[0], st[1]); lctx.stroke();
           }
-          var halo = (9 + pulse * 7) * open, soft = lctx.createRadialGradient(bx0, by0, 0, bx0, by0, halo);
-          soft.addColorStop(0, ink); soft.addColorStop(1, 'rgba(255,255,255,0)');
-          lctx.save(); lctx.globalAlpha = show * (0.3 + pulse * 0.3) * open; lctx.fillStyle = soft; lctx.beginPath(); lctx.arc(bx0, by0, halo, 0, Math.PI * 2); lctx.fill(); lctx.restore();
-          lctx.fillStyle = ink; lctx.beginPath(); lctx.arc(bx0, by0, (3.2 + pulse * 0.9) * Math.min(1, open * 1.3), 0, Math.PI * 2); lctx.fill();
-          lctx.strokeStyle = '#fff'; lctx.lineWidth = 1.25; lctx.stroke();
+          lctx.lineWidth = 2;
+          for (var head = march - DASH - GAP; head < toLen; head += DASH + GAP) {
+            var d0 = Math.max(fromLen, head), d1 = Math.min(toLen, head + DASH);
+            if (d1 - d0 < 0.5) continue;
+            var left2 = unit((route.whole - (d0 + d1) / 2) / fadeLen), first = pointOn(route, d0);
+            lctx.globalAlpha = show * left2 * left2; lctx.strokeStyle = 'rgb(' + hueAt((d0 + d1) / 2 / sweep - flow) + ')';
+            lctx.beginPath(); lctx.moveTo(first[0], first[1]);
+            for (var step = d0 + 3; step < d1; step += 3) { var mid = pointOn(route, step); lctx.lineTo(mid[0], mid[1]); }
+            var last = pointOn(route, d1); lctx.lineTo(last[0], last[1]); lctx.stroke();
+          }
+        };
+        lctx.lineJoin = 'round'; lctx.lineCap = 'round';
+        // The routes part company where the first bend begins (beside) or where the line starts down the card's side
+        // (stacked). As the chart breaks apart the single route draws back to that point and a branch grows from it
+        // to every graph: to the middle of its top edge, or to the middle of its side when they are stacked.
+        var fork = beside ? single.marks[1] : single.marks[2], back = spots && spots.length ? ease(split / 0.45) : 0, grow = ease((split - 0.3) / 0.7);
+        stroke(single, 0, (fork + (single.whole - fork) * (1 - back)) * ease(link));
+        if (grow > 0) for (var br = 0; br < spots.length; br++) {
+          var spot = spots[br], midX = spot.x + spot.w / 2, midY2 = spot.y + spot.h / 2;
+          var branch = beside
+            ? (Math.abs(midX - from.x) < 6 ? lay([[from.x, from.y + 1], [from.x, spot.y + 30]]) : lay([[from.x, from.y + 1], [from.x, laneY], [midX, laneY], [midX, spot.y + 30]]))
+            : lay([[from.x, from.y + 1], [from.x, laneY], [sideX, laneY], [sideX, midY2], [spot.x + inset, midY2]]);
+          var begin = Math.min(fork, branch.whole);
+          stroke(branch, begin, begin + (branch.whole - begin) * grow);
         }
         lctx.globalAlpha = 1;
       }
@@ -620,7 +641,11 @@
     if (canvas.clientWidth !== W || canvas.clientHeight !== H) { resize(); moving = true; }
     if (moving) prog += (goal - prog) * 0.07;
     var gone = lastMs ? Math.min(0.1, (ms - lastMs) / 1000) : 0, was = played; lastMs = ms;
-    played = prog >= ARRIVE ? Math.min(PLAY, played + gone) : prog < ARRIVE - 0.02 ? Math.max(0, played - gone * 2.5) : played;
+    // Played once, it stays drawn; it is wound back only when the chart has gone, ready to play again.
+    played = prog >= ARRIVE ? Math.min(PLAY, played + gone) : prog < 0.6 ? 0 : played;
+    if (prog < 0.6) { rested = 0; if (autoSplit) { splitGoal = 0; split = 0; } }
+    else if (autoSplit && played >= PLAY) { rested += gone; if (rested > HOLD) splitGoal = 1; }
+    split = splitGoal > split ? Math.min(1, split + gone / 1.2) : Math.max(0, split - gone / 0.8);
     // The only things that move on their own are the chart and the data running down to it, so outside that part the figure
     // is redrawn only while the scroll is still carrying it along.
     if (moving || prog > 0.58 || played !== was) draw(now);
@@ -631,6 +656,12 @@
     running = true;
     requestAnimationFrame(frame);
   }
+  // In reduced motion there is no frame loop to position the controls after the chart data arrives.
+  if (still && groupsBox) new MutationObserver(function () { draw(0); }).observe(groupsBox, { childList: true });
+  if (splitBtn) splitBtn.addEventListener('click', function () {
+    autoSplit = false; splitGoal = splitGoal ? 0 : 1;
+    if (still) { split = splitGoal; draw(0); }
+  });
   resize();
   draw(0);
   window.addEventListener('resize', function () { resize(); draw(performance.now() / 1000); });

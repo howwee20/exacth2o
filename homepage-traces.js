@@ -20,6 +20,10 @@
   const tipPot = document.createElement('strong'), tipTime = document.createElement('span'), tipValue = document.createElement('b');
   tooltip.append(tipPot, tipTime, tipValue); card.append(tooltip);
   let inView = false, paused = motion.matches, lastFrame = 0, animation = 0, lastPaint = 0;
+  // One small graph for each group of pots, each on its own scale. The bench script (homepage-autocal.js) places
+  // them and shows them when the chart is broken apart by group.
+  const groupsBox = document.querySelector('[data-trace-groups]');
+  let groups = [];
 
   function node(name, attrs = {}, text) {
     const element = document.createElementNS(ns, name);
@@ -60,6 +64,24 @@
     }
     clock.textContent = studyTime(selected.hours[last]);
     svg.dataset.latestHour = selected.hours[last];
+    for (const group of groups) {
+      if (!group.plot) continue;
+      const gx = hour => group.plot.left + (hour - startHour) / windowHours * group.plot.width;
+      const gy = value => group.plot.top + (group.max - value) / (group.max - group.min) * group.plot.height;
+      group.members.forEach((member, i) => {
+        let d = '';
+        for (let index = first; index <= last; index++) d += `${index === first ? 'M' : 'L'}${gx(selected.hours[index]).toFixed(2)},${gy(member.pot.values[index]).toFixed(2)}`;
+        group.paths[i].setAttribute('d', d);
+        group.points[i].setAttribute('cx', gx(selected.hours[last]));
+        group.points[i].setAttribute('cy', gy(member.pot.values[last]));
+      });
+      group.ticks.replaceChildren();
+      for (let hour = Math.ceil(startHour / 24) * 24; hour <= endHour; hour += 24) {
+        const px = gx(hour);
+        group.ticks.append(node('line', { x1: px, x2: px, y1: group.plot.top, y2: group.plot.top + group.plot.height, class: 'trace-grid trace-grid-vertical' }),
+          node('text', { x: px, y: group.plot.top + group.plot.height + 20, 'text-anchor': 'middle', class: 'trace-axis' }, dayLabel(hour)));
+      }
+    }
     updateInspection();
   }
   function prepareChart() {
@@ -89,6 +111,45 @@
     svg.append(plot.marker);
     drawFrame();
   }
+  function prepareGroup(group) {
+    const width = Math.max(160, group.chart.clientWidth), height = Math.max(70, group.chart.clientHeight);
+    group.plot = { left: 40, top: 10, width: width - 54, height: height - 40 };
+    group.chart.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    group.chart.replaceChildren();
+    const clipId = `homepage-trace-clip-${group.name}`, defs = node('defs'), clip = node('clipPath', { id: clipId });
+    clip.append(node('rect', { x: group.plot.left, y: group.plot.top - 4, width: group.plot.width + 4, height: group.plot.height + 8 }));
+    defs.append(clip); group.chart.append(defs);
+    const step = group.max - group.min > 15 ? 10 : 5;
+    for (let value = group.min; value <= group.max; value += step) {
+      const y = group.plot.top + (group.max - value) / (group.max - group.min) * group.plot.height;
+      group.chart.append(node('line', { x1: group.plot.left, x2: group.plot.left + group.plot.width, y1: y, y2: y, class: 'trace-grid' }),
+        node('text', { x: group.plot.left - 8, y: y + 4, 'text-anchor': 'end', class: 'trace-axis' }, `${value}%`));
+    }
+    group.ticks = node('g'); group.chart.append(group.ticks);
+    const lines = node('g', { 'clip-path': `url(#${clipId})` });
+    group.paths = group.members.map(member => node('path', { fill: 'none', stroke: member.pot.color, 'stroke-width': 1.8, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    group.points = group.members.map(member => node('circle', { r: 2.8, fill: member.pot.color, stroke: '#fff', 'stroke-width': 1 }));
+    lines.append(...group.paths, ...group.points); group.chart.append(lines);
+    drawFrame();
+  }
+  function buildGroups() {
+    if (!groupsBox) return;
+    const names = [...new Set(selected.pots.map(pot => pot.group).filter(Boolean))];
+    groups = names.length < 2 ? [] : names.map(name => {
+      const members = selected.pots.map((pot, index) => ({ pot, index })).filter(member => member.pot.group === name);
+      const values = members.flatMap(member => member.pot.values);
+      const card = document.createElement('section'), head = document.createElement('header'), title = document.createElement('h3'), count = document.createElement('span');
+      card.className = 'trace-group-card';
+      title.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+      count.textContent = `${members.length} pots`;
+      head.append(title, count);
+      const chart = node('svg', { class: 'trace-group-chart' });
+      card.append(head, chart);
+      return { name, members, card, chart, paths: [], points: [], min: Math.floor(Math.min(...values) / 5) * 5, max: Math.ceil(Math.max(...values) / 5) * 5 };
+    });
+    groupsBox.replaceChildren(...groups.map(group => group.card));
+    groups.forEach(group => new ResizeObserver(() => prepareGroup(group)).observe(group.chart));
+  }
   function initialize(experiment) {
     selected = experiment;
     endHour = selected.initialHour;
@@ -105,7 +166,7 @@
       });
       return button;
     }));
-    prepareChart(); lastFrame = 0;
+    prepareChart(); buildGroups(); lastFrame = 0;
   }
   function updateInspection() {
     if (!selected || !plot) return;
@@ -115,14 +176,18 @@
       points[i].setAttribute('visibility', hiddenPots.has(i) ? 'hidden' : 'visible');
       legend.children[i]?.setAttribute('aria-pressed', String(!hiddenPots.has(i)));
     });
+    for (const group of groups) group.members.forEach((member, i) => {
+      group.paths[i]?.setAttribute('visibility', hiddenPots.has(member.index) ? 'hidden' : 'visible');
+      group.points[i]?.setAttribute('visibility', hiddenPots.has(member.index) ? 'hidden' : 'visible');
+    });
     if (activePot < 0) {
       tooltip.hidden = true;
-      readout.textContent = 'Hover to inspect. Click to lock.';
+      readout.textContent = '';
       plot.marker.setAttribute('visibility', 'hidden'); plot.cursor.setAttribute('visibility', 'hidden'); return;
     }
     const index = Math.max(0, Math.min(selected.hours.length - 1, lowerBound(sampleHour ?? endHour) - 1));
     const pot = selected.pots[activePot], hour = selected.hours[index], value = pot.values[index];
-    readout.textContent = locked ? 'Click to resume.' : 'Click to lock.';
+    readout.textContent = locked ? 'Click to resume.' : '';
     tipPot.textContent = `Pot ${pot.number}`;
     tipTime.textContent = studyTime(hour);
     tipValue.textContent = `${value.toFixed(1)}% VWC`;
