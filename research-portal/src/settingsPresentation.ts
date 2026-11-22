@@ -160,6 +160,35 @@ export function hardwareInventory(pairings: PairingRow[], readings: SensorReadin
   return { sensors: Array.from(sensors.values()), valves: Array.from(valves.values()) };
 }
 
+export type HardwarePot = {
+  name: string;
+  potNumber: number | null;
+  sensor: string | null;
+  valve: string | null;
+  lastReadingAt: string | null;
+  intervalMs: number | null;
+};
+
+/** One row per pot: the sensor and valve wired to it and when that sensor last reported. */
+export function hardwarePots(pairings: readonly PairingRow[], readings: readonly SensorReading[]): HardwarePot[] {
+  const lastReadingBySensor = new Map<string, string>();
+  for (const reading of readings) {
+    if (!reading.sensor_key) continue;
+    const previous = lastReadingBySensor.get(reading.sensor_key);
+    if (!previous || reading.device_recorded_at > previous) lastReadingBySensor.set(reading.sensor_key, reading.device_recorded_at);
+  }
+  return pairings
+    .map((pairing) => ({
+      name: pairing.name,
+      potNumber: Number.isFinite(pairing.pot_number) ? pairing.pot_number : null,
+      sensor: pairing.sensor_key || null,
+      valve: pairing.valve_key || null,
+      lastReadingAt: pairing.sensor_key ? lastReadingBySensor.get(pairing.sensor_key) ?? null : null,
+      intervalMs: Number.isFinite(pairing.measurement_interval_ms) && pairing.measurement_interval_ms > 0 ? pairing.measurement_interval_ms : null,
+    }))
+    .sort((a, b) => (a.potNumber ?? Infinity) - (b.potNumber ?? Infinity) || a.name.localeCompare(b.name));
+}
+
 // "since 3:59 PM" on the same day, "since Sep 19, 3:59 PM" otherwise.
 export function sinceText(value: string | null | undefined, nowMs = Date.now(), timeZone?: string) {
   const time = parseTime(value);

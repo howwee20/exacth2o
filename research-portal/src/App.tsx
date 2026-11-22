@@ -1,4 +1,4 @@
-import { AlertTriangle,ArrowRight,ChevronDown,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
+import { AlertTriangle,ArrowRight,ChevronDown,LayoutGrid,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { ChamberControlView,ChamberHealthView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
 import { WalkerHealthView,WalkerMachineTile } from "./WalkerObservationView";
@@ -22,7 +22,7 @@ import { trackedCommandProgress } from "./commandLifecycle";
 import { loadPortalExperimentCatalog } from "./experimentClient";
 import { levelLabel } from "./experimentFactors";
 import { experimentIsCompleted,orderHomeExperiments,pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
-import { experimentGraphGroups,experimentSidebarGroups } from "./experimentPresentation";
+import { experimentGraphGroups,experimentSidebarGroups,experimentSplitGroups } from "./experimentPresentation";
 import { deduplicateExperimentCatalog,type ExperimentId,isObservationOnlyExperiment,pairingsForExperiment,type PortalExperiment,portalExperimentById,valveEventsForExperiment } from "./experimentRegistry";
 import { experimentTraceReadings } from "./experimentTraceReadings";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
@@ -51,6 +51,7 @@ import { PotInspector } from './product/PotInspector';
 import { ProductHeader } from "./product/ProductHeader";
 import { type InstallationState,QuietSpineHome } from "./product/QuietSpineHome";
 import { SavedTraceViews } from "./product/SavedTraceViews";
+import { type SplitGraphPanel,SplitTraceGraphs } from "./product/SplitTraceGraphs";
 import { MachineHome, MachineTile, ProjectMachineTile } from "./product/MachineHome";
 import { atBenchRemembered,rememberAtBench } from "./product/pocketMode";
 import { toggleTraceSelection } from "./product/traceSelection";
@@ -141,6 +142,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(fullTimeWindow);
   // The pot list above the chart: open or closed by the person's own choice, or null to follow the default below.
   const [potsPanelChoice, setPotsPanelOpen] = useState<boolean | null>(null);
+  const [graphsByGroup, setGraphsByGroup] = useState(() => { try { return localStorage.getItem("exacth2o.graphsByGroup") === "1"; } catch { return false; } });
   const { graphExpanded, setGraphExpanded, dashboardMainRef, toggleExpandedGraph } = useExpandedGraph();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The settings panel loads on first open and then stays mounted so its form state survives closing.
@@ -337,6 +339,21 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     ),
     [chartVisibleNames, selectedExperiment, sortedPairings],
   );
+  // One graph per group, for the groups that still have a pot showing.
+  const splitGroups = useMemo(() => experimentSplitGroups(sortedPairings, selectedExperiment), [sortedPairings, selectedExperiment]);
+  const splitPanels = useMemo<SplitGraphPanel[]>(() => splitGroups.map((group) => {
+    const names = new Set(group.pairingNames.filter((name) => chartVisibleNames.has(name)));
+    return {
+      id: group.id,
+      label: group.label,
+      names,
+      targetLines: targetLinesForPairings(
+        sortedPairings.filter((pairing) => names.has(pairing.name)),
+        (pairing) => treatmentForPairing(pairing, selectedExperiment),
+        selectedExperiment,
+      ),
+    };
+  }).filter((panel) => panel.names.size > 0), [chartVisibleNames, selectedExperiment, sortedPairings, splitGroups]);
   const describePotTarget = useCallback(
     (item: ChartSeries) => pairingTargetText(pairingByName.get(item.name), selectedExperiment),
     [pairingByName, selectedExperiment],
@@ -968,6 +985,21 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   </>
                 ) : null}
               </div>
+              {splitGroups.length > 1 && experimentGraphMode !== "watering" ? (
+                <button
+                  className={`px-split-toggle ${graphsByGroup ? "is-selected" : ""}`}
+                  type="button"
+                  aria-pressed={graphsByGroup}
+                  title={graphsByGroup ? "Show one graph" : "Show a graph for each group"}
+                  onClick={() => {
+                    const next = !graphsByGroup;
+                    setGraphsByGroup(next);
+                    try { localStorage.setItem("exacth2o.graphsByGroup", next ? "1" : "0"); } catch { /* The choice still applies to this visit. */ }
+                  }}
+                >
+                  <LayoutGrid size={15} aria-hidden="true" />By group
+                </button>
+              ) : null}
               <button
                 className="expand-button"
                 type="button"
@@ -1038,6 +1070,18 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
                   }}
                 />
                 </>
+              ) : graphsByGroup && splitPanels.length > 0 ? (
+                <SplitTraceGraphs
+                  panels={splitPanels}
+                  series={timeFilteredSeries}
+                  selectedName={selectedSeriesName}
+                  onSelectSeries={setSelectedSeriesName}
+                  loading={loading && !series.some((item) => item.points.length)}
+                  xDomain={selectedVwcTimeBounds}
+                  wateringEvents={experimentGraphMode === "overlay" ? experimentWateringEvents : undefined}
+                  describeTarget={describePotTarget}
+                  affectedNames={direct.affected}
+                />
               ) : (
                 <SensorCanvasChart
                   series={timeFilteredSeries}

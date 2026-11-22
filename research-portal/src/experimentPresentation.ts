@@ -134,3 +134,32 @@ export function experimentGraphGroups(
     })
     .sort((left, right) => left.label.localeCompare(right.label));
 }
+
+export type ExperimentSplitGroup = { id: string; label: string; pairingNames: string[] };
+
+/**
+ * The groups a chart can be split into, one graph each: crop and treatment where the plan varies
+ * both, otherwise whichever one varies. Empty when the pots do not fall into more than one group.
+ */
+export function experimentSplitGroups(
+  pairings: readonly PairingRow[],
+  experiment?: PortalExperiment | null,
+): ExperimentSplitGroup[] {
+  const planned = pairings.map((pairing) => {
+    const assignment = assignmentForPairing(pairing, experiment);
+    return { pairing, crop: normalized(assignment?.crop), treatment: normalized(assignment?.treatment) };
+  });
+  const varies = (values: string[]) => new Set(values.filter(Boolean)).size > 1;
+  const byCrop = varies(planned.map((item) => item.crop));
+  const byTreatment = varies(planned.map((item) => item.treatment));
+  const groups = new Map<string, ExperimentSplitGroup>();
+  for (const { pairing, crop, treatment } of planned) {
+    const name = [byCrop ? crop : "", byTreatment ? treatment : ""].filter(Boolean).join(" ");
+    const id = name ? slug(name) : "other";
+    const group = groups.get(id) ?? { id, label: name ? title(name) : "Other pots", pairingNames: [] };
+    group.pairingNames.push(pairing.name);
+    groups.set(id, group);
+  }
+  if (groups.size < 2) return [];
+  return [...groups.values()].sort((a, b) => Number(a.id === "other") - Number(b.id === "other") || a.label.localeCompare(b.label));
+}

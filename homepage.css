@@ -30,14 +30,14 @@
 .home-page .home-head::before { content: ''; display: block; grid-column: 1 / -1; width: 56px; height: 3px; margin-bottom: 4px; border-radius: 2px; background: linear-gradient(90deg, hsl(262 80% 50%), hsl(205 76% 45%), hsl(150 72% 40%), hsl(40 84% 50%), hsl(335 76% 45%)); }
 .home-page .features-strip .home-head::before { margin-bottom: 20px; }
 
-/* The bench: a full-width figure that plays one long move as it is scrolled through, first the hardware (plan view
-   to 3D, then a turn right round), then the data (a chart opens under the bench and its traces draw). */
+/* The bench: a full-width figure that plays one long move as it is scrolled through, first the hardware (a 3D view
+   that turns right round), then the data (a chart opens under the bench and its traces draw). */
 /* Full width: the section's usual padding is dropped (this selector outranks the general section rule below). */
 .home-page .home-section.autocal-strip { padding: 0; background: #fff; scroll-margin-top: 54px; }
 /* The stage stays pinned under the header while this tall track scrolls by. */
-.autocal-track { position: relative; height: 560vh; }
+.autocal-track { position: relative; height: 394vh; }
 /* Where the hero's "View the traces" button lands: far enough down the track that the chart is up. */
-.autocal-anchor { position: absolute; top: 66%; left: 0; width: 1px; height: 1px; scroll-margin-top: 54px; }
+.autocal-anchor { position: absolute; top: 70%; left: 0; width: 1px; height: 1px; scroll-margin-top: 54px; }
 .autocal-stage { position: sticky; top: 54px; height: calc(100vh - 54px); height: calc(100svh - 54px); overflow: hidden; }
 /* Two captions share the stage's top left corner, one for each part of the move. The script fades between them. */
 .autocal-head { position: absolute; z-index: 3; inset: clamp(24px, 5vh, 56px) 0 auto 0; padding-inline: max(24px, var(--gutter)); pointer-events: none; }
@@ -76,7 +76,8 @@
 /* The figure fades out at the top of the stage, under the header. */
 .autocal-bench { display: block; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5%); mask-image: linear-gradient(to bottom, transparent 0, #000 5%); }
 @media (max-width: 900px) {
-  .autocal-track { height: 400vh; }
+  .autocal-track { height: 292vh; }
+  .autocal-anchor { top: 62%; }
   .autocal-head { inset: 20px 0 auto 0; }
   .home-page .autocal-head .home-head::before { margin-bottom: 14px; }
   .home-page .autocal-head .home-head-aside { margin-top: 10px; }
@@ -261,8 +262,8 @@
 /* One background runs behind the hero and on behind The system, changing as it goes.
    Behind the hero: a faint graph-paper grid, strongest behind the photograph and fading out toward the headline,
    over soft washes of blue and green. The grid and the page's shade carry straight on into the next section, where
-   the grid's lines thin away as wide ripples spread in from the right, and the washes turn to violet and amber. The two
-   halves share one grid and one fade, measured from the line where the sections meet, so there is no seam. */
+   the grid runs on behind the two cards and thins away toward the bottom, leaving the heading on clear ground. The
+   two halves share one grid, and their fades agree along the line where the sections meet, so there is no seam. */
 .home-page main { overflow-x: clip; }
 .hero-backdrop, .system-backdrop { --grid: 56px; --reach: 820px; --lift: 250px; position: absolute; z-index: 0; pointer-events: none; }
 .hero-backdrop { top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw;
@@ -280,20 +281,12 @@
 .home-page .features-strip > .home-inner { position: relative; z-index: 1; }
 .system-backdrop { inset: 0;
   background:
-    radial-gradient(46% 42% at 88% 62%, hsl(262 80% 50% / .06), transparent 72%),
-    radial-gradient(40% 40% at 4% 38%, hsl(40 84% 50% / .07), transparent 72%),
-    linear-gradient(to bottom, #f5f5f7 0, #f5f5f7 74%, #fff 100%); }
+    radial-gradient(60% 55% at 72% 48%, hsl(205 76% 45% / .07), transparent 72%),
+    linear-gradient(to bottom, #f5f5f7 0, #f5f5f7 70%, #fff 100%); }
+/* Below the line the oval is twice as tall and its centre twice as far above, so it matches the hero's fade at the
+   line and then lets go of the grid slowly, over the height of the cards. */
 .system-backdrop::before { background-position: center top;
-  -webkit-mask-image: radial-gradient(70% var(--reach) at 70% calc(0px - var(--lift)), #000 0, transparent 85%); mask-image: radial-gradient(70% var(--reach) at 70% calc(0px - var(--lift)), #000 0, transparent 85%); }
-/* The ripples: as the grid's lines go, wide rings come in, spreading from a point off the right-hand side like
-   rings on water. They are spaced like the grid, fade with distance from their centre, and are gone before the
-   section ends. */
-.system-backdrop::after { content: ''; position: absolute; inset: 0;
-  background-image: repeating-radial-gradient(circle at 94% 56%, transparent 0, transparent calc(var(--grid) - 2px), rgba(16, 31, 26, .1) calc(var(--grid) - 1px), transparent var(--grid));
-  -webkit-mask-image: linear-gradient(to bottom, transparent 60px, #000 420px, #000 66%, transparent 97%), radial-gradient(95% 85% at 94% 56%, #000 8%, transparent 82%);
-  -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to bottom, transparent 60px, #000 420px, #000 66%, transparent 97%), radial-gradient(95% 85% at 94% 56%, #000 8%, transparent 82%);
-  mask-composite: intersect; }
+  -webkit-mask-image: radial-gradient(70% calc(var(--reach) * 2) at 70% calc(var(--lift) * -2), #000 0, transparent 85%); mask-image: radial-gradient(70% calc(var(--reach) * 2) at 70% calc(var(--lift) * -2), #000 0, transparent 85%); }
 .home-page .cinema-title { max-width: 12em; font-size: clamp(44px, 4.2vw, 66px); line-height: 1.04; }
 .home-page .cinema-copy { max-width: 38ch; font-size: clamp(18px, 1.5vw, 21px); }
 .home-page .cinema-photo { height: clamp(400px, 40vw, 580px); border-radius: 22px; box-shadow: 0 1px 2px rgba(16, 31, 26, .08), 0 18px 36px -10px rgba(16, 31, 26, .2), 0 50px 100px -30px rgba(16, 31, 26, .3); }
@@ -317,7 +310,7 @@
   .home-page .cinema-hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding: 40px 0 56px; }
   .hero-backdrop, .system-backdrop { --grid: 40px; --reach: 620px; --lift: 190px; }
   .hero-backdrop::before { -webkit-mask-image: radial-gradient(120% var(--reach) at 50% calc(100% - var(--lift)), #000 0, transparent 85%); mask-image: radial-gradient(120% var(--reach) at 50% calc(100% - var(--lift)), #000 0, transparent 85%); }
-  .system-backdrop::before { -webkit-mask-image: radial-gradient(120% var(--reach) at 50% calc(0px - var(--lift)), #000 0, transparent 85%); mask-image: radial-gradient(120% var(--reach) at 50% calc(0px - var(--lift)), #000 0, transparent 85%); }
+  .system-backdrop::before { -webkit-mask-image: radial-gradient(120% calc(var(--reach) * 2) at 50% calc(var(--lift) * -2), #000 0, transparent 85%); mask-image: radial-gradient(120% calc(var(--reach) * 2) at 50% calc(var(--lift) * -2), #000 0, transparent 85%); }
   .home-page .cinema-photo { height: 340px; }
 }
 @media (max-width: 600px) {
