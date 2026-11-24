@@ -84,6 +84,13 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = null;
       } else if (url.pathname === '/rest/v1/commissioning_sessions') {
         data = url.searchParams.has('active') ? null : [];
+      } else if (url.pathname === '/rest/v1/rpc/portal_team_snapshot') {
+        data = {members:[],invites:[]};
+      } else if (url.pathname === '/rest/v1/rpc/request_alert_test_email') {
+        expect(route.request().postDataJSON()).toEqual({selected_project_id:testbedProject});
+        data = '66fa562f-1916-4ef1-af9c-0ea867a95c6b';
+      } else if (url.pathname === '/rest/v1/notification_outbox' && url.searchParams.has('id')) {
+        data = [{status:'delivered'}];
       } else if (url.pathname === '/functions/v1/phone-alerts') {
         data = {connected:true, publicKey:'test-key'};
       } else if (url.pathname === '/rest/v1/rpc/save_experiment_moisture_alerts') {
@@ -298,6 +305,9 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await alerts.getByLabel('Monitor pots in this experiment').check();
     await alerts.getByLabel('Min VWC (%)').fill('22');
     await alerts.getByLabel('Max VWC (%)').fill('38');
+    await alerts.getByRole('button',{name:'Send test email'}).click();
+    await expect(alerts.getByRole('status')).toContainText('queued');
+    await expect(alerts.getByRole('status')).toContainText('accepted for delivery');
     await alerts.getByLabel('Notify me on my phone').check();
     await expect(alerts.getByRole('button',{name:'Send test alert'})).toBeVisible();
     await alerts.getByRole('button',{name:'Connect by QR code'}).click();
@@ -354,5 +364,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('link', { name: /Home/ }).click();
     await expect(testbed).toContainText('Testbed calibration trial');
     await expect(rhee).toContainText('Huiqiao Pan experiment');
+    await page.goto('/portal?view=account&project='+testbedProject);
+    const accountPhone = page.locator('#phone-alerts');
+    await expect(accountPhone.getByRole('heading', {name:'Phone alerts'})).toBeVisible();
+    await accountPhone.getByRole('button', {name:'Connect by QR code'}).click();
+    await expect(accountPhone.getByRole('img', {name:'Scan to connect your phone to ExactH2O'})).toBeVisible();
+    await expect(page.getByRole('button', {name:'Send test email'})).toBeVisible();
   });
 }

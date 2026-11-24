@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { loadAccountNotifications, loadTeam, saveNotificationPreference, type AccountNotification, type NotificationPreference, type TeamSnapshot } from "../accountClient";
 import type { PortalAccess } from "../portalTypes";
+import "../phoneAlerts/moisture.css";
+import { PhoneSetup } from "../phoneAlerts/PhoneSetup";
+import { TestEmailButton } from "../phoneAlerts/TestEmailButton";
 import { PortalLink } from "./PortalLink";
 
 const titled = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -67,6 +70,13 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
           <span>Email</span>
           <small>{value("email").destination ?? access.email}</small>
         </label>
+      </div>
+      <p className="px-muted">Email includes pot alerts from monitored experiments you can access in this project. Pot numbers and readings appear under Recent.</p>
+      <TestEmailButton key={access.projectId} projectId={access.projectId} />
+      <div id="phone-alerts">
+        <h3>Phone alerts</h3>
+        <p className="px-muted">Connect your phone for ExactH2O lock-screen notifications. Choose “Notify me on my phone” in each experiment you want to follow.</p>
+        <PhoneSetup key={access.projectId} projectId={access.projectId} setupView="account" />
       </div>
       <h3>Recent</h3>
       {loading ? <p className="px-muted">Loading…</p> : notifications.length ? <ul className="px-account-list">

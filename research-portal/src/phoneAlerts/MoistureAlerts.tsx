@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 import { supabase } from "../supabase";
+import { TestEmailButton } from "./TestEmailButton";
+import { PortalLink } from "../product/PortalLink";
 import { PhoneSetup } from "./PhoneSetup";
 import "./moisture.css";
 
@@ -196,6 +198,10 @@ export const MoistureAlerts = forwardRef<AlertEditor, Props>(
               </div>
             )}
           </div>
+          {enabled && <div>
+            <p>Turn on Email in <PortalLink to={{ view: "account" }} extra={{ project: projectId }} target="_blank" rel="noopener" reloadDocument>Account &amp; access</PortalLink> to receive alerts for monitored experiments in this project.</p>
+            <TestEmailButton key={projectId} projectId={projectId} />
+          </div>}
           {!enabled && !following && setupLink ? setupToggle : null}
           {setup && (enabled || following || setupLink) && (
             <PhoneSetup projectId={projectId} onConnected={connectedChanged} />

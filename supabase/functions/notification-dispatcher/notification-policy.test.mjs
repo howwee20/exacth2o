@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   notificationConfiguration,
   notificationRetryState,
+  notificationSender,
   resendPayload,
   retryDelaySeconds,
   UnverifiedDestinationError,
@@ -62,4 +63,14 @@ test("email goes only to the owner's confirmed sign-in address", () => {
   assert.throws(() => verifiedDestination({ destination: "owner@example.org" }, { ...account, email_confirmed_at: null }), UnverifiedDestinationError);
   assert.throws(() => verifiedDestination({ destination: "owner@example.org" }, null), UnverifiedDestinationError);
   assert.throws(() => verifiedDestination({ destination: "" }, account), UnverifiedDestinationError);
+});
+
+test("the provider sandbox sender is limited to test mail for its owner", () => {
+  const from = "alerts@example.org";
+  const owner = "owner@example.org";
+  const n = { destination: owner, event_type: "test_email" };
+  assert.match(notificationSender(n, from, owner), /onboarding@resend.dev/);
+  assert.equal(notificationSender(n, from, ""), from);
+  assert.equal(notificationSender({ ...n, event_type: "pot_moisture" }, from, owner), from);
+  assert.equal(notificationSender({ ...n, destination: "other@example.org" }, from, owner), from);
 });

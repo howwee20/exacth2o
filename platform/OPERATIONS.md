@@ -52,10 +52,9 @@ NOTIFICATION_FROM_EMAIL
 NOTIFICATION_DISPATCHER_SECRET
 ```
 
-Without the notification provider values, the dispatcher fails closed. Portal
-notifications remain the default preference; a user must explicitly enable
-email delivery. An existing verified `QUOTE_EMAIL_FROM` is accepted when a
-separate notification sender is not configured.
+Use `NOTIFICATION_RESEND_API_KEY` for a dedicated sending-only Resend workspace key. `NOTIFICATION_TEST_RECIPIENT` optionally selects the Resend account owner for sandbox test emails while domain verification is pending. Real pot alerts always use the configured domain sender.
+
+The email dispatcher accepts the verified `QUOTE_EMAIL_FROM` as a fallback sender. Store the same dispatcher credential in Vault as `exacth2o_notification_dispatcher_secret`. The `dispatch-exacth2o-email` job wakes the sender when email is due. Account & access provides the project email preference, test button and notification history. Experiment moisture readings stay in the portal.
 
 ## Release sequence
 
@@ -125,7 +124,5 @@ manual observation writes `delivery_evidence`, the truthful result is
 
 - Connect a physical delivery sensor and define tolerances for each irrigation
   path.
-- Configure and schedule the notification dispatcher after verifying the
-  sending domain and recipients.
 - Populate and physically confirm canonical pot positions and hardware
   bindings for each installation.

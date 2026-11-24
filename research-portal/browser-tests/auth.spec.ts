@@ -39,3 +39,9 @@ test('invite and password-setup URLs select their existing forms', async ({ page
   await page.getByRole('button', { name: 'Save Password' }).click();
   await expect(page.getByRole('alert')).toHaveText('Use at least 8 characters.');
 });
+
+test('phone setup displays a public pairing QR before sign-in on desktop', async ({ page }) => {
+  await page.goto('/portal?view=account&phoneSetup=1');
+  await expect(page.getByRole('img', { name: 'Scan to open ExactH2O phone setup' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+});

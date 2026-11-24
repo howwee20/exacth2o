@@ -12,7 +12,7 @@ export function notificationConfiguration(env) {
   const from = String(
     env.NOTIFICATION_FROM_EMAIL || env.QUOTE_EMAIL_FROM || "",
   ).trim();
-  const apiKey = String(env.RESEND_API_KEY || "").trim();
+  const apiKey = String(env.NOTIFICATION_RESEND_API_KEY || env.RESEND_API_KEY || "").trim();
   if (provider !== "resend") {
     return { ready: false, error: "Unsupported notification provider." };
   }
@@ -51,4 +51,13 @@ export function resendPayload(notification, from) {
     subject: String(notification.subject || "").trim().slice(0, 200),
     text: String(notification.body || "").trim().slice(0, 8_000),
   };
+}
+
+// Resend permits its sandbox sender to address the account owner for test messages.
+export function notificationSender(notification, from, sandboxRecipient) {
+  const sandbox = String(sandboxRecipient || "").trim().toLowerCase();
+  if (sandbox && notification.event_type === "test_email" && String(notification.destination).trim().toLowerCase() === sandbox) {
+    return "ExactH2O Test <onboarding@resend.dev>";
+  }
+  return from;
 }
