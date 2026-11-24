@@ -87,6 +87,7 @@ jobs:
           cp portal-preview-20261012.jpg portal-preview-20261013.jpg independent-irrigation-20261009-v2.jpg site-dist/
           cp applications-plant-stress-20260804.jpg applications-plant-phenotyping-20260804.jpg applications-research-greenhouse-20260804.jpg site-dist/
 
+          cp portal-push.js portal.webmanifest portal-icon-192.png portal-icon-512.png site-dist/
           cp -R applications-demo-app site-dist/
           cp -R demo-app site-dist/
 

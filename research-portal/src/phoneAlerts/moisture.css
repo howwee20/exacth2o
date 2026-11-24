@@ -1,0 +1,48 @@
+.moisture-alerts fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 0.65rem;
+  justify-items: start;
+}
+.moisture-alerts .moisture-check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.moisture-alerts input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+.moisture-bounds,
+.moisture-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.moisture-bounds label {
+  display: grid;
+  gap: 0.25rem;
+}
+.moisture-bounds input {
+  max-width: 8rem;
+}
+.moisture-alerts p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+}
+.moisture-phone {
+  display: grid;
+  gap: 0.45rem;
+}
+.moisture-alerts button {
+  width: fit-content;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid currentColor;
+  border-radius: 0.4rem;
+  font: inherit;
+  cursor: pointer;
+}

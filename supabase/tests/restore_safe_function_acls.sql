@@ -36,6 +36,7 @@ declare
     'current_portal_role(uuid)',
     'delete_quote_request(uuid, uuid)',
     'edge_usage_budget()',
+    'experiment_moisture_alerts(uuid)', -- Account and experiment visibility checked inside.
     'gas_mixer_native_status(uuid, text)',
     'gas_mixer_remote_status(uuid, text)',
     'has_gas_mixer_module_access(uuid, text, text)',
@@ -58,6 +59,7 @@ declare
     'restore_assistant_experiment(uuid, uuid)',
     'renew_commissioning_run(uuid, text, text, uuid)',
     'save_commissioning_session(uuid, text, text, jsonb, uuid)',
+    'save_experiment_moisture_alerts(uuid, text, boolean, boolean, numeric, numeric, timestamp with time zone, boolean)', -- Shared changes also require a project researcher.
     'set_notification_preference(uuid, text, boolean, text, text[])',
     'walker_latest_recorded_snapshot(uuid, text, integer, integer)',
     'walker_live_observation_snapshot(uuid, text, integer, integer)',
@@ -132,6 +134,7 @@ select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
 select acl_snapshot_test.expect_denied($q$select * from public.create_project_invite('acl-test@example.invalid', '22222222-2222-4222-8222-222222222222', 'owner', now() + interval '1 day')$q$);
 select acl_snapshot_test.expect_denied($q$select public.invoke_assistant_automation_runner()$q$);
+select acl_snapshot_test.expect_denied($q$select public.claim_moisture_push(null)$q$);
 reset role;
 
 rollback;

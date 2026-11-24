@@ -42,6 +42,7 @@ import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
 import { autocalRunStore, useAutocalRun } from "./autocalibrate/runStore";
 import { potRanges } from "./product/directExperimentModel";
 import { installationFieldMap } from "./autocalibrate/fieldMap";
+import { MoistureAlerts, type AlertEditor } from "./phoneAlerts/MoistureAlerts";
 import { ExperimentPotPicker, useExperimentFieldPots } from "./ExperimentPotPicker";
 import {
   assignmentInGroup,
@@ -73,6 +74,7 @@ type ExperimentBuilderProps = {
   experiments?: readonly PortalExperiment[];
   presentation?: "modal" | "inline";
   systemName?: string;
+  phoneAlerts?: boolean;
   /** The autocalibration of the draft's pots. It reports when its session ends and whether the test ran to the end. */
   renderBenchCalibration?: (draft: ExperimentDraft, choose: (name: string) => void) => ReactNode;
   renderCalibration?: (draft: ExperimentDraft, options: { onClosed: (outcome: { status: string; completed: boolean }) => void }) => ReactNode;
@@ -141,10 +143,13 @@ function ExperimentBuilderContent({
   presentation = "modal",
   systemName,
   renderCalibration,
+  phoneAlerts,
   renderBenchCalibration,
   onClose,
   onCreated,
 }: ExperimentBuilderProps) {
+  const alerts = useRef<AlertEditor>(null);
+  const retryAlertSave = useRef<(() => Promise<void>) | null>(null);
   const editing = Boolean(experiment);
   const calibrationRunning = Boolean(useAutocalRun().live);
   const [step, setStep] = useState<BuilderStep>("setup");
@@ -417,6 +422,8 @@ function ExperimentBuilderContent({
   const reviewExperiment = async () => {
     if (busy || fieldSelectionBlocked || autocalRunStore.running) return;
     setAttemptedReview(true);
+    const alertIssue = alerts.current?.validate();
+    if (alertIssue) { setError(alertIssue); return; }
     const normalized = normalizeExperimentDraft(draft);
     const issues = validateExperimentDraft(normalized, pairings);
     if (issues.length) {
@@ -472,6 +479,16 @@ function ExperimentBuilderContent({
       });
       setCreatedSlug(result.experiment_slug);
       setLaunchStatus(result.status);
+      const alertEditor = alerts.current;
+      if (alertEditor) {
+        const save = () => alertEditor.save(result.experiment_id);
+        try { await save(); }
+        catch (e) {
+          retryAlertSave.current = save;
+          setError(`Experiment saved. Alert settings need a retry. ${e instanceof Error ? e.message : ""}`);
+          setStep("complete"); return;
+        }
+      }
       setStep("complete");
       onCreated(result.experiment_slug);
     } catch (nextError) {
@@ -677,6 +694,8 @@ function ExperimentBuilderContent({
                   </div>
                 </section>}
 
+                {phoneAlerts && deviceId && <MoistureAlerts ref={alerts} projectId={projectId} deviceId={deviceId}
+                  experimentId={experiment?.databaseId} targets={draft.assignments.flatMap(a => a.target_vwc_percent == null || a.target_vwc_percent < 0 || a.target_vwc_percent > 100 ? [] : [a.target_vwc_percent])} />}
                 <details className="experiment-builder-details">
                   <summary>More options</summary>
                   <div className="xb-more">
@@ -852,6 +871,12 @@ function ExperimentBuilderContent({
                 : `Opening ${draft.name}…`}
             </p>
             {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
+            {retryAlertSave.current && <button type="button" disabled={busy} onClick={async () => {
+              setBusy(true);
+              try { await retryAlertSave.current?.(); retryAlertSave.current=null; if(createdSlug) onCreated(createdSlug); }
+              catch(e) { setError(e instanceof Error ? e.message : "Could not save alerts."); }
+              finally { setBusy(false); }
+            }}>Retry alert settings</button>}
             <button
               type="button"
               className="is-primary"
