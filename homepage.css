@@ -415,3 +415,59 @@
 .home-page .features-strip .feat-card:hover { box-shadow: 0 18px 36px -22px rgba(0, 0, 0, .26); }
 .home-page .research-strip { background: #fff; }
 .home-page ::selection { background: #dfe7f7; }
+
+@media (max-width: 700px), (max-width: 940px) and (max-height: 520px) and (pointer: coarse) {
+  .home-page .home-section.autocal-strip {
+    --phone-bench: 1;
+    --header-height: 54px;
+    scroll-margin-top: calc(var(--header-height) - 6rem);
+  }
+  .autocal-track {
+    /* A short phone can scroll through the bottom of the scene after the turn. */
+    --scene-height: max(calc(100svh - var(--header-height)), calc(var(--data-caption-height, 160px) + 482px));
+    height: calc(var(--scene-height) + 92svh);
+  }
+  .autocal-stage { top: var(--header-height); height: var(--scene-height); }
+  .autocal-anchor { top: 64svh; scroll-margin-top: calc(var(--header-height) - 6rem); }
+  .autocal-head { inset-block-start: 16px; padding-inline: clamp(16px, 5vw, 28px); }
+  .home-page .autocal-head .home-head { max-width: 36rem; }
+  .home-page .autocal-head .section-title { font-size: clamp(28px, 7.5vw, 36px); }
+  .home-page .autocal-head .home-head-aside { max-width: 44ch; font-size: 1rem; line-height: 1.4; margin-top: 8px; }
+  .autocal-head .trace-links { margin-top: 4px; }
+  .home-page .autocal-head .trace-applications-link { min-height: 44px; font-size: 15px; }
+  .autocal-split { height: 44px; padding-inline: 14px; }
+  .autocal-chart .home-traces-chart-card { min-width: 0; padding: 12px; border-radius: 14px; }
+  .autocal-chart .trace-toolbar h3 { font-size: 18px; }
+  .autocal-chart .trace-pot-legend {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 2px;
+    margin: 4px 0;
+  }
+  .autocal-chart .trace-pot-legend button { flex: none; min-height: 44px; padding-inline: 12px; }
+  .autocal-chart .trace-chart-footer { padding-top: 6px; }
+  .trace-group-card { padding: 10px 12px 8px; }
+}
+@media (max-width: 600px) {
+  .home-page .home-section.autocal-strip { --header-height: 48px; }
+  .home-page .cinema-hero { row-gap: 24px; padding-block: 28px 32px; }
+  .home-page .cinema-title { font-size: clamp(32px, 9vw, 44px); }
+  .home-page .cinema-copy { margin-top: 14px; font-size: 1rem; line-height: 1.45; }
+  .home-page .cinema-actions { gap: 4px 16px; margin-top: 16px; align-items: center; }
+  .home-page .cinema-photo { aspect-ratio: 3 / 2; border-radius: 14px; }
+  .hero-stats > div { justify-content: start; padding-inline: clamp(6px, 2vw, 12px); }
+  .hero-stats dd { margin-top: auto; font-size: clamp(20px, 5.7vw, 26px); }
+  .home-page .features-strip { padding-block: 44px; }
+  .home-page .features-strip .feat-card .text-link { min-height: 44px; }
+  .home-page .cta-strip { padding-block: 64px; }
+}
+@media (max-width: 700px) and (prefers-reduced-motion: reduce),
+       (max-width: 940px) and (max-height: 520px) and (pointer: coarse) and (prefers-reduced-motion: reduce) {
+  .autocal-track { height: auto; }
+  .autocal-stage { position: relative; top: 0; }
+  .autocal-anchor { top: 0; }
+}

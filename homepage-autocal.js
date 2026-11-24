@@ -27,6 +27,7 @@
   // The graphs the chart breaks into (homepage-traces.js fills this in), and the button that breaks it.
   var groupsBox = stage.querySelector('[data-trace-groups]'), splitBtn = stage.querySelector('[data-trace-split]');
   var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var phoneLayout = false;
   var COLS = 25, ROWS = 4;
   // Valve rows on the controller, top to bottom. White tubing is drawn grey so it shows on the white table.
   var zones = [
@@ -115,11 +116,19 @@
   }
 
   function resize() {
-    var dpr = DPR = Math.min(window.devicePixelRatio || 1, 2);
+    phoneLayout = getComputedStyle(stage).getPropertyValue('--phone-bench').trim() === '1';
+    if (phoneLayout && capB) {
+      // Leave space for the wrapped caption, even with larger accessibility text.
+      track.style.setProperty('--data-caption-height', Math.ceil(capB.offsetHeight) + 'px');
+    }
+    var dpr = DPR = Math.min(window.devicePixelRatio || 1, phoneLayout ? 1.5 : 2);
     W = canvas.clientWidth; H = canvas.clientHeight;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (lctx) { links.width = canvas.width; links.height = canvas.height; lctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    var pixelWidth = Math.round(W * dpr), pixelHeight = Math.round(H * dpr);
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight || (lctx && links.width !== pixelWidth)) {
+      canvas.width = pixelWidth; canvas.height = pixelHeight;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (lctx) { links.width = pixelWidth; links.height = pixelHeight; lctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    }
     // Room each caption takes from the top of the stage, and where the captions' column starts and ends.
     var frame = canvas.getBoundingClientRect(), boxA = capA ? capA.getBoundingClientRect() : null, boxB = capB ? capB.getBoundingClientRect() : null;
     reserve = boxA ? Math.max(0, boxA.bottom - frame.top + 16) : 0;
@@ -156,7 +165,8 @@
     var link = still ? 1 : unit(played / 0.9), rec = still ? 1 : ease((played - 0.7) / 2.4);
     turn = turn * turn * (3 - 2 * turn);
     var angle = tilt * 1.08, sin = Math.sin(angle), cos = Math.cos(angle);
-    var pad = W < 700 ? 8 : Math.max(24, W * 0.035), box = W < 700 ? 0 : 0.13;
+    var pad = phoneLayout ? Math.max(12, W * 0.04) : Math.max(24, W * 0.035);
+    var box = W < 240 ? 0 : 0.13;
     var pitch = (W - pad * 2) / (COLS + 1.2 + (COLS + 1.2) * box), r = pitch * 0.4, tall = r * 1.7 * tilt;
     var benchW = pitch * (COLS + 0.4), depth = pitch * (ROWS + 0.4), left = 0;
     // The bench top is a slab on legs; the floor lies under the legs.
@@ -167,7 +177,9 @@
     var sx0 = bx - pitch * 0.16, sx1 = bx + bw + pitch * 0.16, sz0 = z0 - pitch * 0.16, sz1 = z1 + pitch * 0.16;
     // The swing eases in once the tilt is under way, so the flat plan never spins on the spot. The turn then
     // carries the view on round, past looking straight down the bench, to level from the other side.
-    var swing = ease((tilt - 0.3) / 0.7), yaw = box ? 0.75 * swing + (Math.PI - 0.75) * turn : 0, ys = Math.sin(yaw), yc = Math.cos(yaw);
+    // Look down the length of the bench on a phone so the four rows and cabinet are visible together.
+    var openingYaw = phoneLayout ? 1.16 : 0.75;
+    var swing = ease((tilt - 0.3) / 0.7), yaw = box ? openingYaw * swing + (Math.PI - openingYaw) * turn : 0, ys = Math.sin(yaw), yc = Math.cos(yaw);
     var midX = (left + (box ? sx1 : benchW)) / 2, midZ = depth / 2;
     function raw(x, z, h) {
       var dx = x - midX, dz = z - midZ, across = dx * yc + dz * ys, near = dz * yc - dx * ys;
@@ -184,17 +196,19 @@
     // The figure's place on the stage. Seen from above it keeps clear of the caption; in the 3D view it takes the
     // whole stage and the caption sits in the empty corner above the near end of the bench.
     var mix = function (from, to, k) { return from + (to - from) * k; };
-    var top = Math.max(H * 0.07, reserve * (1 - swing));
+    var top = phoneLayout ? reserve : Math.max(H * 0.07, reserve * (1 - swing));
     // For the data part it draws back: on a wide stage to the right of the caption, on a narrow one to a strip under
     // it. The chart takes the rest of the stage below.
     // Between the bench and the chart runs the band the line travels along.
-    var beside = W >= 900, strip = Math.max(70, H * 0.14), band = beside ? 40 : 34;
+    var beside = W >= 900 && !phoneLayout;
+    var strip = phoneLayout ? Math.min(110, Math.max(66, W * 0.2)) : Math.max(70, H * 0.14);
+    var band = phoneLayout ? 52 : beside ? 40 : 34;
     var chartTop = beside ? Math.max(reserveB + 12 + band, H * 0.5) : reserveB + strip + band, chartBottom = H - (beside ? 40 : 12);
     // On a wide stage the chart is a card narrower than the page, centred under the bench.
     var chartW = beside ? Math.min(W - edgeL * 2, Math.max(960, W * 0.7)) : W - edgeL * 2, chartL = (W - chartW) / 2;
     var boxL = mix(pad, beside ? capRight + 48 : pad, pull), boxR = mix(W - pad, W - edgeL, pull);
     var boxT = mix(top, beside ? H * 0.09 : reserveB - 8, pull), boxB = mix(H * 0.85, chartTop - band - (beside ? 10 : 2), pull);
-    var fit = Math.min(1.8, (boxR - boxL) / (hi[0] - lo[0]), (boxB - boxT) / (hi[1] - lo[1]));
+    var fit = Math.max(0.01, Math.min(phoneLayout ? 2.5 : 1.8, (boxR - boxL) / (hi[0] - lo[0]), (boxB - boxT) / (hi[1] - lo[1])));
     // Point (x across, z toward the viewer, h up) to the screen.
     function at(x, z, h) {
       var q = raw(x, z, h);
@@ -233,7 +247,7 @@
     var edge = 'rgba(16,31,26,0.2)', hoseW = Math.max(1.1, pitch * 0.045 * fit), spread = pitch * 0.17;
     // The hardware caption steps aside as the bench swings through its corner. The data caption comes in with the
     // chart.
-    var showA = box ? (yaw < 1.2 ? 1 : unit(1 - (yaw - 1.2) / 0.4)) : 1 - ease((prog - 0.5) / 0.1);
+    var showA = phoneLayout ? 1 - ease((prog - 0.5) / 0.1) : (yaw < 1.2 ? 1 : unit(1 - (yaw - 1.2) / 0.4));
     if (capA) { capA.style.opacity = showA; capA.style.visibility = showA > 0.02 ? 'visible' : 'hidden'; }
     if (capB) { capB.style.opacity = show; capB.style.visibility = show > 0.02 ? 'visible' : 'hidden'; }
 
@@ -271,7 +285,7 @@
       }
       if (splitBtn) {
         splitBtn.hidden = !parts; splitBtn.style.opacity = show; splitBtn.style.visibility = show > 0.5 ? 'visible' : 'hidden';
-        splitBtn.style.right = (W - chartL - chartW) + 'px'; splitBtn.style.top = (chartTop - band + (band - 28) / 2 - 2).toFixed(1) + 'px';
+        splitBtn.style.right = (W - chartL - chartW) + 'px'; splitBtn.style.top = (chartTop - band + (band - (phoneLayout ? 44 : 28)) / 2 - 2).toFixed(1) + 'px';
         splitBtn.setAttribute('aria-pressed', String(splitGoal === 1));
       }
       // Its curves are held back until the lines land, then let out across the plot.
@@ -527,7 +541,7 @@
     ctx.lineWidth = hoseW;
     for (var hn = 0; hn < COLS * ROWS; hn++) {
       var hp = pots[hn], hz = laneZ(hp.lane) + hp.off * spread;
-      // On a phone there is no room for the controller, so the bundles come in from past the end of the table.
+      // In very narrow embeds, the bundles enter from the end of the table.
       var start = at(box ? tieX : left + benchW + pitch * 0.6, hz, tall), end = at(potX(hn), hz, tall);
       ctx.strokeStyle = zones[hp.zone].tube;
       ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke();
@@ -646,12 +660,15 @@
 
   function frame(ms) {
     if (!visible || document.hidden) { running = false; lastMs = 0; return; }
+    // Avoid repainting all 100 pots at the phone display's full refresh rate.
+    if (phoneLayout && lastMs && ms - lastMs < 1000 / 32) { requestAnimationFrame(frame); return; }
     var now = ms / 1000, goal = progress(), moving = Math.abs(goal - prog) > 0.0003;
     if (canvas.clientWidth !== W || canvas.clientHeight !== H) { resize(); moving = true; }
     var gone = lastMs ? Math.min(0.1, (ms - lastMs) / 1000) : 0, was = played; lastMs = ms;
     // Forward at one steady pace; back a good deal quicker.
     if (moving) {
-      var stride = gone * (END - START) / (goal > prog ? MOVE : MOVE * 0.4);
+      var duration = phoneLayout ? 1.55 : MOVE;
+      var stride = gone * (END - START) / (goal > prog ? duration : duration * 0.4);
       prog = goal > prog ? Math.min(goal, prog + stride) : Math.max(goal, prog - stride);
     }
     // Played once, it stays drawn; it is wound back only when the chart has gone, ready to play again.
@@ -674,6 +691,9 @@
   });
   resize();
   draw(0);
+  if (capB && 'ResizeObserver' in window) {
+    new ResizeObserver(function () { if (phoneLayout) { resize(); draw(performance.now() / 1000); } }).observe(capB);
+  }
   window.addEventListener('resize', function () { resize(); draw(performance.now() / 1000); });
   // The captions' size settles once the page's fonts are in.
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { resize(); draw(performance.now() / 1000); });
