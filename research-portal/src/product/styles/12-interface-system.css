@@ -224,6 +224,8 @@
   .px-shell .px-header { padding-inline: 20px; }
 }
 @media (max-width: 480px) {
+  .px-shell .px-pot-chart .has-top-pots .px-experiment-tools { justify-content: flex-start; }
+  .px-shell .px-pot-chart .px-chart-actions { display: contents; }
   .px-shell .px-pot-chart .has-top-pots .px-pots-disclosure { gap: 4px; padding-inline: 6px; }
   .px-shell .px-pot-chart .has-top-pots .px-pots-disclosure > span { padding-inline: 4px; font-size: 11px; }
   .px-pots-count-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
