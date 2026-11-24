@@ -1,10 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   notificationConfiguration,
-  notificationRetryState,
-  notificationSender,
-  resendPayload,
-  retryDelaySeconds,
+  sendNotification,
   UnverifiedDestinationError,
   verifiedDestination,
 } from "./notification-policy.mjs";
@@ -51,7 +48,11 @@ Deno.serve(async (request) => {
 
   let delivered = 0;
   let failed = 0;
+  let unrecorded = 0;
   for (const notification of notifications ?? []) {
+    let outcome: "accepted" | "retry" | "canceled";
+    let receipt: string | null = null;
+    let reason: string | null = null;
     try {
       const { data: allowed, error: accessError } = await admin.rpc("email_notification_allowed", {
         notification_id: notification.id,
@@ -61,80 +62,28 @@ Deno.serve(async (request) => {
       const { data: owner, error: ownerError } = await admin.auth.admin.getUserById(notification.user_id);
       if (ownerError) throw new Error("Could not verify the recipient account.");
       verifiedDestination(notification, owner?.user ?? null);
-      const sender = notificationSender(notification, provider.from, Deno.env.get("NOTIFICATION_TEST_RECIPIENT"));
-      const delivery = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${provider.apiKey}`,
-          "content-type": "application/json",
-          "Idempotency-Key": `exacth2o-alert/${notification.id}/${sender === provider.from ? "domain" : "sandbox"}`,
-        },
-        signal: AbortSignal.timeout(8_000),
-        body: JSON.stringify(resendPayload(notification, sender)),
-      });
-      const deliveryBody = await delivery.json().catch(() => ({}));
-      if (!delivery.ok) {
-        const reason = String(deliveryBody?.message || "");
-        const code = String(deliveryBody?.name || "provider_error").replace(/[^a-z_]/gi, "").slice(0, 60);
-        const hint = /domain.*(verified|verif)/i.test(reason) ? "Verify the sending domain."
-          : /testing emails|own email address/i.test(reason) ? "Configure a verified sending address."
-          : /api key/i.test(reason) ? "Check the email provider key." : "Check the provider configuration.";
-        throw new Error(`Email provider ${delivery.status} (${code}). ${hint}`);
-      }
-      const providerId = typeof deliveryBody?.id === "string" ? deliveryBody.id : null;
-      const deliveredAt = new Date().toISOString();
-      const { error: persistError } = await admin
-        .from("notification_outbox")
-        .update({
-          status: "delivered",
-          delivered_at: deliveredAt,
-          provider_id: providerId,
-          lease_until: null,
-          last_error: null,
-          updated_at: deliveredAt,
-        })
-        .eq("id", notification.id)
-        .eq("status", "sending")
-        .eq("attempt_count", notification.attempt_count);
-      if (persistError) throw new Error("Could not record provider acceptance.");
-      await admin.from("notification_delivery_attempts").insert({
-        notification_id: notification.id,
-        status: "delivered",
-        provider_id: providerId,
-        response_metadata: { provider: "resend" },
-      });
-      delivered += 1;
+      receipt = await sendNotification(notification, provider);
+      outcome = "accepted";
     } catch (error) {
-      const message = error instanceof Error ? error.message.slice(0, 500) : "Delivery failed.";
-      const nextAttemptAt = new Date(
-        Date.now() + retryDelaySeconds(notification.attempt_count) * 1_000,
-      ).toISOString();
-      await admin.from("notification_delivery_attempts").insert({
-        notification_id: notification.id,
-        status: "failed",
-        error: message,
-        response_metadata: { provider: "resend" },
-      });
-      const { error: retryError } = await admin
-        .from("notification_outbox")
-        .update({
-          // Retrying a revoked subscription or an unconfirmed address cannot deliver an eligible alert.
-          status: error instanceof UnverifiedDestinationError || error instanceof SubscriptionEnded
-            ? "canceled"
-            : notificationRetryState(notification.attempt_count),
-          next_attempt_at: nextAttemptAt,
-          lease_until: null,
-          last_error: message,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", notification.id)
-        .eq("status", "sending")
-        .eq("attempt_count", notification.attempt_count);
-      if (retryError) return json({ error: "Could not record delivery retry." }, 500);
-      failed += 1;
+      outcome = error instanceof UnverifiedDestinationError || error instanceof SubscriptionEnded
+        ? "canceled" : "retry";
+      reason = error instanceof Error ? error.message.slice(0, 500) : "Email delivery failed.";
     }
+
+    // A storage failure leaves the lease recoverable with the same provider key.
+    const { data: status, error } = await admin.rpc("finish_notification_delivery", {
+      notification_id: notification.id,
+      claimed_attempt: notification.attempt_count,
+      outcome,
+      receipt,
+      failure_reason: reason,
+    });
+    if (error) unrecorded++;
+    else if (status === "delivered") delivered++;
+    else if (status !== null) failed++;
   }
 
+  if (unrecorded) return json({ error: "Could not record all email outcomes.", unrecorded }, 500);
   return json({
     ok: true,
     claimed: notifications?.length ?? 0,

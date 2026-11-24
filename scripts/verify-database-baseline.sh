@@ -685,6 +685,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/experiment_lifec
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/revoke_public_helper_functions.sql" >/dev/null
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/notification_preferences_rpc_only.sql" >/dev/null
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/experiment_moisture_alerts.sql" >/dev/null
+psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/email_delivery.sql" >/dev/null
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/commissioning_run_lease_guard.sql" >/dev/null
 psql "$db_url" -v ON_ERROR_STOP=1 -f "$repo_root/supabase/tests/restore_safe_function_acls.sql" >/dev/null
 # Exercise the reviewed Walker RPC's authorization and retry behavior, then discard its records.

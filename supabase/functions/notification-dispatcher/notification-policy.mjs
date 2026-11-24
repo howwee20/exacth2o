@@ -1,12 +1,3 @@
-export function retryDelaySeconds(attemptCount) {
-  const attempt = Math.max(1, Math.min(20, Number(attemptCount) || 1));
-  return Math.min(24 * 60 * 60, 60 * (2 ** (attempt - 1)));
-}
-
-export function notificationRetryState(attemptCount, maxAttempts = 20) {
-  return Number(attemptCount) >= maxAttempts ? "failed" : "pending";
-}
-
 export function notificationConfiguration(env) {
   const provider = String(env.NOTIFICATION_PROVIDER || "resend").trim().toLowerCase();
   const from = String(
@@ -53,11 +44,25 @@ export function resendPayload(notification, from) {
   };
 }
 
-// Resend permits its sandbox sender to address the account owner for test messages.
-export function notificationSender(notification, from, sandboxRecipient) {
-  const sandbox = String(sandboxRecipient || "").trim().toLowerCase();
-  if (sandbox && notification.event_type === "test_email" && String(notification.destination).trim().toLowerCase() === sandbox) {
-    return "ExactH2O Test <onboarding@resend.dev>";
+export async function sendNotification(notification, provider, send = fetch) {
+  const response = await send("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${provider.apiKey}`,
+      "content-type": "application/json",
+      "Idempotency-Key": `exacth2o-alert/${notification.id}/domain`,
+    },
+    signal: AbortSignal.timeout(8_000),
+    body: JSON.stringify(resendPayload(notification, provider.from)),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    // Provider error text can contain the address or message. Store only the code.
+    const code = String(body?.name || "provider_error").replace(/[^a-z_]/gi, "").slice(0, 60);
+    throw new Error(`Email provider returned ${response.status} (${code}).`);
   }
-  return from;
+  if (typeof body?.id !== "string" || !body.id.trim()) {
+    throw new Error("Email provider returned no delivery receipt.");
+  }
+  return body.id;
 }

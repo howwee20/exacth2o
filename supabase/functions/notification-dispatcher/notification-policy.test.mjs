@@ -2,10 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   notificationConfiguration,
-  notificationRetryState,
-  notificationSender,
+  sendNotification,
   resendPayload,
-  retryDelaySeconds,
   UnverifiedDestinationError,
   verifiedDestination,
 } from "./notification-policy.mjs";
@@ -27,16 +25,6 @@ test("notification delivery can reuse the verified public email sender", () => {
       apiKey: "re_test",
     },
   );
-});
-
-test("retry backoff is bounded", () => {
-  assert.equal(retryDelaySeconds(1), 60);
-  assert.equal(retryDelaySeconds(20), 86_400);
-});
-
-test("notifications stop retrying after the bounded attempt count", () => {
-  assert.equal(notificationRetryState(19), "pending");
-  assert.equal(notificationRetryState(20), "failed");
 });
 
 test("provider payload includes only the intended message fields", () => {
@@ -65,12 +53,26 @@ test("email goes only to the owner's confirmed sign-in address", () => {
   assert.throws(() => verifiedDestination({ destination: "" }, account), UnverifiedDestinationError);
 });
 
-test("the provider sandbox sender is limited to test mail for its owner", () => {
-  const from = "alerts@example.org";
-  const owner = "owner@example.org";
-  const n = { destination: owner, event_type: "test_email" };
-  assert.match(notificationSender(n, from, owner), /onboarding@resend.dev/);
-  assert.equal(notificationSender(n, from, ""), from);
-  assert.equal(notificationSender({ ...n, event_type: "pot_moisture" }, from, owner), from);
-  assert.equal(notificationSender({ ...n, destination: "other@example.org" }, from, owner), from);
+const notification = { id: "sample-job", destination: "owner@example.org", subject: "Test", body: "Test body" };
+const provider = { from: "alerts@example.org", apiKey: "fixture" };
+
+test("an ambiguous attempt reuses its key and body, and requires a provider receipt", async () => {
+  const requests = [];
+  const send = async (_url, request) => {
+    requests.push({ key: request.headers["Idempotency-Key"], body: request.body });
+    if (requests.length === 1) throw new Error("Connection lost");
+    return Response.json({ id: "receipt" });
+  };
+  await assert.rejects(sendNotification(notification, provider, send), /Connection lost/);
+  assert.equal(await sendNotification(notification, provider, send), "receipt");
+  assert.deepEqual(requests[0], requests[1]);
+  assert.equal(requests[0].key, "exacth2o-alert/sample-job/domain");
+  for (const body of ["{}", '{"id":" "}', "invalid JSON"]) {
+    await assert.rejects(sendNotification(notification, provider, async () => new Response(body)), /no delivery receipt/);
+  }
+});
+
+test("provider rejections keep private response text out of the delivery log", async () => {
+  const send = async () => Response.json({ name: "rate_limit", message: notification.destination }, { status: 429 });
+  await assert.rejects(sendNotification(notification, provider, send), { message: "Email provider returned 429 (rate_limit)." });
 });
