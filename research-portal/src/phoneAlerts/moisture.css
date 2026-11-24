@@ -1,48 +1,28 @@
-.moisture-alerts fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-  display: grid;
-  gap: 0.65rem;
-  justify-items: start;
-}
-.moisture-alerts .moisture-check {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-.moisture-alerts input[type="checkbox"] {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-}
-.moisture-bounds,
-.moisture-actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.moisture-bounds label {
-  display: grid;
-  gap: 0.25rem;
-}
-.moisture-bounds input {
-  max-width: 8rem;
-}
-.moisture-alerts p {
-  margin: 0.25rem 0;
-  font-size: 0.85rem;
-}
-.moisture-phone {
-  display: grid;
-  gap: 0.45rem;
-}
-.moisture-alerts button {
-  width: fit-content;
-  padding: 0.4rem 0.7rem;
-  border: 1px solid currentColor;
-  border-radius: 0.4rem;
-  font: inherit;
-  cursor: pointer;
+/* Moisture alerts in the experiment screen. Two rows, made like the group rows above them: what to watch, and whether
+   to send it to this person's phone. Phone setup opens in a quiet panel underneath. */
+.moisture-alerts fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.moisture-alerts p { margin: 0; color: var(--px-muted, #6e6e73); font-size: 13px; line-height: 1.45; }
+.moisture-alerts [role="alert"] { color: #9c382d; }
+.moisture-rows { display: grid; gap: 6px; }
+.moisture-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; min-height: 48px; padding: 5px 14px;
+  border: 1px solid rgba(16, 31, 26, .12); border-bottom-color: rgba(16, 31, 26, .2); border-radius: 10px; background: #fff; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .04); }
+.moisture-bounds { display: flex; align-items: center; gap: 12px; color: var(--px-muted, #6e6e73); font-size: 13px; white-space: nowrap; }
+.px-shell .experiment-builder .moisture-alerts .moisture-bounds label { display: inline-flex; align-items: center; gap: 7px; color: var(--px-muted, #6e6e73); font-size: 13px; font-weight: 400; }
+.px-shell .experiment-builder .moisture-alerts .moisture-bounds input { width: 76px; min-height: 36px; padding: 0 9px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.moisture-alerts fieldset > .is-secondary { justify-self: start; }
+
+.moisture-phone { display: grid; gap: 10px; justify-items: start; padding: 14px 16px; border: 1px solid rgba(16, 31, 26, .1); border-radius: 10px; background: #f7f9f8; }
+.moisture-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.px-shell .experiment-builder .moisture-alerts .moisture-key { min-height: 36px; padding: 0 13px; font-size: 13px; }
+.moisture-qr { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.moisture-qr img { display: block; padding: 6px; border: 1px solid rgba(16, 31, 26, .12); border-radius: 10px; background: #fff; }
+.moisture-qr p { max-width: 30ch; }
+.moisture-phone details { display: grid; gap: 8px; font-size: 13px; }
+.moisture-phone summary { color: var(--px-muted, #6e6e73); cursor: pointer; }
+.moisture-phone details[open] > summary { margin-bottom: 8px; }
+.moisture-phone details > p { margin-bottom: 8px; }
+
+@media (max-width: 720px) {
+  .moisture-row { padding: 10px 12px; }
+  .moisture-actions > button { flex: 1 1 100%; }
 }

@@ -126,15 +126,15 @@ export function analyze(sheet: Worksheet) {
 }
 
 export function equation(coefficients: number[]) {
-  return (
-    "VWC = " +
-    coefficients
-      .map((c, i) => {
-        const magnitude = Number(Math.abs(c).toPrecision(6));
-        return `${c < 0 ? "−" : i ? "+" : ""}${magnitude}${i === 0 ? "" : i === 1 ? "x" : "x^" + i}`;
-      })
-      .join(" ")
-  );
+  // Terms the curve does not use are left out.
+  const terms = coefficients
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => c !== 0)
+    .map(({ c, i }, n) => {
+      const sign = n ? (c < 0 ? "− " : "+ ") : c < 0 ? "−" : "";
+      return `${sign}${Number(Math.abs(c).toPrecision(6))}${["", "x", "x²", "x³", "x⁴", "x⁵"][i] ?? "x^" + i}`;
+    });
+  return "VWC = " + (terms.join(" ") || "0");
 }
 
 export function controllerLibrary(items: unknown[]) {

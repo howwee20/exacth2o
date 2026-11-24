@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import type { DeviceConfigState, QueueSettingsPlan } from "../portalTypes";
 import type { PairingRow } from "../types";
 import type { CommandProgress } from "../commandLifecycle";
@@ -20,7 +21,17 @@ import { CurvePlot } from "./CurvePlot";
 import "./bench.css";
 
 type Curve = { id: string; name: string; coefficients: number[]; worksheet: Worksheet };
-type Probe = { key: string; id: number; label: string };
+type Probe = { key: string; id: number; label: string; pot?: number };
+const FIT_MODES: [FitMode, string][] = [["linear", "Linear"], ["cubic", "Cubic"], ["manual", "Manual"]];
+const POWERS = ["Constant", "x", "x²", "x³", "x⁴", "x⁵"];
+
+// A reading taken today shows its time. An older logged one shows its date as well.
+function stamp(cell: Cell) {
+  const taken = new Date(cell.capturedAt ?? "");
+  const today = taken.toDateString() === new Date().toDateString();
+  const when = taken.toLocaleString([], today ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return `${cell.source === "direct" ? "Read" : "Logged"} ${when}`;
+}
 type Props = {
   choice: string;
   choose: (name: string) => void;
@@ -62,10 +73,15 @@ function probeOptions(config: DeviceConfigState | null, pairings: PairingRow[]) 
       options.set(p.sensor_key, {
         key: p.sensor_key,
         id: p.source_sensor_id,
-        label: `${p.sensor_key} · Pot ${p.pot_number}`,
+        label: `Pot ${p.pot_number} · ${p.sensor_key}`,
+        pot: p.pot_number,
       });
   }
-  return [...options.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  // Probes in pots come first, in pot order.
+  return [...options.values()].sort(
+    (a, b) =>
+      Number(a.pot == null) - Number(b.pot == null) || a.label.localeCompare(b.label, undefined, { numeric: true }),
+  );
 }
 
 export function BenchCalibration({
@@ -108,6 +124,10 @@ export function BenchCalibration({
   const conflict = Boolean(deviceCurve && chosenCoefficients && !sameCurve(deviceCurve, chosenCoefficients));
   const signature = JSON.stringify([choice, chosenCoefficients, targets, hash, controllerState]);
   const reviewOpen = review === signature;
+  const creating = !choice;
+  const probeByKey = useMemo(() => new Map(inventory.map((p) => [p.key, p])), [inventory]);
+  const savedFit = useMemo(() => (saved ? analyze(saved.worksheet) : null), [saved]);
+  const savedRows = saved?.worksheet.rows.filter((r) => Object.values(r.cells).some((c) => c.value.trim())) ?? [];
 
   useEffect(() => {
     mounted.current = true;
@@ -278,264 +298,362 @@ export function BenchCalibration({
       setMessage("Calibration assignment queued. Follow the controller status below.");
   }
 
+  const assignNote = !admin
+    ? "Administrator access is required to assign a calibration."
+    : conflict
+      ? "The controller has a different equation under this name. Save the worksheet with a new name."
+      : !targets.length
+        ? "Select pots below to assign this curve."
+        : !controllerState
+          ? "Waiting for current controller status."
+          : `Assign to the ${targets.length} pot${targets.length === 1 ? "" : "s"} selected below.`;
+
   return (
     <section className="xb-section bench-calibration" aria-label="Soil calibration worksheet">
       <div className="xb-heading">
         <h3>Soil calibration</h3>
+        {creating && <span>Read every probe in the same reference sample.</span>}
+        {names.length > 0 && (
+          <div className="xb-heading-tools">
+            <label className="bench-curve">
+              Curve
+              <select
+                aria-label="Curve to assign"
+                value={choice}
+                onChange={(e) => {
+                  choose(e.target.value);
+                  setReview("");
+                  setSubmitted(false);
+                  setMessage("");
+                }}
+              >
+                <option value="">New curve</option>
+                {names.map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
       </div>
-      <p className="bench-hint">
-        Measure each probe in the same reference sample. Each row pairs the known water content with the average
-        raw reading.
-      </p>
-      <fieldset disabled={Boolean(working)} className="bench-fields">
-        <label>
-          Add probe
-          <select
-            aria-label="Add calibration probe"
-            value=""
-            onChange={(e) => {
-              const key = e.target.value;
-              if (key) setSheet((prev) => ({ ...prev, probes: [...prev.probes, key] }));
-            }}
-          >
-            <option value="">Choose a connected probe</option>
-            {inventory
-              .filter((p) => !sheet.probes.includes(p.key))
-              .map((p) => (
-                <option value={p.key} key={p.key}>
-                  {p.label}
-                </option>
-              ))}
-          </select>
-        </label>
-        <div className="bench-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Reference VWC (%)</th>
-                {sheet.probes.map((key) => (
-                  <th key={key}>
-                    {key}{" "}
+      {creating ? (
+        <fieldset disabled={Boolean(working)} className="bench-fields">
+          <div className="bench-grid">
+            <div className="bench-card">
+              <header className="bench-card-head">
+                <h4>Reference samples</h4>
+                <select
+                  className="bench-add"
+                  aria-label="Add calibration probe"
+                  value=""
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    if (key) setSheet((prev) => ({ ...prev, probes: [...prev.probes, key] }));
+                  }}
+                >
+                  <option value="">Add probe</option>
+                  {inventory
+                    .filter((p) => !sheet.probes.includes(p.key))
+                    .map((p) => (
+                      <option value={p.key} key={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                </select>
+              </header>
+              <div className="bench-scroll">
+                <table className="bench-table">
+                  <thead>
+                    <tr>
+                      <th>VWC %</th>
+                      {sheet.probes.map((key) => {
+                        const pot = probeByKey.get(key)?.pot;
+                        return (
+                          <th key={key}>
+                            <span className="bench-probe">
+                              <span>
+                                {pot ? `Pot ${pot}` : key}
+                                {pot ? <small>{key}</small> : null}
+                              </span>
+                              <button
+                                type="button"
+                                className="bench-x"
+                                aria-label={`Remove probe ${key}`}
+                                onClick={() =>
+                                  setSheet((prev) => ({ ...prev, probes: prev.probes.filter((p) => p !== key) }))
+                                }
+                              >
+                                <X size={14} aria-hidden="true" />
+                              </button>
+                            </span>
+                          </th>
+                        );
+                      })}
+                      {sheet.probes.length ? <th className="is-number">Average</th> : <th>Raw reading</th>}
+                      <th aria-hidden="true" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sheet.rows.map((row, i) => (
+                      <tr key={row.id}>
+                        <td>
+                          <input
+                            className="bench-vwc"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="any"
+                            aria-label={`Reference VWC row ${i + 1}`}
+                            value={row.vwc}
+                            onChange={(e) =>
+                              setSheet((prev) => ({
+                                ...prev,
+                                rows: prev.rows.map((r) => (r.id === row.id ? { ...r, vwc: e.target.value } : r)),
+                              }))
+                            }
+                          />
+                        </td>
+                        {sheet.probes.map((key) => {
+                          const cell = row.cells[key];
+                          const reading = working === row.id + key;
+                          return (
+                            <td key={key}>
+                              <div className="bench-cell">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  aria-label={`${key} raw row ${i + 1}`}
+                                  value={cell?.value ?? ""}
+                                  onChange={(e) => setCell(row.id, key, { value: e.target.value })}
+                                />
+                                <button
+                                  type="button"
+                                  aria-label={canRead ? "Read now" : "Use latest logged"}
+                                  onClick={() => void run(row.id + key, () => capture(row.id, key))}
+                                >
+                                  {reading ? "Reading…" : canRead ? "Read" : "Latest"}
+                                </button>
+                              </div>
+                              {cell?.capturedAt && (
+                                <small title={new Date(cell.capturedAt).toLocaleString()}>{stamp(cell)}</small>
+                              )}
+                            </td>
+                          );
+                        })}
+                        {sheet.probes.length ? (
+                          <td className="is-number">
+                            {sampleMean(row, sheet.probes)?.toLocaleString(undefined, { maximumFractionDigits: 1 }) ??
+                              "—"}
+                          </td>
+                        ) : (
+                          <td className="bench-muted">{i === 0 ? "Add a probe to start" : ""}</td>
+                        )}
+                        <td className="bench-row-tools">
+                          {sheet.probes.length > 1 && (
+                            <button
+                              type="button"
+                              className="xb-link"
+                              aria-label={`${canRead ? "Read" : "Use latest logged for"} every probe in row ${i + 1}`}
+                              onClick={() =>
+                                void run(row.id, async () => {
+                                  for (const key of sheet.probes) await capture(row.id, key);
+                                })
+                              }
+                            >
+                              {working === row.id ? "Reading…" : "Read row"}
+                            </button>
+                          )}
+                          {sheet.rows.length > 4 && (
+                            <button
+                              type="button"
+                              className="bench-x"
+                              aria-label={`Remove row ${i + 1}`}
+                              onClick={() =>
+                                setSheet((prev) => ({ ...prev, rows: prev.rows.filter((r) => r.id !== row.id) }))
+                              }
+                            >
+                              <X size={14} aria-hidden="true" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {sheet.rows.length < 10 && (
+                <footer className="bench-card-foot">
+                  <button
+                    type="button"
+                    className="xb-link"
+                    onClick={() =>
+                      setSheet((prev) => ({
+                        ...prev,
+                        rows: [...prev.rows, { id: crypto.randomUUID(), vwc: "", cells: {} }],
+                      }))
+                    }
+                  >
+                    Add row
+                  </button>
+                </footer>
+              )}
+            </div>
+            <div className="bench-card bench-fit">
+              <header className="bench-card-head">
+                <h4>Curve</h4>
+                <div className="xb-segment bench-segment" role="group" aria-label="Fit model">
+                  {FIT_MODES.map(([mode, label]) => (
                     <button
                       type="button"
-                      className="xb-link"
-                      aria-label={`Remove probe ${key}`}
-                      onClick={() =>
-                        setSheet((prev) => ({ ...prev, probes: prev.probes.filter((p) => p !== key) }))
-                      }
+                      key={mode}
+                      className={sheet.mode === mode ? "is-selected" : ""}
+                      aria-pressed={sheet.mode === mode}
+                      onClick={() => setSheet((prev) => ({ ...prev, mode }))}
                     >
-                      ×
+                      {label}
                     </button>
-                  </th>
-                ))}
-                <th>Average raw</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sheet.rows.map((row, i) => (
-                <tr key={row.id}>
-                  <td>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="any"
-                      aria-label={`Reference VWC row ${i + 1}`}
-                      value={row.vwc}
-                      onChange={(e) =>
-                        setSheet((prev) => ({
-                          ...prev,
-                          rows: prev.rows.map((r) => (r.id === row.id ? { ...r, vwc: e.target.value } : r)),
-                        }))
-                      }
-                    />
-                  </td>
-                  {sheet.probes.map((key) => {
-                    const cell = row.cells[key];
-                    return (
-                      <td key={key}>
-                        <div className="bench-cell">
-                          <input
-                            type="number"
-                            step="any"
-                            aria-label={`${key} raw row ${i + 1}`}
-                            value={cell?.value ?? ""}
-                            onChange={(e) => setCell(row.id, key, { value: e.target.value })}
-                          />
-                          <button
-                            type="button"
-                            className="xb-link"
-                            onClick={() => void run(row.id + key, () => capture(row.id, key))}
-                          >
-                            {working === row.id + key ? "Reading…" : canRead ? "Read now" : "Use latest logged"}
-                          </button>
-                        </div>
-                        {cell?.capturedAt && (
-                          <small>
-                            {cell.source === "direct" ? "Measured" : "Logged"}{" "}
-                            {new Date(cell.capturedAt).toLocaleString()}
-                          </small>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td>
-                    {sampleMean(row, sheet.probes)?.toLocaleString(undefined, { maximumFractionDigits: 4 }) ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="bench-actions">
-          <button
-            type="button"
-            disabled={sheet.rows.length >= 10}
-            onClick={() =>
-              setSheet((prev) => ({
-                ...prev,
-                rows: [...prev.rows, { id: crypto.randomUUID(), vwc: "", cells: {} }],
-              }))
-            }
-          >
-            Add row
-          </button>
-          <button
-            type="button"
-            disabled={sheet.rows.length <= 4}
-            onClick={() => setSheet((prev) => ({ ...prev, rows: prev.rows.slice(0, -1) }))}
-          >
-            Remove last row
-          </button>
-        </div>
-        <label>
-          Fit model
-          <select
-            value={sheet.mode}
-            onChange={(e) => setSheet((prev) => ({ ...prev, mode: e.target.value as FitMode }))}
-          >
-            <option value="linear">Linear</option>
-            <option value="cubic">Cubic</option>
-            <option value="manual">Manual coefficients</option>
-          </select>
-        </label>
-        {sheet.mode === "manual" && (
-          <div className="bench-manual">
-            {sheet.manual.map((v, i) => (
-              <label key={i}>
-                {i === 0 ? "Constant" : `x^${i}`}
-                <input
-                  type="number"
-                  step="any"
-                  value={v}
-                  placeholder="0"
-                  onChange={(e) =>
-                    setSheet((prev) => ({
-                      ...prev,
-                      manual: prev.manual.map((old, j) => (j === i ? e.target.value : old)),
-                    }))
-                  }
-                />
-              </label>
-            ))}
-          </div>
-        )}
-        <CurvePlot points={fit.points} coefficients={fit.coefficients} />
-        {fit.error ? (
-          <p className="bench-hint">{fit.error}</p>
-        ) : (
-          <div>
-            <code>{equation(fit.coefficients)}</code>
-            {fit.r2 !== null && (
-              <p>
-                R² {fit.r2.toFixed(4)} · {fit.points.length} reference samples
-              </p>
-            )}
-          </div>
-        )}
-        <div className="bench-actions">
-          <label>
-            Calibration name
-            <input
-              maxLength={120}
-              value={name}
-              placeholder={experimentName || "e.g. Greenhouse peat mix"}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!libraryReady || !fit.coefficients.length || !(name || experimentName).trim()}
-            onClick={() => void run("save", save)}
-          >
-            Save calibration
-          </button>
-        </div>
-      </fieldset>
-      <div className="bench-library">
-        <h4>Saved calibrations</h4>
-        <label>
-          Curve to assign
-          <select
-            value={choice}
-            onChange={(e) => {
-              choose(e.target.value);
-              setReview("");
-              setSubmitted(false);
-              setMessage("");
-            }}
-          >
-            <option value="">Select a saved curve</option>
-            {names.map((n) => (
-              <option key={n}>{n}</option>
-            ))}
-          </select>
-        </label>
-        {chosenCoefficients && <code>{equation(chosenCoefficients)}</code>}
-        {saved && (
-          <details>
-            <summary>Saved worksheet · {saved.worksheet.probes.length} probes</summary>
-            <div className="bench-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>VWC (%)</th>
-                    {saved.worksheet.probes.map((k) => (
-                      <th key={k}>{k}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {saved.worksheet.rows.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.vwc}</td>
-                      {saved.worksheet.probes.map((k) => (
-                        <td key={k}>{r.cells[k]?.value || "—"}</td>
-                      ))}
-                    </tr>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </header>
+              {sheet.mode === "manual" && (
+                <div className="bench-manual">
+                  {sheet.manual.map((v, i) => (
+                    <label key={i}>
+                      {POWERS[i]}
+                      <input
+                        type="number"
+                        step="any"
+                        value={v}
+                        placeholder="0"
+                        onChange={(e) =>
+                          setSheet((prev) => ({
+                            ...prev,
+                            manual: prev.manual.map((old, j) => (j === i ? e.target.value : old)),
+                          }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+              <CurvePlot points={fit.points} coefficients={fit.coefficients} />
+              {fit.error ? (
+                <p className="bench-empty">{fit.error}</p>
+              ) : (
+                <div className="bench-result">
+                  <code>{equation(fit.coefficients)}</code>
+                  {fit.r2 !== null && (
+                    <span>
+                      R² {fit.r2.toFixed(4)} · {fit.points.length} reference samples
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-          </details>
-        )}
-        {choice && (
-          <>
-            <p className="bench-hint">
-              {targets.length
-                ? `Assign to the ${targets.length} pot${targets.length === 1 ? "" : "s"} selected in this experiment.`
-                : "Select the destination pots in the experiment below."}
-            </p>
-            {!admin && <p>Administrator access is required to assign a controller calibration.</p>}
-            {conflict && (
-              <p role="alert">
-                The controller has a different equation under this name. Save the worksheet with a new name.
-              </p>
+          </div>
+          <div className="bench-save">
+            <label>
+              Calibration name
+              <input
+                maxLength={120}
+                value={name}
+                placeholder={experimentName || "e.g. Greenhouse peat mix"}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="is-secondary"
+              disabled={!libraryReady || !fit.coefficients.length || !(name || experimentName).trim()}
+              onClick={() => void run("save", save)}
+            >
+              {working === "save" ? "Saving…" : "Save calibration"}
+            </button>
+          </div>
+        </fieldset>
+      ) : (
+        <>
+          <div className={savedRows.length ? "bench-grid" : "bench-grid is-single"}>
+            {saved && savedRows.length > 0 && (
+              <div className="bench-card">
+                <header className="bench-card-head">
+                  <h4>Reference samples</h4>
+                  <span className="bench-muted">
+                    {saved.worksheet.probes.length} probe{saved.worksheet.probes.length === 1 ? "" : "s"}
+                  </span>
+                </header>
+                <div className="bench-scroll">
+                  <table className="bench-table is-readonly">
+                    <thead>
+                      <tr>
+                        <th>VWC %</th>
+                        {saved.worksheet.probes.map((k) => (
+                          <th key={k}>{k}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {savedRows.map((r) => (
+                        <tr key={r.id}>
+                          <td>{r.vwc}</td>
+                          {saved.worksheet.probes.map((k) => (
+                            <td key={k}>{r.cells[k]?.value || "—"}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
-            {admin && !controllerState && <p>Waiting for current controller status.</p>}
-            {!reviewOpen && (
+            <div className="bench-card bench-fit">
+              <header className="bench-card-head">
+                <h4>{choice}</h4>
+                {!saved && deviceCurve && <span className="bench-muted">On the controller</span>}
+              </header>
+              {chosenCoefficients ? (
+                <>
+                  <CurvePlot points={savedFit?.points ?? []} coefficients={chosenCoefficients} />
+                  <div className="bench-result">
+                    <code>{equation(chosenCoefficients)}</code>
+                  </div>
+                </>
+              ) : (
+                <p className="bench-empty">{libraryReady ? "This curve is no longer saved." : "Loading…"}</p>
+              )}
+            </div>
+          </div>
+          {reviewOpen ? (
+            <div className="bench-confirm">
+              <div>
+                <strong>Apply {choice}?</strong>
+                <p>{targets.join(", ")}</p>
+                <p>
+                  {controllerState === "running"
+                    ? "The controller will briefly stop, apply the curve to these pots, then restart."
+                    : "The controller will apply the curve to these pots while stopped."}
+                </p>
+              </div>
+              <div className="bench-actions">
+                <button type="button" className="is-secondary" onClick={() => setReview("")}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="is-primary"
+                  disabled={commandBusy || Boolean(working)}
+                  onClick={() => void run("apply", apply)}
+                >
+                  Confirm assignment
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bench-assign">
+              <p role={admin && conflict ? "alert" : undefined}>{assignNote}</p>
               <button
                 type="button"
+                className="is-secondary"
                 disabled={
                   !admin ||
                   !targets.length ||
@@ -554,37 +672,22 @@ export function BenchCalibration({
               >
                 Review assignment
               </button>
-            )}
-          </>
-        )}
-        {reviewOpen && (
-          <div className="bench-confirm">
-            <strong>Apply {choice}?</strong>
-            <p>{targets.join(", ")}</p>
-            <p>
-              {controllerState === "running"
-                ? "The controller will briefly stop, apply the curve to these pots, then restart."
-                : "The controller will apply the curve to these pots while stopped."}
-            </p>
-            <div className="bench-actions">
-              <button
-                type="button"
-                disabled={commandBusy || Boolean(working)}
-                onClick={() => void run("apply", apply)}
-              >
-                Confirm assignment
-              </button>
-              <button type="button" onClick={() => setReview("")}>
-                Cancel
-              </button>
             </div>
-          </div>
-        )}
-      </div>
-      {(error || (submitted && commandError)) && <p role="alert">{error || commandError}</p>}
-      {message && <p role="status">{message}</p>}
+          )}
+        </>
+      )}
+      {(error || (submitted && commandError)) && (
+        <p className="bench-note" role="alert">
+          {error || commandError}
+        </p>
+      )}
+      {message && (
+        <p className="bench-note" role="status">
+          {message}
+        </p>
+      )}
       {submitted && progress && (
-        <p role="status">
+        <p className="bench-note" role="status">
           {progress.title}. {progress.detail}
         </p>
       )}

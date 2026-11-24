@@ -69,19 +69,10 @@ export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, o
           onToggle,
         }}
       />
-      <section aria-labelledby="available-experiment-pots">
-        <h4 id="available-experiment-pots">Available</h4>
-        {available.length ? (
-          <div className="experiment-builder-pot-grid">
-            {available.map(pot => <button type="button" key={pot} onClick={() => onToggle(pot)}>
-              <span>Pot {pot}</span>
-            </button>)}
-          </div>
-        ) : <p className="settings-muted">No available pots.</p>}
-      </section>
-      <section aria-labelledby="selected-experiment-pots">
+      {/* The map is the picker. Chosen pots are listed once more only to show each one's group and what it still needs. */}
+      {selectedInOrder.length ? <section aria-labelledby="selected-experiment-pots">
         <h4 id="selected-experiment-pots">Selected</h4>
-        {selectedInOrder.length ? (
+        {(
           <div className="experiment-builder-pot-grid">
             {selectedInOrder.map(({ name, number }) => {
               const label = number == null ? name : "Pot " + number;
@@ -96,8 +87,8 @@ export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, o
               </button>;
             })}
           </div>
-        ) : <p className="settings-muted">No pots selected.</p>}
-      </section>
+        )}
+      </section> : null}
     </div>
   );
 }

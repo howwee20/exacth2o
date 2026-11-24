@@ -4,7 +4,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { PortalExperiment } from "../experimentRegistry";
 import { navigatePortal, portalRouteHref, type PortalRoute } from "../portalRoute";
 import { experimentsForPot, searchPots } from "../potIdentity";
-import type { PairingRow } from "../types";
+import type { PairingRow, SensorReading, ValveEvent } from "../types";
+import { colorForPotNumber } from "../potColors";
 
 type ManualControl = { projectId: string; deviceId: string; controllerName: string };
 /** A search result. With manual control, `pot` is the physical pot its valve waters. */
@@ -61,7 +62,13 @@ export function FindPotDialog({
   experiments,
   routeFor,
   manualControl,
+  readings = [],
+  valveEvents = [],
 }: {
+  /** Recent valve events, for when the chosen pot was last watered. */
+  valveEvents?: readonly ValveEvent[];
+  /** Recent readings, for the trace of the chosen pot. */
+  readings?: readonly SensorReading[];
   manualControl?: ManualControl;
   open: boolean;
   onClose: () => void;
@@ -80,6 +87,16 @@ export function FindPotDialog({
   const client = useMemo(() => manualControl ? new ManualWaterClient(manualControl.projectId, manualControl.deviceId) : null,
     [manualControl?.projectId, manualControl?.deviceId]); // eslint-disable-line react-hooks/exhaustive-deps
   const results = useMemo(() => searchAllPots(query, pairings, experiments, book), [book, experiments, pairings, query]);
+  // The newest moisture reading of each pairing, for the result rows.
+  const latest = useMemo(() => {
+    const byName = new Map<string, { at: number; value: number }>();
+    for (const reading of readings) {
+      const at = Date.parse(reading.device_recorded_at);
+      if (!Number.isFinite(at) || !Number.isFinite(reading.calibrated_value)) continue;
+      if (at > (byName.get(reading.pairing_name)?.at ?? 0)) byName.set(reading.pairing_name, { at, value: reading.calibrated_value });
+    }
+    return byName;
+  }, [readings]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -144,6 +161,10 @@ export function FindPotDialog({
             client={client}
             book={book}
             onBook={setBook}
+            colorPot={valvePairing?.pot_number ?? selected}
+            lastWateredAt={valvePairing ? valveEvents.reduce((newest, event) => event.pairing_name === valvePairing.name && event.action === "open"
+              ? Math.max(newest, Date.parse(event.device_recorded_at) || 0) : newest, 0) || null : null}
+            readings={valvePairing ? readings.filter((reading) => reading.pairing_name === valvePairing.name) : null}
             recordHref={valvePairing ? portalRouteHref(routeFor(valvePairing.name)) : null}
             onClose={onClose}
           />
@@ -194,6 +215,7 @@ export function FindPotDialog({
                   >
                     <b>{result.pot != null ? `Pot ${result.pot}` : result.pairing?.name}</b>
                     <span>{result.experiment?.name ?? (result.route ? (result.route.pairing?.sensorKey ? "Sensor linked" : "No sensor linked") : "Not in a current experiment")}</span>
+                    {result.pairing && latest.has(result.pairing.name) ? <span className="px-result-vwc">{latest.get(result.pairing.name)!.value.toFixed(1)}%</span> : null}
                     {result.route
                       ? <span className="px-route-badge" data-status={result.route.status}>{statusText[result.route.status]}</span>
                       : client ? <span className="px-route-badge" data-status="unmapped">Valve not confirmed</span> : <span className="px-mono">{result.pairing?.name}</span>}
@@ -213,33 +235,96 @@ export function FindPotDialog({
   );
 }
 
-function PotPanel({ titleId, pot, route, experiment, controllerName, client, book, onBook, recordHref, onClose }: {
-  titleId: string; pot: number; route: PotRoute | null; experiment: PortalExperiment | null; controllerName: string;
-  client: ManualWaterClient; book: RouteBook | null; onBook: (book: RouteBook) => void; recordHref: string | null; onClose: () => void;
+function PotPanel({ titleId, pot, colorPot, lastWateredAt, route, experiment, controllerName, client, book, onBook, readings, recordHref, onClose }: {
+  titleId: string; pot: number; colorPot: number; lastWateredAt: number | null; route: PotRoute | null; experiment: PortalExperiment | null; controllerName: string;
+  client: ManualWaterClient; book: RouteBook | null; onBook: (book: RouteBook) => void; readings: readonly SensorReading[] | null; recordHref: string | null; onClose: () => void;
 }) {
+  const trace = useMemo(() => potTrace(readings ?? []), [readings]);
+  const last = trace[trace.length - 1];
   return (
     <div className="px-pot-panel">
       <header>
-        <h2 id={titleId}>Pot {pot}</h2>
-        <p>{experiment?.name ?? controllerName}</p>
+        <div>
+          <h2 id={titleId}>Pot {pot}</h2>
+          <p>{experiment?.name ?? controllerName}</p>
+        </div>
+        {last ? <p className="px-pot-now"><b>{last.value.toFixed(1)}%</b><span>VWC · {new Date(last.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span></p> : null}
       </header>
-      <PotRouteFacts route={route} admin={Boolean(book?.canConfirm)} />
+      {trace.length > 1 ? <PotTraceGraph pot={pot} colorPot={colorPot} trace={trace} />
+        : route ? <p className="px-muted px-small">{route.pairing?.sensorKey ? "No recent readings." : "No sensor linked."}</p> : null}
+      {lastWateredAt ? <p className="px-pot-watered">Last watered {whenText(lastWateredAt)}</p> : null}
       {!route ? <p className="px-muted px-small">Loading valve routes…</p>
         : route.status === "ready" ? <HoldWaterControl key={`${pot}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber: pot }} label={`Pot ${pot}`}
-            renewMs={book?.renewMs} leaseMs={book?.leaseMs} canTakeover={book?.canTakeover} />
+            renewMs={book?.renewMs} leaseMs={book?.leaseMs} canTakeover={book?.canTakeover} compact />
         : <RouteNeeded route={route} canConfirm={Boolean(book?.canConfirm)} book={book} client={client} onBook={onBook} />}
+      <PotRouteFacts route={route} admin={Boolean(book?.canConfirm)} detailsOnly />
       {recordHref ? <a className="px-pot-record" href={recordHref} onClick={onClose}>Open sensor record <span aria-hidden="true">→</span></a> : null}
     </div>
   );
 }
 
+/** Today shows the time; any other day shows the date as well. */
+function whenText(at: number) {
+  const date = new Date(at);
+  const today = date.toDateString() === new Date().toDateString();
+  return date.toLocaleString([], today ? { hour: "numeric", minute: "2-digit" } : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+type TracePoint = { at: number; value: number };
+const TRACE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** The pot's moisture over the last day of what is loaded, oldest first. */
+function potTrace(readings: readonly SensorReading[]): TracePoint[] {
+  const points = readings
+    .map((reading) => ({ at: Date.parse(reading.device_recorded_at), value: reading.calibrated_value }))
+    .filter((point) => Number.isFinite(point.at) && Number.isFinite(point.value))
+    .sort((a, b) => a.at - b.at);
+  if (!points.length) return points;
+  const from = points[points.length - 1].at - TRACE_WINDOW_MS;
+  const recent = points.filter((point) => point.at >= from);
+  const step = Math.ceil(recent.length / 400);
+  return step > 1 ? recent.filter((_, index) => index % step === 0 || index === recent.length - 1) : recent;
+}
+
+/** The pot's trace in the colour it has on every other graph. */
+function PotTraceGraph({ pot, colorPot, trace }: { pot: number; colorPot: number; trace: TracePoint[] }) {
+  const W = 520, H = 132, LEFT = 30, TOP = 8, BOTTOM = 112;
+  // The sensor's pairing decides the colour, as on the experiment graphs.
+  const color = colorForPotNumber(colorPot);
+  const first = trace[0].at, last = trace[trace.length - 1].at;
+  const values = trace.map((point) => point.value);
+  const low = Math.floor(Math.min(...values) - 1), high = Math.ceil(Math.max(...values) + 1);
+  const x = (at: number) => LEFT + ((W - LEFT - 6) * (at - first)) / Math.max(1, last - first);
+  const y = (value: number) => BOTTOM - ((BOTTOM - TOP) * (value - low)) / (high - low);
+  // A long silence breaks the line instead of drawing across it.
+  const steps = trace.slice(1).map((point, index) => point.at - trace[index].at).sort((a, b) => a - b);
+  const gap = Math.max(steps[Math.floor(steps.length / 2)] * 6, 20 * 60 * 1000);
+  const line = trace.map((point, index) => `${index && point.at - trace[index - 1].at <= gap ? "L" : "M"}${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`).join(" ");
+  const hours = Math.round((last - first) / 3600000);
+  const end = trace[trace.length - 1];
+  return (
+    <svg className="px-pot-trace" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pot ${pot} moisture, last ${hours || 1} hours`} style={{ color }}>
+      {[low, high].map((value) => (
+        <g key={value}>
+          <line x1={LEFT} x2={W} y1={y(value)} y2={y(value)} />
+          <text x={LEFT - 7} y={y(value) + 3.5} textAnchor="end">{value}</text>
+        </g>
+      ))}
+      <text x={LEFT} y={H - 4}>{hours >= 1 ? `${hours} h ago` : "Earlier"}</text>
+      <text x={W} y={H - 4} textAnchor="end">Now</text>
+      <path d={line} />
+      <circle cx={x(end.at)} cy={y(end.value)} r="3.5" />
+    </svg>
+  );
+}
+
 /** Watering confirmation and sensor configuration are separate facts. */
-export function PotRouteFacts({ route, admin }: { route: PotRoute | null; admin: boolean }) {
+export function PotRouteFacts({ route, admin, detailsOnly = false }: { route: PotRoute | null; admin: boolean; detailsOnly?: boolean }) {
   return <>
-    <dl className="px-pot-facts">
+    {detailsOnly ? null : <dl className="px-pot-facts">
       <div><dt>Watering</dt><dd>{route ? (route.status === "ready" ? "Ready" : "Needs setup") : "Loading…"}</dd></div>
       <div><dt>Sensor</dt><dd>{route ? (route.pairing?.sensorKey ? "Linked" : "No sensor linked") : "Loading…"}</dd></div>
-    </dl>
+    </dl>}
     {admin && route ? <details className="px-details">
       <summary>Hardware details</summary>
       <dl className="px-pot-facts">
