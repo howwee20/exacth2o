@@ -21,6 +21,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.addInitScript(({ token, user }) => {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
+    const preferenceWrites: Array<{selected_channel: string; selected_event_types: string[]}> = [];
     let savedAlerts: Record<string,unknown> | undefined;
     let savedCurve: Record<string, unknown> | undefined;
     let assignmentCommands: {command_type: string; payload: Record<string, unknown>}[] = [];
@@ -86,6 +87,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = url.searchParams.has('active') ? null : [];
       } else if (url.pathname === '/rest/v1/rpc/portal_team_snapshot') {
         data = {members:[],invites:[]};
+      } else if (url.pathname === '/rest/v1/notification_preferences') {
+        data = [{channel:'email',enabled:true,destination:email,event_types:['operation_failed']}];
+      } else if (url.pathname === '/rest/v1/rpc/set_notification_preference') {
+        preferenceWrites.push(route.request().postDataJSON());
+        data = 'saved';
       } else if (url.pathname === '/rest/v1/rpc/request_alert_test_email') {
         expect(route.request().postDataJSON()).toEqual({selected_project_id:testbedProject});
         data = '66fa562f-1916-4ef1-af9c-0ea867a95c6b';
@@ -370,5 +376,14 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await accountPhone.getByRole('button', {name:'Connect by QR code'}).click();
     await expect(accountPhone.getByRole('img', {name:'Scan to connect your phone to ExactH2O'})).toBeVisible();
     await expect(page.getByRole('button', {name:'Send test email'})).toBeVisible();
+    await page.getByLabel('In the portal').uncheck();
+    await page.getByRole('button', {name:'Save', exact:true}).click();
+    await expect(page.getByText('Saved', {exact:true})).toBeVisible();
+    expect(preferenceWrites.map(write => write.selected_channel)).toEqual(['portal']);
+    await page.getByLabel('Email me when a pot goes out of range').check();
+    await page.getByRole('button', {name:'Save', exact:true}).click();
+    await expect(page.getByText('Saved', {exact:true})).toBeVisible();
+    expect(preferenceWrites.map(write => write.selected_channel)).toEqual(['portal', 'email']);
+    expect(preferenceWrites[1].selected_event_types).toEqual(['operation_failed', 'pot_moisture']);
   });
 }

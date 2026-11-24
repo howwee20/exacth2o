@@ -3,6 +3,7 @@ do $$
 declare
   eid uuid:=gen_random_uuid(); rev uuid:=gen_random_uuid(); uid uuid:=gen_random_uuid();
   email_uid uuid:=gen_random_uuid(); email_job uuid; test_job uuid;
+  late_uid uuid := gen_random_uuid();
   d public.devices%rowtype; qty integer; ev record;
 begin
   insert into public.devices(id,organization_id,project_id,name) select 'phone-alert-fixture',organization_id,id,'Phone alert test' from public.projects where id='22222222-2222-4222-8222-222222222222' returning * into strict d;
@@ -45,6 +46,13 @@ begin
   end loop;
   perform public.evaluate_moisture_alerts();
   if exists(select 1 from public.moisture_alert_queue where user_id=uid) then raise exception 'False alarm'; end if;
+  -- The second subscriber enrolls between the two crossings. Its portal
+  -- message should contain only the later pot, despite sharing the same batch.
+  insert into auth.users(id,email,email_confirmed_at) values(late_uid,'late@example.invalid',now());
+  insert into public.portal_access(project_id,user_id,email,role,access_scope)
+    values(d.project_id,late_uid,'late@example.invalid','researcher','project');
+  insert into public.notification_preferences(project_id,user_id,channel,destination,enabled,event_types,updated_at)
+    values(d.project_id,late_uid,'email','late@example.invalid',true,array['pot_moisture'],now()-interval '90 seconds');
   for ev in select * from (values(1,19,2),(1,18,1),(2,42,1))s(pot,v,age) loop
     insert into public.sensor_readings(event_id,organization_id,project_id,device_id,pairing_name,sensor_key,device_recorded_at,calibrated_value)
       values(gen_random_uuid()::text,d.organization_id,d.project_id,d.id,'alert-pot-'||ev.pot,'probe-'||ev.pot,now()-ev.age*interval '1 minute',ev.v);
@@ -59,6 +67,28 @@ begin
     or not exists(select 1 from public.notification_outbox where user_id=email_uid and channel='portal' and body like '%Pot 1%' and body like '%Pot 2%')
     then raise exception 'Email-only alert privacy or delivery failed'; end if;
   if exists(select 1 from public.notification_outbox where user_id=uid and channel='email') then raise exception 'Unsubscribed phone user emailed'; end if;
+  if not exists (select 1 from public.notification_outbox where user_id=late_uid and channel='portal'
+    and body like '%Pot 2%' and body not like '%Pot 1%') then raise exception 'Enrollment cutoff was not respected'; end if;
+
+  -- A recovery alone sends no email. A fresh crossing after the recovery sends exactly one.
+  insert into public.sensor_readings(event_id,organization_id,project_id,device_id,pairing_name,sensor_key,device_recorded_at,calibrated_value)
+    values(gen_random_uuid()::text,d.organization_id,d.project_id,d.id,'alert-pot-2','probe-2',now()-interval '40 seconds',39);
+  perform public.evaluate_moisture_alerts();
+  select count(*) into qty from public.notification_outbox where user_id=email_uid and channel='email' and event_type='pot_moisture';
+  if qty <> 1 then raise exception 'Recovery generated email'; end if;
+  insert into public.sensor_readings(event_id,organization_id,project_id,device_id,pairing_name,sensor_key,device_recorded_at,calibrated_value)
+    values(gen_random_uuid()::text,d.organization_id,d.project_id,d.id,'alert-pot-2','probe-2',now()-interval '20 seconds',41);
+  perform public.evaluate_moisture_alerts(); perform public.evaluate_moisture_alerts();
+  select count(*) into qty from public.notification_outbox where user_id=email_uid and channel='email' and event_type='pot_moisture';
+  if qty <> 2 then raise exception 'Expected a single repeat crossing'; end if;
+
+  update public.experiments set visible_to_roles=array['admin'] where id=eid;
+  execute 'set local role authenticated';
+  if exists(select 1 from public.notification_outbox where id=email_job)
+    or not exists(select 1 from public.notification_outbox where id=test_job) then
+    raise exception 'Recent did not respect current experiment visibility'; end if;
+  execute 'reset role';
+  update public.experiments set visible_to_roles=array['admin','researcher'] where id=eid;
   update public.notification_preferences set enabled=false where user_id=email_uid;
   if public.email_notification_allowed(email_job) then raise exception 'Unsubscribe did not cancel delivery'; end if;
   update public.notification_preferences set enabled=true where user_id=email_uid;
@@ -71,7 +101,7 @@ begin
   insert into public.moisture_alert_queue(user_id,title,body,link)
     select uid,'Test','Test','/portal' from generate_series(1,10);
   select count(*) into qty from public.claim_moisture_push();
-  if qty<>11 then raise exception 'Every notification should be claimed, got %',qty; end if;
+  if qty<>12 then raise exception 'Every notification should be claimed, got %',qty; end if;
   perform public.test_moisture_push(uid); perform public.test_moisture_push(uid);
   select count(*) into qty from public.claim_moisture_push();
   if qty<>2 then raise exception 'Test notifications were unexpectedly throttled'; end if;
