@@ -38,6 +38,7 @@ export function normalizeExperimentDraft(draft: ExperimentDraft): ExperimentDraf
         : "observation",
     start_date: cleanText(draft.start_date, 40),
     assignments: draft.assignments.map(normalizeAssignment),
+    ...(draft.mode === "calibration" && draft.bench_calibration_name?.trim() ? { bench_calibration_name: draft.bench_calibration_name.trim().slice(0, 120) } : {}),
     visibility_roles: ["admin", "researcher"],
     controller_changes_requested: draft.controller_changes_requested === true,
     questions: draft.questions

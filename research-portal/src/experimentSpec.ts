@@ -18,6 +18,7 @@ export type ExperimentDraftAssignment = {
 };
 
 export type ExperimentDraft = {
+  bench_calibration_name?: string;
   name: string;
   description: string;
   mode: ExperimentBuilderMode;
