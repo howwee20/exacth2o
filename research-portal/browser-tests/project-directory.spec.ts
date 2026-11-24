@@ -166,29 +166,28 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     for (const pot of lockedOrUnresolved) {
       await expect(physicalMap.getByRole('button', { name: new RegExp(`^Pot ${pot},`) })).toBeDisabled();
     }
-    const available = page.getByRole('region', { name: 'Available', exact: true });
+    const availableCount = page.getByText('0 selected · 83 available', { exact: true });
     const selected = page.getByRole('region', { name: 'Selected', exact: true });
-    await expect(available.getByRole('button')).toHaveCount(83);
+    await expect(availableCount).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Available', exact: true })).toHaveCount(0);
     const physical16 = physicalMap.getByRole('button', { name: /^Pot 16,/ });
     await physical16.click();
     await expect(page.getByRole('button', { name: 'Create experiment', exact: true })).toBeEnabled();
     await physicalMap.getByRole('button', { name: /^Pot 1,/ }).click();
     const selected1 = selected.getByRole('button', { name: 'Remove Pot 1', exact: true });
     await expect(selected1).toContainText('Needs controller pairing');
-    await expect(available.getByRole('button', { name: 'Pot 1', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Create experiment', exact: true })).toBeDisabled();
     await selected1.click();
     await physical16.click();
-    await expect(available.getByRole('button')).toHaveCount(83);
+    await expect(availableCount).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Available', exact: true })).toHaveCount(0);
     const physical86 = physicalMap.getByRole('button', { name: /^Pot 86,/ });
-    await expect(available.getByRole('button', { name: 'Pot 86', exact: true })).toBeVisible();
     await physical86.click();
     await expect(physical86).toHaveAttribute('aria-pressed', 'true');
-    await expect(available.getByRole('button', { name: 'Pot 86', exact: true })).toHaveCount(0);
     const selected86 = selected.getByRole('button', { name: 'Remove Pot 86', exact: true });
     await selected86.click();
     await expect(physical86).toHaveAttribute('aria-pressed', 'false');
-    await available.getByRole('button', { name: 'Pot 86', exact: true }).click();
+    await physical86.click();
     await page.getByRole('button', { name: 'Create experiment', exact: true }).click();
     await expect(page.getByRole('group', { name: 'Ready to start', exact: true })).toBeVisible();
     expect(builderRequests[0].draft.assignments.map(assignment => assignment.pairing_name)).toEqual(['Zone4-Pot95']);
@@ -313,7 +312,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     }
     await expect(worksheet.getByLabel('test-sensor:1 raw row 1', {exact:true})).toHaveValue('20');
     await expect(worksheet.getByRole('img')).toBeVisible();
-    await worksheet.getByLabel('Fit model').selectOption('cubic');
+    await worksheet.getByRole('group', {name:'Fit model'}).getByRole('button', {name:'Cubic', exact:true}).click();
     await expect(worksheet.getByText(/R² 1.0000/)).toBeVisible();
     await worksheet.getByLabel('Calibration name').fill('Simulated peat');
     await worksheet.getByRole('button', {name:'Save calibration', exact:true}).click();

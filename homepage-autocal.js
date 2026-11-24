@@ -1,13 +1,15 @@
 /* Homepage bench figure: one bench of 100 black pots in four colour zones and one controller off its end.
    The side of the controller that faces the table carries four rows of 25 valves. A tube runs from every valve to
    the ring on one pot: blue, green, red and white, as on the real benches. Every pot also holds a moisture sensor.
-   It opens in a 3D view, seen from the near end of the bench. Scrolling through it plays one move in two parts.
+   It opens in a 3D view, seen from the near end of the bench. Once it is in place, dragging the page further strains
+   the bench a few degrees into its turn; dragged far enough, it lets go and plays one move by itself, in two parts.
+   Scrolled back above, it runs back.
    Hardware: the bench turns right round until it lies level seen from its other side. Data: the bench draws back and the
    live Drought response chart (homepage-traces.js) rises under it. One line, running through the charted pots'
    colours, leaves the bench, rounds the corner of the chart card, slips into its left edge and fades, and the curves
-   draw out across the chart. A moment later the chart breaks apart into one graph for each group of pots, and the
-   line forks to feed every one of them. The By group button puts them together or apart again. The line, the curves
-   and the break run on the clock from the moment the chart is up; scrolling does not move them.
+   draw out across the chart. The By group button breaks the chart apart into one graph for each group of pots, with
+   the line forking to feed every one of them, and puts it back together. The chart never breaks apart by itself.
+   The line and the curves run on the clock from the moment the chart is up; scrolling does not move them.
    Two captions over the stage swap as the move passes from one part to the other. Decorative. */
 (function () {
   var canvas = document.querySelector('[data-autocal-bench]');
@@ -63,16 +65,15 @@
     pot.probe = [Math.cos(lie) * 0.3, Math.sin(lie) * 0.3, way];
   });
   var W = 0, H = 0, DPR = 1, reserve = 0, reserveB = 0, edgeL = 24, capRight = 0, visible = false, running = false;
-  // How far through the move the figure is, 0 to 1. It trails the scroll a little so the motion glides. With motion
-  // turned off it rests at the end, with the chart drawn.
+  // How far through the move the figure is, 0 to 1. The move runs on the clock, MOVE seconds from start to end, once
+  // the stage is `engaged`. With motion turned off it rests at the end, with the chart drawn.
   // The move opens at START, with the figure already tilted and swung into its 3D view.
   var START = 0.24, REST = 1, prog = still ? REST : START;
-  // The scroll carries the move as far as END, a little past ARRIVE, where the chart is up. From ARRIVE the line
-  // down to the chart and then the curves play by themselves over PLAY seconds.
-  var END = 0.78, ARRIVE = 0.68, PLAY = 3.2, played = 0, lastMs = 0;
-  // The break: `split` runs 0 to 1 toward `splitGoal`. It happens by itself a moment after the curves are drawn,
-  // until the visitor presses the button; from then on it is theirs.
-  var split = 0, splitGoal = 0, autoSplit = true, rested = 0, HOLD = 1.3;
+  // The move runs as far as END, a little past ARRIVE, where the chart is up. From ARRIVE the line down to the chart
+  // and then the curves play over PLAY seconds.
+  var END = 0.78, ARRIVE = 0.68, PLAY = 3.2, played = 0, lastMs = 0, MOVE = 3.4, engaged = false;
+  // The break: `split` runs 0 to 1 toward `splitGoal`, which only the By group button changes.
+  var split = 0, splitGoal = 0;
   function backOut(x) { x = unit(x) - 1; return 1 + 2.2 * x * x * x + 1.2 * x * x; }
 
   // The pots the live chart is showing: for each, its pot, its colour and its curve. They are read from the chart
@@ -126,12 +127,20 @@
     edgeL = boxA ? Math.max(12, boxA.left - frame.left) : 24;
     capRight = boxB ? boxB.right - frame.left : 0;
   }
-  // How far the pinned stage has travelled down its track, 0 to 1.
+  // Where the move is headed. Once the stage is in place, pinned under the header, the page has to be dragged a good
+  // way further before the bench lets go: PULL of the window's height. Over that drag the bench strains a few degrees
+  // into its turn, following the scroll, stiff at first and giving toward the end, and settles back if the drag is
+  // given up. Past it, the bench lets go and the move runs to its end by itself. It heads back only once the page is
+  // scrolled back up far enough that the stage has come unpinned and started to leave.
+  var PULL = 0.3, STRAIN = 0.365;
   function progress() {
-    var lane = track.getBoundingClientRect(), box = stage.getBoundingClientRect();
-    var travel = lane.height - box.height;
-    if (travel < 40) return REST;
-    return START + unit((box.top - lane.top) / travel) * (END - START);
+    var lane = track.getBoundingClientRect(), box = stage.getBoundingClientRect(), view = window.innerHeight || 800;
+    // A stage that is not pinned (motion turned off) shows the end of the move.
+    if (lane.height - box.height < 40) return REST;
+    var into = box.top - lane.top, wind = unit(into / (view * PULL));
+    if (!engaged && wind >= 1) engaged = true;
+    else if (engaged && into <= 0 && lane.top > view * 0.3) engaged = false;
+    return engaged ? END : START + (STRAIN - START) * wind * wind;
   }
 
   function draw(t) {
@@ -639,15 +648,16 @@
     if (!visible || document.hidden) { running = false; lastMs = 0; return; }
     var now = ms / 1000, goal = progress(), moving = Math.abs(goal - prog) > 0.0003;
     if (canvas.clientWidth !== W || canvas.clientHeight !== H) { resize(); moving = true; }
-    if (moving) prog += (goal - prog) * 0.07;
     var gone = lastMs ? Math.min(0.1, (ms - lastMs) / 1000) : 0, was = played; lastMs = ms;
+    // Forward at one steady pace; back a good deal quicker.
+    if (moving) {
+      var stride = gone * (END - START) / (goal > prog ? MOVE : MOVE * 0.4);
+      prog = goal > prog ? Math.min(goal, prog + stride) : Math.max(goal, prog - stride);
+    }
     // Played once, it stays drawn; it is wound back only when the chart has gone, ready to play again.
     played = prog >= ARRIVE ? Math.min(PLAY, played + gone) : prog < 0.6 ? 0 : played;
-    if (prog < 0.6) { rested = 0; if (autoSplit) { splitGoal = 0; split = 0; } }
-    else if (autoSplit && played >= PLAY) { rested += gone; if (rested > HOLD) splitGoal = 1; }
     split = splitGoal > split ? Math.min(1, split + gone / 1.2) : Math.max(0, split - gone / 0.8);
-    // The only things that move on their own are the chart and the data running down to it, so outside that part the figure
-    // is redrawn only while the scroll is still carrying it along.
+    // The figure is redrawn while the move is running, and afterwards for as long as the chart and its line are up.
     if (moving || prog > 0.58 || played !== was) draw(now);
     requestAnimationFrame(frame);
   }
@@ -659,7 +669,7 @@
   // In reduced motion there is no frame loop to position the controls after the chart data arrives.
   if (still && groupsBox) new MutationObserver(function () { draw(0); }).observe(groupsBox, { childList: true });
   if (splitBtn) splitBtn.addEventListener('click', function () {
-    autoSplit = false; splitGoal = splitGoal ? 0 : 1;
+    splitGoal = splitGoal ? 0 : 1;
     if (still) { split = splitGoal; draw(0); }
   });
   resize();

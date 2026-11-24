@@ -9,16 +9,12 @@ import "./product.css";
 export function ProductHeader({
   onFindPot,
   onOpenAccount,
-  atBench,
-  onToggleAtBench,
   onSignOut,
   extra,
   demo = false,
 }: {
   onFindPot: () => void;
   onOpenAccount?: () => void;
-  atBench?: boolean;
-  onToggleAtBench?: () => void;
   onSignOut: () => void;
   extra?: ReactNode;
   demo?: boolean;
@@ -61,10 +57,6 @@ export function ProductHeader({
               event.currentTarget.closest("details")?.removeAttribute("open");
               onOpenAccount();
             }}>Account &amp; access</button> : null}
-            {onToggleAtBench ? <button type="button" aria-pressed={atBench} onClick={(event) => {
-              event.currentTarget.closest("details")?.removeAttribute("open");
-              onToggleAtBench();
-            }}>{atBench ? "Leave field mode" : "Field mode"}</button> : null}
             <hr />
             <button type="button" onClick={onSignOut}>Sign out</button>
           </div>

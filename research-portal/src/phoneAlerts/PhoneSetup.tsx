@@ -119,6 +119,7 @@ export function PhoneSetup({
       <div className="moisture-actions">
         {supported && !needsHome && (
           <button
+          className="is-secondary moisture-key"
             type="button"
             disabled={!status || working}
             onClick={() => void run(connect)}
@@ -129,6 +130,7 @@ export function PhoneSetup({
           </button>
         )}
         <button
+          className="is-secondary moisture-key"
           type="button"
           disabled={working}
           onClick={() => void run(showCode)}
@@ -137,6 +139,7 @@ export function PhoneSetup({
         </button>
         {status?.connected && (
           <button
+          className="is-secondary moisture-key"
             type="button"
             disabled={working}
             onClick={() =>
@@ -157,7 +160,7 @@ export function PhoneSetup({
         )}
       </div>
       {qr && (
-        <div>
+        <div className="moisture-qr">
           <img
             src={qr}
             alt="Scan to connect your phone to ExactH2O"
@@ -172,6 +175,7 @@ export function PhoneSetup({
       )}
       {(qr || !status) && (
         <button
+          className="xb-link"
           type="button"
           disabled={working}
           onClick={() => {
@@ -189,6 +193,7 @@ export function PhoneSetup({
             Alerts go to one device per account. Connecting another replaces it.
           </p>
           <button
+          className="is-secondary moisture-key"
             type="button"
             disabled={working}
             onClick={() =>

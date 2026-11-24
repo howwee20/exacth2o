@@ -122,102 +122,95 @@ export const MoistureAlerts = forwardRef<AlertEditor, Props>(
       setFeedback("Alert settings saved.");
     }
     useImperativeHandle(ref, () => ({ validate, save }));
+    const setupToggle = (
+      <button type="button" className="xb-link" aria-expanded={setup} onClick={() => setSetup((v) => !v)}>
+        {setup ? "Hide phone setup" : "Phone setup"}
+      </button>
+    );
     return (
-      <section
-        ref={section}
-        className="xb-section moisture-alerts"
-        aria-label="Moisture alerts"
-      >
+      <section ref={section} className="xb-section moisture-alerts" aria-label="Moisture alerts">
         <div className="xb-heading">
           <h3>Moisture alerts</h3>
+          {enabled && <span>One alert when any pot leaves this range.</span>}
         </div>
         {failed ? (
           <p role="alert">
             Alert settings could not be loaded.{" "}
-            <button type="button" onClick={() => setRevision((x) => x + 1)}>
+            <button type="button" className="xb-link" onClick={() => setRevision((x) => x + 1)}>
               Reload alerts
             </button>
           </p>
         ) : null}
         <fieldset disabled={!ready || busy}>
-          <label className="moisture-check">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => {
-                setEnabled(e.target.checked);
-                setFeedback("");
-              }}
-            />
-            Monitor pots in this experiment
-          </label>
-          {enabled && (
-            <>
-              <div className="moisture-bounds">
-                {(["min", "max"] as const).map((key) => (
-                  <label key={key}>
-                    {key === "min" ? "Min" : "Max"} VWC (%)
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      max="100"
-                      value={values[key]}
-                      onChange={(e) => {
-                        setBounds({ ...values, [key]: e.target.value });
-                        setFeedback("");
-                      }}
-                    />
-                  </label>
-                ))}
-              </div>
-              <p>
-                One alert when any pot drops below the minimum or rises above
-                the maximum.{" "}
-                {bounds === null ? "Suggested limits are editable." : null}
-              </p>
-            </>
-          )}
-          {(enabled || following) && (
-            <>
-              <label className="moisture-check">
+          <div className="moisture-rows">
+            <div className="moisture-row">
+              <label className="xb-check xb-autocal">
                 <input
                   type="checkbox"
-                  checked={following}
+                  checked={enabled}
                   onChange={(e) => {
-                    setFollowing(e.target.checked);
+                    setEnabled(e.target.checked);
                     setFeedback("");
-                    if (e.target.checked) setSetup(true);
                   }}
                 />
-                Notify me on my phone
+                Monitor pots in this experiment
               </label>
-            </>
-          )}
-          {(enabled || following || setupLink) && (
-            <button
-              type="button"
-              aria-expanded={setup}
-              onClick={() => setSetup((v) => !v)}
-            >
-              {setup ? "Hide phone setup" : "Phone setup"}
-            </button>
-          )}
+              {enabled && (
+                <div className="moisture-bounds">
+                  {(["min", "max"] as const).map((key) => (
+                    <label key={key}>
+                      {key === "min" ? "Min" : "Max"}
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        max="100"
+                        aria-label={`${key === "min" ? "Min" : "Max"} VWC (%)`}
+                        value={values[key]}
+                        onChange={(e) => {
+                          setBounds({ ...values, [key]: e.target.value });
+                          setFeedback("");
+                        }}
+                      />
+                    </label>
+                  ))}
+                  <span>% VWC</span>
+                </div>
+              )}
+            </div>
+            {(enabled || following) && (
+              <div className="moisture-row">
+                <label className="xb-check xb-autocal">
+                  <input
+                    type="checkbox"
+                    checked={following}
+                    onChange={(e) => {
+                      setFollowing(e.target.checked);
+                      setFeedback("");
+                      if (e.target.checked) setSetup(true);
+                    }}
+                  />
+                  Notify me on my phone
+                </label>
+                {setupToggle}
+              </div>
+            )}
+          </div>
+          {!enabled && !following && setupLink ? setupToggle : null}
           {setup && (enabled || following || setupLink) && (
             <PhoneSetup projectId={projectId} onConnected={connectedChanged} />
           )}
           {experimentId && changed && (
             <button
               type="button"
+              className="is-secondary"
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
                 try {
                   await save(experimentId);
                 } catch (e) {
-                  setFeedback(
-                    e instanceof Error ? e.message : "Could not save alerts.",
-                  );
+                  setFeedback(e instanceof Error ? e.message : "Could not save alerts.");
                 } finally {
                   setBusy(false);
                 }

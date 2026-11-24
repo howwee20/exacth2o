@@ -54,10 +54,12 @@ export function WalkerMachineTile({ userId }: { userId?: string }) {
   }, [experiments, loading, userId, visible]);
   if (!visible) return null;
   const currentExperiment = experiments.at(-1);
+  const reporting = status ? status.current_sensor_count ?? status.evidenced_sensor_count : 0;
   return <MachineTile
     name="Walker Pi"
     detail={currentExperiment?.name ?? (loading ? "Loading experiment…" : catalogFailed ? "Experiment unavailable" : "No active experiment")}
-    status={failed ? "Status unavailable" : status ? `${status.current_sensor_count ?? status.evidenced_sensor_count} / ${status.expected_sensor_count} sensors` : "Checking sensors…"}
+    status={failed ? "Status unavailable" : !status ? "Checking sensors…" : status.overall_status === "offline" ? "Offline"
+      : reporting === 0 ? "No sensors reporting" : status.overall_status === "operational" ? "Online" : `${reporting} / ${status.expected_sensor_count} sensors`}
     statusTone={failed || !status ? "unknown" : status.overall_status === "offline" ? "offline"
       : status.overall_status === "operational" && (status.current_sensor_count ?? status.evidenced_sensor_count) > 0 ? "online" : "warning"}
     to={{ view: "walker" }}

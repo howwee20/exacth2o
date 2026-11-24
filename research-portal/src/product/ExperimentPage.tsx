@@ -103,7 +103,7 @@ export function ExperimentPage({
       {own.map((item, index) => (
         <p key={`${item.kind}-${index}`} className={`px-notice ${item.kind === "controller-offline" || item.kind === "activation-failed" ? "is-bad" : ""}`} role="status">
           <span className="px-notice-mark" aria-hidden="true">{item.kind === "refresh-failed" ? "↻" : "!"}</span>
-          <span>{item.sentence}{item.kind === "measurement-quality" ? <> <PortalLink to={{view: "experiment", experiment: experiment.id, tab: "pots", pot: item.pairingNames[0]}}>Review reading →</PortalLink></> : null}</span>
+          <span>{item.sentence}</span>
         </p>
       ))}
       {children}

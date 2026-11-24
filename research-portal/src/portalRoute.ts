@@ -11,7 +11,6 @@ import type { SettingsSection } from "./portalTypes";
  *   /portal?view=bench[&pot=Zone1-Pot3]      Bench layout
  *   /portal?experiment=<slug>[&tab=overview|record][&pot=<pot>] Individual traces by default
  *   /portal?pot=<pairing name | research pot id>
- *   /portal?view=pocket[&pot=<pot>][&note=1] At the bench
  *   /portal?view=health|support|walker|chamber|analytics
  *   /portal?view=controller[&settings=<section>]  Installation (and its Settings section)
  *   /portal?view=autocalibrate                    Autocalibrate
@@ -29,7 +28,6 @@ export type PortalRoute =
   | { view: "workbench"; comparison: string | null; experiment: string | null }
   | { view: "experiment"; experiment: string; tab: ExperimentTab; pot: string | null }
   | { view: "pot"; pot: string }
-  | { view: "pocket"; pot: string | null; note: boolean }
   | { view: ToolView };
 
 const toolViews = new Set<ToolView>(["health", "support", "walker", "walker-home", "walker-health", "walker-new-experiment", "chamber", "chamber-health", "analytics", "controller", "account", "autocalibrate", "new-experiment"]);
@@ -67,7 +65,8 @@ export function parsePortalRoute(search: string): PortalRoute {
   if (view === "bench") return { view: "bench", pot };
   // Retired Workbench links land on Experiments, including links to saved comparisons.
   if (view === "workbench") return { view: "home" };
-  if (view === "pocket") return { view: "pocket", pot, note: params.get("note") === "1" };
+  // Retired field mode links open the pot they named, or the home screen.
+  if (view === "pocket") return pot ? { view: "pot", pot } : { view: "home" };
   if (experiment) {
     const tab = clean(params.get("tab"));
     return { view: "experiment", experiment, tab: tab && tabs.has(tab as ExperimentTab) ? (tab as ExperimentTab) : "pots", pot };
@@ -100,11 +99,6 @@ function routeParams(route: PortalRoute) {
       break;
     case "pot":
       params.set("pot", route.pot);
-      break;
-    case "pocket":
-      params.set("view", "pocket");
-      if (route.pot) params.set("pot", route.pot);
-      if (route.note) params.set("note", "1");
       break;
     default:
       params.set("view", route.view);

@@ -3,6 +3,21 @@
 .px-pot-panel { display: grid; gap: 18px; }
 .px-pot-panel header h2 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; }
 .px-pot-panel header p { margin: 4px 0 0; color: var(--px-muted); font-size: 14px; }
+.px-pot-panel header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.px-pot-panel header > div { min-width: 0; }
+.px-pot-panel header .px-pot-now { display: grid; flex: none; justify-items: end; gap: 2px; margin: 0; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.px-pot-now b { color: var(--px-ink); font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+/* The pot's last day of moisture, in the colour it has on every other graph. */
+.px-pot-trace { display: block; width: 100%; height: auto; }
+.px-pot-trace line { stroke: var(--px-rule); }
+.px-pot-trace text { fill: var(--px-muted); font: 400 10.5px var(--px-sans); font-variant-numeric: tabular-nums; }
+.px-pot-trace path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.px-pot-trace circle { fill: var(--px-white); stroke: currentColor; stroke-width: 2; }
+.px-pot-panel .px-water-status { justify-content: flex-start; align-items: center; }
+.px-pot-panel .px-details { margin: 0; }
+.px-pot-watered { margin: -8px 0 0; color: var(--px-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.px-results a .px-result-vwc { color: var(--px-ink); font-variant-numeric: tabular-nums; }
+.px-results a:has(.px-result-vwc) { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 .px-pot-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; border: 1px solid var(--px-rule); border-radius: 10px; background: var(--px-rule); overflow: hidden; }
 .px-pot-facts > div { min-width: 0; padding: 10px 12px; background: var(--px-white); }
 .px-pot-facts dt { color: var(--px-muted); font: 500 10.5px var(--px-mono); }
@@ -32,14 +47,16 @@
 
 .px-hold {
   position: relative; display: grid; place-items: center; gap: 2px; width: 100%; min-height: 78px; padding: 14px 18px 16px;
-  overflow: hidden; border: 0; border-radius: 12px; background: #143b2d; color: #fff; cursor: pointer;
+  overflow: hidden; border: 0; border-radius: 12px; background: linear-gradient(180deg, #1b4a39 0, #123527 100%); color: #fff; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 1px 2px rgba(16, 31, 26, .3), 0 5px 10px -5px rgba(16, 31, 26, .45);
   font-family: var(--px-sans); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   transition: background .25s ease, transform .12s ease, box-shadow .25s ease;
 }
-.px-hold:hover:not(:disabled) { background: #184634; }
-.px-hold.is-holding { transform: scale(.988); }
-.px-hold.is-watering, .px-hold.is-watering:hover { background: #0f4f78; box-shadow: 0 0 0 4px rgba(31, 127, 184, .16); }
-.px-hold:disabled { background: #d5ddd9; color: #5f6d66; cursor: not-allowed; }
+.px-hold:hover:not(:disabled) { background: linear-gradient(180deg, #205643 0, #153d2e 100%); }
+/* Held down, the key sits in. */
+.px-hold.is-holding { transform: translateY(1px); background: #123527; box-shadow: inset 0 2px 5px rgba(0, 0, 0, .42); }
+.px-hold.is-watering, .px-hold.is-watering:hover { background: #0f4f78; box-shadow: inset 0 2px 5px rgba(0, 0, 0, .36), 0 0 0 4px rgba(31, 127, 184, .16); }
+.px-hold:disabled { background: #d5ddd9; box-shadow: none; color: #5f6d66; cursor: not-allowed; }
 .px-hold:focus-visible { outline: 3px solid #2f8fc4; outline-offset: 3px; }
 .px-hold-label { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 .px-hold-sub { font-size: 12.5px; opacity: .72; }

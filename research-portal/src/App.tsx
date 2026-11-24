@@ -49,11 +49,11 @@ import type { ManualWaterTarget } from "./product/ManualWaterPanel";
 import { PortalLink } from "./product/PortalLink";
 import { PotInspector } from './product/PotInspector';
 import { ProductHeader } from "./product/ProductHeader";
-import { type InstallationState,QuietSpineHome } from "./product/QuietSpineHome";
+import { type InstallationState } from "./product/QuietSpineHome";
 import { SavedTraceViews } from "./product/SavedTraceViews";
 import { type SplitGraphPanel,SplitTraceGraphs } from "./product/SplitTraceGraphs";
 import { MachineHome, MachineTile, ProjectMachineTile } from "./product/MachineHome";
-import { atBenchRemembered,rememberAtBench } from "./product/pocketMode";
+import { DemoHome } from "./product/DemoHome";
 import { toggleTraceSelection } from "./product/traceSelection";
 import { useNoteOutbox } from "./product/useNoteOutbox";
 import { controllerPresence } from "./settingsPresentation";
@@ -92,7 +92,6 @@ const WebsiteAnalyticsWorkspace = lazyFeature(() => import("./analytics/WebsiteA
 const PotPage = lazyFeature(() => import("./product/PotPage").then((module) => ({ default: module.PotPage })));
 const TrendsView = lazyFeature(() => import("./product/TrendsView").then((module) => ({ default: module.TrendsView })));
 const BenchView = lazyFeature(() => import("./product/BenchView").then((module) => ({ default: module.BenchView })));
-const PocketView = lazyFeature(() => import("./product/PocketView").then((module) => ({ default: module.PocketView })));
 const ExperimentExport = lazyFeature(() => import("./product/ExperimentExport").then((module) => ({ default: module.ExperimentExport })));
 const AccountPage = lazyFeature(() => import("./product/AccountPage").then((module) => ({ default: module.AccountPage })));
 const RecordView = lazyFeature(() => import("./product/RecordView").then((module) => ({ default: module.RecordView })));
@@ -166,9 +165,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [findPotOpen, setFindPotOpen] = useState(initialFindPot);
   const [manualWaterOpen, setManualWaterOpen] = useState(false);
   const [manualWaterTarget, setManualWaterTarget] = useState<ManualWaterTarget>(null);
-  // "At the bench" is a remembered choice on this device; the full portal stays one tap away.
-  const [atBench, setAtBench] = useState(() => atBenchRemembered());
-  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine !== false);
   const [benchData, setBenchData] = useState<{ scope: string; bindings: PotBinding[]; layout: BenchLayoutVersion | null; versions: number; error: string | null } | null>(null);
   const [refreshFailedAt, setRefreshFailedAt] = useState<number | null>(null);
   const [lastSuccessfulCheckAt, setLastSuccessfulCheckAt] = useState<number | null>(null);
@@ -399,7 +395,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const noteOutbox = useNoteOutbox(outboxScope, { enabled: sessionReady && canWriteNotes });
   const benchScope = `${activeProjectId}:${activeDeviceId}`;
   const benchDataNeeded = sessionReady && canReadProjectData && Boolean(activeProjectId && activeDeviceId) &&
-    (atBench || route.view === "bench" || route.view === "pocket" || route.view === "pot" || (route.view === "experiment" && Boolean(route.pot)));
+    (route.view === "bench" || route.view === "pot" || (route.view === "experiment" && Boolean(route.pot)));
   const currentBench = benchData?.scope === benchScope ? benchData : null;
 
   // An autocalibration run belongs to the project and controller it started on.
@@ -435,19 +431,9 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   }, [sessionReady, canReadProjectData, route.view, defaultSystemExperiment, settingsOpen]);
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine !== false);
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!benchDataNeeded || benchData?.scope === benchScope) return undefined;
     let active = true;
-    // Physical identity and recorded layouts are read only when a bench, pot or pocket view needs them.
+    // Physical identity and recorded layouts are read only when a bench or pot view needs them.
     void Promise.allSettled([loadPotBindings(activeProjectId, activeDeviceId), loadLatestBenchLayout(activeProjectId, activeDeviceId)]).then(([bindings, layout]) => {
       if (!active) return;
       setBenchData({
@@ -1142,13 +1128,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         demo={isDemo}
       onFindPot={() => setFindPotOpen(true)}
       onOpenAccount={!isDemo ? () => navigatePortal({ view: "account" }) : undefined}
-      atBench={atBench}
-      onToggleAtBench={projectAccess ? () => {
-        const next = !atBench;
-        setAtBench(next);
-        rememberAtBench(next);
-        navigatePortal(next ? { view: "pocket", pot: route.view === "pot" ? route.pot : route.view === "experiment" || route.view === "bench" ? route.pot : null, note: false } : { view: "home" });
-      } : undefined}
       onSignOut={() => void signOut()}
     />
   );
@@ -1191,6 +1170,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       onClose={() => setFindPotOpen(false)}
       pairings={visiblePairings}
       experiments={availableExperiments}
+      readings={findPotOpen ? data.readings : undefined}
+      valveEvents={findPotOpen ? valveEvents : undefined}
       routeFor={(pairingName) => ({ view: "pot", pot: pairingName })}
     />
   );
@@ -1219,33 +1200,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         onClose={() => setSelectedWateringDetail(null)}
       />
     </main>
-  );
-
-  const experimentHome = (
-    <QuietSpineHome
-      experiments={availableExperiments}
-      exceptions={portalExceptions}
-      nowMs={clockNowMs}
-      checking={Boolean(activeDeviceId) && lastGoodCheckAt == null && refreshFailedAt == null}
-      catalogError={experimentCatalogError}
-      installation={installationState}
-      canCreate={canCreateExperiment && catalogReady && Boolean(configState?.updated_at)}
-      onNewExperiment={() => {
-        setEditingExperiment(null);
-        setDuplicateExperiment(null);
-        setExperimentBuilderOpen(true);
-      }}
-      onEditExperiment={(experiment) => {
-        setEditingExperiment(experiment);
-        setExperimentBuilderOpen(true);
-      }}
-      onArchiveExperiment={!isDemo ? setArchivingExperiment : undefined}
-      healthLink={!isDemo && (canUseExperimentSettings || isAdmin) ? <div className="px-node-actions">
-        {isAdmin ? <PortalLink to={{ view: "health" }}>System health →</PortalLink> : null}
-        {canUseExperimentSettings ? <PortalLink to={{ view: "autocalibrate" }}>Autopair →</PortalLink> : null}
-      </div> : undefined}
-      recordAvailable={recordAvailable}
-    />
   );
 
   if (route.view === "account" && !isDemo) {
@@ -1377,43 +1331,6 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     );
   };
 
-  const pocketActive = route.view === "pocket" || (atBench && (route.view === "home" || route.view === "pot"));
-  if (pocketActive && projectAccess) {
-    const pocketPot = route.view === "pocket" ? route.pot : route.view === "pot" ? route.pot : null;
-    return (
-      <main className="px-shell">
-        <FeatureBoundary name="At the bench" fallback={<FeatureLoading name="At the bench" />}>
-          <PocketView
-            key={`${outboxScope?.userId}:${activeProjectId}:${activeDeviceId}`}
-            potKey={pocketPot}
-            writing={route.view === "pocket" && route.note}
-            userId={outboxScope?.userId ?? "signed-out"}
-            projectId={activeProjectId}
-            deviceId={activeDeviceId}
-            canWrite={canWriteNotes}
-            pairings={visiblePairings}
-            experiments={availableExperiments}
-            readings={currentPairingReadings}
-            bindings={currentBench?.bindings ?? []}
-            nowMs={clockNowMs}
-            asOfMs={lastGoodCheckAt}
-            online={online}
-            refreshFailed={refreshFailedAt != null && (lastGoodCheckAt == null || refreshFailedAt > lastGoodCheckAt)}
-            outbox={noteOutbox}
-            onLeave={() => {
-              setAtBench(false);
-              rememberAtBench(false);
-              navigatePortal(pocketPot ? { view: "pot", pot: pocketPot } : { view: "home" });
-            }}
-            onManualWater={manualWaterAvailable ? openManualWater : undefined}
-          />
-        </FeatureBoundary>
-        <AutocalRunBanner onOpen={openAutocalibrate} />
-        {manualWaterPanel}
-      </main>
-    );
-  }
-
   if (route.view === "bench") {
     if (route.pot) return productShell(renderPotPage(route.pot, null, "bench"));
     return productShell(
@@ -1528,7 +1445,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
     </>
   ) : null;
 
-  if (isDemo) return productShell(experimentHome);
+  if (isDemo) return productShell(<DemoHome />);
 
   const systemName = portalSystemName(activeProjectId, portalAccess.projectName);
   const systemStatus = installationState.status === "online" ? "Online"

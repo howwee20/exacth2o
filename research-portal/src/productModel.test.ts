@@ -238,7 +238,6 @@ describe("portal routes", () => {
       "?experiment=matt-experiment-2&pot=Zone1-Pot3",
       "?experiment=matt-experiment-2&tab=overview",
       "?pot=Zone1-Pot17",
-      "?view=pocket&pot=Zone1-Pot17&note=1",
       "?view=health",
       "?view=walker-home",
       "?view=autocalibrate",
@@ -246,6 +245,9 @@ describe("portal routes", () => {
     for (const search of cases) {
       expect(portalRouteSearch(parsePortalRoute(search))).toBe(search);
     }
+    // A retired field mode link opens the pot it named.
+    expect(parsePortalRoute("?view=pocket&pot=Zone1-Pot17&note=1")).toEqual({ view: "pot", pot: "Zone1-Pot17" });
+    expect(parsePortalRoute("?view=pocket")).toEqual({ view: "home" });
     expect(portalRouteSearch({ view: "experiment", experiment: "x", tab: "pots", pot: null }, "?project=p1&group=crop&invite=t")).toBe("?experiment=x&project=p1");
   });
 

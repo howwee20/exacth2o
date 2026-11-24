@@ -31,11 +31,12 @@
 /* Full width: the section's usual padding is dropped (this selector outranks the general section rule below). */
 /* The page pads every jump by 96px; this takes that back to the header's 54px so the hero's button lands with the
    stage exactly under the header. */
-.home-page .home-section.autocal-strip { padding: 0; background: #fff; scroll-margin-top: -42px; }
+/* A link to this section lands a little way into the pinned stretch, which is where the move sets off. */
+.home-page .home-section.autocal-strip { padding: 0; background: #fff; scroll-margin-top: calc(-42px - 34vh); }
 /* The stage stays pinned under the header while this tall track scrolls by. */
-.autocal-track { position: relative; height: 348vh; }
-/* Where the hero's "View the traces" button lands: far enough down the track that the chart is up. */
-.autocal-anchor { position: absolute; top: 68%; left: 0; width: 1px; height: 1px; scroll-margin-top: 54px; }
+.autocal-track { position: relative; height: 198vh; }
+/* Where a link to the chart lands: just inside the pinned stretch, where the move sets off by itself. */
+.autocal-anchor { position: absolute; top: 18%; left: 0; width: 1px; height: 1px; scroll-margin-top: 54px; }
 .autocal-stage { position: sticky; top: 54px; height: calc(100vh - 54px); height: calc(100svh - 54px); overflow: hidden; }
 /* Two captions share the stage's top left corner, one for each part of the move. The script fades between them. */
 .autocal-head { position: absolute; z-index: 3; inset: clamp(24px, 5vh, 56px) 0 auto 0; padding-inline: max(24px, var(--gutter)); pointer-events: none; }
@@ -92,8 +93,8 @@
 /* The figure fades out at the top of the stage, under the header. */
 .autocal-bench { display: block; width: 100%; height: 100%; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5%); mask-image: linear-gradient(to bottom, transparent 0, #000 5%); }
 @media (max-width: 900px) {
-  .autocal-track { height: 262vh; }
-  .autocal-anchor { top: 60%; }
+  .autocal-track { height: 188vh; }
+  .autocal-anchor { top: 19%; }
   .autocal-head { inset: 20px 0 auto 0; }
   .home-page .autocal-head .home-head-aside { margin-top: 10px; }
 }
@@ -399,3 +400,18 @@
   .research-row h3 + p span[aria-hidden] { display: none; }
   .research-row h3 + p span:last-child { display: block; }
 }
+
+/* ---- One ground, 23 Nov 2026 ---------------------------------------------------------------------------
+   The page sits on one flat white ground from the hero down to the quote band. There are no colour washes and no
+   shading from one section into the next: sections are set apart by space and a hairline, and cards by a light
+   tint. The graph-paper grid stays behind the hero's photograph only, in neutral grey. Greys carry no green. */
+.home-page { --bg: #fff; }
+.home-page main { --ink: #1d1d1f; --muted: #6e6e73; --rule: #e3e3e6; --mist: #f5f5f7; }
+.hero-backdrop { background: #fff; }
+.hero-backdrop::before { background-image: linear-gradient(rgba(0, 0, 0, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, .045) 1px, transparent 1px); }
+.system-backdrop { display: none; }
+.home-page .features-strip { background: #fff; border-top: 1px solid #e8e8ec; }
+.home-page .features-strip .feat-card { background: #f5f5f7; box-shadow: none; }
+.home-page .features-strip .feat-card:hover { box-shadow: 0 18px 36px -22px rgba(0, 0, 0, .26); }
+.home-page .research-strip { background: #fff; }
+.home-page ::selection { background: #dfe7f7; }

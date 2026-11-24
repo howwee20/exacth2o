@@ -871,7 +871,7 @@ function ExperimentBuilderContent({
                 : `Opening ${draft.name}…`}
             </p>
             {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
-            {retryAlertSave.current && <button type="button" disabled={busy} onClick={async () => {
+            {retryAlertSave.current && <button type="button" className="is-secondary" disabled={busy} onClick={async () => {
               setBusy(true);
               try { await retryAlertSave.current?.(); retryAlertSave.current=null; if(createdSlug) onCreated(createdSlug); }
               catch(e) { setError(e instanceof Error ? e.message : "Could not save alerts."); }

@@ -32,7 +32,7 @@ function destinationKey(destination: Destination) {
  * controller itself if renewals stop. The destination is fixed for a session; a
  * different destination is a different session.
  */
-export function HoldWaterControl({ client, destination, label, identity, renewMs, leaseMs, canTakeover = true }: {
+export function HoldWaterControl({ client, destination, label, identity, renewMs, leaseMs, canTakeover = true, compact = false }: {
   client: ManualWaterClient;
   destination: Destination;
   /** Short name of the destination for messages ("Solenoid 74", "Pot 16"). */
@@ -42,6 +42,8 @@ export function HoldWaterControl({ client, destination, label, identity, renewMs
   renewMs?: number;
   leaseMs?: number;
   canTakeover?: boolean;
+  /** Under a heading that already names the destination: no title row, the state sits under the button. */
+  compact?: boolean;
 }) {
   const [availability, setAvailability] = useState<Availability>({ state: 'checking', message: 'Checking the controller…' });
   const [view, setView] = useState<HoldView | null>(null);
@@ -184,10 +186,10 @@ export function HoldWaterControl({ client, destination, label, identity, renewMs
 
   return (
     <section className="px-water" aria-label={`Manual water, ${label}`} data-phase={phase}>
-      <div className="px-water-head">
+      {compact ? null : <div className="px-water-head">
         <h3>Manual water · {label}</h3>
         <span className="px-water-state" data-tone={toneFor(phase)}>{phaseWords[phase] ?? phase}</span>
-      </div>
+      </div>}
       {identity ? <div className="px-water-identity">{identity}</div> : null}
       {needsAutocalConfirm ? (
         <div className="px-water-confirm" role="alert">
@@ -237,19 +239,16 @@ export function HoldWaterControl({ client, destination, label, identity, renewMs
         <span className="px-hold-meter" aria-hidden="true" />
       </button>
       <div className="px-water-status">
-        <p id={statusId} role="status" aria-live="polite" data-slow={view?.slow ? 'true' : undefined}>
+        {compact ? <span className="px-water-state" data-tone={toneFor(phase)}>{phaseWords[phase] ?? phase}</span> : null}
+        <p id={statusId} role="status" aria-live="polite" data-slow={view?.slow ? 'true' : undefined}
+          className={compact && !(view?.slow && holding) && message === (phaseWords[phase] ?? phase) ? 'px-sr-only' : undefined}>
           {view?.slow && holding ? 'Waiting for the controller. Water stops on its own if the connection drops.' : message}
         </p>
         {view?.automaticSuspended && holding ? <p className="px-water-note">Automatic watering on this controller is held back while you water by hand, and for its settling time afterwards.</p> : null}
         {view?.releaseToClosedMs != null && view.phase === 'closed' ? <p className="px-water-note px-mono">Release to confirmed close: {view.releaseToClosedMs} ms</p> : null}
         {recheck ? <button type="button" className="px-button is-small" onClick={() => { setView(null); setTakeover(false); setAvailability({ state: 'checking', message: 'Checking the controller…' }); setCheckVersion((version) => version + 1); }}>Check again</button> : null}
       </div>
-      <p className="px-water-note">
-        Overrides moisture targets, schedules, pauses and automatic-watering rules for this hold only; saved settings are unchanged.
-        The controller keeps the valve open only while fresh signals arrive and closes it on its own about 2.5 s after the last one.
-        {maxContinuous ? ` Continuous-on limit set on this controller: ${formatElapsed(maxContinuous)}.` : ' No continuous-on limit is configured on this controller.'}
-        {' '}“Open” and “closed” are what the controller reports; water flow is not measured.
-      </p>
+      {maxContinuous ? <p className="px-water-note">Stops on its own after {formatElapsed(maxContinuous)}.</p> : null}
     </section>
   );
 }

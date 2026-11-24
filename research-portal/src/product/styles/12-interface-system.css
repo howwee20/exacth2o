@@ -339,3 +339,72 @@
   .px-split-graphs { grid-template-columns: minmax(0, 1fr); padding-inline: 8px; }
   .px-shell .px-pot-chart .px-split-toggle { padding-inline: 8px; }
 }
+
+/* ---- Keys ------------------------------------------------------------------------ */
+/* Buttons are squared keys, not pills. A plain key sits slightly raised and presses in; a filled one carries a
+   soft edge light. The header's search and account controls keep their own round shape. */
+.px-shell :is(
+  .px-button,
+  .px-home-button,
+  .px-home .px-home-top > .px-button,
+  .px-system-heading .px-button,
+  .px-walker-create-actions .px-button,
+  .experiment-builder .is-primary,
+  .experiment-builder .is-secondary,
+  .settings-primary-button,
+  .settings-secondary-button,
+  .settings-danger-button,
+  .settings-locked-button,
+  .settings-download-link
+) { border-radius: 9px; }
+.px-shell .px-button.is-small { border-radius: 7px; }
+.px-shell :is(
+  .px-button:not(.is-primary, .is-quiet),
+  .px-home-button,
+  .experiment-builder .is-secondary,
+  .settings-secondary-button,
+  .settings-download-link
+):not(:disabled) {
+  border-color: rgba(16, 31, 26, .16);
+  border-bottom-color: rgba(16, 31, 26, .27);
+  background: linear-gradient(180deg, #fff 0, #f6f8f7 100%);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05);
+}
+.px-shell :is(
+  .px-button:not(.is-primary, .is-quiet),
+  .px-home-button,
+  .experiment-builder .is-secondary,
+  .settings-secondary-button,
+  .settings-download-link
+):hover:not(:disabled) { border-color: rgba(16, 31, 26, .26); border-bottom-color: rgba(16, 31, 26, .36); background: #fff; }
+.px-shell :is(
+  .px-button:not(.is-primary, .is-quiet),
+  .px-home-button,
+  .experiment-builder .is-secondary,
+  .settings-secondary-button,
+  .settings-download-link
+):active:not(:disabled) { background: #f0f3f1; box-shadow: inset 0 1px 2px rgba(16, 31, 26, .14); }
+.px-shell :is(.px-button.is-primary, .experiment-builder .is-primary, .settings-primary-button):not(:disabled) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 1px 2px rgba(16, 31, 26, .24);
+}
+.px-shell :is(.px-button.is-primary, .experiment-builder .is-primary, .settings-primary-button):active:not(:disabled) {
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, .3);
+}
+
+/* ---- Account & access -------------------------------------------------------------- */
+/* Two plain lists under their headings: how this person is notified, and who has access. */
+.px-account-block { display: grid; gap: 10px; max-width: 720px; margin-top: 28px; }
+.px-account-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 32px; }
+.px-account-head h2 { margin: 0 auto 0 0; color: var(--px-ink); font: 600 17px/1.3 var(--px-sans); letter-spacing: -.015em; }
+.px-account-head span { color: var(--px-muted); font-size: 13px; }
+.px-account-block h3 { margin: 10px 0 0; color: var(--px-muted); font: 500 12.5px/1.3 var(--px-sans); }
+.px-account-block > .px-muted, .px-account-foot { margin: 0; font-size: 13.5px; }
+.px-account-foot { margin-top: 28px; }
+.px-account-rows, .px-account-list { display: grid; margin: 0; padding: 0; overflow: hidden; list-style: none; border: 1px solid rgba(16, 31, 26, .12); border-bottom-color: rgba(16, 31, 26, .2); border-radius: 10px; background: #fff; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .04); }
+.px-account-row, .px-account-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 48px; padding: 10px 14px; border-top: 1px solid rgba(16, 31, 26, .08); color: var(--px-ink); font-size: 14px; }
+.px-account-row:first-child, .px-account-list > li:first-child { border-top: 0; }
+.px-account-row { cursor: pointer; }
+.px-account-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--px-water); }
+.px-account-row span, .px-account-list strong { font-weight: 500; overflow-wrap: anywhere; }
+.px-account-row small, .px-account-list small { margin-left: auto; color: var(--px-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.px-account-list p { flex-basis: 100%; margin: 0; color: var(--px-muted); font-size: 13px; line-height: 1.45; }
