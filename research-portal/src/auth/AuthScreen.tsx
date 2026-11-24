@@ -1,4 +1,5 @@
-import type { FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { phoneSetupCode } from "../phoneAlerts/setupCode";
 import type { AuthMode } from "../portalTypes";
 import exactH2OLogo from "../assets/exacth2o-logo.jpeg";
 import { SoftwareTermsModal } from "./SoftwareTermsModal";
@@ -27,6 +28,17 @@ type Props = {
 };
 
 export function AuthScreen({ authMode, email, password, rememberDevice, termsOpen, termsAccepted, loading, authNotice, loginError, setEmail, setPassword, setRememberDevice, setTermsOpen, setTermsAccepted, switchAuthMode, requestPasswordReset, setAccountPassword, acceptInvite, signIn }: Props) {
+    const params = new URLSearchParams(location.search);
+    const pairing = authMode === "sign-in" && params.get("phoneSetup") === "1";
+    const project = params.get("project");
+    const onPhone = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
+    const [qr, setQr] = useState("");
+    useEffect(() => {
+      if (!pairing || onPhone) return;
+      let active = true;
+      void phoneSetupCode(project, "account").then(code => { if (active) setQr(code); }).catch(() => {});
+      return () => { active = false; };
+    }, [pairing, project, onPhone]);
     const isInviteAccept = authMode === "accept-invite";
     const isPasswordSetup = authMode === "set-password";
     const isRecovery = authMode === "recover";
@@ -63,6 +75,13 @@ export function AuthScreen({ authMode, email, password, rememberDevice, termsOpe
 
         <section className="portal-login-panel" aria-label="Portal sign in">
           <div className="portal-login-card">
+            {pairing && <div>
+              <h2>Connect your phone</h2>
+              {qr && !onPhone && <img src={qr} width="176" height="176" alt="Scan to open ExactH2O phone setup" />}
+              <p className="portal-login-note">{onPhone
+                ? "On iPhone, use Share → Add to Home Screen, then open ExactH2O from its icon. Sign in and go to Account & access → Phone alerts."
+                : "Scan with your phone camera and sign in on your phone to enable lock-screen alerts."}</p>
+            </div>}
             <h2>{authTitle}</h2>
             {authNote ? <p className="portal-login-note">{authNote}</p> : null}
 

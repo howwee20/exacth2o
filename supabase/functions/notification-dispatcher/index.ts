@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   notificationConfiguration,
   notificationRetryState,
+  notificationSender,
   resendPayload,
   retryDelaySeconds,
   UnverifiedDestinationError,
@@ -60,18 +61,26 @@ Deno.serve(async (request) => {
       const { data: owner, error: ownerError } = await admin.auth.admin.getUserById(notification.user_id);
       if (ownerError) throw new Error("Could not verify the recipient account.");
       verifiedDestination(notification, owner?.user ?? null);
+      const sender = notificationSender(notification, provider.from, Deno.env.get("NOTIFICATION_TEST_RECIPIENT"));
       const delivery = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           authorization: `Bearer ${provider.apiKey}`,
           "content-type": "application/json",
-          "Idempotency-Key": `exacth2o-alert/${notification.id}`,
+          "Idempotency-Key": `exacth2o-alert/${notification.id}/${sender === provider.from ? "domain" : "sandbox"}`,
         },
         signal: AbortSignal.timeout(8_000),
-        body: JSON.stringify(resendPayload(notification, provider.from)),
+        body: JSON.stringify(resendPayload(notification, sender)),
       });
       const deliveryBody = await delivery.json().catch(() => ({}));
-      if (!delivery.ok) throw new Error(`Provider rejected delivery (${delivery.status}).`);
+      if (!delivery.ok) {
+        const reason = String(deliveryBody?.message || "");
+        const code = String(deliveryBody?.name || "provider_error").replace(/[^a-z_]/gi, "").slice(0, 60);
+        const hint = /domain.*(verified|verif)/i.test(reason) ? "Verify the sending domain."
+          : /testing emails|own email address/i.test(reason) ? "Configure a verified sending address."
+          : /api key/i.test(reason) ? "Check the email provider key." : "Check the provider configuration.";
+        throw new Error(`Email provider ${delivery.status} (${code}). ${hint}`);
+      }
       const providerId = typeof deliveryBody?.id === "string" ? deliveryBody.id : null;
       const deliveredAt = new Date().toISOString();
       const { error: persistError } = await admin
@@ -106,7 +115,7 @@ Deno.serve(async (request) => {
         error: message,
         response_metadata: { provider: "resend" },
       });
-      await admin
+      const { error: retryError } = await admin
         .from("notification_outbox")
         .update({
           // Retrying a revoked subscription or an unconfirmed address cannot deliver an eligible alert.
@@ -121,6 +130,7 @@ Deno.serve(async (request) => {
         .eq("id", notification.id)
         .eq("status", "sending")
         .eq("attempt_count", notification.attempt_count);
+      if (retryError) return json({ error: "Could not record delivery retry." }, 500);
       failed += 1;
     }
   }

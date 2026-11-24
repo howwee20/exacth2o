@@ -52,6 +52,8 @@ NOTIFICATION_FROM_EMAIL
 NOTIFICATION_DISPATCHER_SECRET
 ```
 
+Use `NOTIFICATION_RESEND_API_KEY` for a dedicated sending-only Resend workspace key. `NOTIFICATION_TEST_RECIPIENT` optionally selects the Resend account owner for sandbox test emails while domain verification is pending. Real pot alerts always use the configured domain sender.
+
 The email dispatcher accepts the verified `QUOTE_EMAIL_FROM` as a fallback sender. Store the same dispatcher credential in Vault as `exacth2o_notification_dispatcher_secret`. The `dispatch-exacth2o-email` job wakes the sender when email is due. Account & access provides the project email preference, test button and notification history. Experiment moisture readings stay in the portal.
 
 ## Release sequence

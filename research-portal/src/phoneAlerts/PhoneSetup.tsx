@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { phoneSetupCode } from "./setupCode";
 import { supabase } from "../supabase";
 
 async function phone<T>(
@@ -19,9 +20,11 @@ type PhoneStatus = { connected: boolean; publicKey: string };
 export function PhoneSetup({
   projectId,
   onConnected,
+  setupView = "new-experiment",
 }: {
   projectId: string;
-  onConnected: (connected: boolean) => void;
+  onConnected?: (connected: boolean) => void;
+  setupView?: "account" | "new-experiment";
 }) {
   const [status, setStatus] = useState<PhoneStatus | null>(null);
   const [message, setMessage] = useState("");
@@ -45,7 +48,7 @@ export function PhoneSetup({
       .then((s) => {
         if (active) {
           setStatus(s);
-          onConnected(s.connected);
+          onConnected?.(s.connected);
         }
       })
       .catch((e) => {
@@ -91,23 +94,18 @@ export function PhoneSetup({
     }
     await phone("connect", { subscription: sub.toJSON() });
     setStatus({ ...status, connected: true });
-    onConnected(true);
+    onConnected?.(true);
     setMessage("This device is connected.");
   }
   async function showCode() {
-    const url = new URL("/portal", location.origin);
-    url.searchParams.set("view", "new-experiment");
-    url.searchParams.set("project", projectId);
-    url.searchParams.set("phoneSetup", "1");
-    const { toDataURL } = await import("qrcode");
-    setQr(await toDataURL(url.href, { width: 176, margin: 2 }));
+    setQr(await phoneSetupCode(projectId, setupView));
   }
   return (
     <div className="moisture-phone">
       {needsHome ? (
         <p>
-          On iPhone or iPad, use Share → Add to Home Screen, open ExactH2O from
-          its icon, then tap Connect this phone.
+          On iPhone or iPad, tap Share → Add to Home Screen. Open ExactH2O from its
+          icon, sign in, then go to Account &amp; access → Notifications and tap Connect this phone.
         </p>
       ) : null}
       {!needsHome && !supported ? (
@@ -126,7 +124,7 @@ export function PhoneSetup({
           >
             {status?.connected
               ? "Use this device for alerts"
-              : "Connect this phone"}
+              : apple || /Android|Mobile/i.test(navigator.userAgent) ? "Connect this phone" : "Connect this browser"}
           </button>
         )}
         <button
@@ -200,7 +198,7 @@ export function PhoneSetup({
               void run(async () => {
                 await phone("disconnect");
                 setStatus({ ...status, connected: false });
-                onConnected(false);
+                onConnected?.(false);
                 setMessage("Device disconnected for all experiments.");
               })
             }

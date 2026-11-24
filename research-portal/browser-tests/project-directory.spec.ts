@@ -84,6 +84,8 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = null;
       } else if (url.pathname === '/rest/v1/commissioning_sessions') {
         data = url.searchParams.has('active') ? null : [];
+      } else if (url.pathname === '/rest/v1/rpc/portal_team_snapshot') {
+        data = {members:[],invites:[]};
       } else if (url.pathname === '/rest/v1/rpc/request_alert_test_email') {
         expect(route.request().postDataJSON()).toEqual({selected_project_id:testbedProject});
         data = '66fa562f-1916-4ef1-af9c-0ea867a95c6b';
@@ -362,5 +364,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('link', { name: /Home/ }).click();
     await expect(testbed).toContainText('Testbed calibration trial');
     await expect(rhee).toContainText('Huiqiao Pan experiment');
+    await page.goto('/portal?view=account&project='+testbedProject);
+    const accountPhone = page.locator('#phone-alerts');
+    await expect(accountPhone.getByRole('heading', {name:'Phone alerts'})).toBeVisible();
+    await accountPhone.getByRole('button', {name:'Connect by QR code'}).click();
+    await expect(accountPhone.getByRole('img', {name:'Scan to connect your phone to ExactH2O'})).toBeVisible();
+    await expect(page.getByRole('button', {name:'Send test email'})).toBeVisible();
   });
 }

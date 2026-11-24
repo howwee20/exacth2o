@@ -12,6 +12,10 @@ begin
   insert into public.experiment_revisions(id,experiment_id,project_id,version,source,spec) values(rev,eid,d.project_id,1,'manual','{}');
   insert into public.experiment_assignments(revision_id,experiment_id,project_id,pairing_name,zone,pot_number,sensor_key_snapshot,valve_key_snapshot,created_at)
     select rev,eid,d.project_id,'alert-pot-'||n,1,n,'probe-'||n,'v-'||n,now()-interval '30 minutes' from generate_series(1,3)n;
+  if not has_column_privilege('service_role','public.notification_outbox','id','select')
+    or not has_column_privilege('service_role','public.notification_outbox','status','select')
+    or not has_column_privilege('service_role','public.notification_outbox','attempt_count','select') then
+    raise exception 'Email worker cannot filter its status updates'; end if;
   if has_function_privilege('authenticated','public.claim_moisture_push(uuid)','execute') then raise exception 'User can dispatch'; end if;
   perform set_config('request.jwt.claim.sub',uid::text,true);
   insert into public.moisture_alert_phones (user_id,endpoint,keys) values(uid,'https://example.invalid/never-send','{}');
