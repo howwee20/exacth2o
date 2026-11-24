@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.walker-mixer-session]
 verify_jwt = false
+
+[functions.phone-alerts]
+verify_jwt = false

@@ -834,6 +834,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       experiment={newExperimentPage ? null : editingExperiment}
       template={newExperimentPage ? null : duplicateExperiment}
       presentation={newExperimentPage ? "inline" : "modal"}
+      phoneAlerts={!isDemo}
       systemName={portalSystemName(activeProjectId, portalAccess?.projectName)}
       renderBenchCalibration={(draft, choose) => <FeatureBoundary name="Soil calibration"><BenchCalibration key={activeProjectId + ":" + activeDeviceId}
         projectId={activeProjectId} deviceId={activeDeviceId} experimentName={draft.name} choice={draft.bench_calibration_name ?? ""} choose={choose}

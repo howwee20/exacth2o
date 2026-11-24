@@ -21,6 +21,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.addInitScript(({ token, user }) => {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
+    let savedAlerts: Record<string,unknown> | undefined;
     let savedCurve: Record<string, unknown> | undefined;
     let assignmentCommands: {command_type: string; payload: Record<string, unknown>}[] = [];
     const deviceLookups: string[] = [];
@@ -83,6 +84,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = null;
       } else if (url.pathname === '/rest/v1/commissioning_sessions') {
         data = url.searchParams.has('active') ? null : [];
+      } else if (url.pathname === '/functions/v1/phone-alerts') {
+        data = {connected:true, publicKey:'test-key'};
+      } else if (url.pathname === '/rest/v1/rpc/save_experiment_moisture_alerts') {
+        savedAlerts = route.request().postDataJSON();
+        data = {rule:{min:22,max:38,enabled:true,version:now},following:true};
       } else if (url.pathname === '/functions/v1/experiment-builder') {
         const body = route.request().postDataJSON();
         builderRequests.push(body);
@@ -289,6 +295,15 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('button', { name: 'Calibration', exact: true }).click();
     const worksheet = page.getByRole('region', {name:'Soil calibration worksheet'});
     await expect(worksheet).toBeVisible();
+    const alerts = page.getByRole('region',{name:'Moisture alerts'});
+    await alerts.getByLabel('Monitor pots in this experiment').check();
+    await alerts.getByLabel('Min VWC (%)').fill('22');
+    await alerts.getByLabel('Max VWC (%)').fill('38');
+    await alerts.getByLabel('Notify me on my phone').check();
+    await expect(alerts.getByRole('button',{name:'Send test alert'})).toBeVisible();
+    await alerts.getByRole('button',{name:'Connect by QR code'}).click();
+    await expect(alerts.getByRole('img',{name:'Scan to connect your phone to ExactH2O'})).toBeVisible();
+    expect(savedAlerts).toBeUndefined();
     await worksheet.getByLabel('Add calibration probe').selectOption('test-sensor:1');
     await worksheet.getByLabel('Add calibration probe').selectOption('test-sensor:2');
     await worksheet.getByRole('button', {name:'Read now'}).first().click();
@@ -333,6 +348,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('heading', { name: 'Testbed calibration trial', exact: true })).toBeVisible();
     expect(builderRequests.map(request => [request.action, request.project_id])).toEqual([['preflight', mainProject], ['preflight', testbedProject], ['preflight', testbedProject], ['launch', testbedProject]]);
     expect(builderRequests[3].draft.mode).toBe('calibration');
+    expect(savedAlerts).toMatchObject({eid:'new-study-id',device:'testbed-device',low:22,high:38,active:true,follow:true});
     expect(builderRequests[3].draft.assignments.map((assignment: { treatment: string; watering_enabled: boolean; target_vwc_percent: number }) => [assignment.treatment, assignment.watering_enabled, assignment.target_vwc_percent]).sort())
       .toEqual([['Control', true, 30], ['Drought', true, 10]]);
     expect(calibrationWrites).toEqual([]);
