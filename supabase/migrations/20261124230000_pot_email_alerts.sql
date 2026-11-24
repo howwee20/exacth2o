@@ -197,10 +197,23 @@ begin
   if job is not null then raise exception 'A test was requested in the last minute. Check your inbox or try again shortly.'; end if;
   insert into public.notification_outbox(project_id,user_id,event_type,channel,destination,subject,body)
     values(selected_project_id,uid,'test_email','email',address,'ExactH2O test email',
-      'Your ExactH2O email test worked. To receive pot alerts, enable Email in Account & access and set the moisture range on your experiment.')
+      E'This is a simulated alert. Example pot 7 measured 18% VWC, below its example minimum of 20%.\n\nReal alert emails keep pot numbers and readings in the signed-in portal. To see live alerts, open Account & access → Recent.\n\nhttps://exacth2o.com/portal?view=account')
     returning id into job;
   perform public.dispatch_due_email_alerts();
   return job;
 end $$;
 revoke all on function public.request_alert_test_email(uuid) from public, anon;
 grant execute on function public.request_alert_test_email(uuid) to authenticated;
+
+-- The phone and email test buttons illustrate the same fictional crossing.
+create or replace function public.test_moisture_push(uid uuid) returns uuid
+language plpgsql security definer set search_path=public,pg_temp as $$
+declare job_id uuid;
+begin
+  update public.moisture_alert_phones set tested_at=now() where user_id=uid;
+  if not found then raise exception 'Connect your phone first'; end if;
+  insert into public.moisture_alert_queue(user_id,title,body,link)
+    values(uid,'ExactH2O test alert','Simulated pot 7 is at 18% VWC, below its example minimum of 20%.','/portal')
+    returning id into job_id;
+  return job_id;
+end $$;
