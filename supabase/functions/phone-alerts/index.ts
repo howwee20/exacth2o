@@ -181,8 +181,8 @@ Deno.serve(async (req) => {
       });
       if (error) {
         return reply({
-          error: "Connect a phone and wait one minute between tests.",
-        }, 429);
+          error: "Connect a phone before sending a test.",
+        }, 409);
       }
       const count = await deliver(id);
       const { data: row } = await admin.from("moisture_alert_queue").select(

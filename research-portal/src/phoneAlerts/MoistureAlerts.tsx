@@ -192,9 +192,6 @@ export const MoistureAlerts = forwardRef<AlertEditor, Props>(
                 />
                 Notify me on my phone
               </label>
-              {following && (
-                <p>Up to 10 phone alerts per day across your experiments.</p>
-              )}
             </>
           )}
           {(enabled || following || setupLink) && (

@@ -145,9 +145,7 @@ export function PhoneSetup({
                 setMessage(
                   result.status === "sent"
                     ? "Test accepted by the push service. Check your connected device."
-                    : result.status === "capped"
-                      ? "Daily limit reached."
-                      : "Test " +
+                    : "Test " +
                         result.status +
                         ". Check the device connection.",
                 );

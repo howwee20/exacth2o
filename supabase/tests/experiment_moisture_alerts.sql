@@ -39,11 +39,18 @@ begin
   insert into public.moisture_alert_queue(user_id,title,body,link)
     select uid,'Test','Test','/portal' from generate_series(1,10);
   select count(*) into qty from public.claim_moisture_push();
-  if qty<>10 or (select count(*) from public.moisture_alert_queue where user_id=uid and status='capped')<>1 then raise exception '10-per-day limit failed: %',qty; end if;
+  if qty<>11 then raise exception 'Every notification should be claimed, got %',qty; end if;
+  perform public.test_moisture_push(uid); perform public.test_moisture_push(uid);
+  select count(*) into qty from public.claim_moisture_push();
+  if qty<>2 then raise exception 'Test notifications were unexpectedly throttled'; end if;
   perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
   begin
     perform public.experiment_moisture_alerts(eid);
     raise exception 'Outsider read a rule';
+  exception when raise_exception then if sqlerrm<>'Experiment access required' then raise; end if; end;
+  begin
+    perform public.save_experiment_moisture_alerts(eid,d.id,true,true,10,50,null,null);
+    raise exception 'Outsider changed a rule';
   exception when raise_exception then if sqlerrm<>'Experiment access required' then raise; end if; end;
 end $$;
 rollback;
