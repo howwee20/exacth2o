@@ -350,6 +350,13 @@ class Handler(BaseHTTPRequestHandler):
                     "records": records,
                 }
             )
+        if path == "/api/bench-sensor-read":
+            from health_bench import bench_capture
+            from health_measurements import direct_sensor_read_from_response
+            from health_transport import fetch_json
+            from health_config import API_BASE
+            payload, status = bench_capture(query, API_BASE, fetch_json, direct_sensor_read_from_response)
+            return self.send_json(payload, status=status)
         if path == "/api/researcher-direct-read":
             return self.send_json(collect_researcher_direct_reads())
         if path == "/api/researcher-map":

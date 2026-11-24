@@ -307,6 +307,7 @@ export function normalizeDraft(value) {
       };
     }),
     visibility_roles: ["admin", "researcher"],
+    ...(draft.mode === "calibration" && text(draft.bench_calibration_name, 120) ? { bench_calibration_name: text(draft.bench_calibration_name, 120) } : {}),
     controller_changes_requested: draft.controller_changes_requested === true,
     questions: questions
       .map((question) => text(question, 180))

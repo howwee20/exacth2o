@@ -21,6 +21,8 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.addInitScript(({ token, user }) => {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
+    let savedCurve: Record<string, unknown> | undefined;
+    let assignmentCommands: {command_type: string; payload: Record<string, unknown>}[] = [];
     const deviceLookups: string[] = [];
     const builderRequests: Array<{ action: string; project_id: string; draft: { assignments: Array<{ pairing_name: string }> } }> = [];
     const calibrationWrites: string[] = [];
@@ -59,11 +61,24 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         const project = url.searchParams.get('project_id')?.replace(/^eq\./, '') ?? '';
         deviceLookups.push(project);
         data = [{ id: project === testbedProject ? 'testbed-device' : mainDevice }];
+      } else if (url.pathname === '/functions/v1/bench-sensor-read') {
+        const body = route.request().postDataJSON();
+        data = body.capabilities ? {singleProbe: true} : {sensorKey: body.sensorKey, rawValue: 20, capturedAt: now};
+      } else if (url.pathname === '/rest/v1/soil_bench_calibrations') {
+        if (route.request().method() === 'POST') {
+          savedCurve = {...route.request().postDataJSON(), id: 'example-curve'}; data = savedCurve;
+        } else data = savedCurve ? [savedCurve] : [];
+      } else if (url.pathname === '/functions/v1/create-control-command') {
+        const body = route.request().postDataJSON();
+        assignmentCommands = body.batch_commands;
+        data = {batch_id: body.batch_id, commands: body.batch_commands.map((c: {client_request_id: string}) => ({id:c.client_request_id, status:'queued'}))};
       } else if (url.pathname === '/rest/v1/device_config_state') {
         const pairings = url.searchParams.get('device_id') === `eq.${mainDevice}` ? rheePairings : configPairings;
-        data = url.searchParams.get('select') === '*' ? { pairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
+        data = url.searchParams.get('select') === '*' ? { project_id: url.searchParams.get('project_id')?.slice(3), device_id: url.searchParams.get('device_id')?.slice(3), pairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
       } else if (url.pathname === '/rest/v1/sensor_readings' && url.searchParams.get('device_id') === `eq.${mainDevice}` && url.searchParams.has('sensor_key')) {
         data = [10, 11, 12].map(id => ({ id, sensor_key: `rhee-sensor:${id}`, device_recorded_at: now, server_received_at: now, calibrated_value: 35 }));
+      } else if (url.pathname === '/rest/v1/device_runtime_state' && url.searchParams.get('device_id') === 'eq.testbed-device') {
+        data = {project_id:testbedProject, device_id:'testbed-device', controller_state:'running', state_fresh_until:new Date(Date.now()+600000).toISOString(),state_observed_at:now};
       } else if (url.pathname === '/rest/v1/device_runtime_state' || url.pathname === '/rest/v1/latest_device_state') {
         data = null;
       } else if (url.pathname === '/rest/v1/commissioning_sessions') {
@@ -272,12 +287,35 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('list', { name: 'Experiment workflow' })).toHaveCount(0);
     await expect(page.getByText(/zone/i)).toHaveCount(0);
     await page.getByRole('button', { name: 'Calibration', exact: true }).click();
+    const worksheet = page.getByRole('region', {name:'Soil calibration worksheet'});
+    await expect(worksheet).toBeVisible();
+    await worksheet.getByLabel('Add calibration probe').selectOption('test-sensor:1');
+    await worksheet.getByLabel('Add calibration probe').selectOption('test-sensor:2');
+    await worksheet.getByRole('button', {name:'Read now'}).first().click();
+    for (const [i,x] of [20,40,80,100].entries()) {
+      if (i) await worksheet.getByLabel(`test-sensor:1 raw row ${i+1}`, {exact:true}).fill(String(x));
+      await worksheet.getByLabel(`test-sensor:2 raw row ${i+1}`, {exact:true}).fill(String(x));
+    }
+    await expect(worksheet.getByLabel('test-sensor:1 raw row 1', {exact:true})).toHaveValue('20');
+    await expect(worksheet.getByRole('img')).toBeVisible();
+    await worksheet.getByLabel('Fit model').selectOption('cubic');
+    await expect(worksheet.getByText(/R² 1.0000/)).toBeVisible();
+    await worksheet.getByLabel('Calibration name').fill('Simulated peat');
+    await worksheet.getByRole('button', {name:'Save calibration', exact:true}).click();
+    await expect(worksheet.getByLabel('Curve to assign')).toHaveValue('Simulated peat');
+    expect(savedCurve?.device_id).toBe('testbed-device');
+    expect(assignmentCommands).toEqual([]);
     // Pots go into the picked group: both into Control, then pot 2 across to Drought.
     await expect(page.getByRole('radio', { name: 'Control', exact: true })).toBeChecked();
     await page.getByRole('button', { name: 'Select all', exact: true }).click();
     await page.getByRole('radio', { name: 'Drought', exact: true }).check();
     await page.getByRole('button', { name: /^Pot 2\b/ }).click();
     await expect(page.getByRole('button', { name: /^Pot 2\b/ })).toHaveAccessibleName(/Drought/);
+    await worksheet.getByRole('button', {name:'Review assignment'}).click();
+    expect(assignmentCommands).toEqual([]);
+    await worksheet.getByRole('button', {name:'Confirm assignment'}).click();
+    await expect.poll(() => assignmentCommands.map(c => c.command_type)).toEqual(['update_system_state','create_calibration','apply_calibration','update_system_state']);
+    expect(assignmentCommands[2].payload.pairing_names).toEqual(['Zone1-Pot1','Zone1-Pot2']);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole('checkbox', { name: 'Autopair these pots first', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('new-experiment-mobile.png'), fullPage: true });

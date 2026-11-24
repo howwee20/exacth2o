@@ -74,6 +74,7 @@ type ExperimentBuilderProps = {
   presentation?: "modal" | "inline";
   systemName?: string;
   /** The autocalibration of the draft's pots. It reports when its session ends and whether the test ran to the end. */
+  renderBenchCalibration?: (draft: ExperimentDraft, choose: (name: string) => void) => ReactNode;
   renderCalibration?: (draft: ExperimentDraft, options: { onClosed: (outcome: { status: string; completed: boolean }) => void }) => ReactNode;
   onClose: () => void;
   onCreated: (slug: string) => void;
@@ -140,6 +141,7 @@ function ExperimentBuilderContent({
   presentation = "modal",
   systemName,
   renderCalibration,
+  renderBenchCalibration,
   onClose,
   onCreated,
 }: ExperimentBuilderProps) {
@@ -154,6 +156,7 @@ function ExperimentBuilderContent({
       ? { ...experimentDraftFromPortalExperiment(template, pairings), name: `${template.name} copy`, start_date: null, assignments: [], questions: [] }
       : manualExperimentDraft(pairings)
   );
+  const [benchOpened, setBenchOpened] = useState(draft.mode === "calibration");
   const [offerObservation] = useState(draft.mode === "observation");
   // Pots are assigned to treatment groups. An experiment being edited brings its own groups and a copied one brings
   // the groups of the original; a new one starts with Control and Drought.
@@ -284,6 +287,7 @@ function ExperimentBuilderContent({
   };
 
   const updateMode = (mode: ExperimentDraft["mode"]) => {
+    if (mode === "calibration") setBenchOpened(true);
     setDraft((current) => ({
       ...current,
       mode,
@@ -560,6 +564,8 @@ function ExperimentBuilderContent({
                     </div>
                   </fieldset>
                 </div>
+
+                {benchOpened && renderBenchCalibration && <div hidden={draft.mode !== "calibration"}>{renderBenchCalibration(draft, name => updateDraft("bench_calibration_name", name))}</div>}
 
                 <section className="xb-section">
                   <div className="xb-heading">

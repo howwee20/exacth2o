@@ -82,6 +82,7 @@ const PortalSettingsPanel = lazyFeature(loadSettingsPanel);
 const AutocalibratePage = lazyFeature(() => import("./autocalibrate/AutocalibratePage").then((module) => ({ default: module.AutocalibratePage })));
 const AutocalibrateWorkspace = lazyFeature(() => import("./autocalibrate/AutocalibrateWorkspace").then((module) => ({ default: module.AutocalibrateWorkspace })));
 const ArchiveExperimentDialog = lazyFeature(() => import("./product/ArchiveExperimentDialog").then((module) => ({ default: module.ArchiveExperimentDialog })));
+const BenchCalibration = lazyFeature(() => import("./benchCalibration/BenchCalibration").then(module => ({default: module.BenchCalibration})));
 const ExperimentBuilder = lazyFeature(() => import("./ExperimentBuilder").then((module) => ({ default: module.ExperimentBuilder })));
 const SystemHealthView = lazyFeature(() => import("./health/SystemHealthView").then((module) => ({ default: module.SystemHealthView })));
 const SalesSupportView = lazyFeature(() => import("./support/SalesSupportView").then((module) => ({ default: module.SalesSupportView })));
@@ -834,6 +835,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       template={newExperimentPage ? null : duplicateExperiment}
       presentation={newExperimentPage ? "inline" : "modal"}
       systemName={portalSystemName(activeProjectId, portalAccess?.projectName)}
+      renderBenchCalibration={(draft, choose) => <FeatureBoundary name="Soil calibration"><BenchCalibration key={activeProjectId + ":" + activeDeviceId}
+        projectId={activeProjectId} deviceId={activeDeviceId} experimentName={draft.name} choice={draft.bench_calibration_name ?? ""} choose={choose}
+        pairings={visibleExperimentPairings(data.pairings)} targets={draft.assignments.map(a => a.pairing_name)}
+        config={configState?.project_id === activeProjectId && configState.device_id === activeDeviceId ? configState : null}
+        admin={isAdmin} controllerState={runtimeStateIsFresh(runtimeState) && runtimeState?.device_id === activeDeviceId && ["running","stopped"].includes(runtimeState.controller_state) ? runtimeState.controller_state : null}
+        queue={queueSettingsPlan} commandBusy={controlBusy} commandError={controlError}
+        progress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
+      /></FeatureBoundary>}
       renderCalibration={(draft, { onClosed }) => <FeatureBoundary name="Autopair"><AutocalibrateWorkspace
         direct
         onClosed={onClosed}

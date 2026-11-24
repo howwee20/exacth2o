@@ -382,3 +382,9 @@ test("response parser handles Responses API content", () => {
     output: [{ content: [{ type: "output_text", text: "{\"name\":\"Trial\"}" }] }],
   }), "{\"name\":\"Trial\"}");
 });
+
+test("preserves the selected soil curve on calibration experiments only", () => {
+  const calibration = {mode: "calibration", bench_calibration_name: "  Peat mix  "};
+  assert.equal(normalizeDraft(calibration).bench_calibration_name, "Peat mix");
+  assert.equal(normalizeDraft({...calibration, mode: "controlled"}).bench_calibration_name, undefined);
+});
