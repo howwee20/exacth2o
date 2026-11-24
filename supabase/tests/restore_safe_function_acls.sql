@@ -56,6 +56,7 @@ declare
     'portal_team_snapshot(uuid)',
     'publish_sensing_experiment(uuid, jsonb, timestamp with time zone, text, text, text)',
     'reconcile_autocalibration_bindings(uuid, text, text, jsonb)',
+    'request_alert_test_email(uuid)', -- Sends fixed content only to the confirmed address of a project member.
     'restore_assistant_experiment(uuid, uuid)',
     'renew_commissioning_run(uuid, text, text, uuid)',
     'save_commissioning_session(uuid, text, text, jsonb, uuid)',

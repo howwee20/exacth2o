@@ -19,7 +19,8 @@ export async function loadTeam(projectId: string) {
 export async function saveNotificationPreference(projectId: string, preference: NotificationPreference) {
   const {error} = await supabase.rpc("set_notification_preference",{
     selected_project_id:projectId,selected_channel:preference.channel,selected_enabled:preference.enabled,
-    selected_destination:preference.destination,selected_event_types:["monitor_triggered","operation_failed"],
+    selected_destination:preference.destination,
+    selected_event_types:preference.channel === "email" ? ["monitor_triggered","operation_failed","pot_moisture"] : ["monitor_triggered","operation_failed"],
   });
   if (error) throw error;
 }

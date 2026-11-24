@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadAccountNotifications, loadTeam, saveNotificationPreference, type AccountNotification, type NotificationPreference, type TeamSnapshot } from "../accountClient";
 import type { PortalAccess } from "../portalTypes";
+import { TestEmailButton } from "../phoneAlerts/TestEmailButton";
 import { PortalLink } from "./PortalLink";
 
 const titled = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -68,6 +69,8 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
           <small>{value("email").destination ?? access.email}</small>
         </label>
       </div>
+      <p className="px-muted">Email includes pot alerts from monitored experiments you can access in this project. Pot numbers and readings appear under Recent.</p>
+      <TestEmailButton key={access.projectId} projectId={access.projectId} />
       <h3>Recent</h3>
       {loading ? <p className="px-muted">Loading…</p> : notifications.length ? <ul className="px-account-list">
         {notifications.map((item) => <li key={item.id}>
