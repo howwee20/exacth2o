@@ -81,6 +81,11 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
   };
   const locked = loading || busy || Boolean(error);
   // An accepted invitation is a member already, and an expired one is nothing.
+  useEffect(() => {
+    if (alerts.length && window.location.hash === "#pot-alerts") {
+      document.getElementById("pot-alerts")?.scrollIntoView({block:"nearest"});
+    }
+  }, [alerts.length]);
   const pending = team?.invites.filter((item) => !item.accepted_at && Date.parse(item.expires_at) > Date.now()
     && !team.members.some((member) => member.email === item.email)) ?? [];
   return <section className="px-page px-account">
@@ -121,13 +126,15 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
       <div id="phone-alerts" hidden={!phoneOpen}>
         <PhoneSetup key={access.projectId} projectId={access.projectId} setupView="account" onConnected={setPhoneConnected} />
       </div>
-      {alerts.length ? <ul className="px-account-list" aria-label="Pot alerts">
+      {alerts.length ? <section id="pot-alerts" aria-label="Pot alerts">
+        <h3>Pot alerts</h3>
+        <ul className="px-account-list">
         {alerts.map((item) => <li key={item.id}>
           {item.url ? <a href={item.url}><strong>{item.subject}</strong></a> : <strong>{item.subject}</strong>}
           <small>{moment(item.created_at)}</small>
           <p>{item.body}</p>
         </li>)}
-      </ul> : null}
+      </ul></section> : null}
     </section>
 
     {admin ? <section className="px-account-block" aria-labelledby="account-team">

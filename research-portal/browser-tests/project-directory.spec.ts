@@ -22,6 +22,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
     const preferenceWrites: Array<{selected_channel: string; selected_event_types: string[]}> = [];
+    let showPotAlert = false;
     let savedAlerts: Record<string,unknown> | undefined;
     const inviteRequests: Array<{projectId: string; email: string}> = [];
     let savedCurve: Record<string, unknown> | undefined;
@@ -98,6 +99,8 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = '66fa562f-1916-4ef1-af9c-0ea867a95c6b';
       } else if (url.pathname === '/rest/v1/notification_outbox' && url.searchParams.has('id')) {
         data = [{status:'delivered'}];
+      } else if (url.pathname === '/rest/v1/notification_outbox' && url.searchParams.get('event_type') === 'eq.pot_moisture') {
+        data = showPotAlert ? [{id:'alert-1',subject:'Pot moisture alert',body:'Fixture pot 2 crossed its range.',created_at:now,metadata:{url:'/portal?experiment=new-study&pot=Zone1-Pot2'}}] : [];
       } else if (url.pathname === '/functions/v1/invite-member') {
         inviteRequests.push(route.request().postDataJSON());
         data = {ok:true};
@@ -408,5 +411,10 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('button', {name:'Send invite', exact:true}).click();
     await expect(page.getByText('Invitation sent to new.person@example.edu')).toBeVisible();
     expect(inviteRequests).toEqual([{projectId:testbedProject, email:'new.person@example.edu'}]);
+    showPotAlert = true;
+    await page.goto('/portal?view=account&project='+testbedProject+'#pot-alerts');
+    const privateAlerts = page.getByRole('region',{name:'Pot alerts'});
+    await expect(privateAlerts.getByRole('heading',{name:'Pot alerts'})).toBeVisible();
+    await expect(privateAlerts.getByRole('link',{name:'Pot moisture alert'})).toHaveAttribute('href','/portal?experiment=new-study&pot=Zone1-Pot2');
   });
 }
