@@ -817,6 +817,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
       inventoryUpdatedAt={configState?.updated_at ?? null}
+      config={configState?.project_id === activeProjectId && configState.device_id === activeDeviceId ? configState : null}
       experiment={newExperimentPage ? null : editingExperiment}
       template={newExperimentPage ? null : duplicateExperiment}
       presentation={newExperimentPage ? "inline" : "modal"}
@@ -1448,22 +1449,26 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
   if (isDemo) return productShell(<DemoHome />);
 
-  const systemName = portalSystemName(activeProjectId, portalAccess.projectName);
+  const directory = portalAccess.projectDirectory ?? [];
+  const homeProjects = directory.some(project => project.id === activeProjectId)
+    ? directory
+    : [{ id: activeProjectId, name: portalSystemName(activeProjectId, portalAccess.projectName) }, ...directory];
   const systemStatus = installationState.status === "online" ? "Online"
     : installationState.status === "offline" ? "Offline"
     : installationState.status === "unknown" && installationState.message ? installationState.message
     : "Status unavailable";
   return productShell(
     <MachineHome tools={adminTools}>
-      <MachineTile name={systemName}
-        detail={defaultSystemExperiment && !experimentIsCompleted(defaultSystemExperiment, clockNowMs) ? defaultSystemExperiment.name
-          : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
-        status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
-        to={defaultSystemExperiment ? { view: "experiment", experiment: defaultSystemExperiment.id, tab: "pots", pot: null } : { view: "controller" }} healthTo={{ view: "health" }}
-        creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
-      {portalAccess.projectDirectory?.filter(project => project.id !== activeProjectId).map(project =>
-        <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />,
-      )}
+      {homeProjects.map(project => project.id === activeProjectId ? (
+        <MachineTile key={project.id} name={project.name}
+          detail={defaultSystemExperiment && !experimentIsCompleted(defaultSystemExperiment, clockNowMs) ? defaultSystemExperiment.name
+            : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
+          status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
+          to={defaultSystemExperiment ? { view: "experiment", experiment: defaultSystemExperiment.id, tab: "pots", pot: null } : { view: "controller" }} healthTo={{ view: "health" }}
+          creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
+      ) : (
+        <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />
+      ))}
       {isAdmin ? <WalkerMachineTile userId={portalAccess.userId} /> : null}
       {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" detail="No active experiment" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} creation={{ unavailable: "Experiment creation is not available for Chamber yet." }} /> : null}
     </MachineHome>,

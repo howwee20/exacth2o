@@ -48,6 +48,7 @@ export function usePortalAccess({ setAccessLoading, recoverPortalSession, setPor
             .select("project_id, role, email, created_at, access_scope")
             .eq("user_id", userId)
             .order("created_at", { ascending: true })
+            .order("project_id", { ascending: true })
             .limit(20),
           portalAccessTimeoutMs,
           "Portal access",

@@ -1,6 +1,19 @@
 {
-  "_PhysicalPotMap-79j4n-N1.js": {
-    "file": "assets/PhysicalPotMap-79j4n-N1.js",
+  "_ExperimentSoilCalibration-0CkxKiDv.js": {
+    "file": "assets/ExperimentSoilCalibration-0CkxKiDv.js",
+    "name": "ExperimentSoilCalibration",
+    "imports": [
+      "index.html",
+      "_icon-vendor-GB0VfdjK.js",
+      "_model-DfubCKux.js"
+    ]
+  },
+  "_PhysicalPotMap-CM6toejn.css": {
+    "file": "assets/PhysicalPotMap-CM6toejn.css",
+    "src": "_PhysicalPotMap-CM6toejn.css"
+  },
+  "_PhysicalPotMap-GppWJQqE.js": {
+    "file": "assets/PhysicalPotMap-GppWJQqE.js",
     "name": "PhysicalPotMap",
     "imports": [
       "index.html",
@@ -10,20 +23,16 @@
       "assets/PhysicalPotMap-CM6toejn.css"
     ]
   },
-  "_PhysicalPotMap-CM6toejn.css": {
-    "file": "assets/PhysicalPotMap-CM6toejn.css",
-    "src": "_PhysicalPotMap-CM6toejn.css"
-  },
-  "_SettingsChrome-1npYnCAt.js": {
-    "file": "assets/SettingsChrome-1npYnCAt.js",
+  "_SettingsChrome-BQ2BBcw_.js": {
+    "file": "assets/SettingsChrome-BQ2BBcw_.js",
     "name": "SettingsChrome",
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js"
     ]
   },
-  "_TimeSeriesChart-CIFJ-biI.js": {
-    "file": "assets/TimeSeriesChart-CIFJ-biI.js",
+  "_TimeSeriesChart-7eSUZZLp.js": {
+    "file": "assets/TimeSeriesChart-7eSUZZLp.js",
     "name": "TimeSeriesChart",
     "imports": [
       "index.html",
@@ -39,23 +48,23 @@
     "file": "assets/icon-vendor-GB0VfdjK.js",
     "name": "icon-vendor"
   },
-  "_measurementPresentation-CTNqLrTS.js": {
-    "file": "assets/measurementPresentation-CTNqLrTS.js",
+  "_measurementPresentation-BSLCXUXt.js": {
+    "file": "assets/measurementPresentation-BSLCXUXt.js",
     "name": "measurementPresentation",
     "imports": [
-      "_waterline-RxQMJn7M.js"
+      "_waterline-CQypQJNn.js"
     ]
   },
-  "_model-CCslYYYQ.js": {
-    "file": "assets/model-CCslYYYQ.js",
+  "_model-DfubCKux.js": {
+    "file": "assets/model-DfubCKux.js",
     "name": "model"
   },
   "_moisture-DNlO0RLn.css": {
     "file": "assets/moisture-DNlO0RLn.css",
     "src": "_moisture-DNlO0RLn.css"
   },
-  "_moisture-DrydtHi8.js": {
-    "file": "assets/moisture-DrydtHi8.js",
+  "_moisture-InhVcSBv.js": {
+    "file": "assets/moisture-InhVcSBv.js",
     "name": "moisture",
     "imports": [
       "index.html",
@@ -77,8 +86,8 @@
       "_icon-vendor-GB0VfdjK.js"
     ]
   },
-  "_recordModel-90jEdYbB.js": {
-    "file": "assets/recordModel-90jEdYbB.js",
+  "_recordModel-D_fwhK7e.js": {
+    "file": "assets/recordModel-D_fwhK7e.js",
     "name": "recordModel",
     "imports": [
       "index.html"
@@ -88,15 +97,15 @@
     "file": "assets/supabase-vendor-dIChsWQP.js",
     "name": "supabase-vendor"
   },
-  "_waterline-RxQMJn7M.js": {
-    "file": "assets/waterline-RxQMJn7M.js",
+  "_waterline-CQypQJNn.js": {
+    "file": "assets/waterline-CQypQJNn.js",
     "name": "waterline",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/portal-DJTQmZek.js",
+    "file": "assets/portal-CW9DcV7h.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -135,21 +144,23 @@
     ]
   },
   "src/ExperimentBuilder.tsx": {
-    "file": "assets/ExperimentBuilder-CsUZfjv9.js",
+    "file": "assets/ExperimentBuilder-DXMFRTEs.js",
     "name": "ExperimentBuilder",
     "src": "src/ExperimentBuilder.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_PhysicalPotMap-79j4n-N1.js",
-      "_moisture-DrydtHi8.js",
+      "_ExperimentSoilCalibration-0CkxKiDv.js",
+      "_PhysicalPotMap-GppWJQqE.js",
+      "_moisture-InhVcSBv.js",
       "_react-vendor-BPS63Vk2.js",
-      "_supabase-vendor-dIChsWQP.js"
+      "_supabase-vendor-dIChsWQP.js",
+      "_model-DfubCKux.js"
     ]
   },
   "src/analytics/WebsiteAnalyticsWorkspace.tsx": {
-    "file": "assets/WebsiteAnalyticsWorkspace-CO93xOdJ.js",
+    "file": "assets/WebsiteAnalyticsWorkspace-AACUF9UO.js",
     "name": "WebsiteAnalyticsWorkspace",
     "src": "src/analytics/WebsiteAnalyticsWorkspace.tsx",
     "isDynamicEntry": true,
@@ -168,7 +179,7 @@
     "src": "src/assets/exacth2o-logo.jpeg"
   },
   "src/autocalibrate/AutocalibratePage.tsx": {
-    "file": "assets/AutocalibratePage-r-bSlyJ7.js",
+    "file": "assets/AutocalibratePage-niHyOtD9.js",
     "name": "AutocalibratePage",
     "src": "src/autocalibrate/AutocalibratePage.tsx",
     "isDynamicEntry": true,
@@ -180,12 +191,12 @@
       "_supabase-vendor-dIChsWQP.js",
       "_orchestrator-Dxj2JeaL.js",
       "src/product/ManualWaterPanel.tsx",
-      "_SettingsChrome-1npYnCAt.js",
-      "_PhysicalPotMap-79j4n-N1.js"
+      "_SettingsChrome-BQ2BBcw_.js",
+      "_PhysicalPotMap-GppWJQqE.js"
     ]
   },
   "src/autocalibrate/AutocalibrateWorkspace.tsx": {
-    "file": "assets/AutocalibrateWorkspace-CSoVrMyq.js",
+    "file": "assets/AutocalibrateWorkspace-GoSM4hS5.js",
     "name": "AutocalibrateWorkspace",
     "src": "src/autocalibrate/AutocalibrateWorkspace.tsx",
     "isDynamicEntry": true,
@@ -194,21 +205,21 @@
       "_icon-vendor-GB0VfdjK.js",
       "_orchestrator-Dxj2JeaL.js",
       "src/product/ManualWaterPanel.tsx",
-      "_SettingsChrome-1npYnCAt.js",
-      "_PhysicalPotMap-79j4n-N1.js",
+      "_SettingsChrome-BQ2BBcw_.js",
+      "_PhysicalPotMap-GppWJQqE.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ]
   },
   "src/benchCalibration/BenchCalibration.tsx": {
-    "file": "assets/BenchCalibration-CiqPdw2J.js",
+    "file": "assets/BenchCalibration-BBD7I2-9.js",
     "name": "BenchCalibration",
     "src": "src/benchCalibration/BenchCalibration.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_model-CCslYYYQ.js",
+      "_model-DfubCKux.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ],
@@ -217,7 +228,7 @@
     ]
   },
   "src/health/SystemHealthView.tsx": {
-    "file": "assets/SystemHealthView-B6kd0tuv.js",
+    "file": "assets/SystemHealthView-DWZXrBot.js",
     "name": "SystemHealthView",
     "src": "src/health/SystemHealthView.tsx",
     "isDynamicEntry": true,
@@ -232,20 +243,20 @@
     ]
   },
   "src/product/AccountPage.tsx": {
-    "file": "assets/AccountPage-DEdVn-Vr.js",
+    "file": "assets/AccountPage-C4vYybbw.js",
     "name": "AccountPage",
     "src": "src/product/AccountPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_moisture-DrydtHi8.js",
+      "_moisture-InhVcSBv.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ]
   },
   "src/product/ArchiveExperimentDialog.tsx": {
-    "file": "assets/ArchiveExperimentDialog-BvulELzu.js",
+    "file": "assets/ArchiveExperimentDialog-d_eMHbzV.js",
     "name": "ArchiveExperimentDialog",
     "src": "src/product/ArchiveExperimentDialog.tsx",
     "isDynamicEntry": true,
@@ -257,7 +268,7 @@
     ]
   },
   "src/product/BenchView.tsx": {
-    "file": "assets/BenchView-D0HPSU5_.js",
+    "file": "assets/BenchView-vBmKygUu.js",
     "name": "BenchView",
     "src": "src/product/BenchView.tsx",
     "isDynamicEntry": true,
@@ -269,21 +280,21 @@
     ]
   },
   "src/product/ExperimentExport.tsx": {
-    "file": "assets/ExperimentExport-BhUwE0Oy.js",
+    "file": "assets/ExperimentExport-CoSWnJQ7.js",
     "name": "ExperimentExport",
     "src": "src/product/ExperimentExport.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_waterline-RxQMJn7M.js",
-      "_recordModel-90jEdYbB.js",
+      "_waterline-CQypQJNn.js",
+      "_recordModel-D_fwhK7e.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ]
   },
   "src/product/ManualWaterPanel.tsx": {
-    "file": "assets/ManualWaterPanel-Cm-nseyO.js",
+    "file": "assets/ManualWaterPanel-i1iGiXlb.js",
     "name": "ManualWaterPanel",
     "src": "src/product/ManualWaterPanel.tsx",
     "isDynamicEntry": true,
@@ -295,65 +306,66 @@
     ]
   },
   "src/product/PotPage.tsx": {
-    "file": "assets/PotPage-CUWec2AK.js",
+    "file": "assets/PotPage-FCyPYRGo.js",
     "name": "PotPage",
     "src": "src/product/PotPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_waterline-RxQMJn7M.js",
-      "_TimeSeriesChart-CIFJ-biI.js",
-      "_measurementPresentation-CTNqLrTS.js",
+      "_waterline-CQypQJNn.js",
+      "_TimeSeriesChart-7eSUZZLp.js",
+      "_measurementPresentation-BSLCXUXt.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ]
   },
   "src/product/RecordView.tsx": {
-    "file": "assets/RecordView-DcFCvfKG.js",
+    "file": "assets/RecordView-BXOHXFG5.js",
     "name": "RecordView",
     "src": "src/product/RecordView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_recordModel-90jEdYbB.js",
-      "_TimeSeriesChart-CIFJ-biI.js",
+      "_recordModel-D_fwhK7e.js",
+      "_TimeSeriesChart-7eSUZZLp.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ]
   },
   "src/product/TrendsView.tsx": {
-    "file": "assets/TrendsView-4i8N2EZL.js",
+    "file": "assets/TrendsView-C5XLp71T.js",
     "name": "TrendsView",
     "src": "src/product/TrendsView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "_icon-vendor-GB0VfdjK.js",
-      "_waterline-RxQMJn7M.js",
-      "_TimeSeriesChart-CIFJ-biI.js",
-      "_measurementPresentation-CTNqLrTS.js",
+      "_waterline-CQypQJNn.js",
+      "_TimeSeriesChart-7eSUZZLp.js",
+      "_measurementPresentation-BSLCXUXt.js",
       "_react-vendor-BPS63Vk2.js",
       "_supabase-vendor-dIChsWQP.js"
     ]
   },
   "src/settings/PortalSettingsPanel.tsx": {
-    "file": "assets/PortalSettingsPanel-CGqLDqgs.js",
+    "file": "assets/PortalSettingsPanel-B7bAhkAW.js",
     "name": "PortalSettingsPanel",
     "src": "src/settings/PortalSettingsPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_SettingsChrome-1npYnCAt.js",
+      "_SettingsChrome-BQ2BBcw_.js",
       "_icon-vendor-GB0VfdjK.js",
-      "_model-CCslYYYQ.js",
+      "_ExperimentSoilCalibration-0CkxKiDv.js",
       "_react-vendor-BPS63Vk2.js",
-      "_supabase-vendor-dIChsWQP.js"
+      "_supabase-vendor-dIChsWQP.js",
+      "_model-DfubCKux.js"
     ]
   },
   "src/support/SalesSupportView.tsx": {
-    "file": "assets/SalesSupportView-DL-ewPmG.js",
+    "file": "assets/SalesSupportView-DejLKSir.js",
     "name": "SalesSupportView",
     "src": "src/support/SalesSupportView.tsx",
     "isDynamicEntry": true,
@@ -365,7 +377,7 @@
     ]
   },
   "src/walker/WalkerExperimentPage.tsx": {
-    "file": "assets/WalkerExperimentPage-BYgqMn6Y.js",
+    "file": "assets/WalkerExperimentPage-D4uVfMSD.js",
     "name": "WalkerExperimentPage",
     "src": "src/walker/WalkerExperimentPage.tsx",
     "isDynamicEntry": true,
