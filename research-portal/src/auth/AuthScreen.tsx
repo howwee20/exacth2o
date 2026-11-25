@@ -46,7 +46,7 @@ export function AuthScreen({ authMode, email, password, rememberDevice, termsOpe
     const termsRequired = isInviteAccept;
     const authTitle = isRecovery ? "Reset your password" : isPasswordSetup ? "Set Password" : isInviteAccept ? "Accept Invite" : "Sign in";
     const authNote = isRecovery ? "Enter your account email. We’ll send a secure reset link." : isPasswordSetup
-      ? "Choose a password for this exactH2O account."
+      ? "Choose a password for this ExactH2O account."
       : isInviteAccept
         ? "Use the invited email and choose a password."
         : null;

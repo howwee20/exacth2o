@@ -30,6 +30,20 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
   const [inviting, setInviting] = useState(false);
   const [inviteNote, setInviteNote] = useState<{ text: string; failed: boolean } | null>(null);
   const [revision, setRevision] = useState(0);
+  const [linkedAlerts, setLinkedAlerts] = useState(() => window.location.hash === "#pot-alerts");
+  useEffect(() => {
+    const follow = () => {
+      const linked = window.location.hash === "#pot-alerts";
+      setLinkedAlerts(linked);
+      if (linked && document.visibilityState === "visible") setRevision(value => value + 1);
+    };
+    window.addEventListener("hashchange", follow);
+    document.addEventListener("visibilitychange", follow);
+    return () => {
+      window.removeEventListener("hashchange", follow);
+      document.removeEventListener("visibilitychange", follow);
+    };
+  }, []);
   const admin = access.role === "admin" && access.accessScope === "project";
   useEffect(() => {
     let active = true;
@@ -82,10 +96,10 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
   const locked = loading || busy || Boolean(error);
   // An accepted invitation is a member already, and an expired one is nothing.
   useEffect(() => {
-    if (alerts.length && window.location.hash === "#pot-alerts") {
+    if (alerts.length && linkedAlerts) {
       document.getElementById("pot-alerts")?.scrollIntoView({block:"nearest"});
     }
-  }, [alerts.length]);
+  }, [alerts.length, linkedAlerts]);
   const pending = team?.invites.filter((item) => !item.accepted_at && Date.parse(item.expires_at) > Date.now()
     && !team.members.some((member) => member.email === item.email)) ?? [];
   return <section className="px-page px-account">
@@ -134,7 +148,7 @@ export function AccountPage({ access }: { access: NonNullable<PortalAccess> }) {
           <small>{moment(item.created_at)}</small>
           <p>{item.body}</p>
         </li>)}
-      </ul></section> : null}
+      </ul></section> : linkedAlerts && !loading && !error ? <p id="pot-alerts" role="status">No pot alerts are available for this project.</p> : null}
     </section>
 
     {admin ? <section className="px-account-block" aria-labelledby="account-team">

@@ -77,7 +77,7 @@ function field(label: string, value: string) {
 function buildEmailHtml(submission: Submission) {
   return `
     <div style="font-family:Arial,sans-serif;color:#0e1a14;line-height:1.5;">
-      <h1 style="margin:0 0 12px;font-size:22px;">New exactH2O quote request</h1>
+      <h1 style="margin:0 0 12px;font-size:22px;">New ExactH2O quote request</h1>
       <p style="margin:0 0 18px;color:#5f6b62;">A visitor submitted the quote form on exacth2o.com.</p>
       <table style="border-collapse:collapse;width:100%;max-width:680px;border:1px solid #e7ebe5;">
         ${field("Name", submission.name)}
@@ -96,7 +96,7 @@ function buildEmailHtml(submission: Submission) {
 
 function buildEmailText(submission: Submission) {
   return [
-    "New exactH2O quote request",
+    "New ExactH2O quote request",
     "",
     `Name: ${submission.name}`,
     `Email: ${submission.email}`,
@@ -149,7 +149,7 @@ async function deliverQuote(supabase: ReturnType<typeof salesClient>, quote: { i
       from: emailFrom,
       to: [emailTo],
       reply_to: submission.email,
-      subject: `New exactH2O quote request from ${submission.name}`,
+      subject: `New ExactH2O quote request from ${submission.name}`,
       text: buildEmailText(submission),
       html: buildEmailHtml(submission),
     }),

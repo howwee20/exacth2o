@@ -108,7 +108,7 @@ export function PotPage({
               <span className="px-muted">Last value {latestVwc.value.toFixed(1)}% VWC — kept for reference, not a current reading.</span>
             ) : null}
             <span>{targetText}</span>
-            {quality ? <span className="px-quality-link">Reported {String(latestReading?.calibrated_value)}% VWC. {quality}. Review the raw signal and calibration.</span> : null}
+            {quality ? <span className="px-quality-link">Reported {latestReading?.calibrated_value.toFixed(1)}% VWC. {quality}. Review the raw signal and calibration.</span> : null}
           </div>
 
           <div className="px-card" style={{ padding: "12px 14px", display: "grid", gap: 10 }}>

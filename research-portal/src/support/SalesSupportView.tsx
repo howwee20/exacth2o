@@ -152,7 +152,7 @@ export function SalesSupportView({
       subtitle: "Quote Request",
       messageLabel: "Project Details",
       message: supportDetailValue(quote.message),
-      replyHref: mailtoUrl(quote.email, `exactH2O quote: ${quote.application}`),
+      replyHref: mailtoUrl(quote.email, `ExactH2O quote: ${quote.application}`),
       rows: [
         { label: "Customer", value: supportDetailValue(quote.name) },
         { label: "Email", value: supportDetailValue(quote.email) },
@@ -276,7 +276,7 @@ export function SalesSupportView({
                     <Search size={14} />
                     Details
                   </button>
-                  <a className="settings-secondary-button" href={mailtoUrl(quote.email, `exactH2O quote: ${quote.application}`)}>
+                  <a className="settings-secondary-button" href={mailtoUrl(quote.email, `ExactH2O quote: ${quote.application}`)}>
                     <Mail size={14} />
                     Reply
                   </a>
