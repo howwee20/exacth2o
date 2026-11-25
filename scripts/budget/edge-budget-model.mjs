@@ -138,6 +138,12 @@ export function project(profileName = "normal", server = "held", days = 31) {
     // Each command adds its control call plus at most a few agent calls (ack, result, early wake).
     commands: profile.commandsPerDay * 4,
     ...assumptions.others,
+    // Estimate one visible Rhee home for 1/4 hours and an Autopair operator plus
+    // one observer for 0.5/2 hours per day in the normal/busy profiles. The
+    // scheduler checks the database every 5 s and calls Edge only for due work.
+    "rhee-discovery": server === "deployed-2026-10-20" ? 0 :
+      (profileName === "busy" ? 4 : 1) * 3600 / 10 +
+      (profileName === "busy" ? 2 : 0.5) * 3600 * (1 / 4 + 1 / 5 + 1 / 5),
     // The 5-minute Cron jobs: gated (only when there is work) vs. unconditional before.
     "sync-owner-health (Supabase Cron)": server === "deployed-2026-10-20" ? 288 : 10,
     "assistant-automation-runner (Supabase Cron)": server === "deployed-2026-10-20" ? 288 : 0,

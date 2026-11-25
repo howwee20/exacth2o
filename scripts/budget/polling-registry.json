@@ -128,10 +128,28 @@
       "edge": false
     },
     "research-portal/src/product/MachineHome.tsx": {
+      "scheduleVisiblePolling": 2,
+      "setInterval": 0,
+      "cadence": "Other accessible machines refresh runtime/config every 60 s and the experiment catalog every 30 s while home is visible.",
+      "edge": false
+    },
+    "research-portal/src/App.tsx": {
       "scheduleVisiblePolling": 1,
       "setInterval": 0,
-      "cadence": "60 s runtime/config refresh and realtime updates for each other accessible system while home is visible; 30 s local clock expires cached status independently",
+      "cadence": "Active project experiment catalog every 30 s on visible home.",
       "edge": false
+    },
+    "research-portal/src/RheeDiscovery.tsx": {
+      "scheduleVisiblePolling": 2,
+      "setInterval": 0,
+      "cadence": "Rhee Autopair status every 10 s on visible home or every 5 s in the read-only setup. Only one view is mounted.",
+      "edge": true
+    },
+    "research-portal/src/ExperimentBuilder.tsx": {
+      "scheduleVisiblePolling": 0,
+      "setInterval": 0,
+      "cadence": "A sequential 4 s timeout refreshes Rhee Autopair status while the open builder has a running or installing setup.",
+      "edge": true
     }
   }
 }
