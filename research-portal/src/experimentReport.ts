@@ -1,6 +1,6 @@
 import { defaultGrouping, experimentFactors, levelLabel, potGroups } from "./experimentFactors";
 import { readingsForExperiment, timestampBelongsToExperiment, type PortalExperiment } from "./experimentRegistry";
-import { csvEscape, dedupeReadingsForExport } from "./readingsExport";
+import { csvEscape, dedupeReadingsForExport, exportSourcePriority } from "./readingsExport";
 import { vwcQuality } from "./readingQuality";
 import type { RecordItem } from "./recordModel";
 import { decimateForDisplay } from "./seriesStatistics";
@@ -22,8 +22,32 @@ export type ExperimentReportInput = {
 };
 
 export function reportReadings(input: Pick<ExperimentReportInput, "experiment" | "readings" | "startMs" | "endMs" | "preserveRecordedLabels">) {
-  return dedupeReadingsForExport((input.preserveRecordedLabels ? input.readings.filter(row=>input.experiment.pairingNames.includes(row.pairing_name) && timestampBelongsToExperiment(row.device_recorded_at,input.experiment)) : readingsForExperiment([...input.readings], input.experiment))
-    .filter((reading) => { const at = Date.parse(reading.device_recorded_at); return at >= input.startMs && at <= input.endMs; }));
+  const eligible = input.preserveRecordedLabels
+    ? input.readings.filter(row => input.experiment.pairingNames.includes(row.pairing_name) && timestampBelongsToExperiment(row.device_recorded_at, input.experiment))
+    : readingsForExperiment([...input.readings], input.experiment);
+  const rows = dedupeReadingsForExport(eligible.filter(reading => {
+    const at = Date.parse(reading.device_recorded_at);
+    return at >= input.startMs && at <= input.endMs;
+  }));
+  if (!input.preserveRecordedLabels) return rows;
+
+  const current = new Set(input.experiment.assignments?.map(a => a.pairing_name));
+  const seen = new Map<string, SensorReading>();
+  for (const row of rows) {
+    // A historical name can mirror the same physical sample. Preserve conflicting
+    // values and measurements without a hardware identity as separate evidence.
+    const key = row.sensor_key && row.device_recorded_at
+      ? JSON.stringify([row.sensor_key, Date.parse(row.device_recorded_at), row.raw_value, row.calibrated_value, row.temperature, row.electrical_conductivity])
+      : JSON.stringify([row.pairing_name, row.event_id, row.id]);
+    const previous = seen.get(key);
+    if (!previous) { seen.set(key, row); continue; }
+    const rank = (sample: SensorReading) => (current.has(sample.pairing_name) ? 4 : 0) + exportSourcePriority(sample);
+    const preferred = rank(row) > rank(previous) ? row : previous;
+    const labels = new Set([previous.recorded_pairing_name ?? previous.pairing_name, ...(previous.also_recorded_as ?? []), row.recorded_pairing_name ?? row.pairing_name]);
+    labels.delete(preferred.recorded_pairing_name ?? preferred.pairing_name);
+    seen.set(key, { ...preferred, also_recorded_as: [...labels].sort() });
+  }
+  return [...seen.values()];
 }
 
 const html = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (character) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[character]!));
@@ -31,14 +55,14 @@ const utc = (ms: number) => Number.isFinite(ms) ? new Date(ms).toISOString().rep
 const cell = (value: unknown) => csvEscape(typeof value === "string" && /^[=+\-@\t\r]/.test(value) ? `'${value}` : value);
 
 /** Metadata is explicitly a plan snapshot, not an assertion about historical calibration. */
-export function experimentReadingsCsv(input: ExperimentReportInput) {
+export function experimentReadingsCsv(input: ExperimentReportInput, readings = reportReadings(input)) {
   const assignments = new Map(input.experiment.assignments?.map((item) => [item.pairing_name, item]));
-  const headers = ["experiment", "plan_snapshot_revision", "pairing_name", "crop_in_plan", "treatment_in_plan", "block_in_plan", "target_vwc_in_plan", "watering_enabled_in_plan", "watering_enabled_on_controller_now", "controller_target_vwc_now", "sensor_key", "device_recorded_at_utc", "server_received_at_utc", "calibrated_vwc_percent", "raw_sensor_output", "temperature_sensor_units", "electrical_conductivity_sensor_units", "quality_note", "event_id", "recorded_pairing_name"];
-  const rows = reportReadings(input).map((reading) => {
+  const headers = ["experiment", "plan_snapshot_revision", "pairing_name", "crop_in_plan", "treatment_in_plan", "block_in_plan", "target_vwc_in_plan", "watering_enabled_in_plan", "watering_enabled_on_controller_now", "controller_target_vwc_now", "sensor_key", "device_recorded_at_utc", "server_received_at_utc", "calibrated_vwc_percent", "raw_sensor_output", "temperature_sensor_units", "electrical_conductivity_sensor_units", "quality_note", "event_id", "recorded_pairing_name", "also_recorded_as", "plan_calibration_name", "controller_calibration_name_now"];
+  const rows = readings.map((reading) => {
     const plan = assignments.get(reading.pairing_name);
     const controller = input.pairings.find((pairing) => pairing.name === reading.pairing_name);
     const controllerWatering = controller ? controller.wtc_percent_limit > -1000 : null;
-    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, input.experiment.currentSpec?.assignments.find((assignment) => assignment.pairing_name === reading.pairing_name)?.watering_enabled, controllerWatering, controllerWatering ? controller?.wtc_percent_limit : null, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name].map(cell).join(",");
+    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, input.experiment.currentSpec?.assignments.find((assignment) => assignment.pairing_name === reading.pairing_name)?.watering_enabled, controllerWatering, controllerWatering ? controller?.wtc_percent_limit : null, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name, reading.also_recorded_as?.join(" | "), plan?.calibration_name_snapshot, controller?.calibration_name].map(cell).join(",");
   });
   return [headers.join(","), ...rows].join("\r\n");
 }
@@ -60,10 +84,9 @@ function chart(input: ExperimentReportInput, readings: SensorReading[]) {
   return `<svg viewBox="0 0 930 282" role="img" aria-label="Individual pot VWC readings in the reporting window"><text x="54" y="13">VWC %</text>${ticks}${lines}<text x="54" y="273">${html(utc(input.startMs))}</text><text x="904" y="273" text-anchor="end">${html(utc(input.endMs))}</text></svg><p class="legend">${groups.map((group) => `<span><i style="background:${group.pattern.color}"></i>${html(group.label)}</span>`).join(" ")}</p><p class="muted">Each line is one pot. Lines break across missing intervals. Values are preserved as recorded.</p>`;
 }
 
-export function experimentBriefHtml(input: ExperimentReportInput) {
+export function experimentBriefHtml(input: ExperimentReportInput, readings = reportReadings(input)) {
   const experiment = input.currentExperiment ?? input.experiment;
   const historicalNames = input.experiment.pairingNames.filter((name) => !experiment.pairingNames.includes(name));
-  const readings = reportReadings(input);
   const pairs = new Map(input.pairings.map((pairing) => [pairing.name, pairing]));
   const traces = potTraces(readings, input.pairings, "vwc");
   const qualityReadings = readings.filter((reading) => vwcQuality(reading.calibrated_value));
@@ -86,7 +109,7 @@ export function experimentBriefHtml(input: ExperimentReportInput) {
   ${input.problems.map((problem) => `<p class="notice">${html(problem)}</p>`).join("")}${qualityCount ? `<p class="notice">${qualityCount} VWC readings need review on pots ${html(qualityPots)} during this window. Values outside 0–100% are flagged; check the CSV quality_note column for each reading. Raw and calibrated values are retained.</p>` : ""}
   <h2>Moisture history</h2>${chart(input,readings)}
   <h2>Plan snapshot and latest readings</h2><p class="muted">Assignments and targets are from plan revision ${html(experiment.currentVersion ?? "not recorded")}. Controller values are the current inventory snapshot, not historical settings at each reading.</p><table><thead><tr><th>Pot</th>${showCrop ? "<th>Crop</th>" : ""}${showTreatment ? "<th>Treatment</th>" : ""}${showBlock ? "<th>Block</th>" : ""}<th>Plan target</th><th>Controller now</th><th>Last VWC</th><th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
-  ${historicalNames.length ? `<h2>Previous pot assignments</h2><p class="muted">${historicalNames.length} historical labels remain in the CSV and history: ${html(historicalNames.join(", "))}. They are not part of the current pot count.</p>` : ""}
+  ${historicalNames.length ? `<h2>Previous pot assignments</h2><p class="muted">${historicalNames.length} historical labels occur in the recorded plans: ${html(historicalNames.join(", "))}. Matching physical samples appear once. The CSV retains alternate recorded labels in also_recorded_as.</p>` : ""}
   <h2>Experiment record</h2>${events.length ? `<ol class="events">${events.map((event) => `<li><small>${html(event.kind === "watering" ? `Daily total · ${new Date(event.happenedAt).toISOString().slice(0, 10)} UTC` : utc(event.happenedAt))} · ${html(event.kind)} · ${html(event.basis)}</small><h3>${html(event.title)}</h3>${event.detail ? `<p>${html(event.detail)}</p>` : ""}</li>`).join("")}</ol>` : '<p>No record entries were available for this window.</p>'}
   ${experiment.sourceNote ? `<section><h2>Data source</h2><p>${html(experiment.sourceNote)}</p></section>` : ""}
   <footer><p>Generated ${html(utc(input.generatedAt))}. All timestamps use UTC. VWC is volumetric water content. The accompanying CSV retains measurement and receipt times, raw values, and event identifiers.</p><p>Valve openings are controller records, not measurements of delivered water. Calibration changes, missing sources, and reading gaps should be considered when interpreting the experiment.</p></footer></main></body></html>`;

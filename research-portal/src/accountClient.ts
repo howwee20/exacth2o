@@ -16,16 +16,26 @@ export function defaultNotificationPreference(channel: NotificationChannel, emai
       : ["monitor_triggered", "operation_failed", "pot_moisture"],
   };
 }
-export type AccountNotification = {id: string; subject: string; body: string; channel: string; status: string; created_at: string};
+/** A pot that left its range: the one notification with detail the email leaves out. */
+export type PotAlert = {id: string; subject: string; body: string; created_at: string; url: string | null};
 export type TeamSnapshot = {members: {email: string; role: string; access_scope: string}[]; invites: {email: string; role: string; expires_at: string; accepted_at: string | null}[]};
 
 export async function loadAccountNotifications(projectId: string) {
-  const [preferences, notifications] = await Promise.all([
+  const [preferences, alerts] = await Promise.all([
     supabase.from("notification_preferences").select("channel,enabled,destination,event_types").eq("project_id",projectId),
-    supabase.from("notification_outbox").select("id,subject,body,channel,status,created_at").eq("project_id",projectId).order("created_at",{ascending:false}).limit(20),
+    supabase.from("notification_outbox").select("id,subject,body,created_at,metadata").eq("project_id",projectId)
+      .eq("event_type","pot_moisture").eq("channel","portal").order("created_at",{ascending:false}).limit(5),
   ]);
-  if (preferences.error || notifications.error) throw preferences.error ?? notifications.error;
-  return {preferences:(preferences.data ?? []) as NotificationPreference[], notifications:(notifications.data ?? []) as AccountNotification[]};
+  if (preferences.error || alerts.error) throw preferences.error ?? alerts.error;
+  return {
+    preferences: (preferences.data ?? []) as NotificationPreference[],
+    alerts: (alerts.data ?? []).map((row): PotAlert => {
+      const url = (row.metadata as {url?: unknown} | null)?.url;
+      // Only a link back into the portal is followed.
+      return {id: row.id, subject: row.subject, body: row.body, created_at: row.created_at,
+        url: typeof url === "string" && url.startsWith("/portal?") ? url : null};
+    }),
+  };
 }
 export async function loadTeam(projectId: string) {
   const {data,error} = await supabase.rpc("portal_team_snapshot",{requested_project_id:projectId});
@@ -39,4 +49,11 @@ export async function saveNotificationPreference(projectId: string, preference: 
     selected_event_types: preference.event_types,
   });
   if (error) throw error;
+}
+/** Emails a one-time account link to someone new. The link itself never comes back to this browser. */
+export async function inviteMember(projectId: string, email: string) {
+  const {error} = await supabase.functions.invoke("invite-member",{body:{projectId,email}});
+  if (!error) return;
+  const body = await (error as {context?: Response}).context?.json?.().catch(() => null);
+  throw new Error(typeof body?.error === "string" ? body.error : "Could not send the invitation.");
 }

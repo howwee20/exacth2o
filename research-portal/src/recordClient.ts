@@ -175,15 +175,21 @@ export async function loadRecordSources(input: {
     }, null as string | null),
   ]);
 
-  const byDay = new Map<number, { openings: number; pots: Set<string>; ms: number }>();
+  const byDay = new Map<number, { openings: number; pots: Map<string, { openings: number; commandedOpenMs: number }>; ms: number }>();
   for (const bucket of valves) {
-    const entry = byDay.get(bucket.startMs) ?? { openings: 0, pots: new Set<string>(), ms: 0 };
+    const entry = byDay.get(bucket.startMs) ?? { openings: 0, pots: new Map<string, { openings: number; commandedOpenMs: number }>(), ms: 0 };
     entry.openings += bucket.openings;
     entry.ms += bucket.commandedOpenMs;
-    if (bucket.openings) entry.pots.add(aliases.get(bucket.pairingName) ?? bucket.pairingName);
+    if (bucket.openings) {
+      const name = aliases.get(bucket.pairingName) ?? bucket.pairingName;
+      const pot = entry.pots.get(name) ?? { openings: 0, commandedOpenMs: 0 };
+      pot.openings += bucket.openings;
+      pot.commandedOpenMs += bucket.commandedOpenMs;
+      entry.pots.set(name, pot);
+    }
     byDay.set(bucket.startMs, entry);
   }
-  const daily = Array.from(byDay.entries()).map(([dayStartMs, entry]) => ({ dayStartMs, openings: entry.openings, pots: entry.pots.size, commandedOpenMs: entry.ms }));
+  const daily = Array.from(byDay.entries()).map(([dayStartMs, entry]) => ({ dayStartMs, openings: entry.openings, pots: entry.pots.size, byPot: entry.pots, commandedOpenMs: entry.ms }));
 
   return { revisions, audits, assignments, commands, calibrationRequests: requests, notes, gaps, daily, lastSeenAt: mark, problems, stats, historyPairingNames };
 }

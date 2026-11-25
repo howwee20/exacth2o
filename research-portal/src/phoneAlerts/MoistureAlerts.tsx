@@ -133,7 +133,9 @@ export const MoistureAlerts = forwardRef<AlertEditor, Props>(
       <section ref={section} className="xb-section moisture-alerts" aria-label="Moisture alerts">
         <div className="xb-heading">
           <h3>Moisture alerts</h3>
-          {enabled && <span>One alert when any pot leaves this range.</span>}
+          {ready && !failed && <span>{changed || !experimentId ? (enabled ? "Monitoring will use this range when you save." : "Monitoring is off in this draft.") : saved.rule?.enabled
+            ? `Monitoring ${saved.rule.min}–${saved.rule.max}% VWC · ${saved.following ? "You follow this experiment" : "You are not following"}`
+            : "Monitoring is off for this experiment."}</span>}
         </div>
         {failed ? (
           <p role="alert">

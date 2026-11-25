@@ -366,7 +366,7 @@ export function RouteNeeded({ route, canConfirm, book, client, onBook }: { route
   const [title, body] = neededCopy[route.status];
   if (!canConfirm) return <p className="px-muted">Watering needs setup. Contact your administrator.</p>;
   return (
-    <details className="px-details"><summary>Setup details</summary><section className="px-route-needed" data-status={route.status}>
+    <details className="px-details" open><summary>Setup details</summary><section className="px-route-needed" data-status={route.status}>
       <h3>{title}</h3>
       <p>{route.status === "conflict" ? route.reason : body}</p>
       {route.evidence ? <p className="px-route-evidence">{route.evidence}</p> : null}

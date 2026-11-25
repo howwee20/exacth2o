@@ -96,9 +96,10 @@ test('assembled demo retains time range, saved views, Record, and responsive nav
     const toggle = page.getByRole('button', { name: 'Pots', exact: true });
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(pots).toBeHidden();
-    const toggleBox = await toggle.boundingBox();
-    const modeBox = await page.getByRole('button', { name: 'VWC', exact: true }).boundingBox();
-    expect(Math.abs(toggleBox!.y + toggleBox!.height / 2 - modeBox!.y - modeBox!.height / 2)).toBeLessThan(3);
+    await expect.poll(async () => {
+      const [toggleBox, modeBox] = await Promise.all([toggle.boundingBox(), page.getByRole('button', { name: 'VWC', exact: true }).boundingBox()]);
+      return toggleBox && modeBox ? Math.abs(toggleBox.y + toggleBox.height / 2 - modeBox.y - modeBox.height / 2) : Infinity;
+    }).toBeLessThan(3);
     await page.screenshot({ path: test.info().outputPath(`compact-traces-${viewport.width}.png`), fullPage: true });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');

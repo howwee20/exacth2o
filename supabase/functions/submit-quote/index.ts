@@ -4,6 +4,8 @@ import { enforcePublicSubmission } from "../_shared/abuse-prevention.mjs";
 import { publicIntakeProjectId } from "../_shared/installation-config.mjs";
 
 type QuotePayload = {
+  action?: string;
+  requestId?: string;
   name?: string;
   email?: string;
   phone?: string;
@@ -72,10 +74,10 @@ function field(label: string, value: string) {
   return `<tr><td style="padding:8px 12px;color:#5f6b62;border-bottom:1px solid #e7ebe5;">${escapeHtml(label)}</td><td style="padding:8px 12px;border-bottom:1px solid #e7ebe5;">${escapeHtml(value || "Not provided")}</td></tr>`;
 }
 
-function buildEmailHtml(submission: Required<Omit<QuotePayload, "honey">>) {
+function buildEmailHtml(submission: Submission) {
   return `
     <div style="font-family:Arial,sans-serif;color:#0e1a14;line-height:1.5;">
-      <h1 style="margin:0 0 12px;font-size:22px;">New exactH2O quote request</h1>
+      <h1 style="margin:0 0 12px;font-size:22px;">New ExactH2O quote request</h1>
       <p style="margin:0 0 18px;color:#5f6b62;">A visitor submitted the quote form on exacth2o.com.</p>
       <table style="border-collapse:collapse;width:100%;max-width:680px;border:1px solid #e7ebe5;">
         ${field("Name", submission.name)}
@@ -92,9 +94,9 @@ function buildEmailHtml(submission: Required<Omit<QuotePayload, "honey">>) {
   `;
 }
 
-function buildEmailText(submission: Required<Omit<QuotePayload, "honey">>) {
+function buildEmailText(submission: Submission) {
   return [
-    "New exactH2O quote request",
+    "New ExactH2O quote request",
     "",
     `Name: ${submission.name}`,
     `Email: ${submission.email}`,
@@ -107,6 +109,83 @@ function buildEmailText(submission: Required<Omit<QuotePayload, "honey">>) {
     "Project details:",
     submission.message,
   ].join("\n");
+}
+
+type Submission = Required<Pick<QuotePayload, "name" | "email" | "phone" | "organization" | "application" | "timeline" | "message" | "sourceUrl">>;
+
+function salesClient(url: string, key: string) {
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+async function deliverQuote(supabase: ReturnType<typeof salesClient>, quote: { id: string }, submission: Submission, emailTo: string, origin: string | null) {
+  const resendApiKey = Deno.env.get("NOTIFICATION_RESEND_API_KEY") || Deno.env.get("RESEND_API_KEY");
+  const emailFrom = Deno.env.get("NOTIFICATION_FROM_EMAIL") || Deno.env.get("QUOTE_EMAIL_FROM");
+
+  if (!resendApiKey || !emailFrom) {
+    await supabase
+      .from("quote_requests")
+      .update({
+        notification_status: "failed",
+        notification_error: "Email sender or provider key is missing",
+      })
+      .eq("id", quote.id);
+
+    return jsonResponse({
+      ok: true,
+      warning: "Quote was saved, but email notifications are not configured yet.",
+      requestId: quote.id,
+    }, 200, origin);
+  }
+
+  const emailResponse = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    signal: AbortSignal.timeout(10000),
+    headers: {
+      "Authorization": `Bearer ${resendApiKey}`,
+      "Idempotency-Key": `exacth2o-quote-${quote.id}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: emailFrom,
+      to: [emailTo],
+      reply_to: submission.email,
+      subject: `New ExactH2O quote request from ${submission.name}`,
+      text: buildEmailText(submission),
+      html: buildEmailHtml(submission),
+    }),
+  }).catch(() => null);
+
+  const emailResult = await emailResponse?.json().catch(() => ({}));
+
+  if (!emailResponse?.ok) {
+    await supabase
+      .from("quote_requests")
+      .update({
+        notification_status: "failed",
+        notification_error: typeof emailResult?.message === "string"
+          ? emailResult.message
+          : emailResponse ? `Resend returned ${emailResponse.status}` : "Email provider was unreachable",
+      })
+      .eq("id", quote.id);
+
+    return jsonResponse({
+      ok: true,
+      warning: "Quote was saved, but the email notification failed.",
+      requestId: quote.id,
+    }, 200, origin);
+  }
+
+  const { error: recordError } = await supabase
+    .from("quote_requests")
+    .update({
+      notification_status: "sent",
+      notification_error: null,
+      resend_id: typeof emailResult?.id === "string" ? emailResult.id : null,
+    })
+    .eq("id", quote.id);
+
+  if (recordError) return jsonResponse({ ok: true, warning: "Email accepted. Delivery status could not be saved.", requestId: quote.id }, 200, origin);
+  return jsonResponse({ ok: true, requestId: quote.id }, 200, origin);
 }
 
 serve(async (request) => {
@@ -135,6 +214,29 @@ serve(async (request) => {
     return jsonResponse({ error: "Invalid request body" }, 400, origin);
   }
 
+  if (!payload || typeof payload !== "object") return jsonResponse({ error: "Invalid request body" }, 400, origin);
+  const emailTo = Deno.env.get("QUOTE_EMAIL_TO") ?? "bslbinod@gmail.com";
+  if (payload.action === "retry_sales_email") {
+    const authorization = request.headers.get("Authorization");
+    const url = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!authorization) return jsonResponse({error:"Sign in to retry a sales email."}, 401, origin);
+    if (!url || !anonKey || !serviceKey) return jsonResponse({error:"Sales email is unavailable."}, 503, origin);
+    if (typeof payload.requestId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.requestId)) return jsonResponse({error:"Invalid request ID."},400,origin);
+    const viewer = createClient(url, anonKey, {global:{headers:{Authorization:authorization}},auth:{persistSession:false}});
+    const allowed = await viewer.rpc("is_sales_support_staff", {check_project_id:intakeProjectId});
+    if (allowed.error || allowed.data !== true) return jsonResponse({error:"Sales inbox access is required."},403,origin);
+    const {data: lead, error} = await viewer.from("quote_requests")
+      .select("id,name,email,phone,organization,application,timeline,message,source_url,notification_status")
+      .eq("project_id",intakeProjectId).eq("id",payload.requestId).maybeSingle();
+    if (error || !lead) return jsonResponse({error:"Quote unavailable."},404,origin);
+    if (lead.notification_status !== "failed") return jsonResponse({error:"Only a failed sales email can be retried."},409,origin);
+    const stored = {name:lead.name, email:lead.email, phone:lead.phone ?? "", organization:lead.organization ?? "", application:lead.application,
+      timeline:lead.timeline ?? "", message:lead.message ?? "", sourceUrl:lead.source_url ?? ""};
+    return deliverQuote(salesClient(url,serviceKey), {id:lead.id}, stored, emailTo, origin);
+  }
+
   if (payload.honey) {
     return jsonResponse({ ok: true }, 200, origin);
   }
@@ -157,17 +259,11 @@ serve(async (request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const rateLimitSalt = Deno.env.get("PUBLIC_FORM_RATE_LIMIT_SALT")?.trim();
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  const emailTo = Deno.env.get("QUOTE_EMAIL_TO") ?? "bslbinod@gmail.com";
-  const emailFrom = Deno.env.get("QUOTE_EMAIL_FROM") ?? "exactH2O Website <onboarding@resend.dev>";
-
   if (!supabaseUrl || !serviceRoleKey || !rateLimitSalt) {
     return jsonResponse({ error: "Server is missing Supabase configuration" }, 500, origin);
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
+  const supabase = salesClient(supabaseUrl, serviceRoleKey);
 
   let submissionFingerprint = "";
   try {
@@ -218,65 +314,5 @@ serve(async (request) => {
   if (saved.duplicate === true) return jsonResponse({ ok: true, duplicate: true }, 200, origin);
   const quote = { id: String(saved.request_id) };
 
-  if (!resendApiKey) {
-    await supabase
-      .from("quote_requests")
-      .update({
-        notification_status: "failed",
-        notification_error: "Missing RESEND_API_KEY",
-      })
-      .eq("id", quote.id);
-
-    return jsonResponse({
-      ok: true,
-      warning: "Quote was saved, but email notifications are not configured yet.",
-      requestId: quote.id,
-    }, 200, origin);
-  }
-
-  const emailResponse = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: emailFrom,
-      to: [emailTo],
-      reply_to: submission.email,
-      subject: `New exactH2O quote request from ${submission.name}`,
-      text: buildEmailText(submission),
-      html: buildEmailHtml(submission),
-    }),
-  });
-
-  const emailResult = await emailResponse.json().catch(() => ({}));
-
-  if (!emailResponse.ok) {
-    await supabase
-      .from("quote_requests")
-      .update({
-        notification_status: "failed",
-        notification_error: typeof emailResult?.message === "string"
-          ? emailResult.message
-          : `Resend returned ${emailResponse.status}`,
-      })
-      .eq("id", quote.id);
-
-    return jsonResponse({
-      ok: true,
-      warning: "Quote was saved, but the email notification failed.",
-      requestId: quote.id,
-    }, 200, origin);
-  }
-
-  await supabase
-    .from("quote_requests")
-    .update({
-      notification_status: "sent",
-      resend_id: typeof emailResult?.id === "string" ? emailResult.id : null,
-    })
-    .eq("id", quote.id);
-
-  return jsonResponse({ ok: true, requestId: quote.id }, 200, origin);
+  return deliverQuote(supabase, quote, submission, emailTo, origin);
 });

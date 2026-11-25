@@ -22,7 +22,9 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       localStorage.setItem('sb-zmhdclcjrkntrpynozvo-auth-token', JSON.stringify({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }));
     }, { token, user: account });
     const preferenceWrites: Array<{selected_channel: string; selected_event_types: string[]}> = [];
+    let showPotAlert = false;
     let savedAlerts: Record<string,unknown> | undefined;
+    const inviteRequests: Array<{projectId: string; email: string}> = [];
     let savedCurve: Record<string, unknown> | undefined;
     let assignmentCommands: {command_type: string; payload: Record<string, unknown>}[] = [];
     const deviceLookups: string[] = [];
@@ -97,6 +99,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = '66fa562f-1916-4ef1-af9c-0ea867a95c6b';
       } else if (url.pathname === '/rest/v1/notification_outbox' && url.searchParams.has('id')) {
         data = [{status:'delivered'}];
+      } else if (url.pathname === '/rest/v1/notification_outbox' && url.searchParams.get('event_type') === 'eq.pot_moisture') {
+        data = showPotAlert ? [{id:'alert-1',subject:'Pot moisture alert',body:'Fixture pot 2 crossed its range.',created_at:now,metadata:{url:'/portal?experiment=new-study&pot=Zone1-Pot2'}}] : [];
+      } else if (url.pathname === '/functions/v1/invite-member') {
+        inviteRequests.push(route.request().postDataJSON());
+        data = {ok:true};
       } else if (url.pathname === '/functions/v1/phone-alerts') {
         data = {connected:true, publicKey:'test-key'};
       } else if (url.pathname === '/rest/v1/rpc/save_experiment_moisture_alerts') {
@@ -107,7 +114,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         builderRequests.push(body);
         if (body.action === 'preflight') data = { draft: body.draft, plan: { change_count: 0, changes: [], commands: [], pairing_count: body.draft.assignments.length, requires_controller_stop: false, final_controller_state: 'running' }, config_hash: 'test-config', inventory_updated_at: now, validation_messages: [] };
         else if (body.action === 'launch') {
-          createdExperiment = { id: 'new-study-id', slug: 'new-study', name: body.draft.name, mode: body.draft.mode, status: 'active', watering_state: 'off', pairing_names: body.draft.assignments.map((assignment: { pairing_name: string }) => assignment.pairing_name), assignments: body.draft.assignments, project_id: body.project_id };
+          createdExperiment = { id: 'new-study-id', slug: 'new-study', current_spec: body.draft, current_version: 1, name: body.draft.name, mode: body.draft.mode, status: 'active', watering_state: 'off', pairing_names: body.draft.assignments.map((assignment: { pairing_name: string }) => assignment.pairing_name), assignments: body.draft.assignments, project_id: body.project_id };
           data = { experiment_slug: 'new-study', experiment_id: 'new-study-id', operation_id: 'test-operation', command_ids: [], status: 'active' };
         }
       } else if (url.pathname === '/rest/v1/portal_experiment_catalog') {
@@ -320,8 +327,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await alerts.getByLabel('Min VWC (%)').fill('22');
     await alerts.getByLabel('Max VWC (%)').fill('38');
     await alerts.getByRole('button',{name:'Send test email'}).click();
-    await expect(alerts.getByRole('status')).toContainText('queued');
-    await expect(alerts.getByRole('status')).toContainText('accepted for delivery');
+    await expect(alerts.getByRole('status')).toContainText('Sent. Check your inbox.');
     await alerts.getByLabel('Notify me on my phone').check();
     await expect(alerts.getByRole('button',{name:'Send test alert'})).toBeVisible();
     await alerts.getByRole('button',{name:'Connect by QR code'}).click();
@@ -378,20 +384,37 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.getByRole('link', { name: /Home/ }).click();
     await expect(testbed).toContainText('Testbed calibration trial');
     await expect(rhee).toContainText('Huiqiao Pan experiment');
+    // Reopen the worksheet saved during setup, through the experiment settings route.
+    await page.goto('/portal?experiment=new-study&settings=calibrations&project='+testbedProject);
+    const soil = page.getByRole('region', {name:'Experiment soil calibration'});
+    await expect(soil).toContainText('Curve selected in setup: Simulated peat');
+    await soil.getByText('View soil worksheet', {exact:true}).click();
+    await expect(soil.getByRole('columnheader',{name:'Reference VWC'})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Reference studies',exact:true})).toBeVisible();
+    expect(calibrationWrites).toEqual([]);
     await page.goto('/portal?view=account&project='+testbedProject);
+    // The phone panel stays shut until it is asked for.
     const accountPhone = page.locator('#phone-alerts');
-    await expect(accountPhone.getByRole('heading', {name:'Phone alerts'})).toBeVisible();
+    await expect(accountPhone).toBeHidden();
+    await page.getByRole('button', {name:'Manage', exact:true}).click();
     await accountPhone.getByRole('button', {name:'Connect by QR code'}).click();
     await expect(accountPhone.getByRole('img', {name:'Scan to connect your phone to ExactH2O'})).toBeVisible();
     await expect(page.getByRole('button', {name:'Send test email'})).toBeVisible();
-    await page.getByLabel('In the portal').uncheck();
-    await page.getByRole('button', {name:'Save', exact:true}).click();
-    await expect(page.getByText('Saved', {exact:true})).toBeVisible();
-    expect(preferenceWrites.map(write => write.selected_channel)).toEqual(['portal']);
+    await expect(page.getByText('Recent', {exact:true})).toHaveCount(0);
     await page.getByLabel('Email me when a pot goes out of range').check();
     await page.getByRole('button', {name:'Save', exact:true}).click();
     await expect(page.getByText('Saved', {exact:true})).toBeVisible();
-    expect(preferenceWrites.map(write => write.selected_channel)).toEqual(['portal', 'email']);
-    expect(preferenceWrites[1].selected_event_types).toEqual(['operation_failed', 'pot_moisture']);
+    expect(preferenceWrites.map(write => write.selected_channel)).toEqual(['email']);
+    expect(preferenceWrites[0].selected_event_types).toEqual(['operation_failed', 'pot_moisture']);
+    // An administrator invites someone by email; the link itself never reaches this page.
+    await page.getByLabel('Email to invite').fill('New.Person@example.edu');
+    await page.getByRole('button', {name:'Send invite', exact:true}).click();
+    await expect(page.getByText('Invitation sent to new.person@example.edu')).toBeVisible();
+    expect(inviteRequests).toEqual([{projectId:testbedProject, email:'new.person@example.edu'}]);
+    showPotAlert = true;
+    await page.goto('/portal?view=account&project='+testbedProject+'#pot-alerts');
+    const privateAlerts = page.getByRole('region',{name:'Pot alerts'});
+    await expect(privateAlerts.getByRole('heading',{name:'Pot alerts'})).toBeVisible();
+    await expect(privateAlerts.getByRole('link',{name:'Pot moisture alert'})).toHaveAttribute('href','/portal?experiment=new-study&pot=Zone1-Pot2');
   });
 }

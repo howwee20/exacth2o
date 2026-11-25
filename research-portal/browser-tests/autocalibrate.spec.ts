@@ -195,7 +195,7 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   await expect(page.getByText(/Autopair is running in this tab/)).toBeVisible();
   const hold = page.getByRole('button', { name: /Hold to water/ });
   await expect(hold).toBeDisabled();
-  await page.getByRole('button', { name: 'Stop autocalibration when I hold' }).click();
+  await page.getByRole('button', { name: 'Stop Autopair when I hold' }).click();
   await hold.hover();
   await page.mouse.down();
   await expect(page.getByRole('button', { name: /Watering/ })).toBeVisible();
@@ -205,7 +205,7 @@ test('manual watering in this tab interrupts the run first and keeps its evidenc
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(page.getByRole('heading', { name: 'Resume the run' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.ac-interruption')).toContainText(/Manual watering \(Solenoid 40\) interrupted autocalibration/);
+  await expect(page.locator('.ac-interruption')).toContainText(/Manual watering \(Solenoid 40\) interrupted Autopair/);
   await expect(page.locator('.ac-interruption')).toContainText(/valves have usable evidence and are not pulsed again/);
 });
 

@@ -109,9 +109,9 @@ export function RecordView({
       ...calibrationRequestItems(sources.calibrationRequests, sources.historyPairingNames),
       ...noteItems(sources.notes),
       ...gapItems(sources.gaps, experimentPairings),
-      ...wateringItems(sources.daily),
+      ...wateringItems(sources.daily, pot || undefined),
     ].filter((item) => item.happenedAt >= anchorMs - spanDays * day && item.happenedAt <= anchorMs));
-  }, [anchorMs, spanDays, experiment.databaseId, experimentPairings, sources]);
+  }, [anchorMs, spanDays, experiment.databaseId, experimentPairings, sources, pot]);
   const lastSeenMs = previousMark.current?.value ? Date.parse(previousMark.current.value) : null;
   const fresh = useMemo(() => newSince(items, lastSeenMs, userId), [items, lastSeenMs, userId]);
   const shown = useMemo(() => filterRecord(items, kinds, pot || null), [items, kinds, pot]);

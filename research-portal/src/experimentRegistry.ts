@@ -17,6 +17,7 @@ export type PortalExperimentAssignment = {
   target_vwc_percent: number | null;
   measurement_interval_minutes: number | null;
   sensor_key_snapshot?: string | null;
+  calibration_name_snapshot?: string | null;
   valve_key_snapshot?: string | null;
 };
 
