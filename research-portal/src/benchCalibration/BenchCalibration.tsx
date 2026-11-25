@@ -12,6 +12,7 @@ import {
   equation,
   isWorksheet,
   sameCurve,
+  sameStoredCurve,
   sampleMean,
   type Cell,
   type FitMode,
@@ -249,7 +250,7 @@ export function BenchCalibration({
       const row = existing.data as Curve | null;
       if (
         !row ||
-        !sameCurve(row.coefficients, fit.coefficients) ||
+        !sameStoredCurve(row.coefficients, fit.coefficients) ||
         !isWorksheet(row.worksheet) ||
         worksheetIdentity(row.worksheet) !== worksheetIdentity(sheet)
       ) {

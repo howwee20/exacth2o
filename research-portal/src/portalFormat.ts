@@ -94,6 +94,16 @@ export function runtimeStateIsFresh(runtimeState?: DeviceRuntimeState | null, no
   return Number.isFinite(freshUntil) && freshUntil > nowMs;
 }
 
+/**
+ * The controller's current run state for confirmations, or null while it is unknown or stale.
+ * The controller publishes RUNNING / STOPPED (a database check enforces that spelling).
+ */
+export function freshControllerState(runtimeState: DeviceRuntimeState | null | undefined, deviceId: string | null | undefined, nowMs = Date.now()): "running" | "stopped" | null {
+  if (!runtimeState || !deviceId || runtimeState.device_id !== deviceId || !runtimeStateIsFresh(runtimeState, nowMs)) return null;
+  const state = runtimeState.controller_state?.trim().toLowerCase();
+  return state === "running" || state === "stopped" ? state : null;
+}
+
 export function syncedCount(value?: number | null) {
   return value == null || !Number.isFinite(value) ? "—" : Math.trunc(value).toLocaleString();
 }

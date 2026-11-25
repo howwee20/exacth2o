@@ -5,6 +5,7 @@ import type { PortalExperiment } from "../experimentRegistry";
 import type { DeviceConfigState } from "../portalTypes";
 import { supabase } from "../supabase";
 import type { PairingRow } from "../types";
+import { soilCurveUse } from "./soilCurveUse";
 
 type SavedCurve = { name: string; coefficients: number[]; worksheet: Worksheet };
 type Library = { key: string; curves: SavedCurve[]; error?: string };
@@ -37,19 +38,8 @@ export function ExperimentSoilCalibration({ experiment, projectId, deviceId, con
   const installed = useMemo(() => controllerLibrary(config?.calibrations ?? []), [config]);
   const assignments = experiment.assignments ?? [];
   const setup = experiment.currentSpec?.bench_calibration_name;
-  const curves = new Map<string, { planned: number[]; reported: number[] }>();
-  function add(name: string | null | undefined, field: "reported" | "planned", pot: number) {
-    if (!name?.trim()) return;
-    const entry = curves.get(name) ?? { planned: [], reported: [] };
-    entry[field].push(pot);
-    curves.set(name, entry);
-  }
-  if (setup) curves.set(setup, { planned: [], reported: [] });
   const names = new Set(experiment.pairingNames);
-  for (const assignment of assignments) add(assignment.calibration_name_snapshot, "planned", assignment.pot_number);
-  for (const p of pairings) {
-    if (names.has(p.name)) add(p.calibration_name, "reported", p.pot_number);
-  }
+  const curves = soilCurveUse(setup, assignments, pairings, names);
   const current = library?.key === scope ? library : null;
   return <section className="settings-card px-soil-summary" aria-label="Experiment soil calibration">
     <h3>Soil calibration in use</h3>
@@ -65,6 +55,7 @@ export function ExperimentSoilCalibration({ experiment, projectId, deviceId, con
         <p>Plan revision {experiment.currentVersion ?? "unknown"}: {counts.planned.length}/{names.size} pots · Controller report: {counts.reported.length}/{names.size} pots</p>
         <details><summary>Pot assignments and equation</summary>
           <p>Plan pots: {counts.planned.join(", ") || "None recorded"}</p>
+          {counts.snapshot.length > 0 && <p>On the controller when revision {experiment.currentVersion ?? "unknown"} was saved: {counts.snapshot.join(", ")}</p>}
           <p>Controller pots: {counts.reported.join(", ") || "None reported"}</p>
           <p>{coefficients ? "Controller curve: " + equation(coefficients) : "Controller equation unavailable."}</p>
         </details>

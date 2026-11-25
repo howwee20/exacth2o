@@ -12,6 +12,12 @@ type ManualControl = { projectId: string; deviceId: string; controllerName: stri
 type Result = { key: string; pot: number | null; pairing: PairingRow | null; experiment: PortalExperiment | null; route: PotRoute | null };
 const statusText = { ready: "Watering ready", needs_confirmation: "Needs check", no_water_line: "No water line", unmapped: "No route", conflict: "Conflict" } as const;
 
+/** What the pot panel says while it has no valve route: still loading, refused, or not on this controller. */
+export function missingRouteText(book: RouteBook | null, bookError: string) {
+  if (bookError) return `Watering is unavailable: ${bookError}`;
+  return book ? "This pot has no valve route on this controller." : "Loading valve routes…";
+}
+
 export function routeSourceText(route: PotRoute) {
   if (!route.source) return "—";
   if (route.source === "admin") {
@@ -160,6 +166,7 @@ export function FindPotDialog({
             controllerName={manualControl.controllerName}
             client={client}
             book={book}
+            bookError={bookError}
             onBook={setBook}
             colorPot={valvePairing?.pot_number ?? selected}
             lastWateredAt={valvePairing ? valveEvents.reduce((newest, event) => event.pairing_name === valvePairing.name && event.action === "open"
@@ -235,9 +242,9 @@ export function FindPotDialog({
   );
 }
 
-function PotPanel({ titleId, pot, colorPot, lastWateredAt, route, experiment, controllerName, client, book, onBook, readings, recordHref, onClose }: {
+function PotPanel({ titleId, pot, colorPot, lastWateredAt, route, experiment, controllerName, client, book, bookError, onBook, readings, recordHref, onClose }: {
   titleId: string; pot: number; colorPot: number; lastWateredAt: number | null; route: PotRoute | null; experiment: PortalExperiment | null; controllerName: string;
-  client: ManualWaterClient; book: RouteBook | null; onBook: (book: RouteBook) => void; readings: readonly SensorReading[] | null; recordHref: string | null; onClose: () => void;
+  client: ManualWaterClient; book: RouteBook | null; bookError: string; onBook: (book: RouteBook) => void; readings: readonly SensorReading[] | null; recordHref: string | null; onClose: () => void;
 }) {
   const trace = useMemo(() => potTrace(readings ?? []), [readings]);
   const last = trace[trace.length - 1];
@@ -253,7 +260,7 @@ function PotPanel({ titleId, pot, colorPot, lastWateredAt, route, experiment, co
       {trace.length > 1 ? <PotTraceGraph pot={pot} colorPot={colorPot} trace={trace} />
         : route ? <p className="px-muted px-small">{route.pairing?.sensorKey ? "No recent readings." : "No sensor linked."}</p> : null}
       {lastWateredAt ? <p className="px-pot-watered">Last watered {whenText(lastWateredAt)}</p> : null}
-      {!route ? <p className="px-muted px-small">Loading valve routes…</p>
+      {!route ? <p className="px-muted px-small" role={bookError ? "alert" : undefined}>{missingRouteText(book, bookError)}</p>
         : route.status === "ready" ? <HoldWaterControl key={`${pot}:${route.relayAddress}:${route.channel}`} client={client} destination={{ kind: "pot", potNumber: pot }} label={`Pot ${pot}`}
             renewMs={book?.renewMs} leaseMs={book?.leaseMs} canTakeover={book?.canTakeover} compact />
         : <RouteNeeded route={route} canConfirm={Boolean(book?.canConfirm)} book={book} client={client} onBook={onBook} />}

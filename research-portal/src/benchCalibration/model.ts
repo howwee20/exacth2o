@@ -155,3 +155,16 @@ export function sameCurve(a: number[], b: number[]) {
   const length = Math.max(a.length, b.length);
   return Array.from({ length }, (_, i) => (a[i] ?? 0) === (b[i] ?? 0)).every(Boolean);
 }
+
+/**
+ * Whether a stored curve is the one just fitted. The API returns double-precision values with
+ * 15 significant digits, so a fresh fit and its saved copy can differ in the last bits.
+ */
+export function sameStoredCurve(stored: number[], fitted: number[]) {
+  const length = Math.max(stored.length, fitted.length);
+  return Array.from({ length }, (_, i) => {
+    const a = stored[i] ?? 0;
+    const b = fitted[i] ?? 0;
+    return Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a), Math.abs(b));
+  }).every(Boolean);
+}

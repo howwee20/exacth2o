@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PotRouteFacts } from "./FindPotDialog";
+import { missingRouteText, PotRouteFacts } from "./FindPotDialog";
+import type { RouteBook } from "../manualWaterApi";
 import type { PotRoute } from "../manualWaterApi";
 
 vi.mock("../supabase", () => ({ supabase: {} }));
@@ -24,5 +25,14 @@ describe("physical pot status", () => {
     expect(html).toContain("Needs setup");
     expect(html).toContain("Hardware details");
     expect(html).not.toMatch(/<details[^>]*open/);
+  });
+});
+
+describe("pot panel without a valve route", () => {
+  it("says watering is unavailable when the controller refuses, instead of loading forever", () => {
+    // Audit 2026-11-25: manual-hold answered 409 "Hold-to-water is unavailable on this controller" and the panel kept saying "Loading valve routes…".
+    expect(missingRouteText(null, "Hold-to-water is unavailable on this controller")).toBe("Watering is unavailable: Hold-to-water is unavailable on this controller");
+    expect(missingRouteText(null, "")).toBe("Loading valve routes…");
+    expect(missingRouteText({ pots: [] } as unknown as RouteBook, "")).toBe("This pot has no valve route on this controller.");
   });
 });
