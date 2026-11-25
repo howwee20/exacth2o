@@ -374,7 +374,7 @@
 
 /* Published research: one ruled row. */
 .home-page .research-strip { padding: 0 max(24px, var(--gutter)); background: #f5f5f7; }
-.research-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: center; padding-block: 34px; border-block: 1px solid rgba(16, 31, 26, .16); }
+.research-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: center; padding-block: 34px; border-block-start: 1px solid rgba(16, 31, 26, .16); }
 .research-row .section-label { margin: 0; }
 .research-main { grid-column: span 2; display: flex; align-items: center; justify-content: space-between; gap: 12px 32px; }
 .research-row h3 { font-size: clamp(22px, 2vw, 28px); line-height: 1.15; font-weight: 650; letter-spacing: -.035em; }

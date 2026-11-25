@@ -420,7 +420,7 @@
 .px-account-invite .px-button { min-height: 34px; }
 #phone-alerts[hidden] { display: none; }
 
-.pot-reading .pot-quality { grid-column: 1 / -1; color: #885308; font-size: .68rem; font-weight: 650; }
+.px-trace-detail .pot-alert-dot { width: 8px; height: 8px; border-radius: 50%; background: #c73535; }
 .px-soil-summary { margin-bottom: 1rem; }
 .px-soil-curve { padding: .75rem 0; border-top: 1px solid var(--px-line, #dbe4df); }
 .px-soil-curve details { margin: .6rem 0; overflow-x: auto; }

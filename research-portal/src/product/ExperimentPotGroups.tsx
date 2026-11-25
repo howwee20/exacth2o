@@ -76,11 +76,18 @@ export function ExperimentPotGroups({ groupedPairings, hiddenPots, selectedExper
                         <span className="pot-reading">
                           <b>{pairing.pot_number}</b>
                           <strong>{formatVwcReading(latestValue)}</strong>
-                          {flags && <span className="pot-quality">{flags}</span>}
                           {!treatment && potTreatment ? <span className="pot-treatment">{levelLabel(potTreatment)}</span> : null}
                         </span>
                       </button>
-                      <PortalLink className="px-trace-detail" to={{view: "experiment", experiment: selectedExperiment.id, tab: "pots", pot: pairing.name}} aria-label={`Inspect Pot ${pairing.pot_number}`} title={`Open Pot ${pairing.pot_number} details`}>↗</PortalLink>
+                      <PortalLink
+                        className="px-trace-detail"
+                        to={{ view: "experiment", experiment: selectedExperiment.id, tab: "pots", pot: pairing.name }}
+                        aria-label={`Inspect Pot ${pairing.pot_number}`}
+                        aria-description={flags || undefined}
+                        title={flags || `Open Pot ${pairing.pot_number} details`}
+                      >
+                        {flags ? <span className="pot-alert-dot" aria-hidden="true" /> : "↗"}
+                      </PortalLink>
                       </div>
                     );
                   })}
