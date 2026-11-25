@@ -15,6 +15,7 @@ import "./product.css";
 export { MachineHome, MachineTile } from "./MachineTile";
 
 export function ProjectMachineTile({ projectId, name }: { projectId: string; name: string }) {
+  const [studies,setStudies]=useState<{id:string;name:string}[]>([]);
   const [detail, setDetail] = useState("Loading experiment…");
   const [runtime, setRuntime] = useState<DeviceRuntimeState | null>(null);
   const [statusLoaded, setStatusLoaded] = useState(false);
@@ -51,16 +52,16 @@ export function ProjectMachineTile({ projectId, name }: { projectId: string; nam
     let active = true;
     void loadPortalExperimentCatalog(projectId).then(experiments => {
       if (!active) return;
-      const current = orderHomeExperiments(experiments).find(experiment => !experimentIsCompleted(experiment));
-      setDetail(current?.name ?? "No active experiment");
+      const current = orderHomeExperiments(experiments).filter(experiment => !experimentIsCompleted(experiment));
+      setStudies(current);setDetail("No active experiment");
     }).catch(() => {
       if (active) setDetail("Experiment unavailable");
     });
     return () => { active = false; };
   }, [projectId]);
-  return <MachineTile name={name} detail={detail}
+  return <>{(studies.length?studies:[null]).map(item=><MachineTile key={item?.id??projectId} name={name} detail={item?.name??detail}
     status={!statusLoaded ? "Checking controller…" : presence.status === "never" ? "Status unavailable" : presence.label}
     statusTone={presence.status === "online" ? "online" : presence.status === "offline" ? "offline" : "unknown"}
     extra={{ project: projectId }}
-    to={{ view: "controller" }} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} />;
+    to={item?{view:"experiment",experiment:item.id,tab:"pots",pot:null}:{view:"controller"}} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} />)}</>;
 }

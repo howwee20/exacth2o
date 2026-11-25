@@ -44,10 +44,12 @@ type PickerProps = {
   unpairedPots: ReadonlySet<number>;
   onToggle: (pot: number) => void;
   onRemovePairing: (name: string) => void;
+  pendingLabel?: (pot:number)=>string|undefined;
+  onRemovePending?: (pot:number)=>void;
   groupLabel?: (name: string) => string | undefined;
 };
 
-export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, onRemovePairing, groupLabel }: PickerProps) {
+export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, onRemovePairing, groupLabel, pendingLabel, onRemovePending }: PickerProps) {
   const selectedInOrder = [
     ...[...selected].map(name => ({ name, number: model.potNumbers.get(name) ?? null })),
     ...[...unpairedPots].map(number => ({ name: null, number })),
@@ -78,10 +80,10 @@ export function ExperimentPotPicker({ model, selected, unpairedPots, onToggle, o
               const label = number == null ? name : "Pot " + number;
               return <button type="button" key={name ?? number} className="is-selected" aria-label={"Remove " + label} onClick={() => {
                 if (name !== null) onRemovePairing(name);
-                else if (number !== null) onToggle(number);
+                else if (number !== null) (onRemovePending ?? onToggle)(number);
               }}>
                 <span>{label}</span>
-                {name === null ? <small>Needs controller pairing</small>
+                {name === null ? <small>{number!==null && pendingLabel?.(number)} · Autopair needed</small>
                   : !model.assignable.has(name) ? <small>Unavailable</small>
                     : <><small>{groupLabel?.(name)}</small><Check size={14} aria-hidden="true" /></>}
               </button>;

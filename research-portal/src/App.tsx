@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+import { DiscoveryTile } from "./RheeDiscovery";
 import { AlertTriangle,ArrowRight,ChevronDown,LayoutGrid,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { ChamberControlView,ChamberHealthView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
@@ -816,6 +818,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       deviceId={activeDeviceId || null}
       pairings={visibleExperimentPairings(data.pairings)}
       experiments={availableExperiments}
+      refreshInventory={loadDeviceSyncState}
       inventoryUpdatedAt={configState?.updated_at ?? null}
       config={configState?.project_id === activeProjectId && configState.device_id === activeDeviceId ? configState : null}
       experiment={newExperimentPage ? null : editingExperiment}
@@ -1449,6 +1452,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
 
   if (isDemo) return productShell(<DemoHome />);
 
+  const liveHomeExperiments=availableExperiments.filter(e=>e.status!=="archived" && !experimentIsCompleted(e,clockNowMs));
   const directory = portalAccess.projectDirectory ?? [];
   const homeProjects = directory.some(project => project.id === activeProjectId)
     ? directory
@@ -1460,12 +1464,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   return productShell(
     <MachineHome tools={adminTools}>
       {homeProjects.map(project => project.id === activeProjectId ? (
-        <MachineTile key={project.id} name={project.name}
-          detail={defaultSystemExperiment && !experimentIsCompleted(defaultSystemExperiment, clockNowMs) ? defaultSystemExperiment.name
+        <Fragment key={project.id}>{(liveHomeExperiments.length?liveHomeExperiments:[null]).map(item=>(<MachineTile key={item?.id ?? project.id} name={project.name}
+          detail={item ? item.name
             : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
           status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
-          to={defaultSystemExperiment ? { view: "experiment", experiment: defaultSystemExperiment.id, tab: "pots", pot: null } : { view: "controller" }} healthTo={{ view: "health" }}
-          creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />
+          to={item ? { view: "experiment", experiment: item.id, tab: "pots", pot: null } : { view: "controller" }} healthTo={{ view: "health" }}
+          creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />))}{project.id==="22222222-2222-4222-8222-222222222222" && <DiscoveryTile/>}</Fragment>
       ) : (
         <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />
       ))}

@@ -1,3 +1,5 @@
+import { DiscoveryPanel, discoveryRequest, type DiscoveryRun, type DiscoveryChoice } from "./RheeDiscovery";
+import { controllerLibrary } from "./benchCalibration/model";
 import {
   Component,
   useEffect,
@@ -82,6 +84,7 @@ type ExperimentBuilderProps = {
   /** The autocalibration of the draft's pots. It reports when its session ends and whether the test ran to the end. */
   renderBenchCalibration?: (draft: ExperimentDraft, choose: (name: string) => void) => ReactNode;
   renderCalibration?: (draft: ExperimentDraft, options: { onClosed: (outcome: { status: string; completed: boolean }) => void }) => ReactNode;
+  refreshInventory?: () => Promise<void>;
   onClose: () => void;
   onCreated: (slug: string) => void;
 };
@@ -152,6 +155,7 @@ function ExperimentBuilderContent({
   renderBenchCalibration,
   onClose,
   onCreated,
+  refreshInventory,
 }: ExperimentBuilderProps) {
   const alerts = useRef<AlertEditor>(null);
   const retryAlertSave = useRef<(() => Promise<void>) | null>(null);
@@ -188,7 +192,15 @@ function ExperimentBuilderContent({
   const dialogRef = useRef<HTMLElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
   const [showOccupied, setShowOccupied] = useState(false);
-  const [unpairedPots, setUnpairedPots] = useState<ReadonlySet<number>>(() => new Set());
+  const [pendingGroups,setPendingGroups]=useState<Record<number,string>>({});
+  const unpairedPots=useMemo(()=>new Set(Object.keys(pendingGroups).map(Number)),[pendingGroups]);
+  const [discovery,setDiscovery]=useState<DiscoveryRun|null>(null);
+  const [discoveryBusy,setDiscoveryBusy]=useState(false);
+  const [discoveryChoice,setDiscoveryChoice]=useState("");
+  const [discoveryReview,setDiscoveryReview]=useState(false);
+  const [usingRun,setUsingRun]=useState<string|null>(null);
+  const installedCurves=useMemo(()=>[...controllerLibrary(config?.calibrations??[]).keys()],[config?.calibrations]);
+  const selectedCurve=draft.bench_calibration_name||discoveryChoice||installedCurves.find(name=>name.toLowerCase()==="matts greenhouse pots")||installedCurves[0]||"";
   // "Autocalibrate these pots first": ticked, the button runs the valve test for the chosen pots before anything is
   // created. `calibratedPots` remembers which selection was tested, so changing the pots asks for a new test.
   const [autocalibrate, setAutocalibrate] = useState(false);
@@ -237,6 +249,22 @@ function ExperimentBuilderContent({
   );
   const fieldMap = !editing && deviceId ? installationFieldMap(projectId, deviceId) : null;
   const fieldPots = useExperimentFieldPots(fieldMap, pairings, occupiedByName);
+  useEffect(()=>{
+    if(!fieldMap)return;
+    let mounted=true;
+    void discoveryRequest("status").then(run=>{if(mounted)setDiscovery(run)}).catch(e=>{if(mounted)setError(e.message)});
+    return ()=>{mounted=false};
+  },[fieldMap]);
+  useEffect(()=>{
+    if(!discovery || usingRun || !["running","applying"].includes(discovery.status))return;
+    let mounted=true;
+    const timer=window.setTimeout(()=>{
+      void discoveryRequest(discovery.owner?"tick":"status",{id:discovery.id})
+        .then(run=>{if(mounted){setDiscovery(run);setError(null)}})
+        .catch(e=>{if(mounted){setError(e.message);setDiscovery({...discovery})}});
+    },discovery.phase==="receipt" || discovery.phase==="observe" || !discovery.owner ? 2500:700);
+    return ()=>{mounted=false;window.clearTimeout(timer)};
+  },[discovery,usingRun]);
   const fieldSelectionBlocked = fieldPots !== null && (unpairedPots.size > 0 || draft.assignments.some(
     assignment => !fieldPots.assignable.has(assignment.pairing_name),
   ));
@@ -342,13 +370,15 @@ function ExperimentBuilderContent({
   };
 
   const togglePhysicalPot = (pot: number) => {
-    if (unpairedPots.has(pot)) {
-      setUnpairedPots(current => new Set([...current].filter(number => number !== pot)));
-    } else {
-      const pairing = fieldPots?.available.get(pot);
-      if (pairing) togglePairing(pairing);
-      else if (pairing === null) setUnpairedPots(current => new Set(current).add(pot));
-    }
+    const pairing=fieldPots?.available.get(pot);
+    if(pairing){togglePairing(pairing);return;}
+    if(pairing!==null)return;
+    clearReview();setDiscoveryReview(false);
+    setPendingGroups(current=>{
+      const next={...current};
+      if(next[pot]===activeGroup.id)delete next[pot];else next[pot]=activeGroup.id;
+      return next;
+    });
   };
 
   const removePairing = (name: string) => {
@@ -385,6 +415,7 @@ function ExperimentBuilderContent({
     const remaining = groups.filter((group) => group.id !== id);
     if (!remaining.length) return;
     setGroups(remaining);
+    setPendingGroups(current=>Object.fromEntries(Object.entries(current).filter(([,groupId])=>groupId!==id)));
     if (activeGroupId === id) setActiveGroupId(remaining[0].id);
     setGroupByPot(Object.fromEntries(Object.entries(groupByPot).filter(([, groupId]) => groupId !== id)));
     updateDraft("assignments", draft.assignments.filter((assignment) => groupByPot[assignment.pairing_name] !== id));
@@ -495,6 +526,7 @@ function ExperimentBuilderContent({
         }
       }
       setStep("complete");
+      if(usingRun)await discoveryRequest("close",{id:usingRun}).catch(()=>{});
       onCreated(result.experiment_slug);
     } catch (nextError) {
       if (nextError instanceof ExperimentRequestError && nextError.savedExperimentSlug) {
@@ -514,6 +546,43 @@ function ExperimentBuilderContent({
     }
   };
 
+  const discoveryAction=async(action:string)=>{
+    if(discoveryBusy)return;
+    setDiscoveryBusy(true);setError(null);
+    try {
+      if(action==="start"){
+        const choice=(pot:number, id:string):DiscoveryChoice=>{
+          const group=groups.find(g=>g.id===id);
+          if(!group?.name.trim())throw Error("Name each selected group before starting.");
+          return {pot,group:group.name.trim(),target:group.target};
+        };
+        const pots=[...unpairedPots].sort((a,b)=>a-b).map(pot=>choice(pot,pendingGroups[pot]));
+        const existing=draft.assignments.map(a=>choice(fieldPots!.potNumbers.get(a.pairing_name)!,groupByPot[a.pairing_name]));
+        setDiscovery(await discoveryRequest("start",{setup:{name:draft.name.trim(),mode:draft.mode,curve:selectedCurve,pots,existing}}));
+        setDiscoveryReview(false);
+      }else if(discovery) {
+        const next=await discoveryRequest(action,{id:discovery.id});setDiscovery(next);
+      }
+    }catch(e){setError(e instanceof Error?e.message:"Could not update Autopair.");}
+    finally{setDiscoveryBusy(false);}
+  };
+  const useDiscovered=async()=>{
+    if(!discovery||!fieldPots)return;
+    const choices=[...discovery.setup.pots,...(discovery.setup.existing??[])];
+    const assignments:ExperimentDraftAssignment[]=[];
+    for(const c of choices){
+      const pairing=fieldPots.available.get(c.pot);
+      const match=discovery.matches.find(m=>m.pot===c.pot);
+      if(!pairing || (match && (pairing.name!==match.name || pairing.sensor_key!==match.sensorKey))){
+        setError("Refreshing the new controller pairings. Tap Continue again when the inventory has loaded.");await refreshInventory?.();return;
+      }
+      assignments.push(assignmentInGroup(assignmentForMode(pairing,discovery.setup.mode),{id:c.group,name:c.group,target:c.target,tone:0},discovery.setup.mode,1));
+    }
+    const grouped=groupsFromAssignments(assignments);
+    setGroups(grouped.groups);setGroupByPot(grouped.groupByPot);setActiveGroupId(grouped.groups[0].id);setPendingGroups({});
+    setDraft(current=>({...current,name:discovery.setup.name,mode:discovery.setup.mode,bench_calibration_name:discovery.setup.curve,assignments}));
+    setAutocalibrate(false);setBenchOpened(discovery.setup.mode==="calibration");setUsingRun(discovery.id);setError(null);
+  };
   return (
     <div
       className={presentation === "inline"
@@ -551,7 +620,7 @@ function ExperimentBuilderContent({
           </button>
         </header>
 
-        {step === "setup" ? (
+        {discovery&&!usingRun ? <div className="experiment-builder-review"><DiscoveryPanel run={discovery} busy={discoveryBusy} onAction={action=>void discoveryAction(action)} onUse={()=>void useDiscovered()} />{error&&<p role="alert">{error}</p>}</div> : step === "setup" ? (
           <>
             <div className="experiment-builder-review">
               <fieldset className="experiment-builder-editable" disabled={busy || confirming}>
@@ -592,8 +661,9 @@ function ExperimentBuilderContent({
                   config={config} pairings={pairingsForExperiment(pairings, experiment)}
                 />}
 
-                {benchOpened && renderBenchCalibration && <div hidden={draft.mode !== "calibration"}>{renderBenchCalibration(draft, name => updateDraft("bench_calibration_name", name))}</div>}
+                {!unpairedPots.size && benchOpened && renderBenchCalibration && <div hidden={draft.mode !== "calibration"}>{renderBenchCalibration(draft, name => updateDraft("bench_calibration_name", name))}</div>}
 
+                {unpairedPots.size>0 && <section className="xb-section"><label>Soil calibration <select value={selectedCurve} onChange={e=>{setDiscoveryChoice(e.target.value);updateDraft("bench_calibration_name",e.target.value)}}>{installedCurves.map(name=><option key={name}>{name}</option>)}</select></label><p>Autopair will find the sensor for each unpaired pot by measuring its moisture rise.</p></section>}
                 <section className="xb-section">
                   <div className="xb-heading">
                     <h3>Groups</h3>
@@ -605,7 +675,7 @@ function ExperimentBuilderContent({
                   <div className="xb-groups" role="radiogroup" aria-label="Group to put pots in">
                     {groups.map((group) => {
                       const active = group.id === activeGroup.id;
-                      const count = draft.assignments.filter((assignment) => groupByPot[assignment.pairing_name] === group.id).length;
+                      const count = Object.values(pendingGroups).filter(id=>id===group.id).length + draft.assignments.filter((assignment) => groupByPot[assignment.pairing_name] === group.id).length;
                       const name = group.name.trim() || "Unnamed group";
                       return (
                         <div
@@ -654,6 +724,8 @@ function ExperimentBuilderContent({
                   unpairedPots={unpairedPots}
                   onToggle={togglePhysicalPot}
                   onRemovePairing={removePairing}
+                  pendingLabel={pot=>groups.find(g=>g.id===pendingGroups[pot])?.name}
+                  onRemovePending={pot=>setPendingGroups(current=>{const next={...current};delete next[pot];return next})}
                   groupLabel={name => groups.find(group => group.id === groupByPot[name])?.name}
                 /> : <section className="xb-section">
                   <div className="xb-heading">
@@ -766,13 +838,13 @@ function ExperimentBuilderContent({
                   </details> : null}
                 </details>
 
-                {renderCalibration ? <label className="xb-check xb-autocal">
+                {renderCalibration && !unpairedPots.size ? <label className="xb-check xb-autocal">
                   <input type="checkbox" checked={autocalibrate || calibrated} disabled={calibrated} onChange={(event) => setAutocalibrate(event.target.checked)} />
                   {calibrated ? "Autopair complete" : "Autopair these pots first"}
                 </label> : null}
               </fieldset>
               {error ? <p className="experiment-builder-error" role="alert">{error}</p> : null}
-              {fieldSelectionBlocked ? <p className="settings-muted" role="status">Remove unavailable pots and pots that need a controller pairing before continuing.</p> : null}
+              {fieldSelectionBlocked && !unpairedPots.size ? <p className="settings-muted" role="status">Remove unavailable pots and pots that need a controller pairing before continuing.</p> : null}
               {calibrationRunning ? <p className="settings-muted" role="status">Autopair is running. Finish or stop it first.</p> : null}
               {attemptedReview && !error && validationIssues.length ? (
                 <p className="experiment-builder-error" role="alert">
@@ -781,7 +853,10 @@ function ExperimentBuilderContent({
               ) : null}
             </div>
 
-            {controlPlan ? (
+            {unpairedPots.size>0 ? <footer className="experiment-builder-actions">
+              {discoveryReview && <p>Autopair will read unused probes, then pulse each of the {unpairedPots.size} selected outlets for 3 seconds. Keep this page open at the bench.</p>}
+              <button type="button" className="is-primary" disabled={discoveryBusy||!draft.name.trim()||!selectedCurve||calibrationRunning} onClick={()=>discoveryReview?void discoveryAction("start"):setDiscoveryReview(true)}>{discoveryBusy?"Starting…":discoveryReview?"Start Autopair":"Review Autopair"}</button>
+            </footer> : controlPlan ? (
               <footer className="experiment-builder-actions is-confirming">
                 <div className="xb-confirm" ref={confirmRef} tabIndex={-1} role="group" aria-label={editing ? "Ready to save" : "Ready to start"}>
                   <h3>{editing ? "Ready to save" : "Ready to start"}</h3>
