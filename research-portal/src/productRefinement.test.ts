@@ -73,3 +73,15 @@ describe("measurement quality",()=>{
   expect(latestQualityIssues([reading(end-10),reading(end,"Pot1",20)]).length).toBe(0);
  });
 });
+
+it("counts a hardware sample once under its current pot and retains alias provenance and conflicting values", () => {
+  const scoped = { ...experiment, pairingNames: ["Pot1", "old Pot1"] };
+  const old = reading(end-1000, "old Pot1", 23);
+  const current = { ...old, id: 99, event_id: "current", pairing_name: "Pot1" };
+  const conflict = { ...old, id: 98, calibrated_value: 24 };
+  const report = { ...input, experiment: scoped, preserveRecordedLabels: true, readings: [old, current, conflict] };
+  const rows = reportReadings(report);
+  expect(rows).toHaveLength(2);
+  expect(rows.find(row => row.calibrated_value === 23)).toMatchObject({pairing_name: "Pot1", also_recorded_as: ["old Pot1"]});
+  expect(experimentReadingsCsv(report)).toContain("also_recorded_as");
+});

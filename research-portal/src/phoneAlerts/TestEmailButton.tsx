@@ -22,15 +22,15 @@ export function TestEmailButton({ projectId }: { projectId: string }) {
       }
       if (!active) return;
       if (status === "delivered") {
-        setMessage("Email accepted for delivery. Check your inbox and spam folder.");
+        setMessage("Sent. Check your inbox.");
       } else if (status === "failed" || status === "canceled") {
-        setMessage("The test email could not be confirmed. Check Account & access → Recent.");
+        setMessage("The test email was not delivered.");
       } else if (Date.now() < deadline) {
         timer = setTimeout(() => void check(), 5_000);
         return;
       } else {
-        setMessage(status ? "Delivery is still pending. Check Account & access → Recent for its status."
-          : "Could not confirm the delivery status. Reload Account & access to check Recent.");
+        setMessage(status ? "Still sending. Check your inbox in a few minutes."
+          : "Could not confirm delivery. Check your inbox.");
       }
       setBusy(false);
       setJob("");
@@ -45,8 +45,8 @@ export function TestEmailButton({ projectId }: { projectId: string }) {
     try {
       const { data, error } = await supabase.rpc("request_alert_test_email", { selected_project_id: projectId });
       if (error) throw error;
-      if (typeof data !== "string" || !data) throw new Error("Could not confirm the test request. Check Recent before trying again.");
-      setMessage("Test email queued for your confirmed sign-in address.");
+      if (typeof data !== "string" || !data) throw new Error("Could not confirm the test request.");
+      setMessage("Sending…");
       setJob(data);
     } catch (error) {
       setMessage(error && typeof error === "object" && "message" in error
@@ -55,8 +55,8 @@ export function TestEmailButton({ projectId }: { projectId: string }) {
     }
   }
 
-  return <div className="moisture-actions">
-    <button type="button" className="px-button is-small" disabled={busy} onClick={() => void send()}>Send test email</button>
+  return <>
     {message && <span role="status">{message}</span>}
-  </div>;
+    <button type="button" className="xb-link" disabled={busy} onClick={() => void send()}>Send test email</button>
+  </>;
 }

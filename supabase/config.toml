@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.accept-invite]
 verify_jwt = false
 
+[functions.invite-member]
+verify_jwt = true
+
 [functions.create-control-command]
 verify_jwt = true
 

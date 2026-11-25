@@ -1,3 +1,4 @@
+import { supabase } from "../supabase";
 import { PortalHomeButton } from "../product/PortalHomeButton";
 import { AlertTriangle, Loader2, Mail, MessageSquare, Search, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -102,6 +103,25 @@ export function SalesSupportView({
     }
   }
 
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [retryResults, setRetryResults] = useState<Record<string, {sent: boolean; message: string}>>({});
+  async function retrySalesEmail(quote: QuoteRequestRow) {
+    if (retrying) return;
+    setRetrying(quote.id);
+    let sent = false;
+    let message = "Sales email could not be confirmed. Check the delivery detail before retrying.";
+    try {
+      const {data: result, error} = await supabase.functions.invoke("submit-quote", {body:{action:"retry_sales_email", requestId:quote.id}});
+      sent = !error && result?.ok === true && !result.warning;
+      if (sent) message = "Sales email accepted by provider.";
+    } catch {
+      message = "Could not reach the sales email service.";
+    } finally {
+      setRetryResults(previous => ({...previous, [quote.id]:{sent,message}}));
+      setRetrying(null);
+    }
+  }
+
   const supportThreads = data.threads.filter((item) => item.request_type !== "quote" && item.source !== "quote");
   const messagesByThread = useMemo(() => {
     const messages = new Map<string, SupportMessageRow>();
@@ -141,6 +161,8 @@ export function SalesSupportView({
         { label: "Application", value: supportDetailValue(quote.application) },
         { label: "Timeline", value: supportDetailValue(quote.timeline) },
         { label: "Submitted", value: formatSettingsTimestamp(quote.created_at) },
+        { label: "Sales email", value: quote.notification_status === "sent" ? "Accepted by email provider" : supportDetailValue(quote.notification_status) },
+        ...(quote.notification_status === "failed" ? [{ label: "Delivery detail", value: supportDetailValue(quote.notification_error) }] : []),
         { label: "Updated", value: formatSettingsTimestamp(quote.updated_at) },
         { label: "Status", value: supportStatusLabel(quote.status ?? "new") },
         { label: "Priority", value: supportStatusLabel(quote.priority ?? "normal") },
@@ -229,6 +251,7 @@ export function SalesSupportView({
                   <div className="support-item-title">
                     <strong>{quote.application}</strong>
                     <SupportStatusPill status={quote.status ?? "new"} />
+                    {quote.notification_status === "failed" && !retryResults[quote.id]?.sent && <span className="px-quality-link">Sales email failed · follow up</span>}
                   </div>
                   <p>{supportExcerpt(quote.message)}</p>
                   <dl>
@@ -247,6 +270,8 @@ export function SalesSupportView({
                   </dl>
                 </div>
                 <div className="support-item-actions">
+                  {quote.notification_status === "failed" && !retryResults[quote.id]?.sent && <button type="button" className="settings-secondary-button" disabled={Boolean(retrying)} onClick={() => void retrySalesEmail(quote)}>{retrying === quote.id ? "Retrying…" : "Retry sales email"}</button>}
+                  {retryResults[quote.id] && <span role="status">{retryResults[quote.id].message}</span>}
                   <button type="button" className="settings-secondary-button" onClick={() => selectQuote(quote)}>
                     <Search size={14} />
                     Details

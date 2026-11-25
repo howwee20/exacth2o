@@ -1,3 +1,5 @@
+import { experimentIsCompleted } from "../experimentMeasurement";
+import type { PortalExperiment } from "../experimentRegistry";
 import { PortalHomeButton } from "../product/PortalHomeButton";
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -157,12 +159,14 @@ export function HealthTrendChart({
 }
 export function SystemHealthView({
   systemName,
+  experiments = [],
   snapshot,
   history,
   runtimeState,
   error,
   onBackHome,
 }: {
+  experiments?: PortalExperiment[];
   systemName?: string;
   snapshot: DeviceHealthSnapshot | null;
   history: DeviceHealthSnapshot[];
@@ -426,8 +430,12 @@ export function SystemHealthView({
             <HealthMiniFact key={node} label={node} value={`${counts.current}/${counts.total}`} />)}
         </div>
         {pairings && pairings.groups.size > 0 && <div className="health-mini-grid">
-          {[...pairings.groups].sort(([a], [b]) => a.localeCompare(b)).map(([group, counts]) =>
-            <HealthMiniFact key={group} label={group} value={`${counts.current}/${counts.total} ${runtimeFresh ? "current" : "at last report"}`} />)}
+          {[...pairings.groups].sort(([a], [b]) => a.localeCompare(b)).map(([group, counts]) => {
+            const names = pairings.groupMembers.get(group) ?? [];
+            const matches = experiments.filter(experiment => names.length > 0 && names.every(name => experiment.pairingNames.includes(name)));
+            const state = matches.length === 1 ? (experimentIsCompleted(matches[0], clockNowMs) ? " · completed experiment" : matches[0].status === "active" ? " · active experiment" : "") : "";
+            return <HealthMiniFact key={group} label={group} value={`${counts.current}/${counts.total} ${runtimeFresh ? "current" : "at last report"}${state}`} />;
+          })}
         </div>}
         {pairings && pairings.review.length > 0 && <details className="px-diagnostics">
           <summary>Pairings to review ({pairings.review.length})</summary>

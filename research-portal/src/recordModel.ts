@@ -325,19 +325,23 @@ export function gapItems(gaps: readonly GapRow[], pairings: readonly PairingRow[
 
 // ---------------------------------------------------------------- valve openings (derived density)
 
-export type DailyOpenings = { dayStartMs: number; openings: number; pots: number; commandedOpenMs: number };
+export type DailyOpenings = { dayStartMs: number; openings: number; pots: number; commandedOpenMs: number; byPot?: Map<string, { openings: number; commandedOpenMs: number }> };
 
-export function wateringItems(days: readonly DailyOpenings[]): RecordItem[] {
-  return days.filter((entry) => entry.openings > 0).map((entry) => ({
+export function wateringItems(days: readonly DailyOpenings[], selectedPot?: string): RecordItem[] {
+  const scoped = selectedPot ? days.flatMap(day => {
+    const pot = day.byPot?.get(selectedPot);
+    return pot ? [{ ...day, ...pot, pots: 1 }] : [];
+  }) : days;
+  return scoped.filter((entry) => entry.openings > 0).map((entry) => ({
     id: `watering:${entry.dayStartMs}`,
     kind: "watering" as const,
     happenedAt: entry.dayStartMs,
     recordedAt: null,
     endAt: entry.dayStartMs + 24 * hour,
-    title: `${entry.openings} valve ${entry.openings === 1 ? "opening" : "openings"} across ${entry.pots} ${entry.pots === 1 ? "pot" : "pots"}`,
+    title: `${entry.openings} valve ${entry.openings === 1 ? "opening" : "openings"} ${selectedPot ? "for " + selectedPot : "across " + entry.pots + (entry.pots === 1 ? " pot" : " pots")}`,
     value: entry.openings,
     detail: `Valves were told to open for ${Math.round(entry.commandedOpenMs / 1000)} s in total — controller events, not measured water.`,
-    pots: [],
+    pots: selectedPot ? [selectedPot] : [],
     basis: "derived" as const,
     source: "valve_events",
   }));

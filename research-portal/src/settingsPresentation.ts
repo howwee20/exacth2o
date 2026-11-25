@@ -355,6 +355,6 @@ export const settingsNavItems: SettingsNavItem[] = [
  */
 export function settingsNavItemsFor(scope: "installation" | "experiment") {
   return scope === "experiment"
-    ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id))
+    ? settingsNavItems.filter((item) => ["overview", "autocalibrate", "calibrations", "exports"].includes(item.id)).map(item => item.id === "calibrations" ? { ...item, label: "Soil calibration", description: "Review the saved soil curve, controller assignments and reference studies for this experiment." } : item)
     : settingsNavItems;
 }

@@ -1,3 +1,4 @@
+import { vwcQuality } from "../readingQuality";
 import { describeVwcReading, formatVwcReading, latestPoint } from "../charts/chartSeries";
 import { experimentIsCompleted } from "../experimentMeasurement";
 import { levelLabel } from "../experimentFactors";
@@ -54,6 +55,7 @@ export function ExperimentPotGroups({ groupedPairings, hiddenPots, selectedExper
                     const potSeries = seriesByName.get(pairing.name);
                     const latest = latestPoint(potSeries);
                     const latestValue = latest?.value ?? null;
+                    const flags = [vwcQuality(latestValue) ? "Review VWC" : "", pairing.wtc_percent_limit <= -1000 ? "Watering off" : ""].filter(Boolean).join(" · ");
                     const potFreshness = measurementFreshness({
                       measuredAt: latest?.timestampMs,
                       expectedIntervalMs: potSeries?.expectedIntervalMs,
@@ -67,13 +69,14 @@ export function ExperimentPotGroups({ groupedPairings, hiddenPots, selectedExper
                         className={`pot-toggle ${affectedPots.has(pairing.name) ? "is-target-selected" : ""} ${visible ? "is-on" : ""} ${selectedSeriesName === pairing.name ? "is-selected-pot" : ""}`}
                         onClick={() => togglePot(pairing.name)}
                         aria-pressed={visible}
-                        aria-label={`Pot ${pairing.pot_number}${potTreatment ? `, ${levelLabel(potTreatment)}` : ""}, ${describeVwcReading(latestValue)}${latest ? `, ${potFreshness.detail}` : ", no readings available"}`}
+                        aria-label={`Pot ${pairing.pot_number}${potTreatment ? `, ${levelLabel(potTreatment)}` : ""}, ${describeVwcReading(latestValue)}${flags ? ", " + flags : ""}${latest ? `, ${potFreshness.detail}` : ", no readings available"}`}
                         title={`${potTreatment ? `${levelLabel(potTreatment)} · ` : ""}${latest ? `${formatMeasurementTime(latest.timestampMs)} · ${potFreshness.detail}` : "No readings available"}`}
                       >
                         <span className="color-dot" style={{ background: colorForPairing(pairing) }} />
                         <span className="pot-reading">
                           <b>{pairing.pot_number}</b>
                           <strong>{formatVwcReading(latestValue)}</strong>
+                          {flags && <span className="pot-quality">{flags}</span>}
                           {!treatment && potTreatment ? <span className="pot-treatment">{levelLabel(potTreatment)}</span> : null}
                         </span>
                       </button>

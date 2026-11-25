@@ -131,7 +131,7 @@ test('with autocalibration running in this tab, holding asks first and then inte
   await page.goto(`${harness}?autocal`);
   await expect(page.getByText(/Autopair is running in this tab/)).toBeVisible();
   await expect(page.getByRole('button',{name:/Hold to water/})).toBeDisabled();
-  await page.getByRole('button',{name:'Stop autocalibration when I hold'}).click();
+  await page.getByRole('button',{name:'Stop Autopair when I hold'}).click();
   const button=page.getByRole('button',{name:/Hold to water/});await expect(button).toBeEnabled();
   await button.hover();await page.mouse.down();
   await expect(page.getByRole('button',{name:/Watering/})).toBeVisible();
@@ -142,8 +142,9 @@ test('with autocalibration running in this tab, holding asks first and then inte
 test('troubleshooting reaches any configured solenoid directly, by its number',async({page})=>{
   const outputs=Array.from({length:100},(_,index)=>({key:`${32+Math.floor(index/48)}:${(index%48)+1}`,relayAddress:32+Math.floor(index/48),channel:(index%48)+1,
     solenoidNumber:index+1,labelStatus:'needs_confirmation',labelSource:'printed',pots:index===73?[]:[index+1],candidatePots:[],pairing:null}));
-  const actions=await controller(page,(body)=>body.action==='inventory'?{pots:[],outputs,boards:[32,33,34],canConfirm:false,canTakeover:true,leaseMs:2500,renewMs:500}:ready(body.action));
+  const actions=await controller(page,(body)=>body.action==='inventory'?{pots:[],outputs,boards:[32,33,34],canConfirm:true,canTakeover:true,leaseMs:2500,renewMs:500}:ready(body.action));
   await page.goto(`${harness}?manual`);
+  await page.getByRole("tab",{name:"Hardware"}).click();
   await expect(page.getByText('100 configured outputs on 3 boards.',{exact:false})).toBeVisible();
   await page.getByRole('textbox',{name:/Solenoid number/}).fill('74');
   await page.getByRole('button',{name:/^Solenoid 74, board 0x21 channel 26, physical pot unknown/}).click();
@@ -170,14 +171,15 @@ test('Find pot permits recorded candidate testing without confirming the mapping
   const actions=await controller(page,(body)=>body.action==='inventory'?{pots,outputs:[],boards:[32,36,38],canConfirm:true,canTakeover:true,leaseMs:2500,renewMs:500}:ready(body.action));
   await page.goto(`${harness}?find`);
   const search=page.getByRole('combobox');
-  for(const [query,expected,badge] of [['1','Pot 1','No route'],['100','Pot 100','Ready'],['77','Pot 77','Needs check'],['86','Pot 86','No water line']] as const){
+  for(const [query,expected,badge] of [['1','Pot 1','No route'],['100','Pot 100','Watering ready'],['77','Pot 77','Needs check'],['86','Pot 86','No water line']] as const){
     await search.fill(query);const first=page.getByRole('option').first();await expect(first).toContainText(expected);await expect(first).toContainText(badge);
   }
   // Pot 16 is watered by valve 0x24:16, whose sensor pairing carries another pot's name.
   await search.fill('16');await search.press('Enter');
   await expect(page.getByRole('heading',{name:'Pot 16',exact:true})).toBeVisible();
+  await page.getByText('Hardware details', {exact:true}).click();
   await expect(page.getByText('0x24 · channel 16')).toBeVisible();
-  await expect(page.getByText(/sensor pairing is named Zone3-Pot66/)).toBeVisible();
+  await expect(page.getByText('Zone3-Pot66',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:/Hold to water/})).toBeEnabled();
   await page.getByRole('button',{name:'← All pots'}).click();
   await search.fill('77');await search.press('Enter');

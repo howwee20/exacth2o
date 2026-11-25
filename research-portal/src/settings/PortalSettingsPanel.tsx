@@ -2,6 +2,7 @@ import { SettingsFrame } from "./SettingsFrame";
 import { HardwareTable } from "./HardwareTable";
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Download, Lock, Radar } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ExperimentSoilCalibration } from "./ExperimentSoilCalibration";
 import { CalibrationStudio } from "../CalibrationStudio";
 import { CopyableId, QueuedChangeNote, ReadinessTile, SettingsEmptyState, StatusChip } from "../SettingsChrome";
 import { isObservationOnlyExperiment, type PortalExperiment } from "../experimentRegistry";
@@ -440,7 +441,7 @@ export function PortalSettingsPanel({
               lines={[
                 { label: "Last reading", value: when(lastReadingAt, "No readings yet") },
               ]}
-              actionLabel={canOpen("calibrations") ? "Open Sensor calibration" : undefined}
+              actionLabel={canOpen("calibrations") ? (scope === "experiment" ? "Open Soil calibration" : "Open Sensor calibration") : undefined}
               onAction={() => onSectionChange("calibrations")}
             />
             <ReadinessTile
@@ -742,6 +743,10 @@ export function PortalSettingsPanel({
       return (
         <>
           {commandStatusPanel}
+          {scope === "experiment" && <ExperimentSoilCalibration
+            experiment={experiment} projectId={projectId} deviceId={configState?.device_id ?? runtimeState?.device_id}
+            config={configState} pairings={pairings}
+          />}
           <CalibrationStudio
             projectId={projectId}
             experiment={experiment}

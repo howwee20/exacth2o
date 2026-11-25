@@ -345,7 +345,9 @@
 
       if (response.ok || result.requestId) {
         successMsg.style.display = 'block';
-        successMsg.textContent = 'Quote request received. We will follow up at the email address you provided to confirm your setup and next steps.';
+        successMsg.textContent = result.warning
+          ? 'Your request is saved. The team email could not be confirmed. For time-sensitive requests, contact support@exacth2o.com.'
+          : 'Quote request received. We will follow up at the email address you provided to confirm your setup and next steps.';
         announce('exacth2o:quote-submitted', {
           submissionId,
           attempt,

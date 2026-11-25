@@ -394,19 +394,35 @@
 }
 
 /* ---- Account & access -------------------------------------------------------------- */
-/* Two plain lists under their headings: how this person is notified, and who has access. */
+/* Two plain lists under their headings: how this person is told about pots, and who has access. */
 .px-account-block { display: grid; gap: 10px; max-width: 720px; margin-top: 28px; }
 .px-account-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 32px; }
 .px-account-head h2 { margin: 0 auto 0 0; color: var(--px-ink); font: 600 17px/1.3 var(--px-sans); letter-spacing: -.015em; }
 .px-account-head span { color: var(--px-muted); font-size: 13px; }
-.px-account-block h3 { margin: 10px 0 0; color: var(--px-muted); font: 500 12.5px/1.3 var(--px-sans); }
-.px-account-block > .px-muted, .px-account-foot { margin: 0; font-size: 13.5px; }
-.px-account-foot { margin-top: 28px; }
+.px-account-head span.is-failed { color: #9c382d; }
+.px-account-block > .px-muted { margin: 0; font-size: 13.5px; }
 .px-account-rows, .px-account-list { display: grid; margin: 0; padding: 0; overflow: hidden; list-style: none; border: 1px solid rgba(16, 31, 26, .12); border-bottom-color: rgba(16, 31, 26, .2); border-radius: 10px; background: #fff; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .04); }
-.px-account-row, .px-account-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 48px; padding: 10px 14px; border-top: 1px solid rgba(16, 31, 26, .08); color: var(--px-ink); font-size: 14px; }
+.px-account-row, .px-account-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 48px; padding: 10px 14px; border-top: 1px solid rgba(16, 31, 26, .08); color: var(--px-ink); font-size: 14px; }
 .px-account-row:first-child, .px-account-list > li:first-child { border-top: 0; }
-.px-account-row { cursor: pointer; }
+.px-account-row label { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
 .px-account-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--px-water); }
-.px-account-row span, .px-account-list strong { font-weight: 500; overflow-wrap: anywhere; }
+.px-account-row > span:first-child, .px-account-row label span, .px-account-list strong { font-weight: 500; overflow-wrap: anywhere; }
 .px-account-row small, .px-account-list small { margin-left: auto; color: var(--px-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.px-account-row [role="status"] { color: var(--px-muted); font-size: 12.5px; }
 .px-account-list p { flex-basis: 100%; margin: 0; color: var(--px-muted); font-size: 13px; line-height: 1.45; }
+.px-account-list a { color: inherit; text-decoration: none; }
+.px-account-list a:hover { text-decoration: underline; }
+/* The last line of the team list invites someone new. */
+.px-account-list > .px-account-invite { padding-block: 8px; background: #fafbfa; }
+.px-account-invite form { display: flex; flex: 1; gap: 8px; min-width: 0; }
+.px-shell .px-account-invite input { flex: 1; min-width: 0; min-height: 34px; padding: 0 10px; border: 1px solid var(--px-control-border); border-radius: 8px; background: #fff; color: var(--px-ink); font: 400 14px/1.2 var(--px-sans); }
+.px-shell .px-account-invite input:focus-visible { border-color: var(--px-water); outline: 2px solid color-mix(in srgb, var(--px-water) 35%, transparent); outline-offset: 1px; }
+.px-account-invite .px-button { min-height: 34px; }
+#phone-alerts[hidden] { display: none; }
+
+.pot-reading .pot-quality { grid-column: 1 / -1; color: #885308; font-size: .68rem; font-weight: 650; }
+.px-soil-summary { margin-bottom: 1rem; }
+.px-soil-curve { padding: .75rem 0; border-top: 1px solid var(--px-line, #dbe4df); }
+.px-soil-curve details { margin: .6rem 0; overflow-x: auto; }
+.px-soil-curve summary { cursor: pointer; font-weight: 600; }
+.px-soil-curve th, .px-soil-curve td { padding: .35rem .6rem; text-align: left; }

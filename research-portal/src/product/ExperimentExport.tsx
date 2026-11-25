@@ -18,6 +18,11 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
   const [progress,setProgress] = useState(0);
   const [firstReadingAt,setFirstReadingAt] = useState<number | null>(null);
 
+  const selectedExperiment = useMemo(() => {
+    if (!selectionOnly || !selectedNames) return experiment;
+    return { ...experiment, pairingNames: experiment.pairingNames.filter(name => selectedNames.includes(name)),
+      assignments: experiment.assignments?.filter(a => selectedNames.includes(a.pairing_name)) };
+  }, [experiment, selectionOnly, selectedNames]);
   const [exportExperiment,setExportExperiment] = useState(experiment);
   const [exportReadings,setExportReadings] = useState<readonly SensorReading[]>(readings);
   const dialog = useRef<HTMLElement>(null);
@@ -71,7 +76,7 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
       }
       if (experiment.databaseId) {
         try {
-          const data = await loadRecordSources({projectId,deviceId,experimentDatabaseId:experiment.databaseId,pairingNames:experiment.pairingNames,pairingAssignments:experiment.assignments,startMs:recordStart,endMs});
+          const data = await loadRecordSources({projectId,deviceId,experimentDatabaseId:experiment.databaseId,pairingNames:selectedExperiment.pairingNames,pairingAssignments:selectedExperiment.assignments,startMs:recordStart,endMs});
           if (!active) return;
           warnings.push(...data.problems);
           setEvents([...planItems(data.revisions,data.audits,data.assignments),...settingsItems(data.commands,data.historyPairingNames,experiment.databaseId),...calibrationRequestItems(data.calibrationRequests,data.historyPairingNames),...noteItems(data.notes),...gapItems(data.gaps,pairings),...wateringItems(data.daily)]);
@@ -80,14 +85,15 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
       if (active) {setProblems(warnings);setLoading(false);}
     })();
     return () => { active = false; cancel.abort(); };
-  }, [selectionOnly,selectedNames,deviceId,endMs,experiment.databaseId,experiment.pairingNames,experiment.assignments,experiment,pairings,projectId,queryStartMs]);
-  const input: ExperimentReportInput = useMemo(() => ({experiment:exportExperiment,currentExperiment:experiment,pairings,readings:exportReadings,events,problems,startMs,endMs,generatedAt:anchor,preserveRecordedLabels:true,source:document.documentElement.dataset.portalMode === "demo" ? "demo measurements" : "stored measurements"}),[anchor,endMs,events,experiment,exportExperiment,pairings,problems,exportReadings,startMs]);
-  const html = useMemo(() => experimentBriefHtml(input),[input]);
+  }, [selectedExperiment,selectionOnly,selectedNames,deviceId,endMs,experiment.databaseId,experiment.pairingNames,experiment.assignments,experiment,pairings,projectId,queryStartMs]);
+  const input: ExperimentReportInput = useMemo(() => ({experiment:exportExperiment,currentExperiment:selectedExperiment,pairings,readings:exportReadings,events,problems,startMs,endMs,generatedAt:anchor,preserveRecordedLabels:true,source:document.documentElement.dataset.portalMode === "demo" ? "demo measurements" : "stored measurements"}),[anchor,endMs,events,selectedExperiment,exportExperiment,pairings,problems,exportReadings,startMs]);
+  const prepared = useMemo(() => reportReadings(input), [input]);
+  const html = useMemo(() => experimentBriefHtml(input, prepared), [input, prepared]);
   const filename = `exacth2o-${experiment.id.replace(/[^a-z0-9_-]/gi,"-")}-${new Date(anchor).toISOString().slice(0,10)}`;
-  const count = reportReadings(input).length;
+  const count = prepared.length;
   return <div className="px-export-backdrop" role="presentation"><section ref={dialog} className="px-export-dialog" role="dialog" aria-modal="true" aria-labelledby="export-title">
-    <header><div><h2 id="export-title">Export experiment</h2><p>{experiment.name} · {count.toLocaleString()} readings · UTC</p></div><button ref={close} className="px-button" onClick={onClose}>Close</button></header>
-    <div className="px-toolbar"><label>Pots <select aria-label="Export pots" value={selectionOnly?"selection":"all"} onChange={e=>setSelectionOnly(e.target.value==="selection")}><option value="selection">Current selection ({initialNames?.length ?? pairings.length} pots)</option><option value="all">Whole experiment</option></select></label><label>Reporting window <select value={spanHours} onChange={(event) => setSpanHours(Number(event.target.value))}><option value={24}>Last 24 hours</option><option value={72}>Last 3 days</option><option value={168}>Last 7 days</option><option value={336}>Last 14 days</option><option value={0}>Entire experiment</option><option value={-1}>Custom dates (UTC)</option></select></label>{spanHours===-1 ? <><label>Start (UTC)<input type="datetime-local" value={customStart} onChange={(e)=>setCustomStart(e.target.value)}/></label><label>End (UTC)<input type="datetime-local" value={customEnd} onChange={(e)=>setCustomEnd(e.target.value)}/></label></> : null}<button className="px-button is-primary" disabled={loading} onClick={() => downloadReportFile(`${filename}-brief.html`,html,"text/html;charset=utf-8")}>{loading ? `Preparing ${progress.toLocaleString()} readings…` : "Save brief"}</button><button className="px-button" disabled={loading||!count} onClick={() => downloadReportFile(`${filename}-readings.csv`,experimentReadingsCsv(input),"text/csv;charset=utf-8")}>Readings CSV</button><button className="px-button" disabled={loading} onClick={() => frame.current?.contentWindow?.print()}>Print / PDF</button></div>
+    <header><div><h2 id="export-title">Export experiment</h2><p>{experiment.name} · {loading ? "Loading measurements" : count.toLocaleString() + " readings"} · UTC</p></div><button ref={close} className="px-button" onClick={onClose}>Close</button></header>
+    <div className="px-toolbar"><label>Pots <select aria-label="Export pots" value={selectionOnly?"selection":"all"} onChange={e=>setSelectionOnly(e.target.value==="selection")}><option value="selection">Current selection ({initialNames?.length ?? pairings.length} pots)</option><option value="all">Whole experiment</option></select></label><label>Reporting window <select value={spanHours} onChange={(event) => setSpanHours(Number(event.target.value))}><option value={24}>Last 24 hours</option><option value={72}>Last 3 days</option><option value={168}>Last 7 days</option><option value={336}>Last 14 days</option><option value={0}>Entire experiment</option><option value={-1}>Custom dates (UTC)</option></select></label>{spanHours===-1 ? <><label>Start (UTC)<input type="datetime-local" value={customStart} onChange={(e)=>setCustomStart(e.target.value)}/></label><label>End (UTC)<input type="datetime-local" value={customEnd} onChange={(e)=>setCustomEnd(e.target.value)}/></label></> : null}<button className="px-button is-primary" disabled={loading} onClick={() => downloadReportFile(`${filename}-brief.html`,html,"text/html;charset=utf-8")}>{loading ? `Preparing ${progress.toLocaleString()} readings…` : "Save brief"}</button><button className="px-button" disabled={loading||!count} onClick={() => downloadReportFile(`${filename}-readings.csv`,experimentReadingsCsv(input, prepared),"text/csv;charset=utf-8")}>Readings CSV</button><button className="px-button" disabled={loading} onClick={() => frame.current?.contentWindow?.print()}>Print / PDF</button></div>
     {problems.map((problem)=><p className="px-notice" role="status" key={problem}>{problem}</p>)}
     <div className="px-export-preview" aria-busy={loading}>{loading ? <p className="px-notice" role="status">Preparing {progress.toLocaleString()} readings…</p> : <iframe ref={frame} title="Experiment brief preview" srcDoc={html} sandbox="allow-same-origin allow-modals" />}</div>
   </section></div>;

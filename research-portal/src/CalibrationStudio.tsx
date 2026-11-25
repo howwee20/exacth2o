@@ -401,7 +401,7 @@ export function CalibrationStudio({
     <div className="calibration-studio">
       <section className="calibration-hero">
         <div>
-          <h3>{experiment.id === "unavailable" ? "Sensor calibration" : `${experiment.name} calibration`}</h3>
+          <h3>External-reference calibration</h3>
           <p>Match external VWC readings to ExactH2O data, then create an equation.</p>
         </div>
       </section>
@@ -412,7 +412,7 @@ export function CalibrationStudio({
       <div className="calibration-layout">
         <aside className="calibration-study-list">
           <div className="calibration-section-heading">
-            <div><h3>Studies</h3></div>
+            <div><h3>Reference studies</h3></div>
             <b>{studies.length}</b>
           </div>
           {studies.map((study) => (
@@ -428,7 +428,7 @@ export function CalibrationStudio({
             </button>
           ))}
           <form className="calibration-new-study" onSubmit={createStudy}>
-            <strong>New study</strong>
+            <strong>New reference study</strong>
             <label>Name<input value={studyName} onChange={(event) => setStudyName(event.target.value)} required /></label>
             <label>
               Pot / ExactH2O sensor

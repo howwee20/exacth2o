@@ -21,6 +21,7 @@ export function pairingReport(rawHealth: unknown, atMs: number) {
   const expected = healthNumber(inventory.count);
   if (expected !== null && expected !== readings.rows.length) return null;
   const groups = new Map<string, Counts>();
+  const groupMembers = new Map<string, string[]>();
   const nodes = new Map<string, Counts>();
   const review: { name: string; reason: string }[] = [];
   let latest = -Infinity;
@@ -36,11 +37,14 @@ export function pairingReport(rawHealth: unknown, atMs: number) {
       const reason = row.ok === false ? "Incomplete pairing" : timestamp === null ? "No reading in report" : freshness.label;
       review.push({ name, reason });
     }
-    countRow(groups, healthString(row.groupName) ?? "Ungrouped", current);
+    const group = healthString(row.groupName) ?? "Ungrouped";
+    countRow(groups, group, current);
+    if (!groupMembers.has(group)) groupMembers.set(group, []);
+    groupMembers.get(group)!.push(name);
     const board = healthString(row.actualSensor)?.split(":")[0];
     if (board) countRow(nodes, nodeNames[board] ?? board, current);
   }
-  return { total: readings.rows.length, current: readings.rows.length - review.length, groups, nodes, review,
+  return { total: readings.rows.length, current: readings.rows.length - review.length, groups, groupMembers, nodes, review,
     latest: Number.isFinite(latest) ? new Date(latest).toISOString() : null };
 }
 

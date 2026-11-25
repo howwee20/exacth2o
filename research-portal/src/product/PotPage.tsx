@@ -1,3 +1,4 @@
+import { observedCadenceMs } from "../seriesStatistics";
 import { useEffect, useMemo } from "react";
 import { experimentIsCompleted, pairingTargetText } from "../experimentMeasurement";
 import { isObservationOnlyExperiment } from "../experimentRegistry";
@@ -54,6 +55,7 @@ export function PotPage({
   const trace = useMemo(() => potTraces(readings, [pairing], measure).get(pairing.name), [measure, pairing, readings]);
   const vwcTrace = useMemo(() => potTraces(readings, [pairing], "vwc").get(pairing.name), [pairing, readings]);
   const window = { startMs: nowMs - loadedWindowMs, endMs: nowMs };
+  const measuredInterval = useMemo(() => observedCadenceMs(vwcTrace?.points.slice(-25) ?? []), [vwcTrace]);
   const latestVwc = vwcTrace?.points.length ? vwcTrace.points[vwcTrace.points.length - 1] : null;
   const latestReading = readings.slice().sort((a, b) => Date.parse(b.device_recorded_at) - Date.parse(a.device_recorded_at))[0] ?? null;
   const quality = vwcQuality(latestReading?.calibrated_value);
@@ -91,6 +93,7 @@ export function PotPage({
       <div className="px-pot-grid is-reading-only">
         <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
           <div className={`px-card px-reading ${latestVwc && freshness.state !== "stale" && freshness.state !== "unknown" ? "" : "is-silent"}`}>
+            {measuredInterval != null && <span>Recent readings {Number((measuredInterval / 60000).toFixed(1))} min apart (median).</span>}
             {quality ? <strong>Invalid VWC reading</strong> : latestVwc ? (
               freshness.state === "stale" ? (
                 <strong>No current reading</strong>

@@ -1243,6 +1243,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       <FeatureBoundary name="System Health">
         <SystemHealthView
           systemName={portalSystemName(activeProjectId, portalAccess.projectName)}
+          experiments={experimentCatalog}
           snapshot={healthSnapshot}
           history={healthHistory}
           runtimeState={runtimeState}
