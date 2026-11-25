@@ -1,3 +1,4 @@
+import { DisclosureMenu } from "./DisclosureMenu";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { PortalExperiment } from "../experimentRegistry";
@@ -49,16 +50,8 @@ export function ExperimentPage({
   const { copied, copy } = useCopyRoute();
   useEffect(() => { const previous = document.title; document.title = `${experiment.name} · ExactH2O`; return () => { document.title = previous; }; }, [experiment.name]);
   const headerRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDetailsElement>(null);
   const [compact, setCompact] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(64);
-  useEffect(() => {
-    const closeOutside = (event: globalThis.PointerEvent) => {
-      if (menuRef.current?.open && !menuRef.current.contains(event.target as Node)) menuRef.current.open = false;
-    };
-    document.addEventListener("pointerdown", closeOutside, true);
-    return () => document.removeEventListener("pointerdown", closeOutside, true);
-  }, []);
   useEffect(() => {
     const header = document.querySelector<HTMLElement>('.px-header');
     let frame = 0;
@@ -89,14 +82,14 @@ export function ExperimentPage({
           </h1> : <h1 className="px-title">{experiment.name}</h1>}
           <div className="px-toolbar">
             {actions}
-            <details ref={menuRef} className="px-menu px-more-actions" onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+            <DisclosureMenu className="px-menu px-more-actions">
               <summary>More</summary><div className="px-menu-panel" onClick={(event) => { if ((event.target as HTMLElement).closest("a,button")) event.currentTarget.closest("details")?.removeAttribute("open"); }}>
               {tab === "record" ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>Back to traces</PortalLink>
-                : recordAvailable ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "record", pot: null }}>Record</PortalLink> : null}
+                : recordAvailable ? <PortalLink to={{ view: "experiment", experiment: experiment.id, tab: "record", pot: null }}>Experiment history</PortalLink> : null}
               {secondaryActions}
               <button type="button" onClick={() => void copy({ view: "experiment", experiment: experiment.id, tab, pot: null })}>{copied ?? "Copy link"}</button>
               </div>
-            </details>
+            </DisclosureMenu>
           </div>
         </div>
       </div>

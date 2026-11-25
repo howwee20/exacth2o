@@ -126,7 +126,8 @@ export function RecordView({
   }
 
   return (
-    <section className="px-record" aria-label="Record">
+    <section className="px-record" aria-label="Experiment history">
+      <h2>Experiment history</h2>
       <div className="px-toolbar">
         <div className="px-record-kinds" role="group" aria-label="Show in the record">
           {recordKinds.map((entry) => (
@@ -225,7 +226,7 @@ function RecordLane({ items, startMs, endMs, kinds }: { items: readonly RecordIt
             );
           })}
           <text x={left} y={rows.length * rowH + 14} className="px-record-lane-label">{formatMeasurementTime(startMs)}</text>
-          <text x={left + plot} y={rows.length * rowH + 14} textAnchor="end" className="px-record-lane-label">now</text>
+          <text x={left + plot} y={rows.length * rowH + 14} textAnchor="end" className="px-record-lane-label">{formatMeasurementTime(endMs)}</text>
         </svg>
       ) : null}
       </div>

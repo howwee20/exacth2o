@@ -3,12 +3,14 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { controllerPresence } from "../settingsPresentation";
 import { advanceCurrentBootUptime, reconstructCurrentBootUptime, restartOutagePresentation } from "../healthUptime";
-import { formatHealthDetailValue, healthBoolean, healthDateWithAge, healthNumber, healthString, healthTimestampMs } from "../healthValues";
+import { formatHealthDetailValue, healthBoolean, healthDateWithAge, healthNumber, healthRecord, healthString, healthTimestampMs } from "../healthValues";
 import { booleanMarker, sumKnownCounts } from "../portalData";
 import { formatHealthBoolean, formatHealthInteger, formatHealthNumber, formatSettingsTimestamp, runtimeStateIsFresh } from "../portalFormat";
 import { type DeviceHealthSnapshot, type DeviceRuntimeState, type HealthChartPoint, type HealthChartSeries, type HealthSelectedDetail } from "../portalTypes";
 import { HealthMiniFact, HealthPanel, HealthSelectedDetailDrawer } from "./HealthPanels";
 import { currentHealthObservation, currentUptimeSeconds, HealthChartControls, healthChartPoint, healthChartWindow, healthCompactDuration, healthDurationText, healthHistoryRecords, healthOwnerValue, healthRecentRecords, mergeHealthObservation, monitoringGaps, restartEvents } from "./healthHistory";
+
+import { pairingReport, throttleText } from "./pairingReport";
 
 export function HealthTrendChart({
   series,
@@ -179,10 +181,13 @@ export function SystemHealthView({
   const rawRecords = healthHistoryRecords(snapshot, history);
   const synchronizedUptime = currentUptimeSeconds(snapshot, runtimeState, rawRecords);
   const runtimeFresh = runtimeStateIsFresh(runtimeState, clockNowMs) && runtimeState?.pi_online !== false;
+  const runtimeAt = healthTimestampMs(runtimeState?.state_observed_at);
+  const snapshotAt = healthTimestampMs(snapshot?.captured_at);
+  const useRuntimeReport = runtimeAt !== null && (snapshotAt === null || runtimeAt >= snapshotAt);
+  const recordedAt = useRuntimeReport ? runtimeState?.state_observed_at : snapshot?.captured_at;
   const connection = controllerPresence({stateFreshUntil:runtimeState?.state_fresh_until,
-    stateObservedAt:runtimeState?.state_observed_at ?? snapshot?.captured_at,
+    stateObservedAt:recordedAt,
     piOnline:runtimeState?.pi_online},clockNowMs);
-  const recordedAt = runtimeState?.state_observed_at ?? snapshot?.captured_at;
   const lastReport = recordedAt ? `Last report ${healthDateWithAge(recordedAt)}.` : 'No health report received.';
   const uptimeObservedAt = runtimeFresh
     ? runtimeState?.state_observed_at
@@ -221,21 +226,27 @@ export function SystemHealthView({
       uptimeSeconds: currentUptime,
     });
   }
-  const latestRecord = records[records.length - 1] ?? null;
+  const rawHealth = useRuntimeReport ? runtimeState?.raw_health : snapshot?.raw_health;
+  const api = healthRecord(rawHealth?.api);
+  const reportTime = (useRuntimeReport ? runtimeAt : snapshotAt) ?? clockNowMs;
+  const pairings = pairingReport(rawHealth, runtimeFresh ? clockNowMs : reportTime);
+  const incompletePairings = api.pairingReadings != null && !pairings;
+  const pi = healthRecord(rawHealth?.piLocal);
+  const ethernet = pi.available === true ? healthRecord(pi.ethernet) : healthRecord(rawHealth?.confirmedPiEthernet);
+  const speed = healthNumber(ethernet.speed);
+  const duplex = healthString(ethernet.duplex);
+  const throttle = healthRecord(rawHealth?.ownerStatus).throttled_flags ?? healthOwnerValue(snapshot, runtimeState, "throttled_flags");
   const undervoltageCurrent = healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_current")) ?? snapshot?.undervoltage ?? null;
-  const undervoltageOccurred = healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_occurred"));
-  const throttleFlags = healthString(healthOwnerValue(snapshot, runtimeState, "throttled_flags"));
+  const undervoltageOccurred = healthRecord(throttle).available === false ? null : healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_occurred"));
   const currentCpuTemp = healthNumber(healthOwnerValue(snapshot, runtimeState, "cpu_temp_c")) ?? snapshot?.cpu_temp_c ?? null;
   const ethernetLink = healthBoolean(healthOwnerValue(snapshot, runtimeState, "ethernet_link")) ?? snapshot?.ethernet_link ?? null;
   const ethernetIp = healthString(healthOwnerValue(snapshot, runtimeState, "ethernet_ip")) ?? snapshot?.ethernet_ip ?? null;
   const gatewayPingMs = healthNumber(healthOwnerValue(snapshot, runtimeState, "gateway_ping_ms")) ?? snapshot?.gateway_ping_ms ?? null;
-  const currentSensors = (runtimeFresh ? runtimeState?.sensors_current : null) ?? snapshot?.sensors_current ?? healthNumber(latestRecord?.sensorRows);
-  const expectedSensors = (runtimeFresh ? runtimeState?.sensors_expected : null) ?? snapshot?.sensors_expected ?? null;
-  const staleMissing = sumKnownCounts(
-    (runtimeFresh ? runtimeState?.sensors_stale : null) ?? snapshot?.sensors_stale,
-    (runtimeFresh ? runtimeState?.sensors_missing : null) ?? snapshot?.sensors_missing,
-  );
-  const lastSensorReadingAt = (runtimeFresh ? runtimeState?.last_sensor_reading_at : null) ?? snapshot?.last_sensor_reading_at ?? null;
+  const summary = useRuntimeReport ? runtimeState : snapshot;
+  const currentSensors = incompletePairings ? null : pairings?.current ?? summary?.sensors_current;
+  const expectedSensors = incompletePairings ? null : pairings?.total ?? summary?.sensors_expected;
+  const staleMissing = incompletePairings ? null : pairings?.review.length ?? sumKnownCounts(summary?.sensors_stale, summary?.sensors_missing);
+  const lastSensorReadingAt = pairings ? pairings.latest : summary?.last_sensor_reading_at;
   const restartEvidenceKnown = records.length >= 2 && currentUptime != null;
   const reportingHealthy = runtimeFresh && runtimeState?.pi_online === true && runtimeState.api_status?.toUpperCase() === "OK";
   const historicalOutageStatus = restartOutagePresentation(
@@ -326,8 +337,8 @@ export function SystemHealthView({
           <div className="health-mini-grid">
             <HealthMiniFact label="CPU temp" value={formatHealthNumber(currentCpuTemp, 1, " C")} />
             <HealthMiniFact label="Current undervoltage" value={formatHealthBoolean(undervoltageCurrent)} />
-            <HealthMiniFact label="Since boot" value={formatHealthBoolean(undervoltageOccurred)} />
-            <HealthMiniFact label="Throttle flags" value={throttleFlags ?? "Not synced"} />
+            <HealthMiniFact label="Since boot" value={healthRecord(throttle).available === false ? "Unavailable on controller" : formatHealthBoolean(undervoltageOccurred)} />
+            <HealthMiniFact label="Throttle flags" value={throttleText(throttle)} />
           </div>
           <HealthTrendChart
             yTitle="Temperature C / flag marker"
@@ -375,7 +386,7 @@ export function SystemHealthView({
         >
           <div className="health-mini-grid">
             <HealthMiniFact label="Ethernet link" value={formatHealthBoolean(ethernetLink, "up", "down")} />
-            <HealthMiniFact label="Speed" value="Not synced" />
+            <HealthMiniFact label="Speed" value={speed != null && speed > 0 ? `${speed} Mbps${duplex ? " · " + duplex + " duplex" : ""}` : "Not reported"} />
             <HealthMiniFact label="Gateway ping" value={formatHealthNumber(gatewayPingMs, 3, " ms")} />
           </div>
           <HealthTrendChart
@@ -398,28 +409,42 @@ export function SystemHealthView({
 
       <HealthPanel
         title="Sensor freshness"
-        detail={`${formatHealthInteger(currentSensors)} / ${formatHealthInteger(expectedSensors)} ${runtimeFresh ? "current" : "at last report"}; latest read ${healthDateWithAge(lastSensorReadingAt)}.`}
+        detail={pairings
+          ? `All ${pairings.total} configured pot pairings in the controller report.`
+          : incompletePairings ? "The latest report has incomplete pairing data."
+          : "Sensor counts from the controller summary."}
         badge={!runtimeFresh ? connection.status === "offline" ? "Offline" : "Not synced" : !sensorEvidenceKnown
           ? "Not synced"
           : `${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)} ${staleMissing > 0 ? "Review" : "OK"}`}
         badgeTone={!runtimeFresh || !sensorEvidenceKnown ? "unknown" : staleMissing > 0 ? "warning" : "ok"}
       >
-        <div className="health-mini-grid">
-          <HealthMiniFact label="Last sensor read" value={healthDateWithAge(lastSensorReadingAt)} />
-          <HealthMiniFact label={runtimeFresh ? "Current" : "Last count"} value={`${formatHealthInteger(currentSensors)}/${formatHealthInteger(expectedSensors)}`} />
-          <HealthMiniFact label="Stale/missing" value={formatHealthInteger(staleMissing)} />
-          <HealthMiniFact label="Node2" value="Not synced" />
-          <HealthMiniFact label="Node4" value="Not synced" />
+        <div className="health-mini-grid is-five">
+          <HealthMiniFact label="Last sensor read" value={incompletePairings ? "Unknown" : healthDateWithAge(lastSensorReadingAt)} />
+          <HealthMiniFact label={runtimeFresh ? "Current" : "Last count"} value={currentSensors == null || expectedSensors == null ? "Unknown" : `${currentSensors}/${expectedSensors}`} />
+          <HealthMiniFact label="Needs review" value={formatHealthInteger(staleMissing)} />
+          {pairings && [...pairings.nodes].sort(([a], [b]) => a.localeCompare(b)).map(([node, counts]) =>
+            <HealthMiniFact key={node} label={node} value={`${counts.current}/${counts.total}`} />)}
         </div>
+        {pairings && pairings.groups.size > 0 && <div className="health-mini-grid">
+          {[...pairings.groups].sort(([a], [b]) => a.localeCompare(b)).map(([group, counts]) =>
+            <HealthMiniFact key={group} label={group} value={`${counts.current}/${counts.total} ${runtimeFresh ? "current" : "at last report"}`} />)}
+        </div>}
+        {pairings && pairings.review.length > 0 && <details className="px-diagnostics">
+          <summary>Pairings to review ({pairings.review.length})</summary>
+          <ul>{pairings.review.map(row => <li key={row.name}>{row.name} · {row.reason}</li>)}</ul>
+        </details>}
+        <details className="px-diagnostics"><summary>Controller summary history</summary>
+        {api.researcherMap != null && <p>Historical counts cover the controller’s researcher map.</p>}
         <HealthTrendChart
           yTitle="Sensor count"
           yMax={Math.max(20, expectedSensors ?? 20)}
           onSelectDetail={setSelectedDetail}
           series={[
             { label: "Not updating or missing", tone: "warning", points: records.map((record) => healthChartPoint(record, "staleOrMissingSensors")) },
-            { label: "Total mapped sensors", tone: "secondary", points: records.map((record) => healthChartPoint(record, "sensorRows")) },
+            { label: "Sensors in controller summary", tone: "secondary", points: records.map((record) => healthChartPoint(record, "sensorRows")) },
           ]}
         />
+        </details>
       </HealthPanel>
     </section>
   );

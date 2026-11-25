@@ -50,7 +50,7 @@ export function healthHistoryRecords(
         item.sensors_stale == null || item.sensors_missing == null
           ? null
           : item.sensors_stale + item.sensors_missing,
-      sensorRows: item.sensors_current,
+      sensorRows: item.sensors_expected,
     }))
     .filter((record) => healthTimestampMs(record.t) != null)
     .sort((a, b) => (healthTimestampMs(a.t) ?? 0) - (healthTimestampMs(b.t) ?? 0));
@@ -210,11 +210,10 @@ export function currentHealthObservation(
       healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_current")) ??
       snapshot?.undervoltage ??
       null,
-    undervoltageOccurred: healthBoolean(
-      healthOwnerValue(snapshot, runtimeState, "undervoltage_occurred"),
-    ),
+    undervoltageOccurred: healthRecord(healthOwnerValue(snapshot, runtimeState, "throttled_flags")).available === false
+      ? null : healthBoolean(healthOwnerValue(snapshot, runtimeState, "undervoltage_occurred")),
     staleOrMissingSensors,
-    sensorRows: runtimeState.sensors_current ?? snapshot?.sensors_current ?? null,
+    sensorRows: runtimeState.sensors_expected ?? snapshot?.sensors_expected ?? null,
   };
 }
 

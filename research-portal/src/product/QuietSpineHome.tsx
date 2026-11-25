@@ -1,3 +1,4 @@
+import { DisclosureMenu } from "./DisclosureMenu";
 import { Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { experimentIsCompleted, orderHomeExperiments } from "../experimentMeasurement";
@@ -47,23 +48,12 @@ function ExperimentOptions({
   const editable = !experiment.status || editableStatuses.has(experiment.status);
   const close = (element: HTMLElement) => element.closest("details")?.removeAttribute("open");
   return (
-    <details
-      className="px-menu"
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.currentTarget.open = false;
-          event.currentTarget.querySelector("summary")?.focus();
-        }
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false;
-      }}
-    >
+    <DisclosureMenu className="px-menu">
       <summary aria-label={`Options for ${experiment.name}`} title="Experiment options">⋯</summary>
       <div className="px-menu-panel" role="menu">
         <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "pots", pot: null }}>Individual traces</PortalLink>
         <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "overview", pot: null }}>Overview</PortalLink>
-        {recordAvailable ? <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "record", pot: null }}>Record</PortalLink> : null}
+        {recordAvailable ? <PortalLink role="menuitem" to={{ view: "experiment", experiment: experiment.id, tab: "record", pot: null }}>Experiment history</PortalLink> : null}
         <button type="button" role="menuitem" onClick={(event) => {
           close(event.currentTarget);
           void copy({ view: "experiment", experiment: experiment.id, tab: "pots", pot: null });
@@ -84,7 +74,7 @@ function ExperimentOptions({
           </>
         ) : null}
       </div>
-    </details>
+    </DisclosureMenu>
   );
 }
 

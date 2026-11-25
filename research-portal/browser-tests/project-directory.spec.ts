@@ -240,6 +240,14 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await rhee.click();
     await expect(page.getByRole('heading', { name: 'Huiqiao Pan experiment', exact: true })).toBeVisible();
     await expect(page.getByLabel('Pot traces', { exact: true })).toBeVisible();
+    const profile = page.getByLabel('Profile menu', { exact: true });
+    await profile.focus();
+    await profile.press('Enter');
+    await page.getByText('Account & access', { exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Account & access' })).toBeVisible({ timeout: 3500 });
+    await page.goBack();
+    await expect(page.getByRole('heading', { name: 'Huiqiao Pan experiment', exact: true })).toBeVisible();
+
     await expect(page.getByRole('button', { name: 'Installation settings', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Experiments', exact: true })).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath('rhee-direct-traces.png'), fullPage: true });
