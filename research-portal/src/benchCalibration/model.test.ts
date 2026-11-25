@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyze, controllerLibrary, emptyWorksheet, evaluateCurve, sameCurve, sampleMean } from "./model";
+import { analyze, controllerLibrary, emptyWorksheet, evaluateCurve, sameCurve, sameStoredCurve, sampleMean } from "./model";
 
 describe("soil bench curves", () => {
   it("uses every selected probe including real zeroes, and never fills missing readings with zero", () => {
@@ -38,5 +38,21 @@ describe("soil bench curves", () => {
     expect(
       controllerLibrary([{ name: "Peat", polynomialCoefficientsCommaDelimited: "-2,.7,0" }]).get("Peat"),
     ).toEqual([-2, 0.7, 0]);
+  });
+});
+
+describe("recognising a saved curve after a lost save response", () => {
+  it("treats the API's 15-digit copy of a fitted curve as the same curve", () => {
+    // Audit 2026-11-25: the fit 162.31590641370653 − 0.18560196136644413x came back as 162.315906413707 − 0.185601961366444x,
+    // so a retry after a dropped response said the name was taken instead of confirming the save.
+    const fitted = [162.31590641370653, -0.18560196136644413];
+    const stored = fitted.map((value) => Number(value.toPrecision(15)));
+    expect(sameCurve(stored, fitted)).toBe(false);
+    expect(sameStoredCurve(stored, fitted)).toBe(true);
+  });
+  it("still rejects a different curve saved under the same name", () => {
+    expect(sameStoredCurve([162.3159, -0.1856], [162.31590641370653, -0.18560196136644413])).toBe(false);
+    expect(sameStoredCurve([1, 2, 0], [1, 2])).toBe(true);
+    expect(sameStoredCurve([1, 2, 3], [1, 2])).toBe(false);
   });
 });

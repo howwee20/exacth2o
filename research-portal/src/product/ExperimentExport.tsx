@@ -14,7 +14,7 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
   const [selectionOnly,setSelectionOnly] = useState(Boolean(initialNames));
   const [spanHours,setSpanHours] = useState(initialWindow ? -1 : Math.min(72,loadedWindowMs / 3_600_000));
   const [customStart,setCustomStart] = useState(initialWindow ? new Date(initialWindow.startMs).toISOString().slice(0,16) : experiment.startedAt?.slice(0,16) ?? new Date(nowMs-14*86400000).toISOString().slice(0,16));
-  const [customEnd,setCustomEnd] = useState(new Date(initialWindow?.endMs ?? nowMs).toISOString().slice(0,16));
+  const [customEnd,setCustomEnd] = useState(minuteInputEnd(initialWindow?.endMs ?? nowMs));
   const [progress,setProgress] = useState(0);
   const [firstReadingAt,setFirstReadingAt] = useState<number | null>(null);
 
@@ -97,4 +97,12 @@ export function ExperimentExport({experiment, pairings, readings, projectId, dev
     {problems.map((problem)=><p className="px-notice" role="status" key={problem}>{problem}</p>)}
     <div className="px-export-preview" aria-busy={loading}>{loading ? <p className="px-notice" role="status">Preparing {progress.toLocaleString()} readings…</p> : <iframe ref={frame} title="Experiment brief preview" srcDoc={html} sandbox="allow-same-origin allow-modals" />}</div>
   </section></div>;
+}
+
+/**
+ * The minute-precision end shown in the custom range, rounded up so the newest reading inside the
+ * chart window (which rarely falls on a whole minute) is still exported.
+ */
+export function minuteInputEnd(endMs: number) {
+  return new Date(Math.ceil(endMs / 60_000) * 60_000).toISOString().slice(0, 16);
 }

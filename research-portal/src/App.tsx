@@ -34,7 +34,7 @@ import { readingsForPairings } from "./pairingHistory";
 import { hasExperimentSettingsAccess,hasProjectDataReadAccess,hasSalesSupportAccess } from "./portalAccess";
 import { fullTimeWindow,rememberEmailKey } from "./portalConstants";
 import { type DataMode,rollingExperimentHistoryMs,visibleExperimentPairings } from "./portalData";
-import { errorMessage,runtimeStateIsFresh } from "./portalFormat";
+import { errorMessage,freshControllerState,runtimeStateIsFresh } from "./portalFormat";
 import { orderedPairings,plantGroupForPairing,treatmentForPairing } from "./portalPresentation";
 import { navigatePortal,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
 import { portalSystemName } from "./portalProjectContext";
@@ -826,7 +826,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
         projectId={activeProjectId} deviceId={activeDeviceId} experimentName={draft.name} choice={draft.bench_calibration_name ?? ""} choose={choose}
         pairings={visibleExperimentPairings(data.pairings)} targets={draft.assignments.map(a => a.pairing_name)}
         config={configState?.project_id === activeProjectId && configState.device_id === activeDeviceId ? configState : null}
-        admin={isAdmin} controllerState={runtimeStateIsFresh(runtimeState) && runtimeState?.device_id === activeDeviceId && ["running","stopped"].includes(runtimeState.controller_state) ? runtimeState.controller_state : null}
+        admin={isAdmin} controllerState={freshControllerState(runtimeState, activeDeviceId)}
         queue={queueSettingsPlan} commandBusy={controlBusy} commandError={controlError}
         progress={trackedCommand ? trackedCommandProgress(trackedCommand, !controllerOffline) : null}
       /></FeatureBoundary>}
