@@ -24,3 +24,27 @@ begin
 end $$;
 revoke all on function public.pulse_rhee_discovery(uuid,integer,integer,uuid,text) from public,anon,authenticated;
 grant execute on function public.pulse_rhee_discovery(uuid,integer,integer,uuid,text) to service_role;
+
+create or replace function public.stop_rhee_discovery(run_id uuid,keep_setup boolean) returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare r public.rhee_discovery_runs;
+begin
+  select * into strict r from public.rhee_discovery_runs where id=run_id for update;
+  if keep_setup and r.status<>'running' then raise exception 'Only a running Autopair can be stopped'; end if;
+  if r.status='applying' then raise exception 'Wait for installation to finish'; end if;
+  update public.project_control_commands set status='canceled',completed_at=now() where project_id=r.project_id and device_id=r.device_id and command_type='manual_water' and status='queued' and client_request_id=nullif(r.progress->>'command','')::uuid;
+  -- A stop can race the controller's claim. Carry the uncertain receipt through Retry.
+  if keep_setup and r.progress->>'phase'='receipt' and not exists (
+    select 1 from public.project_control_commands c where c.project_id=r.project_id and c.device_id=r.device_id
+      and c.client_request_id=nullif(r.progress->>'command','')::uuid
+      and c.started_at is null and c.status in ('canceled','expired')
+  ) then
+    r.progress:=jsonb_set(r.progress,'{unconfirmed}',coalesce(r.progress->'unconfirmed','[]'::jsonb) ||
+      jsonb_build_array(jsonb_build_object('pot',r.setup->'pots'->((r.progress->>'potIndex')::integer)->'pot',
+        'at',r.progress->'pulseAt','why','Autopair stopped before the valve receipt was verified.')));
+  end if;
+  update public.rhee_discovery_runs set status=case when keep_setup then 'review' else 'closed' end,revision=revision+1,lease_until=null,dispatch_token=null,updated_at=now(),
+    progress=case when keep_setup then r.progress||jsonb_build_object('phase','review','message','Autopair stopped. Any pulse already in progress closes on its timer. Your setup is saved.',
+      'missing',coalesce((select jsonb_agg(p->'pot') from jsonb_array_elements(r.setup->'pots') p where not exists (select 1 from jsonb_array_elements(r.progress->'matches') m where m->'pot'=p->'pot')),'[]'::jsonb)) else progress end where id=run_id;
+end $$;
+revoke all on function public.stop_rhee_discovery(uuid,boolean) from public,anon,authenticated;
+grant execute on function public.stop_rhee_discovery(uuid,boolean) to service_role;

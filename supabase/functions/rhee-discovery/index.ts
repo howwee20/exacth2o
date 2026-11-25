@@ -67,7 +67,9 @@ type Read = { raw: number } | { silent: true } | {
   fault: string;
   fatal?: boolean;
 };
-const READ_BUDGET_MS = 40_000; // per tick; the lease is 100 s and one read is capped at 25 s
+const READ_BUDGET_MS = 40_000;
+// The controller allows 5 seconds for lookup and 35 for capture. Leave room for transport.
+const PROBE_TIMEOUT_MS = 45_000;
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const clock = (t: number) =>
   new Date(t).toLocaleTimeString("en-US", { timeZone: "America/Detroit" });
@@ -156,7 +158,7 @@ const visible = (r: Run | null, uid: string, admin = false) =>
       issues: r.progress.issues ?? [],
       unconfirmed: r.progress.unconfirmed ?? [],
       pot: r.setup.pots[r.progress.potIndex]?.pot,
-      finished: r.progress.matches.length + new Set(r.progress.missing).size,
+      finished: Object.keys(r.progress.evidence ?? {}).length,
       matches: r.progress.matches,
       missing: r.progress.missing,
     }
@@ -316,8 +318,7 @@ async function rawProbe(probe: Probe): Promise<Read> {
         new URLSearchParams({ id: String(probe.id), key: probe.key }),
       {
         headers: { Authorization: "Basic " + btoa(user + ":" + pass) },
-        // The controller gives up on a probe after 15 s and on the lookup after 5 s.
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
         redirect: "error",
       },
     );
@@ -326,7 +327,7 @@ async function rawProbe(probe: Probe): Promise<Read> {
   } catch (e) {
     return {
       fault: (e as Error)?.name === "TimeoutError"
-        ? "no answer from the controller within 25 s"
+        ? "no answer from the controller within " + PROBE_TIMEOUT_MS / 1000 + " s"
         : "could not reach the controller (" + msg(e) + ")",
     };
   }
@@ -511,9 +512,12 @@ async function scan(r: Run, i: Inventory) {
         delete g.baseline[k];
       }
       g.candidates = g.candidates.filter((k) => !short.includes(k));
-      if (!g.candidates.length) {
+      const assigned = new Set(g.matches.map((m) => m.sensorKey));
+      const available = g.candidates.filter((k) => !assigned.has(k)).length;
+      const needed = r.setup.pots.length - g.matches.length;
+      if (available < needed) {
         throw Error(
-          "No probe kept three baseline readings. Check the probe reader.",
+          "Only " + available + " free probes kept three baseline readings for " + needed + " unresolved pots. Check the probe reader.",
         );
       }
     }
@@ -658,7 +662,8 @@ async function pulse(r: Run, i: Inventory) {
   });
   if (queued.error) {
     // An SQLSTATE means the database rejected the pulse and rolled back: nothing was queued.
-    if ((queued.error as { code?: string }).code) {
+    if (/^[0-9A-Z]{5}$/.test(queued.error.code ?? "") &&
+        !queued.error.code.startsWith("08") && queued.error.code !== "40003") {
       throw Error(queued.error.message);
     }
     // Otherwise the reply was lost and the pulse may have queued. Queuing moves the run to
@@ -716,6 +721,7 @@ async function receipt(r: Run) {
       (["queued", "accepted"].includes(c.status) &&
         Date.parse(c.expires_at) < Date.now()))
   ) {
+    g.phase = "review"; // A terminal, unclaimed command cannot open the valve.
     throw Error(
       "Pot " + pot + ": the controller never picked up the pulse sent at " +
         clock(g.pulseAt) + " (" + (c.error || "it expired unclaimed") +
@@ -914,15 +920,15 @@ async function advance(r: Run, action: string, ticket?: string) {
     await step(r, action);
   } catch (e) {
     // Say plainly whether water was involved, so the operator never has to guess.
-    const g = r.progress,
-      dry = action === "tick" &&
-        ["baseline", "pulse"].includes(g.phase) &&
-        !/valve|outlet/i.test(msg(e));
-    g.message = msg(e) +
-      (dry
-        ? " Autopair did not open the valve for pot " +
-          r.setup.pots[g.potIndex]?.pot + "."
-        : "");
+    const g = r.progress;
+    const pot = r.setup.pots[g.potIndex]?.pot;
+    if (action === "tick" && g.phase === "receipt" && pot != null &&
+        !g.unconfirmed?.some((u) => u.pot === pot)) {
+      unconfirmed(g, pot, msg(e));
+    }
+    g.message = msg(e) + (action === "tick" && g.phase === "baseline"
+      ? " Autopair did not open the valve for pot " + pot + " during this baseline."
+      : "");
     if (action === "tick") {
       r.status = "review";
       r.progress.phase = "review";
