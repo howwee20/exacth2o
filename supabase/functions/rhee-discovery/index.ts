@@ -5,11 +5,13 @@ import {
   normalizedValveKey,
 } from "../_shared/installation-field-map.mjs";
 import {
-  assess,
   type Choice,
+  clearResponse,
   type Match,
   type Pair,
   type Probe,
+  rankResponses,
+  type Rise,
   route,
   type Sample,
   sensorId,
@@ -20,6 +22,12 @@ import {
 type Phase = "baseline" | "pulse" | "receipt" | "observe" | "review" | "apply";
 type Progress = {
   phase: Phase;
+  evidence?: Record<
+    number,
+    { rises: Rise[]; complete: boolean; reason: string }
+  >;
+  queue?: number[];
+  baselineRetries?: number;
   potIndex: number;
   pass: number;
   cursor: number;
@@ -46,6 +54,8 @@ type Run = {
   setup: Setup;
   progress: Progress;
   revision: number;
+  worker_version: number;
+  dispatch_token?: string;
   lease_until: string | null;
   updated_at: string;
 };
@@ -76,17 +86,28 @@ async function current() {
       .in("status", ["running", "review", "applying", "ready"]).maybeSingle(),
   ) as Run | null;
 }
-const visible = (r: Run | null, uid: string) =>
+const visible = (r: Run | null, uid: string, admin = false) =>
   r
     ? {
       id: r.id,
       owner: r.owner_id === uid,
+      canClose: admin || r.owner_id === uid,
+      updatedAt: r.updated_at,
+      workerVersion: r.worker_version,
+      evidence: r.progress.evidence ?? {},
+      preview: r.progress.phase === "observe"
+        ? rankResponses(
+          r.progress.baseline,
+          r.progress.after,
+          r.progress.candidates,
+        ).slice(0, 5)
+        : [],
       status: r.status,
       setup: r.setup,
       message: r.progress.message,
       phase: r.progress.phase,
       pot: r.setup.pots[r.progress.potIndex]?.pot,
-      finished: r.progress.potIndex,
+      finished: r.progress.matches.length + new Set(r.progress.missing).size,
       matches: r.progress.matches,
       missing: r.progress.missing,
     }
@@ -263,7 +284,7 @@ function resetScans(g: Progress) {
 async function scan(r: Run, i: Inventory) {
   const g = r.progress;
   const baseline = g.phase === "baseline",
-    first = baseline && g.potIndex === 0 && g.pass === 0;
+    first = baseline && !g.candidates.length && g.pass === 0;
   const keys = first ? g.probes.map((p) => p.key) : g.candidates;
   const eligible = new Set(probes(i).map((s) => s.key));
   const readings = baseline ? g.baseline : g.after;
@@ -283,12 +304,8 @@ async function scan(r: Run, i: Inventory) {
     const v = raw === null
       ? NaN
       : g.coefficients.reduceRight((value, c) => value * raw + c, 0);
-    if (Number.isFinite(v) && v >= 0 && v <= 70) {
-      (readings[key] ??= []).push({ v, t: Date.now() });
-    } else if (!first) {
-      throw Error(
-        "A candidate probe stopped reporting usable moisture. No further pulse was requested.",
-      );
+    if (raw !== null && Number.isFinite(raw) && raw > 0 && Number.isFinite(v)) {
+      (readings[key] ??= []).push({ v, raw, t: Date.now() });
     }
     g.cursor++;
   }
@@ -301,7 +318,7 @@ async function scan(r: Run, i: Inventory) {
     if (g.candidates.length < r.setup.pots.length) {
       throw Error(
         "Only " + g.candidates.length +
-          " unused probes returned plausible moisture for " +
+          " available probes returned a raw reading for " +
           r.setup.pots.length + " pots. Check that the probes are plugged in.",
       );
     }
@@ -310,12 +327,23 @@ async function scan(r: Run, i: Inventory) {
   g.pass++;
   if (g.pass < 3) return;
   if (baseline) {
+    if (g.candidates.some((k) => (g.baseline[k]?.length ?? 0) < 3)) {
+      throw Error(
+        "Some probes lost their baseline readings. Review the connections and retry the remaining pots.",
+      );
+    }
     if (
       g.candidates.some((k) => {
         const v = g.baseline[k].map((s) => s.v);
         return Math.max(...v) - Math.min(...v) > .5;
       })
     ) {
+      g.baselineRetries = (g.baselineRetries ?? 0) + 1;
+      if (g.baselineRetries > 2) {
+        throw Error(
+          "Moisture is still changing before watering. Review and retry when the readings settle.",
+        );
+      }
       g.baseline = {};
       resetScans(g);
       g.message = "Waiting for stable moisture before the next pulse.";
@@ -326,17 +354,32 @@ async function scan(r: Run, i: Inventory) {
     g.message = "Baseline ready for pot " + r.setup.pots[g.potIndex].pot;
     return;
   }
-  const pot = r.setup.pots[g.potIndex].pot,
-    best = assess(g.baseline, g.after, g.candidates);
+  const pot = r.setup.pots[g.potIndex].pot;
+  const complete = g.candidates.every((k) => (g.after[k]?.length ?? 0) >= 3);
+  const rises = rankResponses(g.baseline, g.after, g.candidates);
+  const best = clearResponse(rises, complete);
+  const evidence = (g.evidence ??= {})[pot] = {
+    rises,
+    complete,
+    reason: best
+      ? "Clear response"
+      : !complete
+      ? "Incomplete readings"
+      : rises.length
+      ? "No distinct, sustained rise"
+      : "No rise recorded",
+  };
   const prior = best
     ? g.matches.find((m) => m.sensorKey === best.key)
     : undefined;
   if (prior) {
     g.matches = g.matches.filter((m) => m !== prior);
     g.missing.push(prior.pot, pot);
+    evidence.reason = "More than one outlet produced this response";
+    if (g.evidence?.[prior.pot]) g.evidence[prior.pot].reason = evidence.reason;
   } else if (best && i.pairs.some((p) => sensorId(p) === best.key)) {
     g.missing.push(pot);
-    g.message = "Responding probe already has a controller route: " + best.key;
+    evidence.reason = "Responding probe already has a controller route";
   } else if (best) {
     const v = route(pot);
     g.matches.push({
@@ -347,9 +390,24 @@ async function scan(r: Run, i: Inventory) {
       delta: best.delta,
     });
   } else g.missing.push(pot);
-  g.potIndex++;
+  g.baselineRetries = 0;
+  g.potIndex = g.queue
+    ? (g.queue.shift() ?? r.setup.pots.length)
+    : g.potIndex + 1;
   resetScans(g);
-  g.baseline = {};
+  // Recent post-pulse measurements can seed the next pot. Always take one new
+  // reading per probe and run the ordinary stability check before opening a valve.
+  const reuse = complete && g.candidates.every((key) => {
+    const samples = g.after[key];
+    return samples.length >= 3 &&
+      Date.now() - samples[samples.length - 2].t < 5 * 60000;
+  });
+  g.baseline = reuse
+    ? Object.fromEntries(
+      g.candidates.map((key) => [key, g.after[key].slice(-2)]),
+    )
+    : {};
+  if (reuse) g.pass = 2;
   g.after = {};
   if (g.potIndex >= r.setup.pots.length) {
     r.status = "review";
@@ -395,30 +453,18 @@ async function pulse(r: Run, i: Inventory) {
   }
   const hold = requireData(
     await db.from("manual_hold_sessions").select("id").eq("project_id", project)
-      .eq("device_id", device).in("status", ["opening", "open"]).gte(
-        "started_at",
-        new Date(Date.now() - 120000).toISOString(),
-      ).limit(1),
+      .eq("device_id", device).in("status", ["opening", "open"]).limit(1),
   );
   if (hold.length) throw Error("Manual watering is in progress.");
   const now = Date.now();
-  requireData(
-    await db.rpc("enqueue_portal_control_command", {
-      command_project_id: project,
-      command_device_id: device,
-      command_type: "manual_water",
-      command_payload: {
-        valve_keys: [v.key],
-        duration_seconds: 3,
-        total_valve_seconds: 3,
-      },
-      command_requested_by: r.owner_id,
-      command_expires_at: new Date(now + 45000).toISOString(),
-      command_requires_confirmation: true,
-      command_confirmed_at: new Date(now).toISOString(),
-      command_client_request_id: g.command,
-    }),
-  );
+  const queued = await db.rpc("pulse_rhee_discovery", {
+    run_id: r.id,
+    expected_revision: r.revision,
+    pot,
+    cmd: g.command,
+    expected_valve: v.key,
+  });
+  if (queued.error) throw Error(queued.error.message);
   g.phase = "receipt";
   g.pulseAt = now;
   g.message = "Waiting for controller confirmation for pot " + pot;
@@ -510,7 +556,9 @@ async function step(r: Run, action: string) {
   const g = r.progress;
   if (r.status === "applying") {
     const list = requireData(
-      await db.from("project_control_commands").select("status,error").eq(
+      await db.from("project_control_commands").select(
+        "status,error,completed_at",
+      ).eq(
         "batch_id",
         g.batch,
       ),
@@ -541,7 +589,10 @@ async function step(r: Run, action: string) {
     } else if (done.length >= 19 && g.matches.length > 19) {
       r.status = "review";
       g.message = "Continue installing the remaining matches.";
-    } else if (Date.now() - Date.parse(r.updated_at) > 180000) {
+    } else if (
+      Date.now() -
+          Math.max(...list.map((c) => Date.parse(c.completed_at) || 0)) > 180000
+    ) {
       throw Error(
         "Waiting for the controller to report the installed pairings.",
       );
@@ -578,9 +629,70 @@ async function step(r: Run, action: string) {
     await scan(r, i);
   }
 }
+async function advance(r: Run, action: string, ticket?: string) {
+  if (r.lease_until && Date.parse(r.lease_until) > Date.now()) return;
+  let claim = table().update({
+    revision: r.revision + 1,
+    lease_until: new Date(Date.now() + 100_000).toISOString(),
+    dispatch_token: null,
+  }).eq("id", r.id).eq("revision", r.revision);
+  if (ticket) claim = claim.eq("dispatch_token", ticket);
+  const leased = requireData(await claim.select("*").maybeSingle()) as
+    | Run
+    | null;
+  if (!leased) return;
+  r = leased;
+  try {
+    if (
+      action === "tick" && r.status === "running" &&
+      Date.now() - Date.parse(r.updated_at) > 180000
+    ) {
+      throw Error(
+        "Autopair paused after losing its worker heartbeat. Review the pots before retrying.",
+      );
+    }
+    await step(r, action);
+  } catch (e) {
+    r.progress.message = msg(e);
+    if (action === "tick") {
+      r.status = "review";
+      r.progress.phase = "review";
+      r.progress.missing = r.setup.pots.filter((p) =>
+        !r.progress.matches.some((m) => m.pot === p.pot)
+      ).map((p) => p.pot);
+    }
+  }
+  const now = new Date().toISOString();
+  const saved = await table().update({
+    status: r.status,
+    progress: r.progress,
+    lease_until: null,
+    dispatch_after: now,
+    updated_at: now,
+    revision: r.revision + 1,
+  }).eq("id", r.id).eq("revision", r.revision);
+  if (saved.error) throw Error(saved.error.message);
+}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return reply({ error: "POST required." }, 405);
   try {
+    const body = await req.json(), action = body.action;
+    if (action === "dispatch") {
+      const ticket = req.headers.get("x-rhee-ticket") ?? "";
+      const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+      if (!uuid.test(ticket) || !uuid.test(body.id ?? "")) {
+        return reply({ error: "Invalid worker ticket." }, 401);
+      }
+      const r = requireData(
+        await table().select("*").eq("id", body.id).eq("dispatch_token", ticket)
+          .eq("worker_version", 2).in("status", ["running", "applying"])
+          .maybeSingle(),
+      ) as Run | null;
+      if (!r) return reply({ error: "Expired worker ticket." }, 401);
+      await advance(r, "tick", ticket);
+      return reply({ accepted: true });
+    }
     const token =
       req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
     const { data: { user } } = await db.auth.getUser(token);
@@ -592,16 +704,23 @@ Deno.serve(async (req) => {
     if (!access) {
       return reply({ error: "Rhee project access is required." }, 403);
     }
-    const body = await req.json(), action = body.action;
     let r = await current();
-    if (action === "status") return reply({ run: visible(r, user.id) });
+    if (action === "status" || action === "tick") {
+      return reply({ run: visible(r, user.id, access.role === "admin") });
+    }
     if (!["admin", "researcher"].includes(access.role)) {
       return reply({ error: "Researcher access is required." }, 403);
     }
     if (action === "start") {
+      if (body.version !== 2) {
+        return reply(
+          { error: "Refresh the portal before starting Autopair." },
+          409,
+        );
+      }
       if (r) {
         return reply({
-          run: visible(r, user.id),
+          run: visible(r, user.id, access.role === "admin"),
           error: "Another discovery is open.",
         }, 409);
       }
@@ -615,6 +734,7 @@ Deno.serve(async (req) => {
         throw Error("There are too few free probes.");
       }
       const progress: Progress = {
+        evidence: {},
         phase: "baseline",
         potIndex: 0,
         pass: 0,
@@ -637,66 +757,76 @@ Deno.serve(async (req) => {
           device_id: device,
           owner_id: user.id,
           status: "running",
+          worker_version: 2,
           setup,
           progress,
         }).select().single(),
       ) as Run;
-      return reply({ run: visible(r, user.id) });
+      return reply({ run: visible(r, user.id, access.role === "admin") });
     }
     if (!r || body.id !== r.id) {
       return reply({ error: "This run has ended." }, 409);
     }
     if (
-      r.owner_id !== user.id && !(action === "close" && access.role === "admin")
+      r.owner_id !== user.id &&
+      !((action === "close" || action === "stop") && access.role === "admin")
     ) {
       return reply({
-        error: "Only the operator who started this run can advance it.",
+        error: "Only the operator who started this run can change it.",
       }, 403);
     }
-    if (!["tick", "apply", "close"].includes(action)) {
-      return reply({ error: "Unknown action." }, 400);
-    }
-    if (action === "close" && r.status === "applying") {
-      throw Error("Wait for controller setup to finish.");
-    }
-    if (action === "tick" && !["running", "applying"].includes(r.status)) {
-      return reply({ run: visible(r, user.id) });
-    }
-    if (r.lease_until && Date.parse(r.lease_until) > Date.now()) {
-      return reply({ run: visible(r, user.id) });
-    }
-    const lease = requireData(
-      await table().update({
+    if (action === "close" || action === "stop") {
+      const stopped = await db.rpc("stop_rhee_discovery", {
+        run_id: r.id,
+        keep_setup: action === "stop",
+      });
+      if (stopped.error) throw Error(stopped.error.message);
+    } else if (
+      action === "retry" && r.status === "review" && r.worker_version === 2 &&
+      r.progress.missing.length
+    ) {
+      const i = await inventory();
+      checkController(i);
+      checkSelection(i, r.setup, r.progress.matches);
+      const remaining = r.setup.pots.flatMap((p, index) =>
+        r!.progress.missing.includes(p.pot) ? [index] : []
+      );
+      const [potIndex, ...queue] = remaining;
+      if (potIndex === undefined) throw Error("No unresolved pots.");
+      const g = {
+        ...r.progress,
+        phase: "baseline",
+        potIndex,
+        queue,
+        probes: probes(i),
+        candidates: [],
+        baseline: {},
+        after: {},
+        baselineRetries: 0,
+        pass: 0,
+        cursor: 0,
+        command: "",
+        pulseAt: 0,
+        missing: [],
+        message: "Reading a new baseline for the unresolved pots.",
+      };
+      const restarted = await table().update({
+        status: "running",
+        progress: g,
         revision: r.revision + 1,
-        lease_until: new Date(Date.now() + 85000).toISOString(),
-      }).eq("id", r.id).eq("revision", r.revision).select("*").maybeSingle(),
-    ) as Run | null;
-    if (!lease) return reply({ run: visible(await current(), user.id) });
-    r = lease;
-    try {
-      if (action === "close") r.status = "closed";
-      else await step(r, action);
-    } catch (e) {
-      r.progress.message = msg(e);
-      if (action === "tick") {
-        r.status = "review";
-        r.progress.phase = "review";
-        if (
-          r.progress.potIndex < r.setup.pots.length &&
-          !r.progress.missing.length
-        ) r.progress.missing.push(r.setup.pots[r.progress.potIndex].pot);
-      }
-    }
-    requireData(
-      await table().update({
-        status: r.status,
-        progress: r.progress,
-        lease_until: null,
         updated_at: new Date().toISOString(),
-        revision: r.revision + 1,
-      }).eq("id", r.id).eq("revision", r.revision),
-    );
-    return reply({ run: visible(await current(), user.id) });
+        dispatch_after: new Date().toISOString(),
+      }).eq("id", r.id).eq("revision", r.revision).eq("status", "review")
+        .select("id").single();
+      if (restarted.error) throw Error(restarted.error.message);
+    } else if (action === "apply" && r.status === "review") {
+      await advance(r, "apply");
+    } else {return reply({
+        error: "This action is unavailable in the current phase.",
+      }, 409);}
+    return reply({
+      run: visible(await current(), user.id, access.role === "admin"),
+    });
   } catch (e) {
     return reply({ error: msg(e) }, 400);
   }

@@ -1,8 +1,8 @@
 {
   "embedded": {
     "App.tsx": {
-      "count": 6,
-      "sha256": "8621b45f995317d5c631a5311099941ffb55b6fd8ccec4697711fbd541a70df1"
+      "count": 7,
+      "sha256": "cf63ee352f21195132a96183fd90fb178302c0e6a22d1117f630d402464c4f35"
     },
     "useControllerCommands.ts": {
       "count": 2,
@@ -29,14 +29,14 @@
       "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "MachineHome.tsx": {
-      "count": 1,
-      "sha256": "5687d725d7d26e0a86e40bf0b2bf9794f1daa0c347b40b03f2dc614b2544136a"
+      "count": 2,
+      "sha256": "533aebf25b2e74fdf63610b5ecc5820c3866b7f8f3fd7fbcb3e3e573cec21b57"
     }
   },
   "standalone": {
     "App.tsx": {
-      "count": 6,
-      "sha256": "8621b45f995317d5c631a5311099941ffb55b6fd8ccec4697711fbd541a70df1"
+      "count": 7,
+      "sha256": "cf63ee352f21195132a96183fd90fb178302c0e6a22d1117f630d402464c4f35"
     },
     "useControllerCommands.ts": {
       "count": 2,
@@ -63,8 +63,8 @@
       "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "MachineHome.tsx": {
-      "count": 1,
-      "sha256": "5687d725d7d26e0a86e40bf0b2bf9794f1daa0c347b40b03f2dc614b2544136a"
+      "count": 2,
+      "sha256": "533aebf25b2e74fdf63610b5ecc5820c3866b7f8f3fd7fbcb3e3e573cec21b57"
     }
   }
 }

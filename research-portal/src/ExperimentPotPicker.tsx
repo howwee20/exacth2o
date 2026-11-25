@@ -25,6 +25,7 @@ export function useExperimentFieldPots(
       if (field?.status !== "verified") continue;
       const experiments = new Set(owners.flatMap(owner =>
         (occupiedByName.get(owner.name) ?? []).map(item => item.experimentName)));
+      if(owners.length>1){occupancy.set(pot,"More than one pairing uses this valve");continue;}
       if (experiments.size) {
         occupancy.set(pot, "In use by " + [...experiments].join(", "));
         continue;

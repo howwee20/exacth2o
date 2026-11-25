@@ -11,7 +11,14 @@ export type Match = {
   valveKey: string;
   delta: number;
 };
-export type Sample = { v: number; t: number };
+export type Sample = { v: number; raw?: number; t: number };
+export type Rise = {
+  key: string;
+  delta: number;
+  rawDelta: number;
+  sustained: boolean;
+  strong: boolean;
+};
 export type Setup = {
   name: string;
   mode: "calibration" | "controlled";
@@ -61,43 +68,59 @@ export function valveId(p: Pair) {
     ? normalizedValveKey(p.Valve.relayAddress + ":" + p.Valve.address)
     : null;
 }
-export function assess(
+function median(samples: number[]) {
+  const values = [...samples].sort((a, b) => a - b);
+  const middle = Math.floor(values.length / 2);
+  return values.length % 2
+    ? values[middle]
+    : (values[middle - 1] + values[middle]) / 2;
+}
+
+export function rankResponses(
   before: Record<string, Sample[]>,
   after: Record<string, Sample[]>,
   keys: string[],
-) {
-  const median = (xs: number[]) => {
-    const a = xs.slice().sort((a, b) => a - b);
-    return (a[Math.floor((a.length - 1) / 2)] + a[Math.floor(a.length / 2)]) /
-      2;
-  };
-  const rises = keys.map((key) => {
-    const a = before[key] ?? [], b = after[key] ?? [];
-    if (a.length < 3 || b.length < 3) {
-      throw Error(
-        "A responding probe dropped out during measurement. No match was assigned.",
-      );
-    }
-    const pre = a.map((x) => x.v),
-      post = b.map((x) => x.v),
-      center = median(pre);
+): Rise[] {
+  const rises: Rise[] = [];
+  for (const key of keys) {
+    const pre = before[key] ?? [], post = after[key] ?? [];
+    if (
+      pre.length < 3 || !post.length ||
+      [...pre, ...post].some((s) => s.raw == null || !Number.isFinite(s.raw))
+    ) continue;
+    const raw = pre.map((s) => s.raw!),
+      base = median(raw),
+      center = median(pre.map((s) => s.v));
+    const rawDelta = median(post.map((s) => s.raw!)) - base;
+    const delta = median(post.map((s) => s.v)) - center;
+    if (delta <= 0 || !rawDelta) continue;
+    // The same raw change can imply different VWC changes on different parts of the curve.
+    const direction = Math.sign(rawDelta);
     const noise = Math.max(
-      .05,
-      1.4826 * median(pre.map((x) => Math.abs(x - center))),
+      .01,
+      Math.max(...raw) - Math.min(...raw),
+      1.4826 * median(raw.map((v) => Math.abs(v - base))),
     );
-    const delta = median(post) - center;
-    return {
+    const sustained = post.length >= 3 &&
+      post.every((s) =>
+        s.v > center && (s.raw! - base) * direction >= Math.abs(rawDelta) * .5
+      );
+    rises.push({
       key,
       delta,
-      strong: delta >= .5 && delta >= 5 * noise &&
-        Math.min(...post) >= center + delta * .5,
-      rival: delta >= .25 && delta >= 3 * noise,
-    };
-  }).sort((a, b) => b.delta - a.delta);
+      rawDelta,
+      sustained,
+      strong: sustained && Math.abs(rawDelta) > 3 * noise,
+    });
+  }
+  return rises.sort((a, b) => b.delta - a.delta);
+}
+
+export function clearResponse(rises: Rise[], complete: boolean): Rise | null {
   const best = rises[0];
   if (
-    !best?.strong || best.delta > 10 ||
-    rises.slice(1).some((r) => r.rival && r.delta >= .7 * best.delta)
+    !complete || !best?.strong ||
+    rises.slice(1).some((other) => other.delta >= .7 * best.delta)
   ) return null;
   return best;
 }

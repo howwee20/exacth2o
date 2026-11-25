@@ -1,3 +1,4 @@
+import { navigatePortal, usePortalQueryValue } from "./portalRoute";
 import { DiscoveryPanel, discoveryRequest, type DiscoveryRun, type DiscoveryChoice } from "./RheeDiscovery";
 import { controllerLibrary } from "./benchCalibration/model";
 import {
@@ -198,6 +199,8 @@ function ExperimentBuilderContent({
   const [discoveryBusy,setDiscoveryBusy]=useState(false);
   const [discoveryChoice,setDiscoveryChoice]=useState("");
   const [discoveryReview,setDiscoveryReview]=useState(false);
+  const requestedRun=usePortalQueryValue("discovery");
+  const [potRange,setPotRange]=useState("");
   const [usingRun,setUsingRun]=useState<string|null>(null);
   const installedCurves=useMemo(()=>[...controllerLibrary(config?.calibrations??[]).keys()],[config?.calibrations]);
   const selectedCurve=draft.bench_calibration_name||discoveryChoice||installedCurves.find(name=>name.toLowerCase()==="matts greenhouse pots")||installedCurves[0]||"";
@@ -255,16 +258,16 @@ function ExperimentBuilderContent({
     void discoveryRequest("status").then(run=>{if(mounted)setDiscovery(run)}).catch(e=>{if(mounted)setError(e.message)});
     return ()=>{mounted=false};
   },[fieldMap]);
+  const openRun=(id:string|null)=>navigatePortal({view:"new-experiment"},{replace:true,extra:{discovery:id}});
   useEffect(()=>{
-    if(!discovery || usingRun || !["running","applying"].includes(discovery.status))return;
+    if(!discovery || usingRun || discoveryBusy || !["running","applying"].includes(discovery.status))return;
     let mounted=true;
     const timer=window.setTimeout(()=>{
-      void discoveryRequest(discovery.owner?"tick":"status",{id:discovery.id})
-        .then(run=>{if(mounted){setDiscovery(run);setError(null)}})
+      void discoveryRequest("status").then(run=>{if(mounted){setDiscovery(run);setError(null)}})
         .catch(e=>{if(mounted){setError(e.message);setDiscovery({...discovery})}});
-    },discovery.phase==="receipt" || discovery.phase==="observe" || !discovery.owner ? 2500:700);
+    },4000);
     return ()=>{mounted=false;window.clearTimeout(timer)};
-  },[discovery,usingRun]);
+  },[discovery,usingRun,discoveryBusy]);
   const fieldSelectionBlocked = fieldPots !== null && (unpairedPots.size > 0 || draft.assignments.some(
     assignment => !fieldPots.assignable.has(assignment.pairing_name),
   ));
@@ -558,7 +561,8 @@ function ExperimentBuilderContent({
         };
         const pots=[...unpairedPots].sort((a,b)=>a-b).map(pot=>choice(pot,pendingGroups[pot]));
         const existing=draft.assignments.map(a=>choice(fieldPots!.potNumbers.get(a.pairing_name)!,groupByPot[a.pairing_name]));
-        setDiscovery(await discoveryRequest("start",{setup:{name:draft.name.trim(),mode:draft.mode,curve:selectedCurve,pots,existing}}));
+        const started=await discoveryRequest("start",{version:2,setup:{name:draft.name.trim(),mode:draft.mode,curve:selectedCurve,pots,existing}});
+        setDiscovery(started);if(started)openRun(started.id);
         setDiscoveryReview(false);
       }else if(discovery) {
         const next=await discoveryRequest(action,{id:discovery.id});setDiscovery(next);
@@ -566,7 +570,43 @@ function ExperimentBuilderContent({
     }catch(e){setError(e instanceof Error?e.message:"Could not update Autopair.");}
     finally{setDiscoveryBusy(false);}
   };
-  const useDiscovered=async()=>{
+  const restoreSetup=async()=>{
+    if(!discovery || !fieldPots || discoveryBusy)return;
+    const saved=discovery.setup;
+    const restored:ExperimentGroup[]=[];
+    const pending:Record<number,string>={},assigned:Record<string,string>={};
+    const assignments:ExperimentDraftAssignment[]=[];
+    for(const c of [...saved.pots,...(saved.existing??[])]){
+      let group=restored.find(g=>g.name===c.group&&g.target===c.target);
+      if(!group){group={...nextGroup(restored),name:c.group,target:c.target};restored.push(group)}
+      const pair=fieldPots.available.get(c.pot);
+      if(pair){assigned[pair.name]=group.id;assignments.push(inGroup(pair,group,saved.mode));}
+      else if(pair===null){pending[c.pot]=group.id;}
+      else {setError(`Pot ${c.pot} is no longer available. Review its current assignment.`);return;}
+    }
+    setDiscoveryBusy(true);
+    try{
+      await discoveryRequest("close",{id:discovery.id});
+      setDiscovery(null);openRun(null);setPendingGroups(pending);setGroupByPot(assigned);setGroups(restored);setActiveGroupId(restored[0].id);
+      setDraft(d=>({...d,name:saved.name,mode:saved.mode,assignments,bench_calibration_name:saved.curve}));setDiscoveryChoice(saved.curve);
+      setBenchOpened(saved.mode==="calibration");setDiscoveryReview(false);clearReview();setError(null);
+    }catch(e){setError(e instanceof Error?e.message:"Could not restore setup.")}finally{setDiscoveryBusy(false)}
+  };
+  const addPotRange=()=>{
+    if(!fieldPots)return;
+    const requested=new Set<number>();
+    for(const token of potRange.trim().split(/\s*,\s*/)){
+      const match=/^(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?$/.exec(token);
+      const first=Number(match?.[1]),last=Number(match?.[2]??match?.[1]);
+      if(!match || first<1 || first>last || last>100){setError("Enter pots from 1 to 100, for example 1–12 or 1, 4, 7.");return;}
+      for(let n=first;n<=last;n++)requested.add(n);
+    }
+    const blocked=[...requested].filter(n=>!fieldPots.available.has(n));
+    if(blocked.length){setError(`Unavailable pots: ${blocked.join(', ')}. Edit the range to continue.`);return;}
+    for(const n of requested){const pair=fieldPots.available.get(n);if((pair?groupByPot[pair.name]:pendingGroups[n])!==activeGroup.id)togglePhysicalPot(n);}
+    setPotRange("");setError(null);setDiscoveryReview(false);clearReview();
+  };
+  const continueWithMatches=async()=>{
     if(!discovery||!fieldPots)return;
     const choices=[...discovery.setup.pots,...(discovery.setup.existing??[])];
     const assignments:ExperimentDraftAssignment[]=[];
@@ -620,7 +660,7 @@ function ExperimentBuilderContent({
           </button>
         </header>
 
-        {discovery&&!usingRun ? <div className="experiment-builder-review"><DiscoveryPanel run={discovery} busy={discoveryBusy} onAction={action=>void discoveryAction(action)} onUse={()=>void useDiscovered()} />{error&&<p role="alert">{error}</p>}</div> : step === "setup" ? (
+        {discovery&&requestedRun===discovery.id&&!usingRun ? <div className="experiment-builder-review"><DiscoveryPanel run={discovery} busy={discoveryBusy} onAction={action=>void discoveryAction(action)} onEdit={()=>void restoreSetup()} onUse={()=>void continueWithMatches()} />{error&&<p role="alert">{error}</p>}</div> : step === "setup" ? (
           <>
             <div className="experiment-builder-review">
               <fieldset className="experiment-builder-editable" disabled={busy || confirming}>
@@ -718,6 +758,7 @@ function ExperimentBuilderContent({
                   </div>
                 </section>
 
+                {fieldPots && <div className="xb-range"><label>Pots for {activeGroup.name||'selected group'}<input type="text" aria-label="Pot numbers or range" placeholder="1–12 or 1, 4, 7" value={potRange} onChange={e=>setPotRange(e.target.value)}/></label><button type="button" className="is-secondary" disabled={!potRange.trim()} onClick={addPotRange}>Add to group</button></div>}
                 {fieldPots ? <ExperimentPotPicker
                   model={fieldPots}
                   selected={selectedNames}
@@ -854,8 +895,10 @@ function ExperimentBuilderContent({
             </div>
 
             {unpairedPots.size>0 ? <footer className="experiment-builder-actions">
-              {discoveryReview && <p>Autopair will read unused probes, then pulse each of the {unpairedPots.size} selected outlets for 3 seconds. Keep this page open at the bench.</p>}
-              <button type="button" className="is-primary" disabled={discoveryBusy||!draft.name.trim()||!selectedCurve||calibrationRunning} onClick={()=>discoveryReview?void discoveryAction("start"):setDiscoveryReview(true)}>{discoveryBusy?"Starting…":discoveryReview?"Start Autopair":"Review Autopair"}</button>
+              {discoveryReview && <p>Autopair measures a baseline before the first pulse. This can take several minutes. Each of the {unpairedPots.size} selected outlets opens for 3 seconds, one at a time. You can follow the readings from the machine tile.</p>}
+              {!discovery && (!draft.name.trim() || !selectedCurve) && <p>Enter an experiment name and choose the soil curve to review Autopair.</p>}
+              {discovery && <p>There is an existing Autopair setup on Rhee. <button type="button" className="xb-link" onClick={()=>openRun(discovery.id)}>Open {discovery.setup.name}</button></p>}
+              <button type="button" className="is-primary" disabled={!!discovery||discoveryBusy||!draft.name.trim()||!selectedCurve||calibrationRunning} onClick={()=>discoveryReview?void discoveryAction("start"):setDiscoveryReview(true)}>{discoveryBusy?"Starting…":discoveryReview?"Start Autopair":"Review Autopair"}</button>
             </footer> : controlPlan ? (
               <footer className="experiment-builder-actions is-confirming">
                 <div className="xb-confirm" ref={confirmRef} tabIndex={-1} role="group" aria-label={editing ? "Ready to save" : "Ready to start"}>

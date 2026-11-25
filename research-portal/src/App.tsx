@@ -1,5 +1,6 @@
-import { Fragment } from "react";
-import { DiscoveryTile } from "./RheeDiscovery";
+import { scheduleVisiblePolling } from "./visiblePolling";
+import { RheeSensorInventory } from "./product/RheeSensorInventory";
+import { DiscoveryStatus, DiscoveryTile } from "./RheeDiscovery";
 import { AlertTriangle,ArrowRight,ChevronDown,LayoutGrid,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { ChamberControlView,ChamberHealthView,GasMixerResearcherHome,GasMixerResearcherView } from "./ChamberControlView";
@@ -38,7 +39,7 @@ import { fullTimeWindow,rememberEmailKey } from "./portalConstants";
 import { type DataMode,rollingExperimentHistoryMs,visibleExperimentPairings } from "./portalData";
 import { errorMessage,freshControllerState,runtimeStateIsFresh } from "./portalFormat";
 import { orderedPairings,plantGroupForPairing,treatmentForPairing } from "./portalPresentation";
-import { navigatePortal,type PortalRoute,settingsSectionFromSearch,usePortalRoute } from "./portalRoute";
+import { navigatePortal,type PortalRoute,settingsSectionFromSearch,usePortalQueryValue,usePortalRoute } from "./portalRoute";
 import { portalSystemName } from "./portalProjectContext";
 import { initialSalesSupportData } from "./portalState";
 import { type ChartSeries,type DeviceConfigState,type DeviceHealthSnapshot,type DeviceRuntimeState,type ExperimentGraphMode,type HealthSelectedDetail,type LoadState,type PortalAccess,type PortalView,type PotPreset,type RefreshOptions,type SettingsSection,type TimeWindow } from "./portalTypes";
@@ -156,6 +157,7 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const [accessLoading, setAccessLoading] = useState(true);
   // The URL is the source of truth for what is on screen: Back, Forward, refresh and copied links work.
   const route = usePortalRoute();
+  const discoveryId = usePortalQueryValue("discovery");
   const portalView: PortalView = route.view === "experiment" || route.view === "pot"
     ? "experiment"
     : route.view === "health" || route.view === "support" || route.view === "walker" || route.view === "chamber" || route.view === "analytics" || route.view === "controller" || route.view === "account" || route.view === "autocalibrate"
@@ -485,6 +487,10 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
       setExperimentCatalogError(errorMessage(nextError));
     }
   }, [activeProjectId, canReadProjectData]);
+  useEffect(()=>{
+    if(route.view!=="home" || !sessionReady || !canReadProjectData) return;
+    return scheduleVisiblePolling(loadExperimentCatalog,30_000);
+  },[route.view,sessionReady,canReadProjectData,loadExperimentCatalog]);
 
   const expirePortalSession = useCallback(() => {
     setError(null);
@@ -1212,7 +1218,8 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   if (newExperimentPage) {
     return productShell(<section className="px-page px-new-experiment-page">
       <PortalLink className="px-home-button" to={{ view: "home" }}>← Home</PortalLink>
-      {!canCreateExperiment ? <p role="alert">Researcher or administrator access is required to create an experiment.</p>
+      {!canCreateExperiment && canReadProjectData && activeProjectId==='22222222-2222-4222-8222-222222222222' && discoveryId ? <DiscoveryStatus id={discoveryId}/>
+        : !canCreateExperiment ? <p role="alert">Researcher or administrator access is required to create an experiment.</p>
         : experimentBuilder}
     </section>);
   }
@@ -1464,12 +1471,14 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   return productShell(
     <MachineHome tools={adminTools}>
       {homeProjects.map(project => project.id === activeProjectId ? (
-        <Fragment key={project.id}>{(liveHomeExperiments.length?liveHomeExperiments:[null]).map(item=>(<MachineTile key={item?.id ?? project.id} name={project.name}
-          detail={item ? item.name
-            : experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiment…"}
+        <MachineTile key={project.id} name={project.name} experiments={liveHomeExperiments}
+          setup={project.id==="22222222-2222-4222-8222-222222222222" && <DiscoveryTile/>}
+          detail={experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiments…"}
           status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
-          to={item ? { view: "experiment", experiment: item.id, tab: "pots", pot: null } : { view: "controller" }} healthTo={{ view: "health" }}
-          creation={canCreateExperiment ? { to: { view: "new-experiment" } } : { unavailable: "Researcher or administrator access is required." }} />))}{project.id==="22222222-2222-4222-8222-222222222222" && <DiscoveryTile/>}</Fragment>
+          to={{view:"controller"}} healthTo={{view:"health"}}
+          creation={canCreateExperiment ? {to:{view:"new-experiment"}} : {unavailable:"Researcher or administrator access is required."}}>
+          {project.id==="22222222-2222-4222-8222-222222222222" && <RheeSensorInventory/>}
+        </MachineTile>
       ) : (
         <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />
       ))}

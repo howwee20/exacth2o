@@ -44,7 +44,7 @@ test('active traces are prepared on Home and appear before watering history', as
     await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'content-range': '*/0' }, body: JSON.stringify(data) });
   });
   await page.goto(process.env.EXACTH2O_TRACE_ORIGIN ? `${process.env.EXACTH2O_TRACE_ORIGIN}/portal` : '/portal');
-  const tile = page.getByRole('link', { name: 'Open Rhee Lab', exact: true });
+  const tile = page.getByRole('link', { name: baseline ? 'Open Rhee Lab' : 'Huiqiao Pan experiment', exact: true });
   await expect(tile).toContainText('Huiqiao Pan experiment');
   if (!baseline) {
     await expect.poll(() => archives).toBe(1);

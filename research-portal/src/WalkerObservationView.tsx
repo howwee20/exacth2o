@@ -57,6 +57,7 @@ export function WalkerMachineTile({ userId }: { userId?: string }) {
   const reporting = status ? status.current_sensor_count ?? status.evidenced_sensor_count : 0;
   return <MachineTile
     name="Walker Pi"
+    experiments={currentExperiment ? [{id:currentExperiment.id,name:currentExperiment.name,to:{view:"walker"},extra:{study:currentExperiment.id}}] : []}
     detail={currentExperiment?.name ?? (loading ? "Loading experiment…" : catalogFailed ? "Experiment unavailable" : "No active experiment")}
     status={failed ? "Status unavailable" : !status ? "Checking sensors…" : status.overall_status === "offline" ? "Offline"
       : reporting === 0 ? "No sensors reporting" : status.overall_status === "operational" ? "Online" : `${reporting} / ${status.expected_sensor_count} sensors`}

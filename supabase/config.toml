@@ -62,3 +62,7 @@ verify_jwt = false
 
 [functions.phone-alerts]
 verify_jwt = false
+
+[functions.rhee-discovery]
+# Browser requests validate a user JWT; scheduled requests consume a private one-time run ticket.
+verify_jwt = false

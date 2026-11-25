@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { DiscoveryTile } from "../RheeDiscovery";
+import { RheeSensorInventory } from "./RheeSensorInventory";
+import { FIELD_PROJECT_ID } from "../../../supabase/functions/_shared/installation-field-map.mjs";
 import { supabase } from "../supabase";
 import { withSupabaseTimeout } from "../supabaseTimeout";
 import { supabaseQueryTimeoutMs } from "../portalConstants";
@@ -50,18 +53,20 @@ export function ProjectMachineTile({ projectId, name }: { projectId: string; nam
     stateObservedAt:runtime?.state_observed_at,controllerState:runtime?.controller_state,piOnline:runtime?.pi_online},nowMs);
   useEffect(() => {
     let active = true;
-    void loadPortalExperimentCatalog(projectId).then(experiments => {
+    const refresh=()=>loadPortalExperimentCatalog(projectId).then(experiments => {
       if (!active) return;
       const current = orderHomeExperiments(experiments).filter(experiment => !experimentIsCompleted(experiment));
       setStudies(current);setDetail("No active experiment");
     }).catch(() => {
       if (active) setDetail("Experiment unavailable");
     });
-    return () => { active = false; };
+    void refresh();
+    const stop=scheduleVisiblePolling(refresh,30000);
+    return () => { active = false;stop(); };
   }, [projectId]);
-  return <>{(studies.length?studies:[null]).map(item=><MachineTile key={item?.id??projectId} name={name} detail={item?.name??detail}
+  return <MachineTile name={name} detail={detail} experiments={studies} setup={projectId===FIELD_PROJECT_ID && <DiscoveryTile projectId={projectId}/>}
     status={!statusLoaded ? "Checking controller…" : presence.status === "never" ? "Status unavailable" : presence.label}
     statusTone={presence.status === "online" ? "online" : presence.status === "offline" ? "offline" : "unknown"}
     extra={{ project: projectId }}
-    to={item?{view:"experiment",experiment:item.id,tab:"pots",pot:null}:{view:"controller"}} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} />)}</>;
+    to={{view:"controller"}} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} >{projectId===FIELD_PROJECT_ID && <RheeSensorInventory/>}</MachineTile>;
 }
