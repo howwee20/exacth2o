@@ -37,14 +37,17 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       Valve: { relayAddress: 'test-relay', address: String(number) },
       WTCPercentLimit: -1000, ValveOpenTime: 2000, MeasurementInterval: 60000,
     }));
+    const legacyCurve = 'matts greenhouse pots';
+    const panPairing = 'Huiqiao-Zone3-Pot66';
     const rheePairings = [
       { name: 'Zone4-Pot95', sensorId: 10, relayAddress: '0x20', address: '48' },
       { name: 'Zone3-Pot66', sensorId: 11, relayAddress: '0x24', address: '16' },
-      { name: 'Huiqiao-Zone3-Pot66', sensorId: 12, relayAddress: '0x20', address: '18' },
+      { name: panPairing, sensorId: 12, relayAddress: '0x20', address: '18' },
     ].map(({ name, sensorId, relayAddress, address }) => ({
       name, sensorId, valveId: sensorId,
       Sensor: { boardSerialId: 'rhee-sensor', address: String(sensorId) },
       Valve: { relayAddress, address },
+      Calibration: name === panPairing ? { name: legacyCurve } : null,
       WTCPercentLimit: -1000, ValveOpenTime: 2000, MeasurementInterval: 60000,
     }));
     await page.route('https://*.supabase.co/**', async route => {
@@ -78,7 +81,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         data = {batch_id: body.batch_id, commands: body.batch_commands.map((c: {client_request_id: string}) => ({id:c.client_request_id, status:'queued'}))};
       } else if (url.pathname === '/rest/v1/device_config_state') {
         const pairings = url.searchParams.get('device_id') === `eq.${mainDevice}` ? rheePairings : configPairings;
-        data = url.searchParams.get('select') === '*' ? { project_id: url.searchParams.get('project_id')?.slice(3), device_id: url.searchParams.get('device_id')?.slice(3), pairings, groups: [], updated_at: now, config_hash: 'test-config' } : [];
+        data = url.searchParams.get('select') === '*' ? { project_id: url.searchParams.get('project_id')?.slice(3), device_id: url.searchParams.get('device_id')?.slice(3), pairings, calibrations: pairings === rheePairings ? [{name: legacyCurve, polynomialCoefficientsCommaDelimited: '100.68,-0.1289,0.00004'}] : [], groups: [], observed_at: now, updated_at: now, config_hash: 'test-config' } : [];
       } else if (url.pathname === '/rest/v1/sensor_readings' && url.searchParams.get('device_id') === `eq.${mainDevice}` && url.searchParams.has('sensor_key')) {
         data = [10, 11, 12].map(id => ({ id, sensor_key: `rhee-sensor:${id}`, device_recorded_at: now, server_received_at: now, calibrated_value: 35 }));
       } else if (url.pathname === '/rest/v1/device_runtime_state' && url.searchParams.get('device_id') === 'eq.testbed-device') {
@@ -121,7 +124,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         const project = url.searchParams.get('project_id');
         data = [...(project === `eq.${mainProject}` ? [
           { id: 'completed', slug: 'completed', name: 'Completed experiment', mode: 'observation', status: 'completed', watering_state: 'off', pairing_names: [], assignments: [] },
-          { id: 'pan', slug: 'pan', name: 'Huiqiao Pan experiment', mode: 'observation', status: 'active', watering_state: 'off', pairing_names: [], assignments: [] },
+          { id: 'pan', slug: 'pan', name: 'Huiqiao Pan experiment', description: '', mode: 'controlled', status: 'active', watering_state: 'off', current_version: 9, pairing_names: [panPairing], assignments: [{ pairing_name: panPairing, pot_number: 66, zone: 3, sensor_key_snapshot: 'rhee-sensor:12', calibration_name_snapshot: legacyCurve }] },
         ] : []), ...(createdExperiment && project === `eq.${createdExperiment.project_id}` ? [createdExperiment] : [])];
       } else if (url.pathname === '/rest/v1/walker_observation_sensor_metadata') {
         data = [{ source_sensor_id: 1, display_label: 'Sensor 1', position_number: 1 }];
@@ -144,6 +147,10 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     const rhee = page.getByRole('link', { name: 'Open Rhee Lab', exact: true });
     await expect(testbed).toBeVisible();
     await expect(rhee).toBeVisible();
+    const tileNames = page.locator('.px-system-tile-name');
+    const fixedOrder = ['Rhee Lab', 'Four-pot testbed', 'Walker Pi'];
+    if (email === 'alamriek@msu.edu') fixedOrder.push('Chamber');
+    await expect(tileNames).toHaveText(fixedOrder);
     await expect(page.getByRole('heading', { name: 'Systems', exact: true })).toHaveCount(0);
     await expect(rhee).toContainText('Huiqiao Pan experiment');
     await expect(testbed).toContainText('No active experiment');
@@ -247,6 +254,17 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await rhee.click();
     await expect(page.getByRole('heading', { name: 'Huiqiao Pan experiment', exact: true })).toBeVisible();
     await expect(page.getByLabel('Pot traces', { exact: true })).toBeVisible();
+    await page.locator('.px-more-actions > summary').click();
+    await page.getByRole('button', { name: 'Edit experiment', exact: true }).click();
+    const curveInUse = page.getByRole('region', { name: 'Experiment soil calibration' });
+    await expect(curveInUse.getByText(legacyCurve, { exact: true })).toBeVisible();
+    await expect(curveInUse).toContainText('Plan revision 9: 1/1 pots · Controller report: 1/1 pots');
+    await curveInUse.getByText('Pot assignments and equation').click();
+    await expect(curveInUse).toContainText('VWC = 100.68 − 0.1289x + 0.00004x²');
+    await expect(curveInUse).toContainText('No matching bench worksheet');
+    await expect(page.getByRole('button', { name: 'Control', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    expect(assignmentCommands).toEqual([]);
     const profile = page.getByLabel('Profile menu', { exact: true });
     await profile.focus();
     await profile.press('Enter');
@@ -303,6 +321,9 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(page.getByRole('button', { name: 'Installation settings', exact: true })).toHaveCount(0);
     expect(deviceLookups).toContain(testbedProject);
     await page.getByRole('link', { name: /Home/ }).click();
+    await expect(tileNames).toHaveText(fixedOrder);
+    await page.reload();
+    await expect(tileNames).toHaveText(fixedOrder);
     await page.getByRole('link', { name: 'Four-pot testbed system health', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`view=health&project=${testbedProject}`));
     await expect(page.getByRole('heading', { name: 'Four-pot testbed system health', exact: true })).toBeVisible();

@@ -31,6 +31,7 @@ import {
 } from "./experimentSpec";
 import {
   activeExperimentPotOccupancy,
+  pairingsForExperiment,
   type PortalExperiment,
 } from "./experimentRegistry";
 import {
@@ -38,6 +39,8 @@ import {
   validateExperimentDraft,
 } from "./experimentValidation";
 import type { PairingRow } from "./types";
+import type { DeviceConfigState } from "./portalTypes";
+import { ExperimentSoilCalibration } from "./settings/ExperimentSoilCalibration";
 import { assignmentForMode, commonAssignmentValue } from "./experimentSetup";
 import { autocalRunStore, useAutocalRun } from "./autocalibrate/runStore";
 import { potRanges } from "./product/directExperimentModel";
@@ -69,6 +72,7 @@ type ExperimentBuilderProps = {
   deviceId?: string | null;
   pairings: PairingRow[];
   inventoryUpdatedAt: string | null;
+  config: DeviceConfigState | null;
   experiment?: PortalExperiment | null;
   template?: PortalExperiment | null;
   experiments?: readonly PortalExperiment[];
@@ -137,6 +141,7 @@ function ExperimentBuilderContent({
   deviceId,
   pairings,
   inventoryUpdatedAt,
+  config,
   experiment = null,
   template = null,
   experiments = noPortalExperiments,
@@ -581,6 +586,11 @@ function ExperimentBuilderContent({
                     </div>
                   </fieldset>
                 </div>
+
+                {experiment && <ExperimentSoilCalibration
+                  experiment={experiment} projectId={projectId} deviceId={deviceId ?? undefined}
+                  config={config} pairings={pairingsForExperiment(pairings, experiment)}
+                />}
 
                 {benchOpened && renderBenchCalibration && <div hidden={draft.mode !== "calibration"}>{renderBenchCalibration(draft, name => updateDraft("bench_calibration_name", name))}</div>}
 
