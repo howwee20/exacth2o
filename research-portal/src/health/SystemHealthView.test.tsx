@@ -27,16 +27,16 @@ describe('health observation freshness',()=>{
     expect(html).toContain('Offline.');
     expect(html).toContain('at last report');
     expect(html).toContain('Last uptime');
-    expect(html).not.toContain('up;');
-    expect(html).not.toContain('4/4 OK');
+    expect(html).not.toContain('Up ');
+    expect(html).not.toContain('All reporting');
     expect(html).not.toContain('Stable');
   });
   it('shows current evidence again when the device reports within its freshness window',()=>{
     vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-14T19:43:00Z'));
     const html=render();
     expect(html).toContain('Online.');
-    expect(html).toContain('4/4 OK');
-    expect(html).toContain('up;');
+    expect(html).toContain('All reporting');
+    expect(html).toContain('<strong>Up 51 m</strong>');
   });
 });
 
@@ -59,16 +59,28 @@ it('uses the complete pairing report for group and node counts and keeps old sum
   const renderReport = () => renderToStaticMarkup(<SystemHealthView snapshot={snapshot} history={[snapshot]}
     runtimeState={{ ...runtime, raw_health: rawHealth }} error={null} onBackHome={() => {}} />);
   let html = renderReport();
-  expect(html).toContain('2/4 Review');
-  expect(html).toContain('Pan</span><strong>2/2 current');
-  expect(html).toContain('Node4</span><strong>0/2');
-  expect(html).toContain('Pot 41 · No reading in report');
-  expect(html).toContain('Pot 42 · Stale');
+  expect(html).toContain('<strong>2 / 4</strong>');
+  expect(html).toContain('2 not reporting');
   expect(html).toContain('1000 Mbps · full duplex');
-  expect(html).toContain('Since boot</span><strong>Unavailable on controller');
-  expect(html).toContain('Historical counts cover the controller');
+  expect(html).not.toContain('Unavailable on controller');
   rawHealth.api.pairings.count = 5;
   html = renderReport();
-  expect(html).toContain('incomplete pairing data');
-  expect(html).not.toContain('4/4 OK');
+  expect(html).toContain('<span>Sensors</span><strong>Not synced</strong>');
+  expect(html).not.toContain('All reporting');
+});
+
+it('shows only the temperature graph and marks a restart on it', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-14T19:43:00Z'));
+  const sample = (time: string, uptimeSeconds: number) => ({ t: time, uptimeSeconds, ethUp: true, cpuTempC: 40 });
+  const records = [sample('2026-11-14T19:00:00Z', 9000), sample('2026-11-14T19:10:00Z', 9600),
+    sample('2026-11-14T19:30:00Z', 300), sample('2026-11-14T19:40:00Z', 900)];
+  const html = renderToStaticMarkup(<SystemHealthView snapshot={{ ...snapshot, raw_history: { records } } as DeviceHealthSnapshot}
+    history={[snapshot]} runtimeState={runtime} error={null} onBackHome={() => {}} />);
+  expect(html.match(/class="sh-chart /g)).toHaveLength(1);
+  expect(html).toContain('aria-label="Temperature over time"');
+  expect(html).not.toContain('aria-label="Network over time"');
+  expect(html.match(/class="sh-chart-mark"/g)).toHaveLength(1);
+  expect(html).toContain('Restart ');
+  expect(html).not.toContain('Sensors not reporting');
 });
