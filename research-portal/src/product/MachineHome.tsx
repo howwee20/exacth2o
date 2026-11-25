@@ -12,13 +12,13 @@ import { selectProjectDevice } from "../portalProjectContext";
 import type { DeviceRuntimeState } from "../portalTypes";
 import { loadPortalExperimentCatalog } from "../experimentClient";
 import { experimentIsCompleted, orderHomeExperiments } from "../experimentMeasurement";
-import { MachineTile } from "./MachineTile";
+import { MachineTile, type MachineExperiment } from "./MachineTile";
 import "./product.css";
 
 export { MachineHome, MachineTile } from "./MachineTile";
 
 export function ProjectMachineTile({ projectId, name }: { projectId: string; name: string }) {
-  const [studies,setStudies]=useState<{id:string;name:string}[]>([]);
+  const [studies,setStudies]=useState<MachineExperiment[]>([]);
   const [detail, setDetail] = useState("Loading experiment…");
   const [runtime, setRuntime] = useState<DeviceRuntimeState | null>(null);
   const [statusLoaded, setStatusLoaded] = useState(false);

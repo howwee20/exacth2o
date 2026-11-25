@@ -11,7 +11,7 @@ export function DemoHome() {
   return <>
     <h1 className="px-sr-only">Your systems</h1>
     <MachineHome>
-      {benches.map((bench) => <MachineTile key={bench.name} name={bench.name} detail={bench.running} status="Online" statusTone="online"
+      {benches.map((bench) => <MachineTile key={bench.name} name={bench.name} experiments={[{ id: bench.experiment, name: bench.running }]} status="Online" statusTone="online"
         to={{ view: "experiment", experiment: bench.experiment, tab: "pots", pot: null }}
         creation={{ unavailable: "New experiments are not available in the demo." }} />)}
     </MachineHome>

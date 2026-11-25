@@ -39,8 +39,12 @@ test('Rhee phone shows two studies, lists case-sensitive probes and groups an un
   await expect(machine.getByRole('link',{name:'Pan',exact:true})).toHaveAttribute('href',/experiment=study-0/);
   await expect(machine.getByRole('link',{name:'Greenhouse study'})).toHaveAttribute('href',/experiment=study-1/);
   const branch=machine.getByRole('link',{name:'Pan',exact:true});
-  expect(await branch.evaluate(el=>getComputedStyle(el,'::before').borderTopStyle)).toBe('dashed');
-  expect(await branch.evaluate(el=>getComputedStyle(el,'::after').borderLeftStyle)).toBe('dashed');
+  // Both experiments are rows inside the one machine card.
+  expect(await branch.evaluate(el=>Boolean(el.closest('.px-system-card > .px-study-list')))).toBe(true);
+  await expect(machine.locator('.px-system-card > .px-study-list > a')).toHaveCount(2);
+  await page.setViewportSize({width:1280,height:800});
+  await page.screenshot({path:test.info().outputPath('rhee-machine-desktop.png')});
+  await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:test.info().outputPath('rhee-branches-phone.png'),fullPage:true});
   await machine.getByText('Sensor inventory',{exact:true}).click();await machine.getByText('Board1 · 2 sensors').click();
   await expect(machine.getByRole('rowheader',{name:'A',exact:true})).toBeVisible();await expect(machine.getByRole('rowheader',{name:'a',exact:true})).toBeVisible();

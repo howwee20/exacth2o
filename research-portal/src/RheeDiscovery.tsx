@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { functionErrorMessage } from "./portalFormat";
@@ -30,7 +31,11 @@ export function DiscoveryTile({projectId}:{projectId?:string}) {
     return ()=>{mounted=false;stop()};
   },[]);
   if(!run)return null;
-  return <PortalLink className="px-study-tile" to={{view:'new-experiment'}} extra={{discovery:run.id,...(projectId?{project:projectId}:{})}} reloadDocument={Boolean(projectId)}><span><span className="px-study-caption">Autopair setup</span><strong>{run.setup.name}</strong><span className="px-study-progress">{stateLabel(run)} · {run.finished}/{run.setup.pots.length} pots</span></span></PortalLink>;
+  const progress=`${stateLabel(run)} · ${run.finished}/${run.setup.pots.length} pots`;
+  return <PortalLink className="px-study-row is-setup" aria-label={`Autopair setup: ${run.setup.name}, ${progress}`} to={{view:'new-experiment'}} extra={{discovery:run.id,...(projectId?{project:projectId}:{})}} reloadDocument={Boolean(projectId)}>
+    <span className="px-study-text"><strong>{run.setup.name}</strong><span className="px-study-note">Autopair setup · {progress}</span></span>
+    <ArrowRight size={15} aria-hidden="true"/>
+  </PortalLink>;
 }
 function RiseList({rises}:{rises:Rise[]}) {
   return <ol>{rises.map(r=><li key={r.key}>{r.key} · +{r.delta.toLocaleString(undefined,{maximumFractionDigits:4})} VWC points</li>)}</ol>;

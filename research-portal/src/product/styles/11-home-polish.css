@@ -229,11 +229,12 @@
 
 /* The home page opens each machine from one card. */
 .px-shell .px-machine-home { width: min(1180px, 100%); padding-top: 36px; gap: 20px; }
-.px-system-tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+/* Columns keep their width, so one machine alone is a card and not a banner. */
+.px-system-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 
 /* Each card is a thin slab: lit along its top edge, a shade darker along its bottom edge, resting on a short shadow.
    The footer is set a step into it. */
-.px-system-card, .px-study-tile { --tone: #98a39d; --edge: rgba(16, 31, 26, .1);
+.px-system-card { --tone: #98a39d; --edge: rgba(16, 31, 26, .1);
   position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden;
   border: 1px solid var(--edge); border-bottom-color: rgba(16, 31, 26, .17); border-radius: 10px;
   background: linear-gradient(180deg, #fff 0, #fff 55%, #fbfcfb 100%);
@@ -242,7 +243,7 @@
 .px-system-card:has(.px-system-status.is-online) { --tone: #1f8a5c; }
 .px-system-card:has(.px-system-status.is-warning) { --tone: #c08a1f; }
 .px-system-card:has(.px-system-status.is-offline) { --tone: #bd4b44; }
-.px-system-card:hover, .px-system-card:focus-within, .px-study-tile:hover, .px-study-tile:focus-visible { transform: translateY(-1px); border-color: rgba(16, 31, 26, .16); border-bottom-color: rgba(16, 31, 26, .24);
+.px-system-card:hover, .px-system-card:focus-within { transform: translateY(-1px); border-color: rgba(16, 31, 26, .16); border-bottom-color: rgba(16, 31, 26, .24);
   box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05), 0 6px 10px -4px rgba(16, 31, 26, .1), 0 22px 30px -18px rgba(16, 31, 26, .3); }
 .px-system-card:has(.px-system-tile:active) { transform: none; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .06), 0 2px 3px -1px rgba(16, 31, 26, .08); }
 .px-system-tile { display: flex; flex: 1; flex-direction: column; align-items: stretch; gap: 18px; min-width: 0; padding: 18px 20px 16px; border: 0; background: transparent; color: var(--px-text); text-align: left; text-decoration: none; }
@@ -300,23 +301,35 @@
   .px-system-card:hover, .px-system-card:focus-within { transform: none; }
 }
 
+/* One card is one machine. Its experiments are rows inside it, so a machine running three shows three. */
 .px-machine-tree { min-width:0; align-self:start; }
-.px-machine-tree.has-branches .px-system-tile { min-height:52px; justify-content:center; gap:3px; padding:12px 16px; }
-.px-machine-tree.has-branches .px-system-tile-footer { padding-inline:16px; }
-.px-study-branches { --arm:20px; --wire:#559477; display:grid; padding-inline-start:calc(var(--arm) + 11px); }
-.px-study-branches:empty { display:none; }
-.px-study-tile { position:relative; display:flex; flex-direction:row; overflow:visible; align-items:center; justify-content:space-between; gap:12px; min-height:78px; margin-bottom:12px; padding:14px 16px; color:var(--px-text); text-decoration:none; overflow-wrap:anywhere; }
-.px-study-tile::before, .px-study-tile::after { content:""; position:absolute; pointer-events:none; }
-.px-study-tile::before { right:100%; top:50%; width:var(--arm); border-top:2px dashed var(--wire); }
-.px-study-tile::after { right:calc(100% + var(--arm)); top:-1px; bottom:-14px; border-left:2px dashed var(--wire); }
-.px-study-tile:first-child::after { top:50%; }
-.px-study-tile > span { min-width:0; }
-.px-study-tile strong { display:block; font-size:17px; font-weight:600; line-height:1.3; letter-spacing:-.02em; }
-.px-study-caption,.px-study-progress { display:block; font-size:12px; line-height:1.4; color:var(--px-muted); }
-.px-study-caption { margin-bottom:3px; }
-.px-study-progress { margin-top:4px; }
-.px-study-tile svg { flex-shrink:0; color:var(--px-water); }
-.px-study-tile:focus-visible, .px-sensor-list summary:focus-visible { outline:2px solid var(--px-water); }
+.px-machine-tree .px-system-tile { flex:none; padding:16px 20px 14px; }
+/* The title is a shaded cap, lit along its top, so the machine reads apart from the experiments under it. */
+.px-system-card > .px-system-tile { background:linear-gradient(180deg, #f7f9f8 0, #eef2f0 100%); box-shadow:inset 0 1px 0 #fff; transition:background-color 140ms ease; }
+.px-system-card > .px-system-tile:hover { background:linear-gradient(180deg, #f3f6f4 0, #e8eeeb 100%); }
+.px-study-list { display:grid; border-top:1px solid rgba(16, 31, 26, .12); background:#fff; }
+.px-study-row { position:relative; display:flex; align-items:center; gap:12px; min-height:50px; padding:9px 16px 9px 20px; border-top:1px solid rgba(16, 31, 26, .06); color:var(--px-text); text-decoration:none; transition:background-color 140ms ease, box-shadow 140ms ease; }
+.px-study-row:first-child { border-top:0; }
+/* A row answers the pointer with a green edge and a step of the arrow, and presses in like a key. */
+.px-study-row::before { content:""; position:absolute; inset:8px auto 8px 0; width:3px; border-radius:0 2px 2px 0; background:var(--px-water); transform:scaleY(0); transition:transform 160ms ease; }
+.px-study-row:hover, .px-study-row:focus-visible { background:#f5f9f7; text-decoration:none; }
+.px-study-row:hover::before, .px-study-row:focus-visible::before { transform:scaleY(1); }
+.px-study-row:active { background:#edf3f0; box-shadow:inset 0 1px 2px rgba(16, 31, 26, .1); }
+.px-study-row:focus-visible { outline:2px solid var(--px-water); outline-offset:-2px; }
+.px-study-text { display:grid; flex:1; gap:2px; min-width:0; }
+.px-study-text strong { font-size:14.5px; font-weight:500; line-height:1.35; letter-spacing:-.005em; overflow-wrap:anywhere; }
+.px-study-note, .px-study-meta { color:var(--px-muted); font-size:12.5px; line-height:1.4; font-variant-numeric:tabular-nums; }
+.px-study-meta { flex:none; white-space:nowrap; }
+.px-study-row svg { flex:none; color:var(--px-water); transition:transform 140ms ease; }
+.px-study-row:hover svg, .px-study-row:focus-visible svg { transform:translateX(3px); }
+.px-study-empty { margin:0; padding:15px 20px; color:var(--px-muted); font-size:13.5px; line-height:1.4; }
+.px-study-empty:not(:only-child) { display:none; }
+.px-sensor-list summary:focus-visible { outline:2px solid var(--px-water); }
+/* The machine's sensor list opens from a quiet line under the card's actions. */
+.px-machine-extras > .px-sensor-list > summary { display:flex; align-items:center; justify-content:space-between; list-style:none; min-height:44px; padding:0 4px; color:var(--px-water); font:500 13px/1.4 var(--px-sans); }
+.px-machine-extras > .px-sensor-list > summary::-webkit-details-marker { display:none; }
+.px-machine-extras > .px-sensor-list > summary::after { content:""; width:6px; height:6px; margin-right:3px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:translateY(-2px) rotate(45deg); transition:transform 140ms ease; }
+.px-machine-extras > .px-sensor-list[open] > summary::after { transform:translateY(1px) rotate(225deg); }
 .px-sensor-list { min-width:0; font-size:14px; }
 .px-sensor-list summary, .xb-discovery details summary { cursor:pointer; padding:12px 0; min-height:44px; }
 .px-sensor-list table { width:100%; border-collapse:collapse; table-layout:fixed; }
@@ -328,6 +341,7 @@
 .xb-range { display:flex; flex-wrap:wrap; align-items:end; gap:8px; margin:8px 0 12px; }
 .xb-range label { display:grid; gap:4px; }
 
-.px-machine-extras { display:grid; gap:6px; padding:0 16px; border-top:1px solid #e1e7e3; min-width:0; }
+.px-machine-extras { display:grid; gap:6px; padding:0 16px; border-top:1px solid rgba(16, 31, 26, .08); background:#f6f8f7; min-width:0; }
 
-@media (prefers-reduced-motion: reduce) { .px-study-tile, .px-study-tile:hover, .px-study-tile:focus-visible { transition:none; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .px-study-row, .px-study-row::before, .px-study-row svg { transition:none; } .px-study-row:hover svg, .px-study-row:focus-visible svg { transform:none; } }
+@media (max-width: 700px) { .px-study-row { min-height:52px; padding-inline:16px 12px; } .px-study-empty { padding-inline:16px; } .px-machine-tree .px-system-tile { padding:16px 16px 14px; } }

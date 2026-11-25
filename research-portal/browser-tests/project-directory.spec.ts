@@ -153,7 +153,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(tileNames).toHaveText(fixedOrder);
     await expect(page.getByRole('heading', { name: 'Systems', exact: true })).toHaveCount(0);
     await expect(rhee).toContainText('Huiqiao Pan experiment');
-    await expect(testbed).toContainText('No active experiment');
+    await expect(page.getByRole('group', { name: 'Four-pot testbed', exact: true })).toContainText('No active experiment');
     const walker = page.getByRole('link', { name: 'Current Walker trial', exact: true });
     await expect(walker).toContainText('Current Walker trial');
     await expect(walker).toHaveAttribute('href', /study=walker-current/);
@@ -168,7 +168,8 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     const healthBox = await health.boundingBox();
     expect(healthBox!.y + healthBox!.height).toBeLessThanOrEqual(tileBox!.y + tileBox!.height);
     await expect(card.locator('.px-system-status')).toBeVisible();
-    await expect(rhee.locator('.px-study-caption')).toHaveText('Active experiment');
+    // The experiment is a row inside its machine's card.
+    await expect(card.locator('.px-system-card > .px-study-list').getByRole('link', { name: 'Huiqiao Pan experiment', exact: true })).toContainText('Huiqiao Pan experiment');
     const administration = page.locator('details.px-home-administration');
     await expect(administration).not.toHaveAttribute('open');
     await administration.locator('summary').click();
@@ -403,7 +404,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
       .toEqual([['Control', true, 30], ['Drought', true, 10]]);
     expect(calibrationWrites).toEqual([]);
     await page.getByRole('link', { name: /Home/ }).click();
-    await expect(testbed).toContainText('Testbed calibration trial');
+    await expect(page.getByRole('group', { name: 'Four-pot testbed', exact: true })).toContainText('Testbed calibration trial');
     await expect(rhee).toContainText('Huiqiao Pan experiment');
     // Reopen the worksheet saved during setup, through the experiment settings route.
     await page.goto('/portal?experiment=new-study&settings=calibrations&project='+testbedProject);

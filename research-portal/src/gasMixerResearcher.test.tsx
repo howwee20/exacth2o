@@ -9,7 +9,7 @@ describe("mixer researcher screens", () => {
     const html = renderToStaticMarkup(<GasMixerResearcherHome allowed onOpen={() => {}} />);
     expect(html.match(/<button/g)).toHaveLength(2);
     expect(html).toContain("Chamber");
-    expect(html).toContain("Active experiment");
+    expect(html).toContain("No active experiment");
     expect(html).toContain("System health");
     expect(html).not.toMatch(/Walker|Lighting|Sales &amp; Support|Chamber Control/);
   });
