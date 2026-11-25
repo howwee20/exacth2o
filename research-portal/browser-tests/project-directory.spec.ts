@@ -124,7 +124,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
         const project = url.searchParams.get('project_id');
         data = [...(project === `eq.${mainProject}` ? [
           { id: 'completed', slug: 'completed', name: 'Completed experiment', mode: 'observation', status: 'completed', watering_state: 'off', pairing_names: [], assignments: [] },
-          { id: 'pan', slug: 'pan', name: 'Huiqiao Pan experiment', mode: 'controlled', status: 'active', watering_state: 'off', current_version: 9, pairing_names: [panPairing], assignments: [{ pairing_name: panPairing, pot_number: 66, zone: 3, sensor_key_snapshot: 'rhee-sensor:12', calibration_name_snapshot: legacyCurve }] },
+          { id: 'pan', slug: 'pan', name: 'Huiqiao Pan experiment', description: '', mode: 'controlled', status: 'active', watering_state: 'off', current_version: 9, pairing_names: [panPairing], assignments: [{ pairing_name: panPairing, pot_number: 66, zone: 3, sensor_key_snapshot: 'rhee-sensor:12', calibration_name_snapshot: legacyCurve }] },
         ] : []), ...(createdExperiment && project === `eq.${createdExperiment.project_id}` ? [createdExperiment] : [])];
       } else if (url.pathname === '/rest/v1/walker_observation_sensor_metadata') {
         data = [{ source_sensor_id: 1, display_label: 'Sensor 1', position_number: 1 }];
