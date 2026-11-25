@@ -85,7 +85,7 @@ test('assembled demo retains time range, saved views, Record, and responsive nav
   await presets.getByRole('button', { name: 'Entire experiment', exact: true }).click();
   await expect(presets.getByRole('button', { name: 'Entire experiment', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByText('More', { exact: true }).click();
-  await page.getByRole('link', { name: 'Record', exact: true }).click();
+  await page.getByRole('link', { name: 'Experiment history', exact: true }).click();
   await expect(page).toHaveURL(/tab=record/);
   await page.getByText('More', { exact: true }).click();
   await page.getByRole('link', { name: 'Back to traces', exact: true }).click();

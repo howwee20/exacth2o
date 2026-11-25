@@ -1,3 +1,4 @@
+import { DisclosureMenu } from "./DisclosureMenu";
 import { Search, UserRound } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import exactH2OLogo from "../assets/exacth2o-logo.jpeg";
@@ -43,14 +44,7 @@ export function ProductHeader({
           <kbd aria-hidden="true">/</kbd>
         </button>
         {extra}
-        {demo ? null : <details className="px-menu px-header-menu" onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.currentTarget.open = false;
-            event.currentTarget.querySelector("summary")?.focus();
-          }
-        }} onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false;
-        }}>
+        {demo ? null : <DisclosureMenu className="px-menu px-header-menu">
           <summary aria-label="Profile menu" title="Profile menu"><UserRound size={18} aria-hidden="true" /></summary>
           <div className="px-menu-panel">
             {onOpenAccount ? <button type="button" onClick={(event) => {
@@ -60,7 +54,7 @@ export function ProductHeader({
             <hr />
             <button type="button" onClick={onSignOut}>Sign out</button>
           </div>
-        </details>}
+        </DisclosureMenu>}
       </div>
     </header>
   );

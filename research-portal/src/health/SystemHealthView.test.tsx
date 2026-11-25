@@ -39,3 +39,36 @@ describe('health observation freshness',()=>{
     expect(html).toContain('up;');
   });
 });
+
+it('uses the complete pairing report for group and node counts and keeps old summary history scoped', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(at));
+  const row = (name: string, groupName: string, sensor: string, time: string | null) => ({
+    actualName: name, groupName, actualSensor: sensor, MeasurementInterval: 600_000,
+    latestReading: time && { createdAt: time },
+  });
+  const rows = [
+    row('Pan 65', 'Pan', 'D30GQN2E:a', at),
+    row('Pan 66', 'Pan', 'D30GQN2E:b', at),
+    row('Pot 41', 'Matt', 'D30GQN2D:c', null),
+    row('Pot 42', 'Matt', 'D30GQN2D:d', '2026-11-14T17:00:00Z'),
+  ];
+  const rawHealth = { piLocal: { available: true, ethernet: { speed: 1000, duplex: 'full' } },
+    ownerStatus: { throttled_flags: { available: false } },
+    api: { pairings: { ok: true, count: 4 }, pairingReadings: { ok: true, rows }, researcherMap: {} } };
+  const renderReport = () => renderToStaticMarkup(<SystemHealthView snapshot={snapshot} history={[snapshot]}
+    runtimeState={{ ...runtime, raw_health: rawHealth }} error={null} onBackHome={() => {}} />);
+  let html = renderReport();
+  expect(html).toContain('2/4 Review');
+  expect(html).toContain('Pan</span><strong>2/2 current');
+  expect(html).toContain('Node4</span><strong>0/2');
+  expect(html).toContain('Pot 41 · No reading in report');
+  expect(html).toContain('Pot 42 · Stale');
+  expect(html).toContain('1000 Mbps · full duplex');
+  expect(html).toContain('Since boot</span><strong>Unavailable on controller');
+  expect(html).toContain('Historical counts cover the controller');
+  rawHealth.api.pairings.count = 5;
+  html = renderReport();
+  expect(html).toContain('incomplete pairing data');
+  expect(html).not.toContain('4/4 OK');
+});

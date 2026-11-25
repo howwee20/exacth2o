@@ -21,7 +21,7 @@ type Context = {
   scopeKeyRef: React.RefObject<string>;
   setHealthHistory: React.Dispatch<React.SetStateAction<DeviceHealthSnapshot[]>>;
   setHealthSnapshot: React.Dispatch<React.SetStateAction<DeviceHealthSnapshot | null>>;
-  canUseExperimentSettings: boolean;
+  canReadDeviceState: boolean;
   setRuntimeState: React.Dispatch<React.SetStateAction<DeviceRuntimeState | null>>;
   setConfigState: React.Dispatch<React.SetStateAction<DeviceConfigState | null>>;
   canReadProjectData: boolean;
@@ -33,7 +33,7 @@ type Context = {
   experimentGraphMode: ExperimentGraphMode;
 };
 
-export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, setHealthError, scopeKeyRef, setHealthHistory, setHealthSnapshot, canUseExperimentSettings, setRuntimeState, setConfigState, canReadProjectData, setValveEvents, valveEventsRef, valveLoadInFlightRef, sessionReady, portalView, experimentGraphMode }: Context) {
+export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, setHealthError, scopeKeyRef, setHealthHistory, setHealthSnapshot, canReadDeviceState, setRuntimeState, setConfigState, canReadProjectData, setValveEvents, valveEventsRef, valveLoadInFlightRef, sessionReady, portalView, experimentGraphMode }: Context) {
   const loadHealthSnapshot = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!isAdmin || !activeProjectId || !activeDeviceId) return;
     const silent = options.silent === true;
@@ -68,7 +68,7 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
   }, [activeDeviceId, activeProjectId, isAdmin, scopeKeyRef, setHealthError, setHealthHistory, setHealthSnapshot]);
 
   const loadDeviceSyncState = useCallback(async () => {
-    if (!canUseExperimentSettings || !activeProjectId || !activeDeviceId) {
+    if (!canReadDeviceState || !activeProjectId || !activeDeviceId) {
       setRuntimeState(null);
       setConfigState(null);
       return;
@@ -109,7 +109,7 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
     } catch {
       // Keep the last mirrored controller state visible while Supabase catches up.
     }
-  }, [activeDeviceId, activeProjectId, canUseExperimentSettings, scopeKeyRef, setConfigState, setRuntimeState]);
+  }, [activeDeviceId, activeProjectId, canReadDeviceState, scopeKeyRef, setConfigState, setRuntimeState]);
 
   const loadValveEvents = useCallback((options: { incremental?: boolean; fresh?: boolean } = {}): Promise<void> => {
     if (!canReadProjectData || !activeProjectId || !activeDeviceId) {
@@ -208,9 +208,9 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
   ]);
 
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return;
+    if (!sessionReady || !canReadDeviceState) return;
     void loadDeviceSyncState();
-  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
+  }, [canReadDeviceState, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin) return undefined;
@@ -230,10 +230,10 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
   ]);
 
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings) return undefined;
+    if (!sessionReady || !canReadDeviceState) return undefined;
     // Controller state gates reviewed settings; it is refreshed immediately on return to the tab.
     return scheduleVisiblePolling(loadDeviceSyncState, 60_000);
-  }, [canUseExperimentSettings, loadDeviceSyncState, sessionReady]);
+  }, [canReadDeviceState, loadDeviceSyncState, sessionReady]);
 
   useEffect(() => {
     if (!sessionReady || !isAdmin || !activeProjectId || !activeDeviceId) return undefined;
@@ -273,7 +273,7 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
   }, [activeDeviceId, activeProjectId, isAdmin, loadHealthSnapshot, sessionReady, setHealthHistory, setHealthSnapshot]);
 
   useEffect(() => {
-    if (!sessionReady || !canUseExperimentSettings || !activeProjectId || !activeDeviceId) return undefined;
+    if (!sessionReady || !canReadDeviceState || !activeProjectId || !activeDeviceId) return undefined;
 
     const channel = supabase
       .channel(`exacth2o-device-sync-live-${activeProjectId}`)
@@ -316,7 +316,7 @@ export function useControllerStatus({ isAdmin, activeProjectId, activeDeviceId, 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeDeviceId, activeProjectId, canUseExperimentSettings, loadDeviceSyncState, sessionReady, setConfigState, setRuntimeState]);
+  }, [activeDeviceId, activeProjectId, canReadDeviceState, loadDeviceSyncState, sessionReady, setConfigState, setRuntimeState]);
 
   useEffect(() => {
     if (!sessionReady || !canReadProjectData || !activeProjectId || !activeDeviceId) return undefined;
