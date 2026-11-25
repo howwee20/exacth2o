@@ -549,7 +549,7 @@ function ExperimentBuilderContent({
     }
   };
 
-  const discoveryAction=async(action:string)=>{
+  const discoveryAction=async(action:string,extra:Record<string,unknown>={})=>{
     if(discoveryBusy)return;
     setDiscoveryBusy(true);setError(null);
     try {
@@ -565,7 +565,7 @@ function ExperimentBuilderContent({
         setDiscovery(started);if(started)openRun(started.id);
         setDiscoveryReview(false);
       }else if(discovery) {
-        const next=await discoveryRequest(action,{id:discovery.id});setDiscovery(next);
+        const next=await discoveryRequest(action,{id:discovery.id,...extra});setDiscovery(next);
       }
     }catch(e){setError(e instanceof Error?e.message:"Could not update Autopair.");}
     finally{setDiscoveryBusy(false);}
@@ -660,7 +660,7 @@ function ExperimentBuilderContent({
           </button>
         </header>
 
-        {discovery&&requestedRun===discovery.id&&!usingRun ? <div className="experiment-builder-review"><DiscoveryPanel run={discovery} busy={discoveryBusy} onAction={action=>void discoveryAction(action)} onEdit={()=>void restoreSetup()} onUse={()=>void continueWithMatches()} />{error&&<p role="alert">{error}</p>}</div> : step === "setup" ? (
+        {discovery&&requestedRun===discovery.id&&!usingRun ? <div className="experiment-builder-review"><DiscoveryPanel run={discovery} busy={discoveryBusy} onAction={(action,extra)=>void discoveryAction(action,extra)} onEdit={()=>void restoreSetup()} onUse={()=>void continueWithMatches()} />{error&&<p role="alert">{error}</p>}</div> : step === "setup" ? (
           <>
             <div className="experiment-builder-review">
               <fieldset className="experiment-builder-editable" disabled={busy || confirming}>

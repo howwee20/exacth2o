@@ -44,7 +44,33 @@ type Progress = {
   batch?: string;
   acknowledgedAt?: number;
   intakeAt?: number;
+  tries?: number; // attempts on the probe at `cursor`
+  streak?: number; // failed reads in a row, across probes
+  holds?: number; // reader outages in a row
+  holdUntil?: number;
+  unsure?: string[]; // faulted (not silent) during discovery; kept as candidates
+  fill?: string[]; // candidates still short of three readings after pass 3
+  readMs?: number;
+  issues?: Issue[];
+  unconfirmed?: { pot: number; at: number; why: string }[];
+  repulse?: number[];
 };
+type Issue = {
+  t: number;
+  probe: string;
+  phase: Phase;
+  pass: number;
+  pot?: number;
+  reason: string;
+};
+type Read = { raw: number } | { silent: true } | {
+  fault: string;
+  fatal?: boolean;
+};
+const READ_BUDGET_MS = 40_000; // per tick; the lease is 100 s and one read is capped at 25 s
+const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+const clock = (t: number) =>
+  new Date(t).toLocaleTimeString("en-US", { timeZone: "America/Detroit" });
 type Run = {
   id: string;
   project_id: string;
@@ -105,7 +131,30 @@ const visible = (r: Run | null, uid: string, admin = false) =>
       status: r.status,
       setup: r.setup,
       message: r.progress.message,
-      phase: r.progress.phase,
+      phase: r.progress.phase === "observe" &&
+          Date.now() - (r.progress.acknowledgedAt ?? 0) < 60000
+        ? "soak"
+        : r.progress.phase,
+      soakUntil: r.progress.phase === "observe"
+        ? (r.progress.acknowledgedAt ?? 0) + 60000
+        : undefined,
+      scan: ["baseline", "observe"].includes(r.progress.phase)
+        ? {
+          pass: r.progress.pass + 1,
+          done: r.progress.cursor,
+          total: r.progress.candidates.length
+            ? (r.progress.pass < 3
+              ? r.progress.candidates.length
+              : r.progress.fill?.length ?? 0)
+            : r.progress.probes.length,
+          answering: r.progress.candidates.length ||
+            Object.keys(r.progress.baseline).length,
+          readMs: r.progress.readMs,
+          holdUntil: r.progress.holdUntil,
+        }
+        : undefined,
+      issues: r.progress.issues ?? [],
+      unconfirmed: r.progress.unconfirmed ?? [],
       pot: r.setup.pots[r.progress.potIndex]?.pot,
       finished: r.progress.matches.length + new Set(r.progress.missing).size,
       matches: r.progress.matches,
@@ -251,7 +300,8 @@ function probes(i: Inventory): Probe[] {
     },
   );
 }
-async function rawProbe(probe: Probe) {
+// Never throws for a read problem: the caller decides whether one probe or the reader is at fault.
+async function rawProbe(probe: Probe): Promise<Read> {
   const base = Deno.env.get("OWNER_HEALTH_BASE_URL") ||
     "https://" + device + ".balena-devices.com/owner-health";
   const user = Deno.env.get("OWNER_HEALTH_USER") ||
@@ -259,62 +309,175 @@ async function rawProbe(probe: Probe) {
   const pass = Deno.env.get("OWNER_HEALTH_PASSWORD") ||
     Deno.env.get("MATT_OWNER_HEALTH_PASSWORD");
   if (!user || !pass) throw Error("Rhee probe access is unavailable.");
-  const resp = await fetch(
-    base.replace(/\/$/, "") + "/api/bench-sensor-read?" +
-      new URLSearchParams({ id: String(probe.id), key: probe.key }),
-    {
-      headers: { Authorization: "Basic " + btoa(user + ":" + pass) },
-      signal: AbortSignal.timeout(41000),
-      redirect: "error",
-    },
-  );
-  const data = await resp.json().catch(() => ({}));
-  if (resp.status === 503 && /no valid reading/.test(data.error || "")) {
-    return null;
+  let status = 0, text = "";
+  try {
+    const resp = await fetch(
+      base.replace(/\/$/, "") + "/api/bench-sensor-read?" +
+        new URLSearchParams({ id: String(probe.id), key: probe.key }),
+      {
+        headers: { Authorization: "Basic " + btoa(user + ":" + pass) },
+        // The controller gives up on a probe after 15 s and on the lookup after 5 s.
+        signal: AbortSignal.timeout(25000),
+        redirect: "error",
+      },
+    );
+    status = resp.status;
+    text = await resp.text();
+  } catch (e) {
+    return {
+      fault: (e as Error)?.name === "TimeoutError"
+        ? "no answer from the controller within 25 s"
+        : "could not reach the controller (" + msg(e) + ")",
+    };
   }
-  if (
-    !resp.ok || data.sensorKey !== probe.key || !Number.isFinite(data.rawValue)
-  ) throw Error(data.error || "Rhee probe reader is unavailable.");
-  return data.rawValue as number;
+  let data: { error?: string; sensorKey?: string; rawValue?: unknown } = {};
+  try {
+    data = JSON.parse(text) ?? {};
+  } catch { /* a proxy error page; reported below */ }
+  if (status === 503 && /no valid reading/.test(data.error || "")) {
+    return { silent: true };
+  }
+  if (status === 409 && /identity changed/i.test(data.error || "")) {
+    return { fault: data.error!, fatal: true };
+  }
+  if (status < 200 || status > 299) {
+    return {
+      fault: "HTTP " + status + " · " +
+        (data.error ||
+          text.replace(/<[^>]*>|\s+/g, " ").trim().slice(0, 90) ||
+          "empty reply"),
+    };
+  }
+  if (data.sensorKey !== probe.key) {
+    return {
+      fault: "the reader answered for " + (data.sensorKey || "no probe"),
+      fatal: true,
+    };
+  }
+  if (!Number.isFinite(data.rawValue)) {
+    return { fault: "the reader returned a non-numeric value" };
+  }
+  return { raw: data.rawValue as number };
+}
+function note(r: Run, probe: string, reason: string) {
+  const g = r.progress, issues = g.issues ??= [];
+  issues.push({
+    t: Date.now(),
+    probe,
+    phase: g.phase,
+    pass: g.pass + 1,
+    pot: r.setup.pots[g.potIndex]?.pot,
+    reason,
+  });
+  if (issues.length > 30) issues.splice(0, issues.length - 30);
+}
+// Mid-tick heartbeat. A stop or close bumps the revision, so no match means "stop reading".
+async function checkpoint(r: Run) {
+  const saved = await table().update({
+    progress: r.progress,
+    updated_at: new Date().toISOString(),
+  }).eq("id", r.id).eq("revision", r.revision).select("id");
+  return !saved.error && saved.data?.length === 1;
 }
 function resetScans(g: Progress) {
   g.pass = 0;
   g.cursor = 0;
+  g.tries = 0;
+  delete g.fill;
 }
 async function scan(r: Run, i: Inventory) {
   const g = r.progress;
   const baseline = g.phase === "baseline",
     first = baseline && !g.candidates.length && g.pass === 0;
-  const keys = first ? g.probes.map((p) => p.key) : g.candidates;
+  if (Date.now() < (g.holdUntil ?? 0)) return;
+  const keys = first
+    ? g.probes.map((p) => p.key)
+    : g.pass < 3
+    ? g.candidates
+    : g.fill ?? [];
   const eligible = new Set(probes(i).map((s) => s.key));
   const readings = baseline ? g.baseline : g.after;
+  const pot = r.setup.pots[g.potIndex].pot;
+  const label = () =>
+    (first ? "Finding probes" : baseline ? "Baseline" : "Watching moisture") +
+    " for pot " + pot + " · " +
+    (g.pass < 3 ? "pass " + (g.pass + 1) + "/3" : "re-reading missed probes") +
+    " · " + g.cursor + "/" + keys.length + " probes";
   const started = Date.now();
-  for (
-    let n = 0;
-    g.cursor < keys.length && n < 6 && Date.now() - started < 8000;
-    n++
-  ) {
+  let saved = started;
+  while (g.cursor < keys.length && Date.now() - started < READ_BUDGET_MS) {
     const key = keys[g.cursor], probe = g.probes.find((s) => s.key === key)!;
     if (!eligible.has(key)) {
       throw Error(
         "Probe inventory changed. Recheck the run before continuing.",
       );
     }
-    const raw = await rawProbe(probe);
-    const v = raw === null
-      ? NaN
-      : g.coefficients.reduceRight((value, c) => value * raw + c, 0);
-    if (raw !== null && Number.isFinite(raw) && raw > 0 && Number.isFinite(v)) {
-      (readings[key] ??= []).push({ v, raw, t: Date.now() });
+    const asked = Date.now();
+    const read = await rawProbe(probe);
+    if ("fault" in read) {
+      if (read.fatal) {
+        throw Error(
+          "Probe " + key + ": " + read.fault +
+            ". Recheck the run before continuing.",
+        );
+      }
+      g.streak = (g.streak ?? 0) + 1;
+      if (g.streak >= 4) {
+        // Four failed reads in a row is the reader, not a probe: wait instead of skipping probes.
+        g.holds = (g.holds ?? 0) + 1;
+        g.streak = 0;
+        g.tries = 0;
+        if (g.holds > 5) {
+          throw Error(
+            "The probe reader stopped answering during " +
+              (baseline ? "the baseline" : "the moisture watch") + " for pot " +
+              pot + " (last: probe " + key + " · " + read.fault + ").",
+          );
+        }
+        g.holdUntil = Date.now() +
+          Math.min(120000, 15000 * 2 ** (g.holds - 1));
+        g.message = "Probe reader is not answering (probe " + key + " · " +
+          read.fault + "). Retry " + g.holds + "/5 at " + clock(g.holdUntil) +
+          ".";
+        return;
+      }
+      g.tries = (g.tries ?? 0) + 1;
+      if (g.tries < 2) {
+        await sleep(/being read/.test(read.fault) ? 1500 : 500);
+        continue;
+      }
+      // Skip this probe for this pass only; passes 4 and 5 come back for it.
+      note(r, key, read.fault + " · read twice, skipped this pass");
+      if (first) (g.unsure ??= []).push(key);
+    } else {
+      g.streak = 0;
+      g.holds = 0;
+      g.readMs = Math.round(
+        g.readMs
+          ? .8 * g.readMs + .2 * (Date.now() - asked)
+          : Date.now() - asked,
+      );
+      const raw = "raw" in read ? read.raw : NaN;
+      const v = g.coefficients.reduceRight((value, c) => value * raw + c, 0);
+      if (Number.isFinite(raw) && raw > 0 && Number.isFinite(v)) {
+        (readings[key] ??= []).push({ v, raw, t: Date.now() });
+      }
     }
+    g.tries = 0;
     g.cursor++;
+    if (Date.now() - saved > 10000) {
+      g.message = label();
+      if (!await checkpoint(r)) return;
+      saved = Date.now();
+    }
   }
-  g.message = (baseline ? "Baseline" : "Watching moisture rise") + " for pot " +
-    r.setup.pots[g.potIndex].pot + " · pass " + (g.pass + 1) + "/3 · " +
-    g.cursor + "/" + keys.length + " probes";
+  g.message = label();
   if (g.cursor < keys.length) return;
   if (first) {
-    g.candidates = Object.keys(g.baseline);
+    g.candidates = keys.filter((k) =>
+      g.baseline[k]?.length || g.unsure?.includes(k)
+    );
+    delete g.unsure;
     if (g.candidates.length < r.setup.pots.length) {
       throw Error(
         "Only " + g.candidates.length +
@@ -326,11 +489,33 @@ async function scan(r: Run, i: Inventory) {
   g.cursor = 0;
   g.pass++;
   if (g.pass < 3) return;
+  // One failed read must not end the run: re-read only the probes that are short, at most twice.
+  const short = g.candidates.filter((k) => (readings[k]?.length ?? 0) < 3);
+  if (short.length && g.pass < 5) {
+    g.fill = short;
+    g.message = "Re-reading " + short.length + " missed probe" +
+      (short.length > 1 ? "s" : "") + " for pot " + pot;
+    return;
+  }
+  delete g.fill;
   if (baseline) {
-    if (g.candidates.some((k) => (g.baseline[k]?.length ?? 0) < 3)) {
-      throw Error(
-        "Some probes lost their baseline readings. Review the connections and retry the remaining pots.",
-      );
+    if (short.length) {
+      // Still short after five passes: leave those probes out, visibly, and keep going.
+      for (const k of short) {
+        note(
+          r,
+          k,
+          "left out of this run · " + (g.baseline[k]?.length ?? 0) +
+            " of 3 baseline readings",
+        );
+        delete g.baseline[k];
+      }
+      g.candidates = g.candidates.filter((k) => !short.includes(k));
+      if (!g.candidates.length) {
+        throw Error(
+          "No probe kept three baseline readings. Check the probe reader.",
+        );
+      }
     }
     if (
       g.candidates.some((k) => {
@@ -354,7 +539,6 @@ async function scan(r: Run, i: Inventory) {
     g.message = "Baseline ready for pot " + r.setup.pots[g.potIndex].pot;
     return;
   }
-  const pot = r.setup.pots[g.potIndex].pot;
   const complete = g.candidates.every((k) => (g.after[k]?.length ?? 0) >= 3);
   const rises = rankResponses(g.baseline, g.after, g.candidates);
   const best = clearResponse(rises, complete);
@@ -422,6 +606,14 @@ async function scan(r: Run, i: Inventory) {
 }
 async function pulse(r: Run, i: Inventory) {
   const g = r.progress, pot = r.setup.pots[g.potIndex].pot, v = route(pot);
+  if (
+    g.unconfirmed?.some((u) => u.pot === pot) && !g.repulse?.includes(pot)
+  ) {
+    throw Error(
+      "Pot " + pot +
+        " has an unconfirmed pulse. Choose it explicitly to pulse this outlet again.",
+    );
+  }
   const liveRoute = requireData(
     await db.from("manual_valve_routes").select("status,relay_address,channel")
       .eq("project_id", project).eq("device_id", device).eq("pot_number", pot)
@@ -464,28 +656,96 @@ async function pulse(r: Run, i: Inventory) {
     cmd: g.command,
     expected_valve: v.key,
   });
-  if (queued.error) throw Error(queued.error.message);
+  if (queued.error) {
+    // An SQLSTATE means the database rejected the pulse and rolled back: nothing was queued.
+    if ((queued.error as { code?: string }).code) {
+      throw Error(queued.error.message);
+    }
+    // Otherwise the reply was lost and the pulse may have queued. Queuing moves the run to
+    // "receipt" in the same transaction, so fence the row while it still says "pulse": the
+    // revision bump makes a late enqueue fail, and no match means the pulse is already queued.
+    const fence = await table().update({ revision: r.revision + 1 }).eq(
+      "id",
+      r.id,
+    ).eq("revision", r.revision).eq("progress->>phase", "pulse").select(
+      "revision",
+    );
+    if (fence.error) {
+      unconfirmed(g, pot, "the pulse request may have queued");
+      throw Error(
+        "Pot " + pot + ": the pulse request got no reply (" +
+          queued.error.message +
+          "). It may have queued, so Autopair will not pulse this outlet again on its own.",
+      );
+    }
+    if (fence.data?.length) {
+      r.revision = fence.data[0].revision;
+      throw Error(
+        "Pot " + pot + ": the pulse request did not reach the database (" +
+          queued.error.message + "). It was withdrawn. The valve did not open.",
+      );
+    }
+  }
   g.phase = "receipt";
   g.pulseAt = now;
   g.message = "Waiting for controller confirmation for pot " + pot;
 }
+function unconfirmed(g: Progress, pot: number, why: string) {
+  g.unconfirmed = [
+    ...(g.unconfirmed ?? []).filter((u) => u.pot !== pot),
+    { pot, at: g.pulseAt || Date.now(), why },
+  ];
+  g.repulse = (g.repulse ?? []).filter((p) => p !== pot);
+  (g.evidence ??= {})[pot] = {
+    rises: [],
+    complete: false,
+    reason: "Pulse not confirmed · " + why,
+  };
+}
 async function receipt(r: Run) {
-  const g = r.progress;
+  const g = r.progress, pot = r.setup.pots[g.potIndex].pot;
   const c = requireData(
     await db.from("project_control_commands").select(
-      "status,result,error,completed_at",
+      "status,result,error,started_at,completed_at,expires_at",
     ).eq("project_id", project).eq("client_request_id", g.command).single(),
   );
+  // Never claimed and no longer claimable: the controller cannot have opened the valve.
   if (
-    ["failed", "expired", "canceled"].includes(c.status) ||
-    Date.now() - g.pulseAt > 180000
-  ) throw Error(c.error || "The controller did not confirm the pulse.");
-  if (c.status !== "succeeded") return;
-  if (
-    !c.result || c.result.dryRun !== false || !Array.isArray(c.result.pulses) ||
-    c.result.pulses.length !== 1 || c.result?.interruptions?.length ||
-    c.result?.interrupted || c.result?.interruptedBy
-  ) throw Error("The pulse was interrupted or simulated.");
+    !c.started_at &&
+    (["expired", "canceled"].includes(c.status) ||
+      (["queued", "accepted"].includes(c.status) &&
+        Date.parse(c.expires_at) < Date.now()))
+  ) {
+    throw Error(
+      "Pot " + pot + ": the controller never picked up the pulse sent at " +
+        clock(g.pulseAt) + " (" + (c.error || "it expired unclaimed") +
+        "). The valve did not open.",
+    );
+  }
+  const clean = c.status === "succeeded" && c.result &&
+    c.result.dryRun === false && Array.isArray(c.result.pulses) &&
+    c.result.pulses.length === 1 && !c.result?.interruptions?.length &&
+    !c.result?.interrupted && !c.result?.interruptedBy;
+  if (!clean) {
+    const settled = ["succeeded", "failed", "expired", "canceled"].includes(
+      c.status,
+    );
+    if (!settled && Date.now() - g.pulseAt <= 180000) return;
+    // Claimed by the controller without a clean receipt: the valve may have opened.
+    const why = c.status === "succeeded"
+      ? "the controller reported an interrupted or simulated pulse"
+      : settled
+      ? "the controller reported " + c.status +
+        (c.error ? " · " + c.error : "")
+      : "no receipt after 3 minutes (still " + c.status + ")";
+    unconfirmed(g, pot, why);
+    throw Error(
+      "Pot " + pot + ": the pulse sent at " + clock(g.pulseAt) +
+        " was not confirmed (" + why +
+        "). The valve may have opened. Autopair will not pulse this outlet again on its own.",
+    );
+  }
+  g.unconfirmed = (g.unconfirmed ?? []).filter((u) => u.pot !== pot);
   g.acknowledgedAt = Date.parse(c.completed_at) || Date.now();
   g.phase = "observe";
   resetScans(g);
@@ -653,7 +913,16 @@ async function advance(r: Run, action: string, ticket?: string) {
     }
     await step(r, action);
   } catch (e) {
-    r.progress.message = msg(e);
+    // Say plainly whether water was involved, so the operator never has to guess.
+    const g = r.progress,
+      dry = action === "tick" &&
+        ["baseline", "pulse"].includes(g.phase) &&
+        !/valve|outlet/i.test(msg(e));
+    g.message = msg(e) +
+      (dry
+        ? " Autopair did not open the valve for pot " +
+          r.setup.pots[g.potIndex]?.pot + "."
+        : "");
     if (action === "tick") {
       r.status = "review";
       r.progress.phase = "review";
@@ -788,11 +1057,24 @@ Deno.serve(async (req) => {
       const i = await inventory();
       checkController(i);
       checkSelection(i, r.setup, r.progress.matches);
+      const held = (r.progress.unconfirmed ?? []).map((u) => u.pot);
+      const repulse: number[] = Array.isArray(body.repulse)
+        ? body.repulse.filter((p: unknown) => held.includes(p as number))
+        : [];
       const remaining = r.setup.pots.flatMap((p, index) =>
-        r!.progress.missing.includes(p.pot) ? [index] : []
+        r!.progress.missing.includes(p.pot) &&
+          (!held.includes(p.pot) || repulse.includes(p.pot))
+          ? [index]
+          : []
       );
       const [potIndex, ...queue] = remaining;
-      if (potIndex === undefined) throw Error("No unresolved pots.");
+      if (potIndex === undefined) {
+        throw Error(
+          held.length
+            ? "Only pots with an unconfirmed pulse are left. Choose each one to pulse it again."
+            : "No unresolved pots.",
+        );
+      }
       const g = {
         ...r.progress,
         phase: "baseline",
@@ -807,9 +1089,20 @@ Deno.serve(async (req) => {
         cursor: 0,
         command: "",
         pulseAt: 0,
-        missing: [],
+        // Pots left out of this retry stay unresolved instead of silently disappearing.
+        missing: r.progress.missing.filter((p) =>
+          held.includes(p) && !repulse.includes(p)
+        ),
+        repulse,
+        tries: 0,
+        streak: 0,
+        holds: 0,
+        holdUntil: 0,
+        issues: [],
         message: "Reading a new baseline for the unresolved pots.",
       };
+      delete g.fill;
+      delete g.unsure;
       const restarted = await table().update({
         status: "running",
         progress: g,
