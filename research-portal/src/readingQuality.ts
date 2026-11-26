@@ -1,5 +1,13 @@
 import type { SensorReading } from "./types";
 
+export function isAcknowledgement(reading: Pick<SensorReading, "sensor_frame">) {
+  return reading.sensor_frame === "sdi12_acknowledgement";
+}
+
+export function readingQualityNote(reading: Pick<SensorReading, "sensor_frame" | "calibrated_value">) {
+  return isAcknowledgement(reading) ? "Sensor acknowledgement recorded as a measurement" : vwcQuality(reading.calibrated_value);
+}
+
 /** Plausibility and freshness are separate. Preserve the recorded values in every view. */
 export function vwcQuality(value: number | null | undefined) {
   if (value == null) return null;

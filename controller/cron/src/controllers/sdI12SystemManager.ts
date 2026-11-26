@@ -80,29 +80,16 @@ export class SDI12SystemManager {
     console.log(`Sensor ${sensorAddress} is configured for board ${boardSerial}. Proceeding with read attempt.`);
 
     try {
-      const controller = await this.getOrCreateController(boardSerial);
-      // Optionally: lock per controller to serialize access
-      console.log(`Waiting after openConnection for board ${boardSerial}...`);
-
-      await new Promise(resolve => setTimeout(resolve, 2500)); // e.g., 2.5 seconds
-
-      const sdi12 = new SDI12Commands(controller);
-
-      // 3. Perform Measurement Sequence for the single sensor
-      console.log(`Starting measurement for sensor ${sensorAddress} on board ${boardSerial}`);
-      await sdi12.startMeasurement(sensorAddress);
-
-      // Wait for measurement completion
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Standard 2s wait
-
-      console.log(`Reading measurement data from sensor ${sensorAddress} on board ${boardSerial}`);
-      const rawData = await sdi12.readMeasurementData(sensorAddress);
-      console.log(`Raw data for sensor ${sensorAddress} on board ${boardSerial}: ${rawData}`);
-
-      // 4. Parse Data
-      const parsedData = new SoilData(rawData).getParsedData();
-      console.log(`Successfully parsed data for sensor ${sensorAddress} on board ${boardSerial}.`);
-      return parsedData;
+      return await SerialControllerPool.getInstance().withMeasurement(boardSerial, async () => {
+        const controller = await this.getOrCreateController(boardSerial);
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        const sdi12 = new SDI12Commands(controller);
+        await sdi12.startMeasurement(sensorAddress);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const rawData = await sdi12.readMeasurementData(sensorAddress);
+        console.log(`Raw data for sensor ${sensorAddress} on board ${boardSerial}: ${rawData}`);
+        return new SoilData(rawData, sensorAddress).getParsedData();
+      });
 
     } catch (error) {
       console.error(`Error reading sensor ${sensorAddress} on board ${boardSerial}:`, error);
@@ -165,56 +152,12 @@ export class SDI12SystemManager {
            console.log(`Querying all configured sensors on board ${boardSerial}: ${addressesToQueryThisBoard.join(', ')}`);
       }
 
-      // Use the pool for controller
-      const serialController = await SerialControllerPool.getInstance().getController(boardSerial);
-      try {
-        await serialController.openConnection(boardSerial); // This will be a no-op if already open
-        console.log(`Waiting after openConnection for board ${boardSerial}...`);
-        await new Promise(resolve => setTimeout(resolve, 2500)); // Increased to 2.5 seconds
-        const sdi12 = new SDI12Commands(serialController);
-
-        try {
-            const deviceInfo = await sdi12.getDeviceInfo();
-            console.log(`Device Info for board ${boardSerial}: ${deviceInfo}`);
-        } catch (ziError: any) {
-            console.warn(`Warning: Failed to get device info (zI!) for board ${boardSerial}. Error: ${ziError?.message || ziError}. Proceeding with sensor reads...`);
-        }
-
-        const sensorDataMap: { [address: string]: ReturnType<SoilData["getParsedData"]> } = {};
-
-        // Query each relevant sensor on this board by its SDI-12 address.
-        for (const address of addressesToQueryThisBoard) {
-          try {
-            console.log(`Querying sensor at address ${address} on board ${boardSerial}`);
-            await sdi12.startMeasurement(address);
-
-            // Wait for the measurement to complete.
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const rawData = await sdi12.readMeasurementData(address);
-            console.log(`Raw data for sensor ${address} on board ${boardSerial}: ${rawData}`);
-
-            // Parse the raw measurement using SoilData.
-            const parsedData = new SoilData(rawData).getParsedData();
-            sensorDataMap[address] = parsedData;
-          } catch (error) {
-            console.warn(`Error querying sensor at address ${address} on board ${boardSerial}:`, error);
-          }
-        } // End loop through addresses on this board
-
-        // Only add board data if we successfully read from at least one sensor
-        if (Object.keys(sensorDataMap).length > 0) {
-            boardsData.push({ boardSerial, sensorData: sensorDataMap });
-        } else {
-             console.log(`No sensor data successfully read from board ${boardSerial}.`);
-        }
-
-      } catch (error) {
-        console.error(`Error processing board ${boardSerial}:`, error);
-      } finally {
-        // Optionally, release controller if you want to close after each use:
-        // await SerialControllerPool.getInstance().releaseController(boardSerial);
+      const sensorData: BoardSensorData["sensorData"] = {};
+      for (const address of addressesToQueryThisBoard) {
+        const reading = await this.getSpecificSensorData(boardSerial, address);
+        if (reading) sensorData[address] = reading;
       }
+      if (Object.keys(sensorData).length > 0) boardsData.push({ boardSerial, sensorData });
     } // End loop through adapters
 
     return boardsData;

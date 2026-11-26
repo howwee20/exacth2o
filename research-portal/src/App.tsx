@@ -27,6 +27,7 @@ import { levelLabel } from "./experimentFactors";
 import { experimentIsCompleted,orderHomeExperiments,pairingTargetText,targetLinesForPairings } from "./experimentMeasurement";
 import { experimentGraphGroups,experimentSidebarGroups,experimentSplitGroups } from "./experimentPresentation";
 import { deduplicateExperimentCatalog,type ExperimentId,isObservationOnlyExperiment,pairingsForExperiment,type PortalExperiment,portalExperimentById,valveEventsForExperiment } from "./experimentRegistry";
+import { isAcknowledgement } from "./readingQuality";
 import { experimentTraceReadings } from "./experimentTraceReadings";
 import { HealthSelectedDetailDrawer } from "./health/HealthPanels";
 import { homeExceptions } from "./homeExceptions";
@@ -275,6 +276,10 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
   const experimentReadings = useMemo(
     () => route.view === "home" ? [] : experimentTraceReadings(experimentArchive.readings, data.readings, selectedExperiment),
     [data.readings, experimentArchive.readings, selectedExperiment, route.view],
+  );
+  const rejectedSamples = useMemo(
+    () => experimentReadings.filter(isAcknowledgement).length,
+    [experimentReadings],
   );
   const series = useMemo(
     () => chartSeries(sortedPairings, experimentReadings, selectedExperiment),
@@ -1017,6 +1022,11 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
               </button>
               </div>
             </div>
+          {rejectedSamples > 0 && experimentGraphMode !== "watering" && (
+            <small className="px-muted" style={{ display: "block", margin: "6px 16px" }}>
+              {rejectedSamples} sensor {rejectedSamples === 1 ? "reply excluded" : "replies excluded"} from traces. Original records are flagged in the readings export.
+            </small>
+          )}
           <aside
             className={`control-panel px-pots-panel ${potsPanelOpen ? "is-open" : ""}`}
             aria-label="Pots"

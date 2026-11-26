@@ -20,3 +20,16 @@ describe("full experiment traces", () => {
     expect(experimentTraceReadings([old, foreign, before], [], experiment).map((r) => r.pairing_name)).toEqual(["Pot 1"]);
   });
 });
+
+it("preserves a flagged acknowledgement in the archive and excludes it from chart measurements", async () => {
+  const { metricValue } = await import("./portalPresentation");
+  const { measureValue } = await import("./waterline");
+  const { readingQualityNote } = await import("./readingQuality");
+  const flagged = { ...reading(1), calibrated_value: 100.68, raw_value: 0, temperature: 1, electrical_conductivity: 3, sensor_frame: "sdi12_acknowledgement" };
+  const saved = experimentTraceReadings([flagged], [], experiment);
+  expect(saved[0]).toMatchObject({ raw_value: 0, calibrated_value: 100.68 });
+  expect(metricValue(saved[0])).toBeNull();
+  expect(measureValue(saved[0], "temperature")).toBeNull();
+  expect(readingQualityNote(saved[0])).toMatch(/acknowledgement/i);
+  expect(metricValue({ ...flagged, calibrated_value: 0, sensor_frame: null })).toBe(0);
+});

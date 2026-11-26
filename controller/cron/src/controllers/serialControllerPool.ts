@@ -9,6 +9,20 @@ export class SerialControllerPool {
   private static instance: SerialControllerPool;
   private controllers: Map<string, SerialController> = new Map();
   private usbDetector: USBDetector;
+  private pendingMeasurements = new Map<string, Promise<void>>();
+
+  /** Own the board from opening the port through the complete M! and D0! exchange. */
+  async withMeasurement<T>(serial: string, read: () => Promise<T>): Promise<T> {
+    const previous = this.pendingMeasurements.get(serial) ?? Promise.resolve();
+    const result = previous.then(read);
+    const tail = result.then(() => {}, () => {});
+    this.pendingMeasurements.set(serial, tail);
+    try {
+      return await result;
+    } finally {
+      if (this.pendingMeasurements.get(serial) === tail) this.pendingMeasurements.delete(serial);
+    }
+  }
 
   private constructor() {
     this.usbDetector = new USBDetector();

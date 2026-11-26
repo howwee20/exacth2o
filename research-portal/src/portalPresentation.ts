@@ -1,3 +1,4 @@
+import { isAcknowledgement } from "./readingQuality";
 import { type PlantGroup, plantGroupForExperimentPairing, type Treatment, treatmentForExperimentPairing } from "./experimentPresentation";
 import { type PortalExperiment } from "./experimentRegistry";
 import { colorForPotNumber } from "./potColors";
@@ -42,6 +43,7 @@ export function plantGroupLabel(plantGroup: PlantGroup) {
 }
 
 export function metricValue(reading: SensorReading) {
+  if (isAcknowledgement(reading)) return null;
   const value = reading.calibrated_value;
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return Number(value.toFixed(3));

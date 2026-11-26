@@ -206,7 +206,7 @@ export class SDI12SystemInitializer {
 
       // Verify data format using SoilData constructor
       try {
-        new SoilData(data) // Attempt to parse
+        new SoilData(data, address) // Verify the reply belongs to this sensor
         console.log(`Sensor ${address} data format verified successfully.`)
         return true
       } catch (parseError: any) { // Catch specific error type if possible

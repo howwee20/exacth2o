@@ -1,4 +1,4 @@
-import { vwcQuality } from "./readingQuality";
+import { isAcknowledgement, vwcQuality } from "./readingQuality";
 import type { PotGroup } from "./experimentFactors";
 import { freshnessThresholds, validCadenceMs } from "./measurementFreshness";
 import { gapThresholdMs, resolveCadence } from "./seriesStatistics";
@@ -65,7 +65,8 @@ export const measures: Record<Measure, MeasureInfo> = {
   },
 };
 
-export function measureValue(reading: Pick<SensorReading, "calibrated_value" | "raw_value" | "temperature" | "electrical_conductivity">, measure: Measure): number | null {
+export function measureValue(reading: Pick<SensorReading, "calibrated_value" | "raw_value" | "temperature" | "electrical_conductivity" | "sensor_frame">, measure: Measure): number | null {
+  if (isAcknowledgement(reading)) return null;
   const value = measure === "vwc"
     ? reading.calibrated_value
     : measure === "raw"

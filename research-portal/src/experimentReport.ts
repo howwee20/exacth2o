@@ -1,7 +1,7 @@
 import { defaultGrouping, experimentFactors, levelLabel, potGroups } from "./experimentFactors";
 import { readingsForExperiment, timestampBelongsToExperiment, type PortalExperiment } from "./experimentRegistry";
 import { csvEscape, dedupeReadingsForExport, exportSourcePriority } from "./readingsExport";
-import { vwcQuality } from "./readingQuality";
+import { readingQualityNote, vwcQuality } from "./readingQuality";
 import type { RecordItem } from "./recordModel";
 import { decimateForDisplay } from "./seriesStatistics";
 import type { PairingRow, SensorReading } from "./types";
@@ -62,7 +62,7 @@ export function experimentReadingsCsv(input: ExperimentReportInput, readings = r
     const plan = assignments.get(reading.pairing_name);
     const controller = input.pairings.find((pairing) => pairing.name === reading.pairing_name);
     const controllerWatering = controller ? controller.wtc_percent_limit > -1000 : null;
-    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, input.experiment.currentSpec?.assignments.find((assignment) => assignment.pairing_name === reading.pairing_name)?.watering_enabled, controllerWatering, controllerWatering ? controller?.wtc_percent_limit : null, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, vwcQuality(reading.calibrated_value) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name, reading.also_recorded_as?.join(" | "), input.experiment.currentSpec?.bench_calibration_name?.trim() || plan?.calibration_name_snapshot, controller?.calibration_name].map(cell).join(",");
+    return [input.experiment.name, input.experiment.currentVersion ?? "", reading.pairing_name, plan?.crop, plan?.treatment, plan?.block, plan?.target_vwc_percent, input.experiment.currentSpec?.assignments.find((assignment) => assignment.pairing_name === reading.pairing_name)?.watering_enabled, controllerWatering, controllerWatering ? controller?.wtc_percent_limit : null, reading.sensor_key, reading.device_recorded_at, reading.server_received_at, reading.calibrated_value, reading.raw_value, reading.temperature, reading.electrical_conductivity, readingQualityNote(reading) ?? "", reading.event_id, reading.recorded_pairing_name ?? reading.pairing_name, reading.also_recorded_as?.join(" | "), input.experiment.currentSpec?.bench_calibration_name?.trim() || plan?.calibration_name_snapshot, controller?.calibration_name].map(cell).join(",");
   });
   return [headers.join(","), ...rows].join("\r\n");
 }
@@ -89,7 +89,7 @@ export function experimentBriefHtml(input: ExperimentReportInput, readings = rep
   const historicalNames = input.experiment.pairingNames.filter((name) => !experiment.pairingNames.includes(name));
   const pairs = new Map(input.pairings.map((pairing) => [pairing.name, pairing]));
   const traces = potTraces(readings, input.pairings, "vwc");
-  const qualityReadings = readings.filter((reading) => vwcQuality(reading.calibrated_value));
+  const qualityReadings = readings.filter((reading) => readingQualityNote(reading));
   const qualityCount = qualityReadings.length;
   const qualityPots = [...new Set(qualityReadings.map((reading) => reading.pairing_name))].map((name) => pairs.get(name)?.pot_number ?? name).join(", ");
   const showBlock = experiment.assignments?.some((assignment) => assignment.block);

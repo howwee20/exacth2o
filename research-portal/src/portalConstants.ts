@@ -2,7 +2,7 @@ import { type PanelSize, type TimeWindow } from "./portalTypes";
 
 export const pageSize = 1000;
 export const readingSelectColumns =
-  "id,event_id,pairing_name,sensor_key,raw_value,calibrated_value,temperature,electrical_conductivity,device_recorded_at,server_received_at";
+  "id,event_id,pairing_name,sensor_key,sensor_frame:quality_flags->>sensor_frame,raw_value,calibrated_value,temperature,electrical_conductivity,device_recorded_at,server_received_at";
 export const healthSnapshotSelectColumns =
   "id,project_id,device_id,device_name,source,captured_at,owner_checked_at,status_endpoint_ok,history_endpoint_ok,status_http_status,status_elapsed_ms,history_samples,overall_status,api_status,pi_online,public_url_reachable,ethernet_link,ethernet_ip,gateway_ping_ms,undervoltage,cpu_temp_c,uptime_seconds,sensors_expected,sensors_current,sensors_stale,sensors_missing,missing_sensors,stale_sensors,last_sensor_reading_at,watering_last_event,watering_last_event_at,watering_events_last_24h,scheduler_jobs_loaded,active_alerts,known_issues,ingest_complete,created_at";
 export const autoRefreshMs = 5 * 60_000;

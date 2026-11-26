@@ -28,6 +28,8 @@ export type LatestState = {
 };
 
 export type SensorReading = {
+  /** Protocol-level classification from the immutable sample's quality metadata. */
+  sensor_frame?: string | null;
   id: number;
   event_id: string;
   pairing_name: string;
