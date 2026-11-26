@@ -7,7 +7,6 @@ import {
   Loader2,
   MousePointer2,
   MonitorUp,
-  Plus,
   RefreshCw,
   ShieldCheck,
   X,
@@ -436,17 +435,14 @@ export function ChamberControlView({ onBack }: { onBack: () => void }) {
 export function GasMixerResearcherTile({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="px-system-card">
-    <button type="button" className="px-system-tile" onClick={onOpen}>
-      <span className="px-system-tile-header">
-        <span className="px-system-tile-name">Chamber</span>
-        <span className="px-system-status is-unknown"><span className="px-system-status-dot" aria-hidden="true" />Status unavailable</span>
-      </span>
-    </button>
-    <div className="px-study-list"><p className="px-study-empty">No active experiment</p></div>
-    <div className="px-system-tile-footer">
-      <button type="button" className="px-system-create" disabled title="Experiment creation is not available for Chamber yet."><Plus size={13} aria-hidden="true" />New experiment</button>
-      <PortalLink className="px-system-health-link" to={{ view: "chamber-health" }}>System health <ArrowRight size={13} aria-hidden="true" /></PortalLink>
-    </div>
+      <div className="px-system-cap">
+        <PortalLink className="px-system-tile px-system-health-link" to={{ view: "chamber-health" }} aria-label="Chamber system health" title="System health">
+          <span className="px-system-tile-name">Chamber</span>
+        </PortalLink>
+      </div>
+      <div className="px-study-list">
+        <button type="button" className="px-study-row" onClick={onOpen}><span className="px-study-text"><strong>Gas mixer</strong></span><ArrowRight size={15} aria-hidden="true" /></button>
+      </div>
     </div>
   );
 }

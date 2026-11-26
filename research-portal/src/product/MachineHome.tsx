@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { DiscoveryTile } from "../RheeDiscovery";
-import { RheeSensorInventory } from "./RheeSensorInventory";
 import { FIELD_PROJECT_ID } from "../../../supabase/functions/_shared/installation-field-map.mjs";
 import { supabase } from "../supabase";
 import { withSupabaseTimeout } from "../supabaseTimeout";
@@ -68,5 +67,5 @@ export function ProjectMachineTile({ projectId, name }: { projectId: string; nam
     status={!statusLoaded ? "Checking controller…" : presence.status === "never" ? "Status unavailable" : presence.label}
     statusTone={presence.status === "online" ? "online" : presence.status === "offline" ? "offline" : "unknown"}
     extra={{ project: projectId }}
-    to={{view:"controller"}} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} >{projectId===FIELD_PROJECT_ID && <RheeSensorInventory/>}</MachineTile>;
+    to={{view:"controller"}} healthTo={{ view: "health" }} creation={{ to: { view: "new-experiment" } }} />;
 }

@@ -142,8 +142,8 @@ test('assembled demo retains time range, saved views, Record, and responsive nav
     await expect(page.getByRole('button', { name: 'Expand graph', exact: true })).toBeFocused();
   }
   await page.getByRole('link', { name: '← Home', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Open Bench A', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open Bench B', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Drought response', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Recovery after drought', exact: true })).toBeVisible();
   const websiteHome = page.getByRole('link', { name: 'ExactH2O website home', exact: true });
   await expect(websiteHome).toHaveAttribute('href', '/');
   await websiteHome.click();

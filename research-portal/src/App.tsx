@@ -1,5 +1,4 @@
 import { scheduleVisiblePolling } from "./visiblePolling";
-import { RheeSensorInventory } from "./product/RheeSensorInventory";
 import { DiscoveryStatus, DiscoveryTile } from "./RheeDiscovery";
 import { AlertTriangle,ArrowRight,ChevronDown,LayoutGrid,Loader2,Mail,Maximize2,Minimize2,ShieldCheck } from "lucide-react";
 import { type ReactNode,useCallback,useEffect,useMemo,useRef,useState } from "react";
@@ -1486,14 +1485,12 @@ export default function App({ initialFindPot = false }: { initialFindPot?: boole
           detail={experimentCatalogError ? "Experiment unavailable" : catalogReady ? "No active experiment" : "Loading experiments…"}
           status={systemStatus} statusTone={installationState.status === "online" ? "online" : installationState.status === "offline" ? "offline" : "unknown"}
           to={{view:"controller"}} healthTo={{view:"health"}}
-          creation={canCreateExperiment ? {to:{view:"new-experiment"}} : {unavailable:"Researcher or administrator access is required."}}>
-          {project.id==="22222222-2222-4222-8222-222222222222" && <RheeSensorInventory/>}
-        </MachineTile>
+          creation={canCreateExperiment ? {to:{view:"new-experiment"}} : undefined} />
       ) : (
         <ProjectMachineTile key={project.id} projectId={project.id} name={project.name} />
       ))}
       {isAdmin ? <WalkerMachineTile userId={portalAccess.userId} /> : null}
-      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" detail="No active experiment" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} creation={{ unavailable: "Experiment creation is not available for Chamber yet." }} /> : null}
+      {showChamberTile && (isAdmin || portalAccess.gasMixerAllowed) ? <MachineTile name="Chamber" detail="Gas mixer" to={{ view: "chamber" }} healthTo={{ view: "chamber-health" }} /> : null}
     </MachineHome>,
   );
 }

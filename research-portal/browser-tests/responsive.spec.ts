@@ -66,9 +66,9 @@ test('home shows the equipment and brings the trace graph into the next section'
 test('deferred data and saved comparisons', async ({page}) => {
   const loaded: string[]=[]; page.on('request',request => loaded.push(request.url()));
   await page.goto('/demo');
-  await expect(page.getByRole('link',{name:'Open Bench A',exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Drought response',exact:true})).toBeVisible();
   expect(loaded.some(url => /\/App-[^/]+\.js/.test(url))).toBe(false);
-  await page.getByRole('link',{name:'Open Bench B',exact:true}).click();
+  await page.getByRole('link',{name:'Recovery after drought',exact:true}).click();
   await openSavedViews(page);
   await expect(page.getByRole('combobox',{name:'Saved view'})).toBeVisible();
   expect(loaded.some(url => /\/App-[^/]+\.js/.test(url))).toBe(true);
@@ -109,14 +109,14 @@ test('mobile Applications embed loads the current release and returns home inlin
   await frameElement.scrollIntoViewIfNeeded();
   const frame=page.frameLocator('iframe.portal-demo-frame');
   // The embed opens on the demo account's home: two benches, each with its own experiment.
-  await expect(frame.getByRole('link',{name:'Open Bench B',exact:true})).toBeVisible();
-  await frame.getByRole('link',{name:'Open Bench A',exact:true}).click();
+  await expect(frame.getByRole('link',{name:'Recovery after drought',exact:true})).toBeVisible();
+  await frame.getByRole('link',{name:'Drought response',exact:true}).click();
   await expect(frame.getByRole('heading',{name:'Drought response',exact:true})).toBeVisible();
   await expect(frame.getByLabel('Pot traces',{exact:true})).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-demo-ready-count','1');
   await expect(frame.getByRole('button',{name:'Pots',exact:true})).toHaveAttribute('aria-expanded','false');
   await frame.getByRole('link',{name:'← Home',exact:true}).click();
-  await frame.getByRole('link',{name:'Open Bench B',exact:true}).click();
+  await frame.getByRole('link',{name:'Recovery after drought',exact:true}).click();
   await expect(frame.getByRole('heading',{name:'Recovery after drought',exact:true})).toBeVisible();
   const potsToggle = frame.getByRole('button',{name:'Pots',exact:true});
   if (await potsToggle.isVisible()) await potsToggle.click();
@@ -124,7 +124,7 @@ test('mobile Applications embed loads the current release and returns home inlin
   await frame.getByRole('combobox',{name:'Saved view'}).selectOption({label:'Early vs delayed recovery'});
   await expect(potsToggle).toContainText('12 shown');
   await frame.getByRole('link',{name:'← Home',exact:true}).click();
-  await expect(frame.getByRole('link',{name:'Open Bench B',exact:true})).toBeVisible();
+  await expect(frame.getByRole('link',{name:'Recovery after drought',exact:true})).toBeVisible();
 });
 
 test('footer water fills on arrival, drains once, and replays after leaving view', async ({page}) => {

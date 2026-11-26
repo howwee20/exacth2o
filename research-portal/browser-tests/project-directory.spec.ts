@@ -158,11 +158,11 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(walker).toContainText('Current Walker trial');
     await expect(walker).toHaveAttribute('href', /study=walker-current/);
     await expect(page.locator('.px-system-tile-grid > .px-machine-tree > .px-system-card')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
-    await expect(page.locator('.px-system-tile-grid > .px-machine-tree > .px-system-card > .px-system-tile-footer > .px-system-health-link')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
+    await expect(page.locator('.px-system-tile-grid > .px-machine-tree > .px-system-card > .px-system-cap > .px-system-health-link')).toHaveCount(email === 'alamriek@msu.edu' ? 4 : 3);
     await expect(page.locator('.px-system-tile-icon')).toHaveCount(0);
     await expect(page.getByText(/^(Open traces|Sensing and irrigation|Moisture sensing|Gas mixer and lighting)$/)).toHaveCount(0);
     await expect(page.getByText('Unrelated installation')).toHaveCount(0);
-    const health = page.getByRole('link', { name: 'Rhee Lab system health', exact: true });
+    const health = page.getByRole('link', { name: /^Rhee Lab system health/ });
     const card = page.getByRole('group', { name: 'Rhee Lab', exact: true });
     const tileBox = await card.boundingBox();
     const healthBox = await health.boundingBox();
@@ -294,14 +294,14 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await page.reload();
     await expect(page.getByLabel('Walker VWC observation chart')).toBeVisible();
     await page.getByRole('button', { name: 'Home', exact: true }).click();
-    await page.getByRole('link', { name: 'Walker Pi system health', exact: true }).click();
+    await page.getByRole('link', { name: /^Walker Pi system health/ }).click();
     await expect(page.getByRole('heading', { name: 'Walker Pi system health', exact: true })).toBeVisible();
     await expect(page.getByText('98 / 100', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Home', exact: true }).click();
 
     if (email === 'alamriek@msu.edu') {
-      await expect(page.getByRole('button', { name: 'New experiment on Chamber unavailable', exact: true })).toBeDisabled();
-      await page.getByRole('link', { name: 'Chamber system health', exact: true }).click();
+      await expect(page.getByRole('group', { name: 'Chamber', exact: true }).getByText('New experiment')).toHaveCount(0);
+      await page.getByRole('link', { name: /^Chamber system health/ }).click();
       await expect(page.getByRole('heading', { name: 'Chamber system health', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Home', exact: true }).click();
     }
@@ -325,7 +325,7 @@ for (const email of ['test@example.invalid', 'alamriek@msu.edu']) {
     await expect(tileNames).toHaveText(fixedOrder);
     await page.reload();
     await expect(tileNames).toHaveText(fixedOrder);
-    await page.getByRole('link', { name: 'Four-pot testbed system health', exact: true }).click();
+    await page.getByRole('link', { name: /^Four-pot testbed system health/ }).click();
     await expect(page).toHaveURL(new RegExp(`view=health&project=${testbedProject}`));
     await expect(page.getByRole('heading', { name: 'Four-pot testbed system health', exact: true })).toBeVisible();
     await expect.poll(() => page.locator('.sh-chart > svg:visible').first().evaluate(node => Math.abs(node.clientWidth - (node as SVGSVGElement).viewBox.baseVal.width))).toBeLessThan(2);

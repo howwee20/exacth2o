@@ -227,86 +227,42 @@
 
 .px-pot-page .px-pot-grid.is-reading-only { grid-template-columns:minmax(0,1fr); }
 
-/* The home page opens each machine from one card. */
-.px-shell .px-machine-home { width: min(1180px, 100%); padding-top: 36px; gap: 20px; }
-/* Columns keep their width, so one machine alone is a card and not a banner. */
-.px-system-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+/* The home page is one column of machines, the same on a desk and on a phone. */
+.px-shell .px-machine-home { width: min(720px, 100%); padding-top: 36px; gap: 16px; }
+.px-system-tile-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 
-/* Each card is a thin slab: lit along its top edge, a shade darker along its bottom edge, resting on a short shadow.
-   The footer is set a step into it. */
-.px-system-card { --tone: #98a39d; --edge: rgba(16, 31, 26, .1);
+/* Each card is a thin slab: lit along its top edge, a shade darker along its bottom edge, resting on a short shadow. */
+.px-machine-tree { min-width: 0; }
+.px-system-card { --tone: #98a39d;
   position: relative; display: flex; flex-direction: column; min-width: 0; overflow: hidden;
-  border: 1px solid var(--edge); border-bottom-color: rgba(16, 31, 26, .17); border-radius: 10px;
-  background: linear-gradient(180deg, #fff 0, #fff 55%, #fbfcfb 100%);
-  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05), 0 3px 5px -2px rgba(16, 31, 26, .07), 0 14px 22px -16px rgba(16, 31, 26, .22);
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
+  border: 1px solid rgba(16, 31, 26, .1); border-bottom-color: rgba(16, 31, 26, .17); border-radius: 10px; background: #fff;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05), 0 3px 5px -2px rgba(16, 31, 26, .07), 0 14px 22px -16px rgba(16, 31, 26, .22); }
 .px-system-card:has(.px-system-status.is-online) { --tone: #1f8a5c; }
 .px-system-card:has(.px-system-status.is-warning) { --tone: #c08a1f; }
 .px-system-card:has(.px-system-status.is-offline) { --tone: #bd4b44; }
-.px-system-card:hover, .px-system-card:focus-within { transform: translateY(-1px); border-color: rgba(16, 31, 26, .16); border-bottom-color: rgba(16, 31, 26, .24);
-  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05), 0 6px 10px -4px rgba(16, 31, 26, .1), 0 22px 30px -18px rgba(16, 31, 26, .3); }
-.px-system-card:has(.px-system-tile:active) { transform: none; box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .06), 0 2px 3px -1px rgba(16, 31, 26, .08); }
-.px-system-tile { display: flex; flex: 1; flex-direction: column; align-items: stretch; gap: 18px; min-width: 0; padding: 18px 20px 16px; border: 0; background: transparent; color: var(--px-text); text-align: left; text-decoration: none; }
-/* The name and its status share one row. A long name wraps under itself and the status keeps its place. */
-.px-system-tile-header { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: space-between; gap: 6px 14px; }
-.px-system-tile-name { flex: 1 1 auto; min-width: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; }
+
+/* The cap is shaded so the machine reads apart from the experiments under it. The title opens the machine's health,
+   and the key beside it starts a new experiment. */
+.px-system-cap { display: flex; align-items: center; gap: 12px; min-width: 0; padding-right: 14px; background: linear-gradient(180deg, #f7f9f8 0, #eef2f0 100%); box-shadow: inset 0 1px 0 #fff; }
+.px-system-tile { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; align-self: stretch; gap: 3px 14px; min-width: 0; min-height: 56px; padding: 10px 6px 10px 20px; color: var(--px-text); text-decoration: none; }
+.px-system-tile-name { min-width: 0; font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; }
 .px-system-status { display: inline-flex; flex: none; align-items: center; gap: 7px; white-space: nowrap; color: var(--px-muted); font-size: 12.5px; font-weight: 500; line-height: 1.4; }
 /* The status light is a small bead: lit from above, with a faint ring of its own colour round it. */
 .px-system-status-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .7) 0, rgba(255, 255, 255, 0) 55%), var(--tone);
   box-shadow: inset 0 -1px 1px rgba(0, 0, 0, .18), 0 0 0 3px color-mix(in srgb, var(--tone) 14%, transparent); }
-.px-system-experiment { display: flex; flex-direction: column; gap: 2px; }
-.px-system-experiment-label { color: var(--px-muted); font-size: 12px; font-weight: 500; line-height: 1.4; }
-.px-system-tile-detail { color: var(--px-text); font-size: 14px; font-weight: 500; letter-spacing: -.005em; line-height: 1.4; overflow-wrap: anywhere; }
-.px-system-tile-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 12px; padding: 0 20px; border-top: 1px solid rgba(16, 31, 26, .08);
-  background: #f6f8f7; box-shadow: inset 0 1px 2px rgba(16, 31, 26, .05); }
-.px-system-create, .px-system-health-link { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--px-water); font: 500 13px/1.4 var(--px-sans); text-decoration: none; transition: color 140ms ease; }
-.px-system-create:hover, .px-system-health-link:hover { color: #0f4a32; text-decoration: none; }
-.px-system-health-link svg { transition: transform 140ms ease; }
-.px-system-health-link:hover svg { transform: translateX(2px); }
-.px-system-create:disabled { color: var(--px-muted); cursor: not-allowed; opacity: .65; }
-.px-system-tile:focus-visible, .px-system-create:focus-visible, .px-system-health-link:focus-visible { outline: 2px solid var(--px-water); outline-offset: 2px; }
-.px-system-tile:focus-visible { outline-offset: -2px; border-radius: 10px 10px 0 0; }
+.px-system-health-link:hover { text-decoration: none; }
+.px-system-health-link:hover .px-system-tile-name { color: var(--px-water); }
+.px-system-health-link:focus-visible { outline: 2px solid var(--px-water); outline-offset: -2px; border-radius: 10px 0 0 0; }
+/* A squared, lightly raised key that presses in. It stays neutral so the status light is the one colour on the card. */
+.px-system-create { display: inline-flex; flex: none; align-items: center; gap: 6px; min-height: 32px; padding: 5px 13px 5px 10px; border: 1px solid rgba(16, 31, 26, .14); border-bottom-color: rgba(16, 31, 26, .22); border-radius: 8px;
+  background: linear-gradient(180deg, #fff, #f6f7f6); box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05); color: var(--px-text); font: 500 13px/1.4 var(--px-sans); text-decoration: none; white-space: nowrap; transition: border-color 140ms ease; }
+.px-system-create svg { color: var(--px-muted); }
+.px-system-create:hover { border-color: rgba(16, 31, 26, .24); border-bottom-color: rgba(16, 31, 26, .32); color: var(--px-text); text-decoration: none; }
+.px-system-create:active { background: #eef0ef; box-shadow: inset 0 1px 2px rgba(16, 31, 26, .14); }
+.px-system-create:focus-visible { outline: 2px solid var(--px-water); outline-offset: 2px; }
 
-/* Administration is one more slab, closed until it is asked for. */
-.px-home-administration { padding: 0; border: 1px solid rgba(16, 31, 26, .1); border-bottom-color: rgba(16, 31, 26, .17); border-radius: 10px; background: #fff;
-  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgba(16, 31, 26, .05), 0 3px 5px -2px rgba(16, 31, 26, .06); }
-.px-home-administration > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; list-style: none; min-height: 48px; padding: 0 16px 0 20px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: -.01em; transition: background-color 140ms ease; }
-.px-home-administration > summary:hover { background: #fafbfa; }
-.px-home-administration > summary::-webkit-details-marker { display: none; }
-.px-home-administration > summary svg { color: var(--px-muted); transition: transform 140ms ease; }
-.px-home-administration[open] > summary svg { transform: rotate(180deg); }
-.px-home-administration[open] > summary { margin-bottom: 0; border-bottom: 1px solid rgba(16, 31, 26, .08); border-radius: 10px 10px 0 0; }
-.px-home-administration .px-admin-tools-body { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 18px; }
-.px-home-administration .px-admin-tools-body .portal-launch-card { padding: 18px; border-radius: 8px; text-decoration: none; }
-.px-home-administration .px-admin-tools-body .portal-launch-title { font-size: 15px; }
-.px-home-administration .px-admin-tools-body .portal-compact-row > .is-website-analytics { grid-column: 1 / -1; order: 1; }
-.px-home-administration .portal-launch-action { text-transform: none; letter-spacing: 0; }
-@media (max-width: 1000px) {
-  .px-system-tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .px-home-administration .px-admin-tools-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 600px) {
-  .px-shell .px-machine-home { padding-top: 20px; gap: 14px; }
-  .px-system-tile-grid, .px-home-administration .px-admin-tools-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .px-system-tile { gap: 16px; padding: 16px 16px 14px; }
-  .px-system-tile-header { flex-wrap: wrap; }
-  .px-system-tile-footer { padding-inline: 16px; }
-  .px-system-create, .px-system-health-link { min-height: 44px; }
-  .px-home-administration > summary { padding-inline: 16px 12px; }
-  .px-home-administration .px-admin-tools-body { padding: 14px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .px-system-card, .px-system-create, .px-system-health-link, .px-system-health-link svg { transition: none; }
-  .px-system-card:hover, .px-system-card:focus-within { transform: none; }
-}
-
-/* One card is one machine. Its experiments are rows inside it, so a machine running three shows three. */
-.px-machine-tree { min-width:0; align-self:start; }
-.px-machine-tree .px-system-tile { flex:none; padding:16px 20px 14px; }
-/* The title is a shaded cap, lit along its top, so the machine reads apart from the experiments under it. */
-.px-system-card > .px-system-tile { background:linear-gradient(180deg, #f7f9f8 0, #eef2f0 100%); box-shadow:inset 0 1px 0 #fff; transition:background-color 140ms ease; }
-.px-system-card > .px-system-tile:hover { background:linear-gradient(180deg, #f3f6f4 0, #e8eeeb 100%); }
+/* One row for each experiment, so a machine running three shows three. */
 .px-study-list { display:grid; border-top:1px solid rgba(16, 31, 26, .12); background:#fff; }
 .px-study-row { position:relative; display:flex; align-items:center; gap:12px; min-height:50px; padding:9px 16px 9px 20px; border-top:1px solid rgba(16, 31, 26, .06); color:var(--px-text); text-decoration:none; transition:background-color 140ms ease, box-shadow 140ms ease; }
 .px-study-row:first-child { border-top:0; }
@@ -317,31 +273,48 @@
 .px-study-row:active { background:#edf3f0; box-shadow:inset 0 1px 2px rgba(16, 31, 26, .1); }
 .px-study-row:focus-visible { outline:2px solid var(--px-water); outline-offset:-2px; }
 .px-study-text { display:grid; flex:1; gap:2px; min-width:0; }
-.px-study-text strong { font-size:14.5px; font-weight:500; line-height:1.35; letter-spacing:-.005em; overflow-wrap:anywhere; }
+.px-study-text strong { font-size:15px; font-weight:500; line-height:1.35; letter-spacing:-.005em; overflow-wrap:anywhere; }
 .px-study-note, .px-study-meta { color:var(--px-muted); font-size:12.5px; line-height:1.4; font-variant-numeric:tabular-nums; }
 .px-study-meta { flex:none; white-space:nowrap; }
 .px-study-row svg { flex:none; color:var(--px-water); transition:transform 140ms ease; }
 .px-study-row:hover svg, .px-study-row:focus-visible svg { transform:translateX(3px); }
-.px-study-empty { margin:0; padding:15px 20px; color:var(--px-muted); font-size:13.5px; line-height:1.4; }
+.px-study-empty .px-study-text { color:var(--px-muted); font-size:13.5px; }
 .px-study-empty:not(:only-child) { display:none; }
-.px-sensor-list summary:focus-visible { outline:2px solid var(--px-water); }
-/* The machine's sensor list opens from a quiet line under the card's actions. */
-.px-machine-extras > .px-sensor-list > summary { display:flex; align-items:center; justify-content:space-between; list-style:none; min-height:44px; padding:0 4px; color:var(--px-water); font:500 13px/1.4 var(--px-sans); }
-.px-machine-extras > .px-sensor-list > summary::-webkit-details-marker { display:none; }
-.px-machine-extras > .px-sensor-list > summary::after { content:""; width:6px; height:6px; margin-right:3px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:translateY(-2px) rotate(45deg); transition:transform 140ms ease; }
-.px-machine-extras > .px-sensor-list[open] > summary::after { transform:translateY(1px) rotate(225deg); }
-.px-sensor-list { min-width:0; font-size:14px; }
-.px-sensor-list summary, .xb-discovery details summary { cursor:pointer; padding:12px 0; min-height:44px; }
-.px-sensor-list table { width:100%; border-collapse:collapse; table-layout:fixed; }
-.px-sensor-list th,.px-sensor-list td { padding:6px 3px; text-align:left; overflow-wrap:anywhere; border-bottom:1px solid #e0e8e3; }
-.px-sensor-list th:last-child { width:55%; }
+button.px-study-row { width:100%; border-width:1px 0 0; border-style:solid; border-color:rgba(16, 31, 26, .06); background:transparent; font:inherit; text-align:left; cursor:pointer; }
+button.px-study-row:first-child { border-top:0; }
+
+/* Administration is a quiet line under the machines until it is opened. */
+.px-home-administration { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.px-home-administration > summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; min-height: 36px; margin: 0; padding: 0 4px; border-radius: 6px; color: var(--px-muted); cursor: pointer; font-size: 13px; font-weight: 500; transition: color 140ms ease; }
+.px-home-administration > summary:hover { color: var(--px-text); }
+.px-home-administration > summary:focus-visible { outline: 2px solid var(--px-water); outline-offset: 2px; }
+.px-home-administration > summary::-webkit-details-marker { display: none; }
+.px-home-administration > summary svg { transition: transform 140ms ease; }
+.px-home-administration[open] > summary svg { transform: rotate(180deg); }
+.px-home-administration .px-admin-tools-body { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 8px 0 0; }
+.px-home-administration .px-admin-tools-body .portal-launch-card { padding: 18px; border-radius: 8px; text-decoration: none; }
+.px-home-administration .px-admin-tools-body .portal-launch-title { font-size: 15px; }
+.px-home-administration .px-admin-tools-body .portal-compact-row > .is-website-analytics { grid-column: 1 / -1; order: 1; }
+.px-home-administration .portal-launch-action { text-transform: none; letter-spacing: 0; }
+
+.xb-discovery details summary { cursor:pointer; padding:12px 0; min-height:44px; }
 .xb-discovery { display:grid; gap:10px; min-width:0; overflow-wrap:anywhere; }
 .xb-discovery progress { width:100%; accent-color:#1a6b4a; }
 .xb-discovery button,.xb-range button { min-height:44px; }
 .xb-range { display:flex; flex-wrap:wrap; align-items:end; gap:8px; margin:8px 0 12px; }
 .xb-range label { display:grid; gap:4px; }
 
-.px-machine-extras { display:grid; gap:6px; padding:0 16px; border-top:1px solid rgba(16, 31, 26, .08); background:#f6f8f7; min-width:0; }
 
-@media (prefers-reduced-motion: reduce) { .px-study-row, .px-study-row::before, .px-study-row svg { transition:none; } .px-study-row:hover svg, .px-study-row:focus-visible svg { transform:none; } }
-@media (max-width: 700px) { .px-study-row { min-height:52px; padding-inline:16px 12px; } .px-study-empty { padding-inline:16px; } .px-machine-tree .px-system-tile { padding:16px 16px 14px; } }
+@media (max-width: 700px) {
+  .px-shell .px-machine-home { padding-top: 20px; gap: 12px; }
+  .px-system-tile-grid { gap: 12px; }
+  .px-system-cap { padding-right: 12px; }
+  .px-system-tile { flex-direction: column; align-items: flex-start; justify-content: center; min-height: 62px; padding-left: 16px; }
+  .px-system-create { min-height: 36px; }
+  .px-study-row { min-height: 52px; padding-inline: 16px 12px; }
+  .px-home-administration .px-admin-tools-body { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .px-system-create, .px-study-row, .px-study-row::before, .px-study-row svg { transition: none; }
+  .px-study-row:hover svg, .px-study-row:focus-visible svg { transform: none; }
+}

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // Exercise the production wrapper and normal phone entry points with an isolated project.
-test('Rhee phone shows two studies, lists case-sensitive probes and groups an unpaired range', async ({ page }) => {
+test('Rhee phone shows two studies and groups an unpaired range', async ({ page }) => {
   const project='22222222-2222-4222-8222-222222222222', device='3100e37ee3205651fe3dd86dafd4dc0c';
   const user={id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',email:'field@example.invalid',aud:'authenticated',role:'authenticated',app_metadata:{},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
   const exp=Math.floor(Date.now()/1000)+3600;
@@ -28,7 +28,7 @@ test('Rhee phone shows two studies, lists case-sensitive probes and groups an un
           expect(body.setup.pots.map((p:{pot:number})=>p.pot)).toEqual(Array.from({length:12},(_,i)=>i+1));
           expect(body.setup.pots.map((p:{group:string})=>p.group)).toEqual([...Array(6).fill('Control'),...Array(6).fill('Drought')]);
           saved={id:'saved-run',owner:true,status:'running',phase:'baseline',finished:0,matches:[],missing:[],updatedAt:now,workerVersion:2,setup:body.setup,message:'Reading unused probes before the first pulse.'};
-        } else expect(body.action).toBe('status');data={run:saved};break;}
+        } else if(body.action==='trace'){data={trace:null};break;} else expect(body.action).toBe('status');data={run:saved};break;}
       case 'device_runtime_state':case 'latest_device_state':case 'commissioning_sessions':data=null;break;
       default:if(req.method()==='POST' && /control-command|manual-hold/.test(url.pathname))throw Error('Unexpected controller write');
     }
@@ -46,16 +46,15 @@ test('Rhee phone shows two studies, lists case-sensitive probes and groups an un
   await page.screenshot({path:test.info().outputPath('rhee-machine-desktop.png')});
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:test.info().outputPath('rhee-branches-phone.png'),fullPage:true});
-  await machine.getByText('Sensor inventory',{exact:true}).click();await machine.getByText('Board1 · 2 sensors').click();
-  await expect(machine.getByRole('rowheader',{name:'A',exact:true})).toBeVisible();await expect(machine.getByRole('rowheader',{name:'a',exact:true})).toBeVisible();
+  await expect(machine.getByText('Sensor inventory')).toHaveCount(0);
   await machine.getByRole('link',{name:'New experiment on Rhee Lab'}).click();
   await page.getByLabel('Experiment name',{exact:true}).fill('Twelve pots');await page.getByRole('button',{name:'Calibration',exact:true}).click();
-  await page.getByLabel('Pot numbers or range').fill('1–12');await page.getByRole('button',{name:'Add to group'}).click();
-  await page.getByRole('radio',{name:'Drought',exact:true}).check();await page.getByLabel('Pot numbers or range').fill('7-12');await page.getByRole('button',{name:'Add to group'}).click();
+  for(let n=1;n<=12;n++)await page.getByRole('button',{name:new RegExp(`^Pot ${n},`)}).click();
+  await page.getByRole('radio',{name:'Drought',exact:true}).check();for(let n=7;n<=12;n++)await page.getByRole('button',{name:new RegExp(`^Pot ${n},`)}).click();
   await expect(page.getByText('6 pots',{exact:true})).toHaveCount(2);
   await page.getByRole('button',{name:'Review Autopair'}).click();expect(writes).toEqual([]);await page.getByRole('button',{name:'Start Autopair'}).click();
-  await expect(page.getByText('Reading unused probes before the first pulse.',{exact:true})).toBeVisible();
-  await page.reload();await expect(page.getByText('Reading unused probes before the first pulse.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Reading unused probes before the first pulse.')).toBeVisible();
+  await page.reload();await expect(page.getByText('Reading unused probes before the first pulse.')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.goto('/portal');await expect(page.getByRole('link',{name:/Autopair setup.*Twelve pots/})).toBeVisible();expect(writes).toEqual(['start']);
 });

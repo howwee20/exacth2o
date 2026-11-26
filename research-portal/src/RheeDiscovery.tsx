@@ -47,7 +47,7 @@ export function DiscoveryTile({projectId}:{projectId?:string}) {
   if(!run)return null;
   const progress=`${stateLabel(run)} · ${run.singlePot?`Pot ${run.singlePot} · 10 s test`:`${run.finished}/${run.setup.pots.length} pots`}`;
   return <PortalLink className="px-study-row is-setup" aria-label={`Autopair setup: ${run.setup.name}, ${progress}`} to={{view:'new-experiment'}} extra={{discovery:run.id,...(projectId?{project:projectId}:{})}} reloadDocument={Boolean(projectId)}>
-    <span className="px-study-text"><strong>{run.setup.name}</strong><span className="px-study-note">Autopair setup · {progress}</span></span>
+    <span className="px-study-text"><strong>{run.setup.name}</strong><span className="px-study-note">Autopair · {['running','applying'].includes(run.status)?progress:stateLabel(run)}</span></span>
     <ArrowRight size={15} aria-hidden="true"/>
   </PortalLink>;
 }
