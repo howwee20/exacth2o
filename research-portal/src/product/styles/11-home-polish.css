@@ -229,6 +229,9 @@
 
 /* The home page is one column of machines, the same on a desk and on a phone. */
 .px-shell .px-machine-home { width: min(720px, 100%); padding-top: 36px; gap: 16px; }
+@media (min-width: 721px) {
+  .px-shell .px-machine-home { width: min(calc(960px + 80px), 100%); padding-inline: 40px; }
+}
 .px-system-tile-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 
 /* Each card is a thin slab: lit along its top edge, a shade darker along its bottom edge, resting on a short shadow. */
