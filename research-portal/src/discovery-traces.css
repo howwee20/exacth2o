@@ -34,3 +34,8 @@
 @media(max-width:600px) { .dt-pots{grid-template-columns:repeat(6,minmax(0,1fr))}.dt-board .dt-row{grid-template-columns:minmax(76px,1.1fr) repeat(3,minmax(0,1fr)) minmax(25px,.55fr);font-size:.76rem;gap:2px}.dt-board .dt-columns{font-size:.66rem}.dt-board .dt-top,.dt-board .dt-heading{gap:8px}.dt-units button{min-height:36px}.dt-pipeline{font-size:.73rem} }
 .dt-board .dt-stop { justify-self:start; min-height:36px; padding:6px 13px; border:1px solid #c7d4cc; border-radius:8px; background:#fff; color:#334b3b }
 .dt-test-action,.dt-matches { display:flex; gap:8px; flex-wrap:wrap; align-items:center }.dt-matches button { border:1px solid #cee0d2; background:#edf6ef; color:#145231; border-radius:7px; padding:6px 10px }
+@media(max-width:600px) {
+  .experiment-builder-review:has(.dt-board) { padding:8px }
+  .dt-board .dt-card { padding:10px }
+  .dt-board .dt-workspace { gap:10px }
+}

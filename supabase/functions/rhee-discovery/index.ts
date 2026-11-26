@@ -154,7 +154,7 @@ const visible = (r: Run | null, uid: string, admin = false, detail = false) =>
       status: r.status,
       setup: r.setup,
       message: r.progress.message,
-      phase: r.progress.phase === "observe" &&
+      phase: !r.progress.singlePot && r.progress.phase === "observe" &&
           Date.now() - (r.progress.acknowledgedAt ?? 0) < 60000
         ? "soak"
         : r.progress.phase,
@@ -166,7 +166,7 @@ const visible = (r: Run | null, uid: string, admin = false, detail = false) =>
           pass: r.progress.pass + 1,
           done: r.progress.cursor,
           total: r.progress.candidates.length
-            ? (r.progress.pass < 3
+            ? (r.progress.pass < (r.progress.phase === "observe" && r.progress.singlePot ? 4 : 3)
               ? r.progress.candidates.length
               : r.progress.fill?.length ?? 0)
             : r.progress.probes.length,
@@ -412,9 +412,10 @@ async function scan(r: Run, i: Inventory) {
   const baseline = g.phase === "baseline",
     first = baseline && !g.candidates.length && g.pass === 0;
   if (Date.now() < (g.holdUntil ?? 0)) return;
+  const passes = !baseline && g.singlePot ? 4 : 3;
   const keys = first
     ? g.probes.map((p) => p.key)
-    : g.pass < 3
+    : g.pass < passes
     ? g.candidates
     : g.fill ?? [];
   const eligible = new Set(probes(i).map((s) => s.key));
@@ -423,7 +424,7 @@ async function scan(r: Run, i: Inventory) {
   const label = () =>
     (first ? "Finding probes" : baseline ? "Baseline" : "Watching moisture") +
     " for pot " + pot + " · " +
-    (g.pass < 3 ? "pass " + (g.pass + 1) + "/3" : "re-reading missed probes") +
+    (g.pass < passes ? "pass " + (g.pass + 1) + "/" + passes : "re-reading missed probes") +
     " · " + g.cursor + "/" + keys.length + " probes";
   const started = Date.now();
   let saved = started;
@@ -511,10 +512,10 @@ async function scan(r: Run, i: Inventory) {
   }
   g.cursor = 0;
   g.pass++;
-  if (g.pass < 3) return;
+  if (g.pass < passes) return;
   // One failed read must not end the run: re-read only the probes that are short, at most twice.
-  const short = g.candidates.filter((k) => (readings[k]?.length ?? 0) < 3);
-  if (short.length && g.pass < 5) {
+  const short = g.candidates.filter((k) => (readings[k]?.length ?? 0) < passes);
+  if (short.length && g.pass < passes + 2) {
     g.fill = short;
     g.message = "Re-reading " + short.length + " missed probe" +
       (short.length > 1 ? "s" : "") + " for pot " + pot;
@@ -565,8 +566,12 @@ async function scan(r: Run, i: Inventory) {
     g.message = "Baseline ready for pot " + r.setup.pots[g.potIndex].pot;
     return;
   }
-  const complete = g.candidates.every((k) => (g.after[k]?.length ?? 0) >= 3);
-  const rises = rankResponses(g.baseline, g.after, g.candidates);
+  const complete = g.candidates.every((k) => (g.after[k]?.length ?? 0) >= passes);
+  // Single-pot trials show the immediate response and score three subsequent readings.
+  const forMatching = g.singlePot
+    ? Object.fromEntries(g.candidates.map(k => [k, (g.after[k] ?? []).slice(-3)]))
+    : g.after;
+  const rises = rankResponses(g.baseline, forMatching, g.candidates);
   const best = clearResponse(rises, complete);
   const evidence = (g.evidence ??= {})[pot] = {
     rises,
@@ -792,7 +797,7 @@ async function receipt(r: Run) {
   g.acknowledgedAt = Date.parse(c.completed_at) || Date.now();
   g.phase = "observe";
   resetScans(g);
-  g.message = "Pulse confirmed. Waiting for water to reach the probes.";
+  g.message = g.singlePot ? "Pulse confirmed. Reading the first sensor responses." : "Pulse confirmed. Waiting for water to reach the probes.";
 }
 async function apply(r: Run, i: Inventory) {
   const matches = r.progress.matches;
@@ -922,7 +927,7 @@ async function step(r: Run, action: string) {
   else if (g.phase === "receipt") await receipt(r);
   else if (
     g.phase === "observe" &&
-    Date.now() - (g.acknowledgedAt ?? Date.now()) >= 60000
+    (!!g.singlePot || Date.now() - (g.acknowledgedAt ?? Date.now()) >= 60000)
   ) {
     if (Date.now() - (g.acknowledgedAt ?? 0) > 30 * 60000) {
       throw Error(

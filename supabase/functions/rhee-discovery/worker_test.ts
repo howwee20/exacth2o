@@ -405,3 +405,18 @@ Deno.test(
     );
   },
 );
+
+Deno.test("single-pot trial records the early watch and finishes without advancing to another valve", options, async () => {
+  reset([1, 2, 3]);
+  Object.assign(run.progress, {singlePot: 2, potIndex: 1, queue: []});
+  await until(() => run.progress.phase === "receipt");
+  confirm();
+  await tick();
+  await tick();
+  check(run.progress.after["B1:B"]?.length === 1, "early observations start immediately after receipt");
+  level["B1:B"] += 13;
+  await until(() => run.status === "review");
+  check(run.progress.archive?.after["B1:B"].length === 4, "all four observed points are saved");
+  check(run.progress.matches[0]?.pot === 2 && run.progress.matches[0].sensorKey === "B1:B", "three later readings confirm the rise");
+  check(rpcCalls === 1 && commands[0].pot === 2, "only the chosen valve was pulsed");
+});

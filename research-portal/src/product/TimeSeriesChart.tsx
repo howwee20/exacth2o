@@ -73,6 +73,7 @@ export function TimeSeriesChart({
   readout,
   stepMs,
   compact = false,
+  showSamples = false,
   emptyText,
   xAxis,
 }: {
@@ -94,6 +95,7 @@ export function TimeSeriesChart({
   /** Keyboard step; defaults to 1/96 of the window. */
   stepMs?: number;
   compact?: boolean;
+  showSamples?: boolean;
   emptyText?: string;
   /** Replaces the clock-time ticks (e.g. days since an event). */
   xAxis?: (domain: { startMs: number; endMs: number }, plotWidth: number) => { at: number; label: string }[];
@@ -194,8 +196,8 @@ export function TimeSeriesChart({
               return <circle key={`${line.id}-${index}`} cx={x(segment[0].timestampMs)} cy={y(segment[0].value)} r={2.2} fill={line.color} opacity={line.opacity ?? 1} />;
             }
             return (
+              <g key={`${line.id}-${index}`}>
               <path
-                key={`${line.id}-${index}`}
                 d={path(segment.map((point) => ({ x: x(point.timestampMs), y: y(point.value) })))}
                 fill="none"
                 stroke={line.color}
@@ -205,6 +207,8 @@ export function TimeSeriesChart({
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
+              {showSamples && segment.map((p, i) => <circle key={i} cx={x(p.timestampMs)} cy={y(p.value)} r={2.5} fill={line.color}/>)}
+              </g>
             );
           }))}
           {targets.map((target) => (

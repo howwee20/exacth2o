@@ -43,7 +43,7 @@ function ResponsePlot({trace,match,live}:{trace:DiscoveryTrace;match?:string;liv
     const pre=points(trace.before[key]??[],unit), post=points(trace.after[key]??[],unit);
     const base=median(pre.map(s=>s.value));
     if(base===undefined)return [];
-    const postMedian=median(post.map(s=>s.value));
+    const postMedian=median(post.slice(-3).map(s=>s.value));
     const all=[...pre,...post].sort((a,b)=>a.timestampMs-b.timestampMs);
     return [{key,base,postCount:post.length,delta:postMedian===undefined?undefined:postMedian-base,
       latest:all[all.length-1],points:all.map(p=>({...p,value:p.value-base}))}];
@@ -70,7 +70,7 @@ function ResponsePlot({trace,match,live}:{trace:DiscoveryTrace;match?:string;liv
         <option value="">{hasPost?"Leading responses":"Baseline traces"} (up to 4)</option>
         {rows.map(r=><option key={r.key} value={r.key}>{r.key}{r.key===match?" · Matched":""}</option>)}
       </select></label>
-      {rows.length ? <TimeSeriesChart lines={lines} domain={{startMs:lo-pad,endMs:hi+pad}} yDomain={[low-yPad,high+yPad]} height={216}
+      {rows.length ? <TimeSeriesChart showSamples lines={lines} domain={{startMs:lo-pad,endMs:hi+pad}} yDomain={[low-yPad,high+yPad]} height={216}
         targets={[{value:0,label:"Baseline",color:"#87948b"}]} ticks={marker?[{timestampMs:marker}]:[]}
         shades={marker?[{startMs:marker,endMs:marker+trace.seconds*1000,label:"Pulse"}]:[]}
         ariaLabel={`Pot ${trace.pot} sensor change in ${unit==="raw"?"raw counts":"VWC points"}`}
@@ -84,7 +84,7 @@ function ResponsePlot({trace,match,live}:{trace:DiscoveryTrace;match?:string;liv
     <section className="dt-card"><div className="dt-heading"><div><h4>Probe readings</h4><p>{rows.length} responding · {unit==="raw"?"Raw counts":"VWC %"}</p></div>
       {live&&<span className="dt-live">Live</span>}</div>
       <div className="dt-readings">
-        <div className="dt-row dt-columns"><span>Sensor</span><span>Baseline</span><span>Latest</span><span>Median rise</span><span>Trace</span></div>
+        <div className="dt-row dt-columns"><span>Sensor</span><span>Baseline</span><span>Latest</span><span title="Median of the latest three post-pulse readings minus baseline">Median rise</span><span>Trace</span></div>
         {rows.map(r=><button type="button" className="dt-row" key={r.key} aria-pressed={selected?.key===r.key} title={'Show '+r.key+' on the graph'} onClick={()=>setFocus(focus===r.key?"":r.key)}>
           <span className="dt-identity"><b>{address(r.key)}</b><small>{r.key.slice(0,r.key.lastIndexOf(":"))}{r.key===match?" · Matched":""}</small></span>
           <span>{fmt(r.base,unit)}</span><span>{fmt(r.latest.value,unit)}</span><strong>{r.delta===undefined?"—":signed(r.delta,unit)}</strong>
