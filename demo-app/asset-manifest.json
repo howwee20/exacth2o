@@ -1,28 +1,28 @@
 {
   "../research-portal/src/ExperimentBuilder.tsx": {
-    "file": "assets/ExperimentBuilder-OFwVYE6r.js",
+    "file": "assets/ExperimentBuilder-D3EXx1H9.js",
     "name": "ExperimentBuilder",
     "src": "../research-portal/src/ExperimentBuilder.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_model-DfubCKux.js",
-      "_ExperimentSoilCalibration-BoK5a0hG.js",
-      "_PhysicalPotMap-xtDjkBr9.js",
-      "_moisture-BUbXEp7Z.js",
+      "_ExperimentSoilCalibration-QCbiLgxH.js",
+      "_PhysicalPotMap-CgOkvNDY.js",
+      "_moisture-BLNXoyUz.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/analytics/WebsiteAnalyticsWorkspace.tsx": {
-    "file": "assets/WebsiteAnalyticsWorkspace-CP9pHaLc.js",
+    "file": "assets/WebsiteAnalyticsWorkspace-CzaBpQWW.js",
     "name": "WebsiteAnalyticsWorkspace",
     "src": "../research-portal/src/analytics/WebsiteAnalyticsWorkspace.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_download-oY_N6ysj.js",
+      "_App-LGOTiyGW.js",
+      "_download-DEPuXYHA.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
@@ -31,199 +31,196 @@
     "src": "../research-portal/src/assets/exacth2o-logo.jpeg"
   },
   "../research-portal/src/autocalibrate/AutocalibratePage.tsx": {
-    "file": "assets/AutocalibratePage-HaCs5tMV.js",
+    "file": "assets/AutocalibratePage-BrMa2Y9j.js",
     "name": "AutocalibratePage",
     "src": "../research-portal/src/autocalibrate/AutocalibratePage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
       "../research-portal/src/autocalibrate/AutocalibrateWorkspace.tsx",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js",
-      "_download-oY_N6ysj.js",
+      "_download-DEPuXYHA.js",
       "_orchestrator-Dxj2JeaL.js",
       "../research-portal/src/product/ManualWaterPanel.tsx",
-      "_SettingsChrome-CoG1vsIB.js",
-      "_PhysicalPotMap-xtDjkBr9.js"
+      "_SettingsChrome-DqN0jVLD.js",
+      "_PhysicalPotMap-CgOkvNDY.js"
     ]
   },
   "../research-portal/src/autocalibrate/AutocalibrateWorkspace.tsx": {
-    "file": "assets/AutocalibrateWorkspace-BG79Tqmv.js",
+    "file": "assets/AutocalibrateWorkspace-DNKLjYk_.js",
     "name": "AutocalibrateWorkspace",
     "src": "../research-portal/src/autocalibrate/AutocalibrateWorkspace.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_download-oY_N6ysj.js",
+      "_App-LGOTiyGW.js",
+      "_download-DEPuXYHA.js",
       "_orchestrator-Dxj2JeaL.js",
       "../research-portal/src/product/ManualWaterPanel.tsx",
-      "_SettingsChrome-CoG1vsIB.js",
-      "_PhysicalPotMap-xtDjkBr9.js",
+      "_SettingsChrome-DqN0jVLD.js",
+      "_PhysicalPotMap-CgOkvNDY.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/benchCalibration/BenchCalibration.tsx": {
-    "file": "assets/BenchCalibration-IG8jnl8e.js",
+    "file": "assets/BenchCalibration-DjLmrxjd.js",
     "name": "BenchCalibration",
     "src": "../research-portal/src/benchCalibration/BenchCalibration.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_model-DfubCKux.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/health/SystemHealthView.tsx": {
-    "file": "assets/SystemHealthView-BHREPnhW.js",
+    "file": "assets/SystemHealthView-HCW0JhO2.js",
     "name": "SystemHealthView",
     "src": "../research-portal/src/health/SystemHealthView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/AccountPage.tsx": {
-    "file": "assets/AccountPage-DDyTKWoW.js",
+    "file": "assets/AccountPage-3qt33lWx.js",
     "name": "AccountPage",
     "src": "../research-portal/src/product/AccountPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_moisture-BUbXEp7Z.js",
+      "_App-LGOTiyGW.js",
+      "_moisture-BLNXoyUz.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/ArchiveExperimentDialog.tsx": {
-    "file": "assets/ArchiveExperimentDialog-I6QjZ6gI.js",
+    "file": "assets/ArchiveExperimentDialog-GBRT5Z1m.js",
     "name": "ArchiveExperimentDialog",
     "src": "../research-portal/src/product/ArchiveExperimentDialog.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/BenchView.tsx": {
-    "file": "assets/BenchView-DLz4wZvn.js",
+    "file": "assets/BenchView-CjF8qJFh.js",
     "name": "BenchView",
     "src": "../research-portal/src/product/BenchView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/ExperimentExport.tsx": {
-    "file": "assets/ExperimentExport-Ywpb9tZB.js",
+    "file": "assets/ExperimentExport-U8QdpvN6.js",
     "name": "ExperimentExport",
     "src": "../research-portal/src/product/ExperimentExport.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_waterline-BQ5Lulk6.js",
-      "_recordModel-CNTBeh3N.js",
+      "_App-LGOTiyGW.js",
+      "_waterline-CCY_c523.js",
+      "_recordModel-DdooD_KY.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/ManualWaterPanel.tsx": {
-    "file": "assets/ManualWaterPanel--IsEPeKM.js",
+    "file": "assets/ManualWaterPanel-IVQDp7st.js",
     "name": "ManualWaterPanel",
     "src": "../research-portal/src/product/ManualWaterPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/PotPage.tsx": {
-    "file": "assets/PotPage-CwgyNMm2.js",
+    "file": "assets/PotPage-BCyEXOAV.js",
     "name": "PotPage",
     "src": "../research-portal/src/product/PotPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_waterline-BQ5Lulk6.js",
-      "_TimeSeriesChart-ByOdz69t.js",
-      "_measurementPresentation-Dvxq-Luq.js",
+      "_App-LGOTiyGW.js",
+      "_waterline-CCY_c523.js",
+      "_measurementPresentation-D25GEn1x.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/RecordView.tsx": {
-    "file": "assets/RecordView-CovkWGDA.js",
+    "file": "assets/RecordView-D_Gon_O4.js",
     "name": "RecordView",
     "src": "../research-portal/src/product/RecordView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_recordModel-CNTBeh3N.js",
-      "_TimeSeriesChart-ByOdz69t.js",
+      "_App-LGOTiyGW.js",
+      "_recordModel-DdooD_KY.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/product/TrendsView.tsx": {
-    "file": "assets/TrendsView-CZF2HiiV.js",
+    "file": "assets/TrendsView-CNA3OOrP.js",
     "name": "TrendsView",
     "src": "../research-portal/src/product/TrendsView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_waterline-BQ5Lulk6.js",
-      "_TimeSeriesChart-ByOdz69t.js",
-      "_measurementPresentation-Dvxq-Luq.js",
+      "_App-LGOTiyGW.js",
+      "_waterline-CCY_c523.js",
+      "_measurementPresentation-D25GEn1x.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/settings/PortalSettingsPanel.tsx": {
-    "file": "assets/PortalSettingsPanel-DiWqXpAl.js",
+    "file": "assets/PortalSettingsPanel-3Osd_VqN.js",
     "name": "PortalSettingsPanel",
     "src": "../research-portal/src/settings/PortalSettingsPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_SettingsChrome-CoG1vsIB.js",
-      "_download-oY_N6ysj.js",
-      "_ExperimentSoilCalibration-BoK5a0hG.js",
+      "_App-LGOTiyGW.js",
+      "_SettingsChrome-DqN0jVLD.js",
+      "_download-DEPuXYHA.js",
+      "_ExperimentSoilCalibration-QCbiLgxH.js",
       "_demo-dataset-D0E41yC2.js",
       "_model-DfubCKux.js"
     ]
   },
   "../research-portal/src/support/SalesSupportView.tsx": {
-    "file": "assets/SalesSupportView-CagkfFY8.js",
+    "file": "assets/SalesSupportView-hpvtifke.js",
     "name": "SalesSupportView",
     "src": "../research-portal/src/support/SalesSupportView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
   "../research-portal/src/walker/WalkerExperimentPage.tsx": {
-    "file": "assets/WalkerExperimentPage-BLKt0NE9.js",
+    "file": "assets/WalkerExperimentPage-9nNKhSqU.js",
     "name": "WalkerExperimentPage",
     "src": "../research-portal/src/walker/WalkerExperimentPage.tsx",
     "isDynamicEntry": true,
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
+      "_App-LGOTiyGW.js",
       "_demo-dataset-D0E41yC2.js"
     ]
   },
-  "_App-D1xP9ZRo.js": {
-    "file": "assets/App-D1xP9ZRo.js",
+  "_App-LGOTiyGW.js": {
+    "file": "assets/App-LGOTiyGW.js",
     "name": "App",
     "isDynamicEntry": true,
     "imports": [
@@ -252,38 +249,30 @@
       "../research-portal/src/product/ManualWaterPanel.tsx"
     ]
   },
-  "_ExperimentSoilCalibration-BoK5a0hG.js": {
-    "file": "assets/ExperimentSoilCalibration-BoK5a0hG.js",
+  "_ExperimentSoilCalibration-QCbiLgxH.js": {
+    "file": "assets/ExperimentSoilCalibration-QCbiLgxH.js",
     "name": "ExperimentSoilCalibration",
     "imports": [
       "index.html",
       "_model-DfubCKux.js",
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js"
     ]
   },
-  "_PhysicalPotMap-xtDjkBr9.js": {
-    "file": "assets/PhysicalPotMap-xtDjkBr9.js",
+  "_PhysicalPotMap-CgOkvNDY.js": {
+    "file": "assets/PhysicalPotMap-CgOkvNDY.js",
     "name": "PhysicalPotMap",
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js"
     ]
   },
-  "_SettingsChrome-CoG1vsIB.js": {
-    "file": "assets/SettingsChrome-CoG1vsIB.js",
+  "_SettingsChrome-DqN0jVLD.js": {
+    "file": "assets/SettingsChrome-DqN0jVLD.js",
     "name": "SettingsChrome",
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js",
-      "_download-oY_N6ysj.js"
-    ]
-  },
-  "_TimeSeriesChart-ByOdz69t.js": {
-    "file": "assets/TimeSeriesChart-ByOdz69t.js",
-    "name": "TimeSeriesChart",
-    "imports": [
-      "index.html",
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js",
+      "_download-DEPuXYHA.js"
     ]
   },
   "_browser-BjcGmAWY.js": {
@@ -295,30 +284,30 @@
     "file": "assets/demo-dataset-D0E41yC2.js",
     "name": "demo-dataset"
   },
-  "_download-oY_N6ysj.js": {
-    "file": "assets/download-oY_N6ysj.js",
+  "_download-DEPuXYHA.js": {
+    "file": "assets/download-DEPuXYHA.js",
     "name": "download",
     "imports": [
       "index.html"
     ]
   },
-  "_measurementPresentation-Dvxq-Luq.js": {
-    "file": "assets/measurementPresentation-Dvxq-Luq.js",
+  "_measurementPresentation-D25GEn1x.js": {
+    "file": "assets/measurementPresentation-D25GEn1x.js",
     "name": "measurementPresentation",
     "imports": [
-      "_waterline-BQ5Lulk6.js"
+      "_waterline-CCY_c523.js"
     ]
   },
   "_model-DfubCKux.js": {
     "file": "assets/model-DfubCKux.js",
     "name": "model"
   },
-  "_moisture-BUbXEp7Z.js": {
-    "file": "assets/moisture-BUbXEp7Z.js",
+  "_moisture-BLNXoyUz.js": {
+    "file": "assets/moisture-BLNXoyUz.js",
     "name": "moisture",
     "imports": [
       "index.html",
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js"
     ]
   },
   "_orchestrator-Dxj2JeaL.js": {
@@ -326,27 +315,27 @@
     "name": "orchestrator",
     "isDynamicEntry": true
   },
-  "_recordModel-CNTBeh3N.js": {
-    "file": "assets/recordModel-CNTBeh3N.js",
+  "_recordModel-DdooD_KY.js": {
+    "file": "assets/recordModel-DdooD_KY.js",
     "name": "recordModel",
     "imports": [
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js"
     ]
   },
-  "_waterline-BQ5Lulk6.js": {
-    "file": "assets/waterline-BQ5Lulk6.js",
+  "_waterline-CCY_c523.js": {
+    "file": "assets/waterline-CCY_c523.js",
     "name": "waterline",
     "imports": [
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js"
     ]
   },
   "index.html": {
-    "file": "assets/demo-Bt5BDv85.js",
+    "file": "assets/demo-2pai27zS.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "dynamicImports": [
-      "_App-D1xP9ZRo.js"
+      "_App-LGOTiyGW.js"
     ],
     "assets": [
       "assets/exacth2o-logo.jpeg"

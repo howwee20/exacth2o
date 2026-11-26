@@ -20,7 +20,16 @@ import {
   valveId,
 } from "./model.ts";
 type Phase = "baseline" | "pulse" | "receipt" | "observe" | "review" | "apply";
+type Trace = {
+  pot: number; seconds: number; command: string;
+  before: Record<string, Sample[]>; after: Record<string, Sample[]>;
+  queuedAt: number; openedAt?: number; acknowledgedAt?: number;
+};
 type Progress = {
+  singlePot?: number;
+  lastPot?: number;
+  openedAt?: number;
+  archive?: Trace;
   phase: Phase;
   evidence?: Record<
     number,
@@ -114,7 +123,16 @@ async function current() {
       .in("status", ["running", "review", "applying", "ready"]).maybeSingle(),
   ) as Run | null;
 }
-const visible = (r: Run | null, uid: string, admin = false) =>
+function liveTrace(r: Run): Trace | null {
+  const g = r.progress, pot = r.setup.pots[g.potIndex]?.pot;
+  if (!pot) return null;
+  return {
+    pot, seconds: g.singlePot === pot ? 10 : 3, command: g.command,
+    before: g.baseline, after: g.after, queuedAt: g.pulseAt || 0,
+    openedAt: g.openedAt, acknowledgedAt: g.acknowledgedAt,
+  };
+}
+const visible = (r: Run | null, uid: string, admin = false, detail = false) =>
   r
     ? {
       id: r.id,
@@ -122,6 +140,9 @@ const visible = (r: Run | null, uid: string, admin = false) =>
       canClose: admin || r.owner_id === uid,
       updatedAt: r.updated_at,
       workerVersion: r.worker_version,
+      singlePot: r.progress.singlePot,
+      lastPot: r.progress.lastPot,
+      trace: detail ? liveTrace(r) : undefined,
       evidence: r.progress.evidence ?? {},
       preview: r.progress.phase === "observe"
         ? rankResponses(
@@ -479,11 +500,12 @@ async function scan(r: Run, i: Inventory) {
       g.baseline[k]?.length || g.unsure?.includes(k)
     );
     delete g.unsure;
-    if (g.candidates.length < r.setup.pots.length) {
+    const minimum = g.singlePot ? 1 : r.setup.pots.length;
+    if (g.candidates.length < minimum) {
       throw Error(
         "Only " + g.candidates.length +
           " available probes returned a raw reading for " +
-          r.setup.pots.length + " pots. Check that the probes are plugged in.",
+          minimum + " pots. Check that the probes are plugged in.",
       );
     }
   }
@@ -514,7 +536,7 @@ async function scan(r: Run, i: Inventory) {
       g.candidates = g.candidates.filter((k) => !short.includes(k));
       const assigned = new Set(g.matches.map((m) => m.sensorKey));
       const available = g.candidates.filter((k) => !assigned.has(k)).length;
-      const needed = r.setup.pots.length - g.matches.length;
+      const needed = g.singlePot ? 1 : r.setup.pots.length - g.matches.length;
       if (available < needed) {
         throw Error(
           "Only " + available + " free probes kept three baseline readings for " + needed + " unresolved pots. Check the probe reader.",
@@ -578,7 +600,20 @@ async function scan(r: Run, i: Inventory) {
       delta: best.delta,
     });
   } else g.missing.push(pot);
+  g.lastPot = pot;
+  g.archive = liveTrace(r)!;
   g.baselineRetries = 0;
+  if (g.singlePot === pot) {
+    r.status = "review";
+    g.phase = "review";
+    g.missing = r.setup.pots.filter((p) => !g.matches.some((m) => m.pot === p.pot)).map((p) => p.pot);
+    g.message = "Pot " + pot + " · " + evidence.reason + ". Single-pot test finished.";
+    return;
+  }
+  g.command = "";
+  g.pulseAt = 0;
+  delete g.openedAt;
+  delete g.acknowledgedAt;
   g.potIndex = g.queue
     ? (g.queue.shift() ?? r.setup.pots.length)
     : g.potIndex + 1;
@@ -752,6 +787,8 @@ async function receipt(r: Run) {
     );
   }
   g.unconfirmed = (g.unconfirmed ?? []).filter((u) => u.pot !== pot);
+  const openedAt = Date.parse(c.result.pulses[0]?.startedAt);
+  if (Number.isFinite(openedAt)) g.openedAt = openedAt;
   g.acknowledgedAt = Date.parse(c.completed_at) || Date.now();
   g.phase = "observe";
   resetScans(g);
@@ -980,8 +1017,16 @@ Deno.serve(async (req) => {
       return reply({ error: "Rhee project access is required." }, 403);
     }
     let r = await current();
+    if (action === "trace") {
+      if (!r || r.id !== body.id || !r.setup.pots.some((p) => p.pot === body.pot)) {
+        return reply({ error: "This pot is unavailable in the current setup." }, 404);
+      }
+      const record = requireData(await db.from("rhee_discovery_traces").select("trace")
+        .eq("run_id", r.id).eq("pot", body.pot).order("saved_at", {ascending:false}).limit(1));
+      return reply({ trace: record[0]?.trace ?? null });
+    }
     if (action === "status" || action === "tick") {
-      return reply({ run: visible(r, user.id, access.role === "admin") });
+      return reply({ run: visible(r, user.id, access.role === "admin", body.detail === true) });
     }
     if (!["admin", "researcher"].includes(access.role)) {
       return reply({ error: "Researcher access is required." }, 403);
@@ -1056,6 +1101,14 @@ Deno.serve(async (req) => {
         keep_setup: action === "stop",
       });
       if (stopped.error) throw Error(stopped.error.message);
+    } else if (action === "single" && r.status === "review" && r.worker_version === 2) {
+      const i = await inventory();
+      checkController(i);
+      checkSelection(i, r.setup, r.progress.matches);
+      const eligible = probes(i).filter((probe) => /:[A-Z]$/.test(probe.key));
+      requireData(await db.rpc("start_rhee_single_pot", {
+        run_id: r.id, expected_revision: r.revision, target_pot: body.pot, eligible_probes: eligible,
+      }));
     } else if (
       action === "retry" && r.status === "review" && r.worker_version === 2 &&
       r.progress.missing.length
@@ -1109,6 +1162,10 @@ Deno.serve(async (req) => {
       };
       delete g.fill;
       delete g.unsure;
+      delete g.singlePot;
+      delete g.openedAt;
+      delete g.acknowledgedAt;
+      delete g.archive;
       const restarted = await table().update({
         status: "running",
         progress: g,
@@ -1124,7 +1181,7 @@ Deno.serve(async (req) => {
         error: "This action is unavailable in the current phase.",
       }, 409);}
     return reply({
-      run: visible(await current(), user.id, access.role === "admin"),
+      run: visible(await current(), user.id, access.role === "admin", true),
     });
   } catch (e) {
     return reply({ error: msg(e) }, 400);

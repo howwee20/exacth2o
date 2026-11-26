@@ -255,19 +255,19 @@ function ExperimentBuilderContent({
   useEffect(()=>{
     if(!fieldMap)return;
     let mounted=true;
-    void discoveryRequest("status").then(run=>{if(mounted)setDiscovery(run)}).catch(e=>{if(mounted)setError(e.message)});
+    void discoveryRequest("status",{detail:Boolean(requestedRun)}).then(run=>{if(mounted)setDiscovery(run)}).catch(e=>{if(mounted)setError(e.message)});
     return ()=>{mounted=false};
-  },[fieldMap]);
+  },[fieldMap,requestedRun]);
   const openRun=(id:string|null)=>navigatePortal({view:"new-experiment"},{replace:true,extra:{discovery:id}});
   useEffect(()=>{
-    if(!discovery || usingRun || discoveryBusy || !["running","applying"].includes(discovery.status))return;
+    if(!discovery || usingRun || discoveryBusy || (requestedRun!==discovery.id && !["running","applying"].includes(discovery.status)))return;
     let mounted=true;
     const timer=window.setTimeout(()=>{
-      void discoveryRequest("status").then(run=>{if(mounted){setDiscovery(run);setError(null)}})
+      void discoveryRequest("status",{detail:Boolean(requestedRun)}).then(run=>{if(mounted){setDiscovery(run);setError(null)}})
         .catch(e=>{if(mounted){setError(e.message);setDiscovery({...discovery})}});
     },4000);
     return ()=>{mounted=false;window.clearTimeout(timer)};
-  },[discovery,usingRun,discoveryBusy]);
+  },[discovery,usingRun,discoveryBusy,requestedRun]);
   const fieldSelectionBlocked = fieldPots !== null && (unpairedPots.size > 0 || draft.assignments.some(
     assignment => !fieldPots.assignable.has(assignment.pairing_name),
   ));
@@ -651,7 +651,7 @@ function ExperimentBuilderContent({
         <header className="experiment-builder-header">
           <div>
             <h2 id="experiment-builder-title">
-              {editing ? `Edit ${experiment?.name ?? "experiment"}` : template ? "Duplicate experiment" : "New experiment"}
+              {discovery && requestedRun===discovery.id && !usingRun ? discovery.setup.name : editing ? `Edit ${experiment?.name ?? "experiment"}` : template ? "Duplicate experiment" : "New experiment"}
             </h2>
             {systemName ? <p>{systemName}</p> : null}
           </div>
